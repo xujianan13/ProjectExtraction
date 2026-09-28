@@ -1,0 +1,9 @@
+namespace GameLogic.Scaffold
+{
+    /// <summary>
+    /// GamePackage 中的资源地址。
+    /// </summary>
+    public static class ContentAddresses
+    {
+    }
+}

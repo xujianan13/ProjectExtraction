@@ -1,0 +1,63 @@
+# Unity 生成的缓存、临时文件和构建输出
+DevProject/Library/
+DevProject/Temp/
+DevProject/Obj/
+DevProject/Logs/
+DevProject/UserSettings/
+DevProject/Build/
+DevProject/Builds/
+DevProject/MemoryCaptures/
+DevProject/Recordings/
+DevProject/AssetBundleBuild/
+DevProject/Bundles/
+DevProject/yoo/
+DevProject/HybridCLRData/
+DevProject/HybridCLRGenerate/
+DevProject/Assets/HybridCLRGenerate/
+DevProject/Assets/HybridCLRGenerate.meta
+DevProject/Assets/StreamingAssets/
+DevProject/Assets/StreamingAssets.meta
+DevProject/Assets/Resources/HotUpdateMetadata/
+DevProject/Assets/Resources/HotUpdateMetadata.meta
+
+# IDE 与编辑器的本地状态
+.vs/
+.vscode/
+.idea/
+.gradle/
+*.csproj
+*.sln
+*.slnx
+*.user
+*.userprefs
+*.suo
+*.pidb
+*.booproj
+*.unityproj
+*.opendb
+*.VC.db
+*.DotSettings.user
+
+# 导出包、应用包及本地验证产物
+*.unitypackage
+*.apk
+*.aab
+verification/
+*.log
+*.tmp
+*.bak
+*.swp
+*~
+.DS_Store
+Thumbs.db
+
+# Excel 导表工具的本地依赖与暂存目录
+tool/node_modules/
+tool/.excel-stage-*/
+
+# 新项目首次导入身份配置
+.project-identity.json
+
+# 当前平台重新编译的热更程序集
+DevProject/Assets/GameResources/Code/GameLogic.dll.bytes
+DevProject/Assets/GameResources/Code/GameLogic.dll.bytes.meta

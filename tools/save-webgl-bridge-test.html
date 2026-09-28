@@ -1,0 +1,94 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>存档 IndexedDB 桥接验证</title>
+<h1>存档 IndexedDB 桥接验证</h1>
+<p>此页使用真实 IndexedDB，替换 Emscripten 的内存传参封装以直接执行项目 .jslib。它不代替 Unity WebGL Player 验收。</p>
+<button id="reload" onclick="location.reload()">刷新验证持久化</button>
+<button id="clean">清理测试数据库</button>
+<pre id="output">正在执行…</pre>
+<script>
+(async () => {
+  const dbName = 'GameFramework.Save.BridgeVerification';
+  const output = document.getElementById('output');
+  const records = [];
+  const report = (name, ok) => { records.push({name, ok}); output.textContent = JSON.stringify(records, null, 2); if(!ok) throw new Error(name); };
+  const memory = new Map();
+  let pointer = 0, callId = 0;
+  const library = {};
+  const source = await (await fetch('../DevProject/Assets/Scripts/GameFramework/Platforms/WebGL/Plugins/IndexedDbSave.jslib')).text();
+  const prepared = source.replace(/\{\{\{\s*makeDynCall\('viii',\s*'callback'\)\s*\}\}\}/g, 'callback');
+  window.GFSave_Open = (...args) => library.$GFSave_Open(...args);
+  new Function('LibraryManager','mergeInto','UTF8ToString','lengthBytesUTF8','stringToUTF8','_malloc','_free',prepared)(
+    {library}, Object.assign, value => value, value => new TextEncoder().encode(value).length,
+    (value, ptr) => memory.set(ptr,value), () => ++pointer, ptr => memory.delete(ptr));
+  const call = (method,...args) => new Promise(resolve => library[method](++callId,dbName,...args,
+    (id,status,ptr) => resolve({status, value:memory.get(ptr)})));
+  const rawPut = (key,value) => new Promise((resolve,reject) => {
+    const opening=indexedDB.open(dbName,1);
+    opening.onerror=()=>reject(opening.error);
+    opening.onsuccess=()=> {
+      const db=opening.result, tx=db.transaction('records','readwrite');
+      tx.oncomplete=()=>{db.close();resolve();}; tx.onabort=()=>{db.close();reject(tx.error);};
+      tx.objectStore('records').put(value,key);
+    };
+  });
+  document.getElementById('clean').onclick=()=> {
+    const request=indexedDB.deleteDatabase(dbName);
+    request.onsuccess=()=>{sessionStorage.removeItem('save-bridge-written');output.textContent='测试数据库已清理';};
+  };
+  try {
+    report('initialize', (await call('GFSave_Init')).status===0);
+    const expected='中文存档 🎮 '+JSON.stringify({coins:123,level:4});
+    if (sessionStorage.getItem('save-bridge-written') || new URLSearchParams(location.search).has('expectPersistence')) {
+      const reloaded=await call('GFSave_Read','reload');
+      report('reload persistence', reloaded.status===0 && reloaded.value===expected);
+    }
+    report('missing is distinct', (await call('GFSave_Read','never-created')).status===1);
+    report('write transaction completed', (await call('GFSave_Write','reload',expected)).status===0);
+    const read=await call('GFSave_Read','reload');
+    report('unicode exact readback', read.status===0 && read.value===expected);
+    sessionStorage.setItem('save-bridge-written','1');
+    const original=IDBObjectStore.prototype.put;
+    IDBObjectStore.prototype.put=function(...args) {
+      const request=original.apply(this,args), tx=this.transaction;
+      request.addEventListener('success',()=>tx.abort());
+      return request;
+    };
+    let aborted;
+    try { aborted=await call('GFSave_Write','reload','must roll back'); }
+    finally { IDBObjectStore.prototype.put=original; }
+    report('request success followed by abort is failure', aborted.status!==0);
+    report('aborted transaction retains old record', (await call('GFSave_Read','reload')).value===expected);
+    IDBObjectStore.prototype.put=function(...args) {
+      const request=original.apply(this,args), tx=this.transaction;
+      request.addEventListener('success',()=> {
+        Object.defineProperty(request,'error',{value:new DOMException('Injected quota rejection','QuotaExceededError')});
+        request.onerror(new Event('error'));
+        tx.abort();
+      });
+      return request;
+    };
+    let quota;
+    try { quota=await call('GFSave_Write','reload','quota rejected'); }
+    finally { IDBObjectStore.prototype.put=original; }
+    report('injected quota failure waits for abort and maps correctly', quota.status===3);
+    report('quota abort retains old record', (await call('GFSave_Read','reload')).value===expected);
+    IDBObjectStore.prototype.put=function() { throw new DOMException('Injected synchronous quota rejection','QuotaExceededError'); };
+    try { quota=await call('GFSave_Write','reload','synchronous quota rejected'); }
+    finally { IDBObjectStore.prototype.put=original; }
+    report('synchronous quota failure maps correctly', quota.status===3);
+    const originalOpen=IDBFactory.prototype.open;
+    IDBFactory.prototype.open=function() { throw new DOMException('Injected storage denial','SecurityError'); };
+    let denied;
+    try { denied=await call('GFSave_Init'); }
+    finally { IDBFactory.prototype.open=originalOpen; }
+    report('storage denial is not successful initialization', denied.status===5);
+    await rawPut('malformed', {not:'a string'});
+    report('non-string record is corrupt', (await call('GFSave_Read','malformed')).status===7);
+    await rawPut('oversized', 'x'.repeat(262145));
+    report('oversized record is blocked', (await call('GFSave_Read','oversized')).status===2);
+    report('bridge temporary memory released', memory.size===0);
+    document.title='PASS - 存档 IndexedDB 桥接验证';
+  } catch(error) { document.title='FAIL - 存档 IndexedDB 桥接验证'; output.textContent+='\n'+error.stack; }
+})();
+</script>

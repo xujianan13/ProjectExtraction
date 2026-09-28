@@ -1,0 +1,30 @@
+{
+  "name": "GameFramework.Tests",
+  "rootNamespace": "GameFramework.Tests",
+  "references": [
+    "GameFramework",
+    "GameLogic",
+    "UniTask",
+    "YooAsset",
+    "Unity.UGUI",
+    "Unity.TextMeshPro",
+    "Unity.InputSystem",
+    "Unity.InputSystem.TestFramework"
+  ],
+  "includePlatforms": [],
+  "excludePlatforms": [],
+  "allowUnsafeCode": false,
+  "overrideReferences": true,
+  "precompiledReferences": [
+    "nunit.framework.dll"
+  ],
+  "autoReferenced": false,
+  "defineConstraints": [
+    "UNITY_INCLUDE_TESTS"
+  ],
+  "versionDefines": [],
+  "noEngineReferences": false,
+  "optionalUnityReferences": [
+    "TestAssemblies"
+  ]
+}

@@ -1,0 +1,9 @@
+{
+  "schemaVersion": 1,
+  "rootNamespace": "GameLogic",
+  "sourceRoot": "Assets/Scripts/GameLogic/Runtime",
+  "resourceRoot": "Assets/GameResources",
+  "startupScene": "",
+  "reservedWindowIds": [1001, 1100],
+  "entries": []
+}

@@ -1,0 +1,9 @@
+namespace GameLogic.Scaffold
+{
+    /// <summary>
+    /// 脚手架内容的稳定标识。
+    /// </summary>
+    public static class ContentIds
+    {
+    }
+}

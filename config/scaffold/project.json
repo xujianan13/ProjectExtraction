@@ -1,0 +1,70 @@
+{
+    "schemaVersion": 1,
+    "rootNamespace": "GameLogic",
+    "sourceRoot": "Assets/Scripts/GameLogic/Runtime",
+    "resourceRoot": "Assets/GameResources",
+    "startupScene": "Home",
+    "reservedWindowIds": [
+        1001,
+        1100
+    ],
+    "entries": [
+        {
+            "kind": "Gameplay",
+            "name": "Main",
+            "address": "GP_Main",
+            "assetPath": "Assets/GameResources/Gameplay/Main/GP_Main.prefab",
+            "createdShape": "GameLogic|Assets/Scripts/GameLogic/Runtime|Gameplay|Main|Prefab|no-model||",
+            "preset": "Page",
+            "contentMode": "Prefab",
+            "gameplay": "",
+            "window": "",
+            "windowId": 0,
+            "includeModel": false,
+            "scope": "Scene",
+            "cacheMode": "Immediate",
+            "closeOnOutsideClick": false,
+            "layer": -1,
+            "maskAlpha": 0.6499999761581421,
+            "destroyDelaySeconds": 30.0
+        },
+        {
+            "kind": "Window",
+            "name": "Home",
+            "address": "UI_Home",
+            "assetPath": "Assets/GameResources/UI/Home/UI_Home.prefab",
+            "createdShape": "GameLogic|Assets/Scripts/GameLogic/Runtime|Window|Home|Prefab|no-model||",
+            "preset": "Page",
+            "contentMode": "Prefab",
+            "gameplay": "",
+            "window": "",
+            "windowId": 2000,
+            "includeModel": false,
+            "scope": "Scene",
+            "cacheMode": "Immediate",
+            "closeOnOutsideClick": false,
+            "layer": -1,
+            "maskAlpha": 0.6499999761581421,
+            "destroyDelaySeconds": 30.0
+        },
+        {
+            "kind": "Scene",
+            "name": "Home",
+            "address": "SC_Home",
+            "assetPath": "Assets/GameResources/Scenes/Home/SC_Home.prefab",
+            "createdShape": "GameLogic|Assets/Scripts/GameLogic/Runtime|Scene|Home|Prefab|no-model|Main|Home",
+            "preset": "Page",
+            "contentMode": "Prefab",
+            "gameplay": "Main",
+            "window": "Home",
+            "windowId": 0,
+            "includeModel": false,
+            "scope": "Scene",
+            "cacheMode": "Immediate",
+            "closeOnOutsideClick": false,
+            "layer": -1,
+            "maskAlpha": 0.6499999761581421,
+            "destroyDelaySeconds": 30.0
+        }
+    ]
+}

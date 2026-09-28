@@ -1,0 +1,6 @@
+# 生成文件和源文件的哈希不应因 Windows 自动换行转换而改变。
+* text=auto eol=lf
+*.ps1 text eol=crlf
+*.xlsx binary
+*.dll binary
+*.bytes binary

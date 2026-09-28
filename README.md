@@ -1,0 +1,46 @@
+# ProjectExtraction
+
+3D 搜打撤 + Roguelike 小游戏项目。目标平台为 Mobile、微信小游戏和 PC，优先设计与验证 Mobile、微信小游戏体验，同时适配 PC 输入与屏幕。默认竖屏，兼容横屏；界面采用主 UI 与模态弹窗结构。这些是开发目标，平台适配与玩法尚待实现和验收。
+
+当前工程由 `UnityMiniGameFramework` 的 `Minimal` 模板创建，是空业务起点：只有空 `Main` 玩法、`Home` 页面窗口及 `Home` 逻辑首场景，没有搜打撤关卡或 Roguelike 规则。项目公司名 `MiniGameStudio`、应用标识 `com.minigamestudio.projectextraction` 是可修改的开发占位。当前不接入广告、付费、联网服务或微信 SDK。
+
+## 打开与运行
+
+用 Unity **2022.3.62f2** 打开 [DevProject](DevProject/)，等待首次导入、依赖解析和编译。打开 [Assets/Scenes/Main.unity](DevProject/Assets/Scenes/Main.unity) 后点击 Play，检查固定启动、Loading、`GamePackage` 和 `Home` 入口。首次导入与本项目实测结果记录在[项目基础接入验收](docs/项目基础接入验收.md)；源框架文档中的历史验收数字不代表本项目结果。
+
+首次 Git 检出先运行 `npm ci --prefix tool`；等待 Unity 编译完成后，或以后修改源码、内容后，在 Unity 菜单运行 **Tools → Unity Mini Game Framework → Prepare GamePackage**，使当前编译的 `GameLogic` 进入热更包，再运行场景。修改 `config/excel/*.xlsx` 时，先在仓库根目录导出并校验，等待 Unity 导入生成的 JSON 与 C#，然后执行 Prepare GamePackage；当前源表为空，导出与校验也应保持可运行。
+
+```powershell
+node tool/export-excel.mjs export
+node tool/export-excel.mjs verify
+```
+
+关闭同一工程的 Unity Editor 后，可在仓库根目录运行默认 Quick 验收：
+
+```powershell
+& .\tools\verify.ps1
+```
+
+Quick 的检查范围和结果文件见[统一验收](docs/统一验收.md)。日常开发无需运行 `-Mode Full`；Full 会创建隔离的新工程并执行额外验证。仅将本项目实际执行过的检查写入验收记录。
+
+## 源码与资产边界
+
+| 位置 | 用途 |
+| --- | --- |
+| [GameFramework](DevProject/Assets/Scripts/GameFramework/) | 通用框架唯一源码；`package.json` 只是未来导出包的元数据，当前不是已安装的 UPM 框架包。 |
+| [Boot](DevProject/Assets/Scripts/Boot/) | 固定启动代码，包括 `HotUpdateBootstrap`。 |
+| [GameLogic](DevProject/Assets/Scripts/GameLogic/) | 游戏热更程序与后续玩法代码；[GameMain.cs](DevProject/Assets/Scripts/GameLogic/Runtime/GameMain.cs) 是当前入口。 |
+| [GameResources](DevProject/Assets/GameResources/) | YooAsset `GamePackage` 热更内容源；当前包含空 `Main` 玩法、`Home` 窗口与逻辑场景。 |
+| [Framework.prefab](DevProject/Assets/Resources/Framework.prefab) | 固定且不可热更的通用框架启动资产。 |
+| [config/excel](config/excel/) 与 [tool](tool/) | Excel 源表及导表工具；生成数据和代码分别进入 `GameResources/Config/Tables` 与 `GameLogic/Runtime/Gen`。 |
+
+`DevProject/Packages` 保留 UniTask **2.5.11**、YooAsset **3.0.1-beta**、HybridCLR **8.12.0** 等依赖；Unity 版本、依赖和渲染管线沿用源模板。固定的 `Main.unity`、`Loading.unity` 与 `Resources/Framework.prefab` 构成宿主启动部分；可热更内容留在 `GameResources`，项目业务代码留在 `GameLogic`。不要复制第二份框架源码。
+
+## 开发资料
+
+- [项目工作指引](AGENTS.md)：当前项目事实、修改边界与验收原则。
+- [AI 开发入口](docs/AI开发入口.md)、[脚手架使用指南](docs/AI开发脚手架使用指南.md)与 [API 索引](docs/api/README.md)：新增玩法、窗口和场景的入口；使用现有 API 时以实际源码和签名为准。
+- [新项目复用](docs/新项目复用.md)与[资源依赖清单](docs/新项目资源与依赖清单.md)：Minimal 模板的生成流程、固定资产和依赖；其中源框架的历史验证记录仅供参考。
+- [热更启动流程](docs/热更启动流程.md)、[Excel 数据表](docs/Excel数据表.md)与[UI 系统](docs/UI系统.md)：对应系统的配置和开发说明。
+
+当前项目由 `UnityMiniGameFramework` 的干净提交 `267f15313f997b703e90af351279e03bb82ea15e` 经 `tools/new-project.ps1 -Template Minimal` 创建。后续业务实现与平台验收以本仓库的代码和[项目基础接入验收](docs/项目基础接入验收.md)为准。

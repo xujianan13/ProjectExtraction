@@ -1,0 +1,95 @@
+using System;
+using GameFramework;
+using UnityEngine;
+
+namespace GameLogic.Scaffold
+{
+    /// <summary>
+    /// 脚手架内容的显式登记入口。
+    /// </summary>
+    public static partial class ProjectContent
+    {
+        /// <summary>
+        /// 已配置的逻辑首场景。
+        /// </summary>
+        public const string StartupScene = "";
+
+        /// <summary>
+        /// 首场景是否使用 Additive Unity 内容场景。
+        /// </summary>
+        public const bool StartupUsesUnityScene = false;
+
+        private static LifetimeScope registeredScope;
+        private static ISceneModule registeredScenes;
+        private static IUIModule registeredUi;
+
+        /// <summary>
+        /// 向当前框架模块实例登记场景和窗口。
+        /// </summary>
+        /// <param name="scenes">场景模块。</param>
+        /// <param name="ui">窗口模块。</param>
+        public static void Register(ISceneModule scenes, IUIModule ui)
+        {
+            if (scenes == null) throw new ArgumentNullException(nameof(scenes));
+            if (ui == null) throw new ArgumentNullException(nameof(ui));
+            LifetimeScope scope = GameEntry.ApplicationScope;
+            if (scope == null || !scope.IsActive) throw new InvalidOperationException("框架应用作用域尚未就绪。");
+            if (!ReferenceEquals(registeredScope, scope))
+            {
+                registeredScenes = null;
+                registeredUi = null;
+                registeredScope = scope;
+                scope.Defer(() =>
+                {
+                    if (!ReferenceEquals(registeredScope, scope)) return;
+                    registeredScenes = null;
+                    registeredUi = null;
+                    registeredScope = null;
+                });
+            }
+            if (ReferenceEquals(registeredScenes, scenes) && ReferenceEquals(registeredUi, ui)) return;
+            if (!ReferenceEquals(registeredScenes, scenes))
+            {
+                registeredScenes = scenes;
+            }
+            if (!ReferenceEquals(registeredUi, ui))
+            {
+                registeredUi = ui;
+            }
+            OnRegistered(scenes, ui);
+        }
+
+        /// <summary>
+        /// 当前框架实例登记完成后的手写扩展点。
+        /// </summary>
+        /// <param name="scenes">当前场景模块。</param>
+        /// <param name="ui">当前窗口模块。</param>
+        static partial void OnRegistered(ISceneModule scenes, IUIModule ui);
+
+        /// <summary>
+        /// 在新框架轮次替换同名且闲置的旧场景实例。
+        /// </summary>
+        /// <typeparam name="TScene">待登记的场景类型。</typeparam>
+        /// <param name="scenes">当前场景模块。</param>
+        /// <param name="name">稳定场景名称。</param>
+        private static void RegisterScene<TScene>(ISceneModule scenes, string name) where TScene : IScene, new()
+        {
+            IScene previous = scenes.GetScene(name);
+            if (previous != null)
+            {
+                if (previous.GetType() != typeof(TScene))
+                    throw new InvalidOperationException($"场景 {name} 已由其他类型 {previous.GetType().FullName} 登记。");
+                if (previous.IsEntering || previous.IsExiting || previous.IsActive || scenes.IsChanging
+                    || ReferenceEquals(scenes.CurrentScene, previous))
+                    throw new InvalidOperationException($"场景 {name} 仍在使用，无法替换旧实例。");
+                scenes.UnregisterScene(previous);
+                if (scenes.GetScene(name) != null)
+                    throw new InvalidOperationException($"场景 {name} 注销失败，可能仍位于场景栈。");
+            }
+            var current = new TScene();
+            scenes.RegisterScene(current);
+            if (!ReferenceEquals(scenes.GetScene(name), current))
+                throw new InvalidOperationException($"场景 {name} 登记失败。");
+        }
+    }
+}

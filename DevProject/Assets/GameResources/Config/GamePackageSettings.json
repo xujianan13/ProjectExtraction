@@ -1,0 +1,19 @@
+{
+  "_schemaVersion": 1,
+  "_assemblyName": "GameLogic",
+  "_entryTypeName": "GameLogic.GameMain",
+  "_entryMethodName": "StartAsync",
+  "_aotMetadataLocations": [],
+  "_requiredLocations": [
+    "GameLogic.dll"
+  ],
+  "_startupSceneLocation": "",
+  "_minimumHostVersion": "",
+  "_maximumHostVersion": "",
+  "_defaultHostServer": "",
+  "_fallbackHostServer": "",
+  "_downloadMaxConcurrency": 8,
+  "_retryCount": 3,
+  "_timeoutSeconds": 60,
+  "_allowOfflineGameFallback": true
+}

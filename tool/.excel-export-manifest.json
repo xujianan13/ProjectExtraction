@@ -1,0 +1,12 @@
+{
+  "version": 1,
+  "sources": [],
+  "resources": [],
+  "tables": [],
+  "outputs": [
+    {
+      "path": "DevProject/Assets/Scripts/GameLogic/Runtime/Gen/GameTables.Gen.cs",
+      "sha256": "34b86c45c015564f381d39d207c4e7f7849b86748010dc6fcfce492cc86d8b5e"
+    }
+  ]
+}

@@ -1,0 +1,18 @@
+.diagnostics-scroll {
+    flex-grow: 1;
+}
+
+.diagnostics-section {
+    margin-top: 8px;
+    margin-bottom: 4px;
+}
+
+.diagnostics-line {
+    white-space: normal;
+    margin-top: 3px;
+    margin-bottom: 3px;
+}
+
+.diagnostics-section Label {
+    white-space: normal;
+}

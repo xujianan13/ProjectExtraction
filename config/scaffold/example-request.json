@@ -1,0 +1,42 @@
+{
+  "operation": "generate",
+  "dryRun": false,
+  "setStartup": true,
+  "startupScene": "StarterLobby",
+  "entries": [
+    {
+      "kind": "Gameplay",
+      "name": "Starter",
+      "includeModel": true
+    },
+    {
+      "kind": "Window",
+      "name": "StarterMenu",
+      "preset": "Modal"
+    },
+    {
+      "kind": "Window",
+      "name": "StarterPage",
+      "preset": "Page"
+    },
+    {
+      "kind": "Window",
+      "name": "StarterPopup",
+      "preset": "Popup"
+    },
+    {
+      "kind": "Scene",
+      "name": "StarterLobby",
+      "contentMode": "Prefab",
+      "gameplay": "Starter",
+      "window": "StarterMenu"
+    },
+    {
+      "kind": "Scene",
+      "name": "StarterWorld",
+      "contentMode": "UnityScene",
+      "gameplay": "Starter",
+      "window": "StarterPage"
+    }
+  ]
+}
