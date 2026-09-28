@@ -2,12 +2,17 @@
 
 本文件只约束 `D:\Repositories\ProjectExtraction`。通用沟通、执行、测试、C# 中文 XML 文档注释及紧凑排版规则使用当前生效的全局 `AGENTS.md`；这里记录本项目事实和边界。
 
+## 文档归属
+
+- `docs/framework` 保存框架设计、使用指南、API 索引及框架历史验收；`docs/project` 是本项目文档根目录，保存需求、玩法设计、项目决策、平台接入与本项目验收。新增文档按归属放入对应目录，`docs` 根目录仅保留导航。
+- [文档导航](docs/README.md) 汇总两个入口；API 索引生成与校验使用 `docs/framework/api`。
+
 ## 先读这些入口
 
 - [README.md](README.md)：定位、工程打开方式、日常开发命令和源码位置。
-- [项目基础接入验收](docs/项目基础接入验收.md)：本项目首次导入与实测结果；源框架历史验收不得算作本项目验收。
-- [AI 开发入口](docs/AI开发入口.md)、[脚手架指南](docs/AI开发脚手架使用指南.md)与 [API 索引](docs/api/README.md)：新增玩法、窗口和场景及查阅现有公开 API。
-- [新项目复用](docs/新项目复用.md)、[依赖清单](docs/新项目资源与依赖清单.md)与[统一验收](docs/统一验收.md)：Minimal 模板、固定资产和 Quick/Full 检查范围。
+- [项目基础接入验收](docs/project/项目基础接入验收.md)：本项目首次导入与实测结果；源框架历史验收不得算作本项目验收。
+- [AI 开发入口](docs/framework/AI开发入口.md)、[脚手架指南](docs/framework/AI开发脚手架使用指南.md)与 [API 索引](docs/framework/api/README.md)：新增玩法、窗口和场景及查阅现有公开 API。
+- [新项目复用](docs/framework/新项目复用.md)、[依赖清单](docs/framework/新项目资源与依赖清单.md)与[统一验收](docs/framework/统一验收.md)：Minimal 模板、固定资产和 Quick/Full 检查范围。
 - [Unity 版本](DevProject/ProjectSettings/ProjectVersion.txt)、[Runtime 程序集定义](DevProject/Assets/Scripts/GameFramework/Runtime/GameFramework.asmdef)、[Packages 清单](DevProject/Packages/manifest.json)：版本与编译依赖的事实来源。
 
 ## 当前项目事实
@@ -23,7 +28,7 @@
 
 - 日常用 Unity 打开 `DevProject/Assets/Scenes/Main.unity` 并点击 Play。修改源码或内容后执行 **Tools → Unity Mini Game Framework → Prepare GamePackage**，再检查启动与对应行为。
 - 修改 Excel 源表后先执行 `node tool/export-excel.mjs export` 与 `node tool/export-excel.mjs verify`，等待 Unity 导入生成物，再执行 Prepare GamePackage。
-- 修改公开 API 时检查调用方、[API 索引](docs/api/README.md)和相称的测试。代码改动后验证 Unity 编译、当前场景及受影响的 PlayMode 测试；同一工程的 Editor 关闭后可运行默认 Quick 的 [verify.ps1](tools/verify.ps1)。日常不运行 Full 或递归创建新工程。
+- 修改公开 API 时检查调用方、[API 索引](docs/framework/api/README.md)和相称的测试。代码改动后验证 Unity 编译、当前场景及受影响的 PlayMode 测试；同一工程的 Editor 关闭后可运行默认 Quick 的 [verify.ps1](tools/verify.ps1)。日常不运行 Full 或递归创建新工程。
 - 只记录本项目实际执行过的结果与限制；源框架文档和旧验收属于来源资料，不能替代本项目验证。
 ## 显示与平台约束
 

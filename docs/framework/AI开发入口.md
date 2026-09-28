@@ -1,6 +1,6 @@
 # AI 开发入口
 
-按任务检索当前已注册模块及准确签名，从 [框架 API 索引](api/README.md) 开始；所有权与退出顺序见 [API 生命周期约定](api/生命周期约定.md)，可编译调用见 [ApiRecipes.cs](../DevProject/Assets/Tests/PlayMode/ApiRecipes.cs)。
+按任务检索当前已注册模块及准确签名，从 [框架 API 索引](api/README.md) 开始；所有权与退出顺序见 [API 生命周期约定](api/生命周期约定.md)，可编译调用见 [ApiRecipes.cs](../../DevProject/Assets/Tests/PlayMode/ApiRecipes.cs)。
 
 新项目先按[新项目复用](新项目复用.md)选择 `-Template Minimal` 纯净起点或默认 `-Template Demo` 三关演示。`Minimal` 保留固定 Main/Loading、Boot 热更、输入与 GamePackage，首次导入生成空 `Main` 玩法、`Home` Page 窗口及 Prefab 模式的 `Home` 逻辑首场景；空 Excel 源目录可生成可编译入口，不携带三关演示或 PlayerSave 业务。
 
@@ -8,10 +8,10 @@
 
 ## 开始一个小游戏
 
-1. 阅读 [`Main.unity`](../DevProject/Assets/Scenes/Main.unity)、[`Framework.prefab`](../DevProject/Assets/Resources/Framework.prefab)、[`HotUpdateBootstrap.cs`](../DevProject/Assets/Scripts/Boot/Runtime/HotUpdateBootstrap.cs) 和 [`GameMain.cs`](../DevProject/Assets/Scripts/GameLogic/Runtime/GameMain.cs)。主场景先初始化框架，显示 Loading 并更新 GamePackage，最后由 GameMain 进入游戏。`Demo` 的三关收集样例单局状态、会话资源、菜单和存档接入见[关卡与单局流程](关卡与单局流程.md)。`Minimal` 从生成的 Main/Home 内容扩展。
+1. 阅读 [`Main.unity`](../../DevProject/Assets/Scenes/Main.unity)、[`Framework.prefab`](../../DevProject/Assets/Resources/Framework.prefab)、[`HotUpdateBootstrap.cs`](../../DevProject/Assets/Scripts/Boot/Runtime/HotUpdateBootstrap.cs) 和 [`GameMain.cs`](../../DevProject/Assets/Scripts/GameLogic/Runtime/GameMain.cs)。主场景先初始化框架，显示 Loading 并更新 GamePackage，最后由 GameMain 进入游戏。`Demo` 的三关收集样例单局状态、会话资源、菜单和存档接入见[关卡与单局流程](关卡与单局流程.md)。`Minimal` 从生成的 Main/Home 内容扩展。
 2. 在 `DevProject/Assets/Scripts/GameLogic` 增加可热更项目代码，并把游戏资源放入 `Assets/GameResources`。Excel 数据表的源文件放在仓库 `config/excel`，按[Excel 数据表](Excel数据表.md)导出到 `GameResources/Config/Tables`；源 `.xlsx` 不放进 `GameResources`。新场景继承 `SceneBase`，在 `OnEnterSceneAsync` 创建内容，将本轮订阅、计时器和业务租约登记到 `SceneScope`；`OnExitSceneAsync` 和 `OnForceExit` 处理业务收尾以及未托管对象。2D 内容同样可以放在逻辑场景里，按项目需要配置相机与渲染资产。
-3. 使用 `GameEntry.Get<T>()` 访问已注册模块。现有 `GameEntry.RegisterDefaults()` 注册日志、诊断、事件、计时器、Tween、存储、对象池、Prefab 实例池、资源、流程、HTTP、网络、音频、输入、模型、逻辑场景、玩法、服务与 UI 模块。玩法动作、输入上下文、触屏虚拟控件与重绑定见[游戏输入系统使用指南](游戏输入系统使用指南.md)；业务窗口、模态弹窗和提示见[UI 系统](UI系统.md)，大量重复项见[UI 虚拟列表](UI虚拟列表.md)。玩法普通帧、固定帧及帧末钩子见[玩法更新阶段](玩法更新阶段.md)。可复用 Unity 实例的加载、生成、回收和释放见[Prefab 实例池](Prefab实例池.md)。接口和行为以 [`Runtime`](../DevProject/Assets/Scripts/GameFramework/Runtime/) 源码为准。
-4. 使用 Unity Editor 创建或修改 `.unity`、`.prefab` 等资产，并保留 `.meta`。Demo 模板的 UI 样例可通过 **Set Up Game UI** 生成；Minimal 项目使用脚手架新增窗口，业务窗口 Prefab 放在 `GameResources/UI`。表格改动后先运行 **Export Excel Tables**，等待生成的 C# 编译完成；随后运行 **Prepare GamePackage**，发布内容时按目标运行 **Build Startup GamePackage**、**Build Offline GamePackage** 或 **Build Remote GamePackage**。关闭同一工程的 Unity Editor 后运行根目录 [`tools/verify.ps1`](../tools/verify.ps1)（默认 Quick，`-Mode Full` 验证纯净模板复用，`-Mode Full -WindowsPlayer` 增加独立 Player）；固定日志、JSON、隔离副本保护和范围见[统一验收](统一验收.md)。按需重新打开 Unity Editor，进入 PlayMode 检查 Loading、内容更新和游戏入口。验收范围及尚未实现的能力见[设计方案](Unity小游戏框架设计方案.md)。
+3. 使用 `GameEntry.Get<T>()` 访问已注册模块。现有 `GameEntry.RegisterDefaults()` 注册日志、诊断、事件、计时器、Tween、存储、对象池、Prefab 实例池、资源、流程、HTTP、网络、音频、输入、模型、逻辑场景、玩法、服务与 UI 模块。玩法动作、输入上下文、触屏虚拟控件与重绑定见[游戏输入系统使用指南](游戏输入系统使用指南.md)；业务窗口、模态弹窗和提示见[UI 系统](UI系统.md)，大量重复项见[UI 虚拟列表](UI虚拟列表.md)。玩法普通帧、固定帧及帧末钩子见[玩法更新阶段](玩法更新阶段.md)。可复用 Unity 实例的加载、生成、回收和释放见[Prefab 实例池](Prefab实例池.md)。接口和行为以 [`Runtime`](../../DevProject/Assets/Scripts/GameFramework/Runtime/) 源码为准。
+4. 使用 Unity Editor 创建或修改 `.unity`、`.prefab` 等资产，并保留 `.meta`。Demo 模板的 UI 样例可通过 **Set Up Game UI** 生成；Minimal 项目使用脚手架新增窗口，业务窗口 Prefab 放在 `GameResources/UI`。表格改动后先运行 **Export Excel Tables**，等待生成的 C# 编译完成；随后运行 **Prepare GamePackage**，发布内容时按目标运行 **Build Startup GamePackage**、**Build Offline GamePackage** 或 **Build Remote GamePackage**。关闭同一工程的 Unity Editor 后运行根目录 [`tools/verify.ps1`](../../tools/verify.ps1)（默认 Quick，`-Mode Full` 验证纯净模板复用，`-Mode Full -WindowsPlayer` 增加独立 Player）；固定日志、JSON、隔离副本保护和范围见[统一验收](统一验收.md)。按需重新打开 Unity Editor，进入 PlayMode 检查 Loading、内容更新和游戏入口。验收范围及尚未实现的能力见[设计方案](Unity小游戏框架设计方案.md)。
 
 ## 按需内容的业务接入
 
@@ -39,4 +39,4 @@
 - `Assets/Resources/Framework.prefab` 是不可热更的启动资产。`Assets/GameResources` 已由 YooAsset 收集为 `GamePackage`。框架 Prefab 只初始化通用模块；主场景的 HotUpdateBootstrap 负责具体包名、更新和热更入口。
 - 主场景启动层已初始化并绑定 YooAsset `GamePackage`；业务通过 `ResourceModule` 按 Address 加载内容。默认三关样例由 `GameLogic/Runtime/Rounds` 的会话和 `GameResources/Rounds` 的 Prefab 组成；它是可替换的项目内容，详见[关卡与单局流程](关卡与单局流程.md)。
 - `StorageModule` 用于 PlayerPrefs 偏好；`ISaveModule` 已提供正式存档的双槽恢复、迁移、自动保存和平台后端，接入以[正式存档使用指南](正式存档使用指南.md)为准。事务状态与声明式 UI 属于后续阶段。Excel 导表已由项目工具提供，表结构以[Excel 数据表](Excel数据表.md)和实际生成代码为准。不要把设计文档中的目标当作当前已存在的 API。
-- 修改新 C# 代码遵守仓库 [`AGENTS.md`](../AGENTS.md) 中的中文 XML 注释规则。完成后记录实际运行的编译与 PlayMode 测试结果。
+- 修改新 C# 代码遵守仓库 [`AGENTS.md`](../../AGENTS.md) 中的中文 XML 注释规则。完成后记录实际运行的编译与 PlayMode 测试结果。

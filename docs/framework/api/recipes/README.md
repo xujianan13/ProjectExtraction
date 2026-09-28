@@ -1,6 +1,6 @@
 # 可编译 API 示例
 
-示例源码：[ApiRecipes.cs](../../../DevProject/Assets/Tests/PlayMode/ApiRecipes.cs)。这些方法位于测试程序集；使用时将相应方法接入自己的业务生命周期，并传入已初始化的模块与资源地址。
+示例源码：[ApiRecipes.cs](../../../../DevProject/Assets/Tests/PlayMode/ApiRecipes.cs)。这些方法位于测试程序集；使用时将相应方法接入自己的业务生命周期，并传入已初始化的模块与资源地址。
 
 | 任务 | 示例方法或类型 |
 | --- | --- |

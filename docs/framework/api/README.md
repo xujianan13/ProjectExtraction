@@ -6,7 +6,7 @@
 
 取得：`GameEntry.Get<ILogModule>()` · 命名空间：`GameFramework`
 
-源码：[ILogModule](../../DevProject/Assets/Scripts/GameFramework/Runtime/Modules/Log/ILogModule.cs) · 指南：[使用约定](../../docs/运行诊断.md) · [可编译示例](../../DevProject/Assets/Tests/PlayMode/ApiRecipes.cs)
+源码：[ILogModule](../../../DevProject/Assets/Scripts/GameFramework/Runtime/Modules/Log/ILogModule.cs) · 指南：[使用约定](../../../docs/framework/运行诊断.md) · [可编译示例](../../../DevProject/Assets/Tests/PlayMode/ApiRecipes.cs)
 
 所有者：模块持有日志 Sink；取消：同步调用无取消；失败：按日志等级与 Sink 配置输出；线程：Unity 主线程；暂停：按具体调用及模块文档。
 
@@ -27,7 +27,7 @@ void Warn(string tag, string message);
 
 取得：`GameEntry.Get<IDiagnosticsModule>()` · 命名空间：`GameFramework`
 
-源码：[IDiagnosticsModule](../../DevProject/Assets/Scripts/GameFramework/Runtime/Modules/Diagnostics/IDiagnosticsModule.cs) · 指南：[使用约定](../../docs/运行诊断.md) · [可编译示例](../../DevProject/Assets/Tests/PlayMode/ApiRecipes.cs)
+源码：[IDiagnosticsModule](../../../DevProject/Assets/Scripts/GameFramework/Runtime/Modules/Diagnostics/IDiagnosticsModule.cs) · 指南：[使用约定](../../../docs/framework/运行诊断.md) · [可编译示例](../../../DevProject/Assets/Tests/PlayMode/ApiRecipes.cs)
 
 所有者：调用方释放 RegisterProvider 返回的订阅；取消：同步快照无取消；失败：快照反映调用时状态；线程：Unity 主线程；暂停：按具体调用及模块文档。
 
@@ -44,7 +44,7 @@ void ClearLogs();
 
 取得：`GameEntry.Get<IEventModule>()` · 命名空间：`GameFramework`
 
-源码：[IEventModule](../../DevProject/Assets/Scripts/GameFramework/Runtime/Modules/Event/IEventModule.cs) · 指南：[使用约定](../../docs/生命周期作用域使用指南.md) · [可编译示例](../../DevProject/Assets/Tests/PlayMode/ApiRecipes.cs)
+源码：[IEventModule](../../../DevProject/Assets/Scripts/GameFramework/Runtime/Modules/Event/IEventModule.cs) · 指南：[使用约定](../../../docs/framework/生命周期作用域使用指南.md) · [可编译示例](../../../DevProject/Assets/Tests/PlayMode/ApiRecipes.cs)
 
 所有者：订阅者在作用域结束时退订；取消：作用域结束后不再处理；失败：回调错误按事件模块实现记录；线程：Unity 主线程；暂停：按具体调用及模块文档。
 
@@ -63,7 +63,7 @@ void Unsubscribe<T>(EventId id, Action<T> handler) where T : struct;
 
 取得：`GameEntry.Get<ITimerModule>()` · 命名空间：`GameFramework`
 
-源码：[ITimerModule](../../DevProject/Assets/Scripts/GameFramework/Runtime/Modules/Timer/ITimerModule.cs) · 指南：[使用约定](../../docs/生命周期作用域使用指南.md) · [可编译示例](../../DevProject/Assets/Tests/PlayMode/ApiRecipes.cs)
+源码：[ITimerModule](../../../DevProject/Assets/Scripts/GameFramework/Runtime/Modules/Timer/ITimerModule.cs) · 指南：[使用约定](../../../docs/framework/生命周期作用域使用指南.md) · [可编译示例](../../../DevProject/Assets/Tests/PlayMode/ApiRecipes.cs)
 
 所有者：作用域持有 TimerHandle；取消：取消句柄或传入 CancellationToken；失败：取消后不执行回调；线程：Unity 主线程；暂停：缩放时间计时随玩法暂停；可选 unscaledTime。
 
@@ -86,7 +86,7 @@ void CancelAll();
 
 取得：`GameEntry.Get<ITweenModule>()` · 命名空间：`GameFramework`
 
-源码：[ITweenModule](../../DevProject/Assets/Scripts/GameFramework/Runtime/Modules/Tween/ITweenModule.cs) · 指南：[使用约定](../../docs/通用Tween.md) · [可编译示例](../../DevProject/Assets/Tests/PlayMode/ApiRecipes.cs)
+源码：[ITweenModule](../../../DevProject/Assets/Scripts/GameFramework/Runtime/Modules/Tween/ITweenModule.cs) · 指南：[使用约定](../../../docs/framework/通用Tween.md) · [可编译示例](../../../DevProject/Assets/Tests/PlayMode/ApiRecipes.cs)
 
 所有者：传入的 LifetimeScope 持有 TweenHandle；取消：作用域结束或令牌取消时停止；失败：目标消失时动画停止；线程：Unity 主线程；暂停：默认缩放时间；UI 可指定 unscaledTime。
 
@@ -100,7 +100,7 @@ void CancelAll();
 
 取得：`GameEntry.Get<IStorageModule>()` · 命名空间：`GameFramework`
 
-源码：[IStorageModule](../../DevProject/Assets/Scripts/GameFramework/Runtime/Modules/Storage/IStorageModule.cs) · 指南：[使用约定](../../docs/正式存档使用指南.md) · [可编译示例](../../DevProject/Assets/Tests/PlayMode/ApiRecipes.cs)
+源码：[IStorageModule](../../../DevProject/Assets/Scripts/GameFramework/Runtime/Modules/Storage/IStorageModule.cs) · 指南：[使用约定](../../../docs/framework/正式存档使用指南.md) · [可编译示例](../../../DevProject/Assets/Tests/PlayMode/ApiRecipes.cs)
 
 所有者：StorageModule 管理命名空间；取消：同步 API 无取消；失败：持久化依赖底层存储；线程：Unity 主线程；暂停：按具体调用及模块文档。
 
@@ -119,7 +119,7 @@ void SaveAll();
 
 取得：`GameEntry.Get<ISaveModule>()` · 命名空间：`GameFramework`
 
-源码：[ISaveModule](../../DevProject/Assets/Scripts/GameFramework/Runtime/Modules/Save/Contracts/ISaveModule.cs) · 指南：[使用约定](../../docs/正式存档使用指南.md) · [可编译示例](../../DevProject/Assets/Tests/PlayMode/ApiRecipes.cs)
+源码：[ISaveModule](../../../DevProject/Assets/Scripts/GameFramework/Runtime/Modules/Save/Contracts/ISaveModule.cs) · 指南：[使用约定](../../../docs/framework/正式存档使用指南.md) · [可编译示例](../../../DevProject/Assets/Tests/PlayMode/ApiRecipes.cs)
 
 所有者：项目持有 SaveSession 并等待 CloseAsync；取消：保存操作使用独立清理令牌；失败：检查 SaveResult 而非假定成功；线程：Unity 主线程；暂停：按具体调用及模块文档。
 
@@ -135,7 +135,7 @@ UniTask<SaveRecoveryInspection> InspectRecoveryAsync<T>(SaveIdentity identity, S
 
 取得：`GameEntry.Get<IPoolModule>()` · 命名空间：`GameFramework`
 
-源码：[IPoolModule](../../DevProject/Assets/Scripts/GameFramework/Runtime/Modules/Pool/IPoolModule.cs) · 指南：[使用约定](../../docs/生命周期作用域使用指南.md) · [可编译示例](../../DevProject/Assets/Tests/PlayMode/ApiRecipes.cs)
+源码：[IPoolModule](../../../DevProject/Assets/Scripts/GameFramework/Runtime/Modules/Pool/IPoolModule.cs) · 指南：[使用约定](../../../docs/framework/生命周期作用域使用指南.md) · [可编译示例](../../../DevProject/Assets/Tests/PlayMode/ApiRecipes.cs)
 
 所有者：借用方归还对象；取消：同步归还无取消；失败：无效归还按池实现处理；线程：Unity 主线程；暂停：按具体调用及模块文档。
 
@@ -159,7 +159,7 @@ void ReturnRuntime(object item);
 
 取得：`GameEntry.Get<IResourceModule>()` · 命名空间：`GameFramework`
 
-源码：[IResourceModule](../../DevProject/Assets/Scripts/GameFramework/Runtime/Modules/Resource/IResourceModule.cs) · 指南：[使用约定](../../docs/按需资源加载.md) · [可编译示例](../../DevProject/Assets/Tests/PlayMode/ApiRecipes.cs)
+源码：[IResourceModule](../../../DevProject/Assets/Scripts/GameFramework/Runtime/Modules/Resource/IResourceModule.cs) · 指南：[使用约定](../../../docs/framework/按需资源加载.md) · [可编译示例](../../../DevProject/Assets/Tests/PlayMode/ApiRecipes.cs)
 
 所有者：调用方或作用域释放 ResourceLease；场景显式卸载；取消：异步调用传入本轮令牌；失败：检查租约、下载状态和错误；线程：Unity 主线程；暂停：按具体调用及模块文档。
 
@@ -192,7 +192,7 @@ void ConfigureDownloadSupport(string packageName, bool supported);
 
 取得：`GameEntry.Get<IPrefabPoolModule>()` · 命名空间：`GameFramework`
 
-源码：[IPrefabPoolModule](../../DevProject/Assets/Scripts/GameFramework/Runtime/Modules/PrefabPool/IPrefabPoolModule.cs) · 指南：[使用约定](../../docs/Prefab实例池.md) · [可编译示例](../../DevProject/Assets/Tests/PlayMode/ApiRecipes.cs)
+源码：[IPrefabPoolModule](../../../DevProject/Assets/Scripts/GameFramework/Runtime/Modules/PrefabPool/IPrefabPoolModule.cs) · 指南：[使用约定](../../../docs/framework/Prefab实例池.md) · [可编译示例](../../../DevProject/Assets/Tests/PlayMode/ApiRecipes.cs)
 
 所有者：调用方持有 PrefabPool 并等待 DisposeAsync；取消：创建池传入本轮令牌；失败：创建或 Spawn 可返回空；线程：Unity 主线程；暂停：按具体调用及模块文档。
 
@@ -205,7 +205,7 @@ int Count { get; }
 
 取得：`GameEntry.Get<IInputModule>()` · 命名空间：`GameFramework`
 
-源码：[IInputModule](../../DevProject/Assets/Scripts/GameFramework/Runtime/Modules/Input/IInputModule.cs) · 指南：[使用约定](../../docs/游戏输入系统使用指南.md) · [可编译示例](../../DevProject/Assets/Tests/PlayMode/ApiRecipes.cs)
+源码：[IInputModule](../../../DevProject/Assets/Scripts/GameFramework/Runtime/Modules/Input/IInputModule.cs) · 指南：[使用约定](../../../docs/framework/游戏输入系统使用指南.md) · [可编译示例](../../../DevProject/Assets/Tests/PlayMode/ApiRecipes.cs)
 
 所有者：作用域释放上下文与订阅；取消：重绑定使用本轮令牌；失败：检查加载及重绑定结果；线程：Unity 主线程；暂停：玩法暂停时输入由上下文和业务控制。
 
@@ -237,7 +237,7 @@ void UnloadGameplayActions();
 
 取得：`GameEntry.Get<IFlowModule>()` · 命名空间：`GameFramework`
 
-源码：[IFlowModule](../../DevProject/Assets/Scripts/GameFramework/Runtime/Modules/Flow/IFlowModule.cs) · 指南：[使用约定](../../docs/生命周期作用域使用指南.md) · [可编译示例](../../DevProject/Assets/Tests/PlayMode/ApiRecipes.cs)
+源码：[IFlowModule](../../../DevProject/Assets/Scripts/GameFramework/Runtime/Modules/Flow/IFlowModule.cs) · 指南：[使用约定](../../../docs/framework/生命周期作用域使用指南.md) · [可编译示例](../../../DevProject/Assets/Tests/PlayMode/ApiRecipes.cs)
 
 所有者：调用方保存 FlowHandle 并取消；取消：Cancel 结束运行；失败：检查句柄和状态；线程：Unity 主线程；暂停：按具体调用及模块文档。
 
@@ -256,7 +256,7 @@ void CancelAll();
 
 取得：`GameEntry.Get<IHttpModule>()` · 命名空间：`GameFramework`
 
-源码：[IHttpModule](../../DevProject/Assets/Scripts/GameFramework/Runtime/Modules/Http/IHttpModule.cs) · 指南：[使用约定](../../docs/AI开发入口.md) · [可编译示例](../../DevProject/Assets/Tests/PlayMode/ApiRecipes.cs)
+源码：[IHttpModule](../../../DevProject/Assets/Scripts/GameFramework/Runtime/Modules/Http/IHttpModule.cs) · 指南：[使用约定](../../../docs/framework/AI开发入口.md) · [可编译示例](../../../DevProject/Assets/Tests/PlayMode/ApiRecipes.cs)
 
 所有者：调用方持有请求任务；取消：传入请求令牌；失败：检查 HttpResponse；线程：Unity 主线程；暂停：按具体调用及模块文档。
 
@@ -273,7 +273,7 @@ void Send(HttpRequest request, Action<HttpResponse> onComplete, CancellationToke
 
 取得：`GameEntry.Get<INetworkModule>()` · 命名空间：`GameFramework`
 
-源码：[INetworkModule](../../DevProject/Assets/Scripts/GameFramework/Runtime/Modules/Network/INetworkModule.cs) · 指南：[使用约定](../../docs/AI开发入口.md) · [可编译示例](../../DevProject/Assets/Tests/PlayMode/ApiRecipes.cs)
+源码：[INetworkModule](../../../DevProject/Assets/Scripts/GameFramework/Runtime/Modules/Network/INetworkModule.cs) · 指南：[使用约定](../../../docs/framework/AI开发入口.md) · [可编译示例](../../../DevProject/Assets/Tests/PlayMode/ApiRecipes.cs)
 
 所有者：调用方 Destroy 对应连接；取消：连接自己的操作负责取消；失败：创建和查找可能返回空；线程：Unity 主线程；暂停：按具体调用及模块文档。
 
@@ -292,7 +292,7 @@ int DefaultMaxSendQueueSize { get; set; }
 
 取得：`GameEntry.Get<IAudioModule>()` · 命名空间：`GameFramework`
 
-源码：[IAudioModule](../../DevProject/Assets/Scripts/GameFramework/Runtime/Modules/Audio/IAudioModule.cs) · 指南：[使用约定](../../docs/音频系统.md) · [可编译示例](../../DevProject/Assets/Tests/PlayMode/ApiRecipes.cs)
+源码：[IAudioModule](../../../DevProject/Assets/Scripts/GameFramework/Runtime/Modules/Audio/IAudioModule.cs) · 指南：[使用约定](../../../docs/framework/音频系统.md) · [可编译示例](../../../DevProject/Assets/Tests/PlayMode/ApiRecipes.cs)
 
 所有者：调用方保存 AudioHandle 并停止循环音频；取消：加载时传入令牌；退出停止句柄；失败：检查句柄及播放状态；线程：Unity 主线程；暂停：模块响应应用后台；业务暂停策略由项目决定。
 
@@ -324,7 +324,7 @@ void StopChannel(AudioChannel channel);
 
 取得：`GameEntry.Get<IModelModule>()` · 命名空间：`GameFramework`
 
-源码：[IModelModule](../../DevProject/Assets/Scripts/GameFramework/Runtime/Modules/Model/IModelModule.cs) · 指南：[使用约定](../../docs/AI开发入口.md) · [可编译示例](../../DevProject/Assets/Tests/PlayMode/ApiRecipes.cs)
+源码：[IModelModule](../../../DevProject/Assets/Scripts/GameFramework/Runtime/Modules/Model/IModelModule.cs) · 指南：[使用约定](../../../docs/framework/AI开发入口.md) · [可编译示例](../../../DevProject/Assets/Tests/PlayMode/ApiRecipes.cs)
 
 所有者：模块管理模型生命周期；取消：同步操作无取消；失败：模型实现负责自身错误；线程：Unity 主线程；暂停：按具体调用及模块文档。
 
@@ -341,7 +341,7 @@ void ShutdownAll();
 
 取得：`GameEntry.Get<ISceneModule>()` · 命名空间：`GameFramework`
 
-源码：[ISceneModule](../../DevProject/Assets/Scripts/GameFramework/Runtime/Modules/Scene/ISceneModule.cs) · 指南：[使用约定](../../docs/关卡与单局流程.md) · [可编译示例](../../DevProject/Assets/Tests/PlayMode/ApiRecipes.cs)
+源码：[ISceneModule](../../../DevProject/Assets/Scripts/GameFramework/Runtime/Modules/Scene/ISceneModule.cs) · 指南：[使用约定](../../../docs/framework/关卡与单局流程.md) · [可编译示例](../../../DevProject/Assets/Tests/PlayMode/ApiRecipes.cs)
 
 所有者：场景本轮内容由 SceneScope 持有；取消：切换传入进入令牌；退出使用清理令牌；失败：进入失败需清理部分内容；线程：Unity 主线程；暂停：按具体调用及模块文档。
 
@@ -373,7 +373,7 @@ void UnregisterScene(string name);
 
 取得：`GameEntry.Get<IGameplayModule>()` · 命名空间：`GameFramework`
 
-源码：[IGameplayModule](../../DevProject/Assets/Scripts/GameFramework/Runtime/Modules/Gameplay/IGameplayModule.cs) · 指南：[使用约定](../../docs/关卡与单局流程.md) · [可编译示例](../../DevProject/Assets/Tests/PlayMode/ApiRecipes.cs)
+源码：[IGameplayModule](../../../DevProject/Assets/Scripts/GameFramework/Runtime/Modules/Gameplay/IGameplayModule.cs) · 指南：[使用约定](../../../docs/framework/关卡与单局流程.md) · [可编译示例](../../../DevProject/Assets/Tests/PlayMode/ApiRecipes.cs)
 
 所有者：调用方保存 GameplayHandle 并等待 StopAsync；取消：进入传本轮令牌；退出用独立令牌；失败：启动失败不可继续使用句柄；线程：Unity 主线程；暂停：按具体调用及模块文档。
 
@@ -397,7 +397,7 @@ void StopAll();
 
 取得：`GameEntry.Get<IServiceModule>()` · 命名空间：`GameFramework`
 
-源码：[IServiceModule](../../DevProject/Assets/Scripts/GameFramework/Runtime/Modules/Service/IServiceModule.cs) · 指南：[使用约定](../../docs/AI开发入口.md) · [可编译示例](../../DevProject/Assets/Tests/PlayMode/ApiRecipes.cs)
+源码：[IServiceModule](../../../DevProject/Assets/Scripts/GameFramework/Runtime/Modules/Service/IServiceModule.cs) · 指南：[使用约定](../../../docs/framework/AI开发入口.md) · [可编译示例](../../../DevProject/Assets/Tests/PlayMode/ApiRecipes.cs)
 
 所有者：模块初始化和关闭服务；取消：同步操作无取消；失败：服务实现负责自身错误；线程：Unity 主线程；暂停：按具体调用及模块文档。
 
@@ -413,7 +413,7 @@ void ShutdownAll();
 
 取得：`GameEntry.Get<IUIModule>()` · 命名空间：`GameFramework`
 
-源码：[IUIModule](../../DevProject/Assets/Scripts/GameFramework/Runtime/UI/IUIModule.cs) · 指南：[使用约定](../../docs/UI系统.md) · [可编译示例](../../DevProject/Assets/Tests/PlayMode/ApiRecipes.cs)
+源码：[IUIModule](../../../DevProject/Assets/Scripts/GameFramework/Runtime/UI/IUIModule.cs) · 指南：[使用约定](../../../docs/framework/UI系统.md) · [可编译示例](../../../DevProject/Assets/Tests/PlayMode/ApiRecipes.cs)
 
 所有者：UI 管理器持有窗口租约；OpenScope 持有本轮订阅；取消：打开和关闭传入对应令牌；失败：检查窗口或 bool 返回值；线程：Unity 主线程；暂停：窗口交互和非缩放动画可继续。
 
@@ -441,7 +441,7 @@ void ShowToast(string message, float durationSeconds = 2.5f);
 
 辅助类型，不经 `GameEntry.Get<T>()` 获取。命名空间：`GameFramework`
 
-源码：[LifetimeScope](../../DevProject/Assets/Scripts/GameFramework/Runtime/Core/Lifetime/LifetimeScope.cs) · 指南：[使用约定](../../docs/生命周期作用域使用指南.md) · [可编译示例](../../DevProject/Assets/Tests/PlayMode/ApiRecipes.cs)
+源码：[LifetimeScope](../../../DevProject/Assets/Scripts/GameFramework/Runtime/Core/Lifetime/LifetimeScope.cs) · 指南：[使用约定](../../../docs/framework/生命周期作用域使用指南.md) · [可编译示例](../../../DevProject/Assets/Tests/PlayMode/ApiRecipes.cs)
 
 所有者：创建者持有并释放作用域；取消：Stop 取消本轮；Dispose 完成同步清理；失败：失活后登记立即清理；线程：Unity 主线程；暂停：按具体调用及模块文档。
 
@@ -465,7 +465,7 @@ string Name { get; }
 
 辅助类型，不经 `GameEntry.Get<T>()` 获取。命名空间：`GameFramework`
 
-源码：[LifetimeScopeExtensions](../../DevProject/Assets/Scripts/GameFramework/Runtime/Core/Lifetime/LifetimeScopeExtensions.cs) · 指南：[使用约定](../../docs/生命周期作用域使用指南.md) · [可编译示例](../../DevProject/Assets/Tests/PlayMode/ApiRecipes.cs)
+源码：[LifetimeScopeExtensions](../../../DevProject/Assets/Scripts/GameFramework/Runtime/Core/Lifetime/LifetimeScopeExtensions.cs) · 指南：[使用约定](../../../docs/framework/生命周期作用域使用指南.md) · [可编译示例](../../../DevProject/Assets/Tests/PlayMode/ApiRecipes.cs)
 
 所有者：调用方的 LifetimeScope 持有登记；取消：作用域停止后回调失活；失败：迟到资源自动释放；线程：Unity 主线程；暂停：按具体调用及模块文档。
 
@@ -490,7 +490,7 @@ public UniTask<ResourceLease<T>> AcquireAsync<T>(LifetimeScope scope, IResourceM
 
 辅助类型，不经 `GameEntry.Get<T>()` 获取。命名空间：`GameFramework`
 
-源码：[SceneBase](../../DevProject/Assets/Scripts/GameFramework/Runtime/Modules/Scene/SceneBase.cs) · 指南：[使用约定](../../docs/关卡与单局流程.md) · [可编译示例](../../DevProject/Assets/Tests/PlayMode/ApiRecipes.cs)
+源码：[SceneBase](../../../DevProject/Assets/Scripts/GameFramework/Runtime/Modules/Scene/SceneBase.cs) · 指南：[使用约定](../../../docs/framework/关卡与单局流程.md) · [可编译示例](../../../DevProject/Assets/Tests/PlayMode/ApiRecipes.cs)
 
 所有者：SceneScope 持有本轮工作；取消：退出使用独立令牌；失败：进入失败时释放本轮作用域；线程：Unity 主线程；暂停：按具体调用及模块文档。
 
@@ -523,7 +523,7 @@ string Name { get; }
 
 辅助类型，不经 `GameEntry.Get<T>()` 获取。命名空间：`GameFramework`
 
-源码：[GameplayRoot](../../DevProject/Assets/Scripts/GameFramework/Runtime/Modules/Gameplay/GameplayRoot.cs) · 指南：[使用约定](../../docs/关卡与单局流程.md) · [可编译示例](../../DevProject/Assets/Tests/PlayMode/ApiRecipes.cs)
+源码：[GameplayRoot](../../../DevProject/Assets/Scripts/GameFramework/Runtime/Modules/Gameplay/GameplayRoot.cs) · 指南：[使用约定](../../../docs/framework/关卡与单局流程.md) · [可编译示例](../../../DevProject/Assets/Tests/PlayMode/ApiRecipes.cs)
 
 所有者：GameplayScope 持有本轮工作；取消：退出令牌独立于 GameplayToken；失败：进入失败时清理本轮工作；线程：Unity 主线程；暂停：按具体调用及模块文档。
 
@@ -566,7 +566,7 @@ string Name { get; }
 
 辅助类型，不经 `GameEntry.Get<T>()` 获取。命名空间：`GameFramework`
 
-源码：[GameplayFeature](../../DevProject/Assets/Scripts/GameFramework/Runtime/Modules/Gameplay/GameplayFeature.cs) · 指南：[使用约定](../../docs/生命周期作用域使用指南.md) · [可编译示例](../../DevProject/Assets/Tests/PlayMode/ApiRecipes.cs)
+源码：[GameplayFeature](../../../DevProject/Assets/Scripts/GameFramework/Runtime/Modules/Gameplay/GameplayFeature.cs) · 指南：[使用约定](../../../docs/framework/生命周期作用域使用指南.md) · [可编译示例](../../../DevProject/Assets/Tests/PlayMode/ApiRecipes.cs)
 
 所有者：所属 GameplayRoot 管理 Feature；取消：Enter 后使用 GameplayScope；失败：由玩法根节点管理失败清理；线程：Unity 主线程；暂停：按具体调用及模块文档。
 
@@ -586,7 +586,7 @@ public void Update(float deltaTime);
 
 辅助类型，不经 `GameEntry.Get<T>()` 获取。命名空间：`GameFramework`
 
-源码：[IFixedUpdateModule](../../DevProject/Assets/Scripts/GameFramework/Runtime/Core/IFixedUpdateModule.cs) · 指南：[使用约定](../../docs/玩法更新阶段.md) · [可编译示例](../../DevProject/Assets/Tests/PlayMode/ApiRecipes.cs)
+源码：[IFixedUpdateModule](../../../DevProject/Assets/Scripts/GameFramework/Runtime/Core/IFixedUpdateModule.cs) · 指南：[使用约定](../../../docs/framework/玩法更新阶段.md) · [可编译示例](../../../DevProject/Assets/Tests/PlayMode/ApiRecipes.cs)
 
 所有者：ModuleManager 管理注册模块；取消：同步阶段无取消；失败：异常由模块派发边界处理；线程：Unity 主线程；暂停：按具体调用及模块文档。
 
@@ -598,7 +598,7 @@ public void OnFixedUpdate(float deltaTime);
 
 辅助类型，不经 `GameEntry.Get<T>()` 获取。命名空间：`GameFramework`
 
-源码：[ILateUpdateModule](../../DevProject/Assets/Scripts/GameFramework/Runtime/Core/ILateUpdateModule.cs) · 指南：[使用约定](../../docs/玩法更新阶段.md) · [可编译示例](../../DevProject/Assets/Tests/PlayMode/ApiRecipes.cs)
+源码：[ILateUpdateModule](../../../DevProject/Assets/Scripts/GameFramework/Runtime/Core/ILateUpdateModule.cs) · 指南：[使用约定](../../../docs/framework/玩法更新阶段.md) · [可编译示例](../../../DevProject/Assets/Tests/PlayMode/ApiRecipes.cs)
 
 所有者：ModuleManager 管理注册模块；取消：同步阶段无取消；失败：异常由模块派发边界处理；线程：Unity 主线程；暂停：按具体调用及模块文档。
 
@@ -610,7 +610,7 @@ public void OnLateUpdate(float deltaTime);
 
 辅助类型，不经 `GameEntry.Get<T>()` 获取。命名空间：`GameFramework`
 
-源码：[IFixedUpdateGameplay](../../DevProject/Assets/Scripts/GameFramework/Runtime/Modules/Gameplay/IFixedUpdateGameplay.cs) · 指南：[使用约定](../../docs/玩法更新阶段.md) · [可编译示例](../../DevProject/Assets/Tests/PlayMode/ApiRecipes.cs)
+源码：[IFixedUpdateGameplay](../../../DevProject/Assets/Scripts/GameFramework/Runtime/Modules/Gameplay/IFixedUpdateGameplay.cs) · 指南：[使用约定](../../../docs/framework/玩法更新阶段.md) · [可编译示例](../../../DevProject/Assets/Tests/PlayMode/ApiRecipes.cs)
 
 所有者：玩法生命周期控制派发；取消：暂停或退出停止后续回调；失败：旧玩法无需实现该接口；线程：Unity 主线程；暂停：按具体调用及模块文档。
 
@@ -622,7 +622,7 @@ public void FixedUpdate(float deltaTime);
 
 辅助类型，不经 `GameEntry.Get<T>()` 获取。命名空间：`GameFramework`
 
-源码：[ILateUpdateGameplay](../../DevProject/Assets/Scripts/GameFramework/Runtime/Modules/Gameplay/ILateUpdateGameplay.cs) · 指南：[使用约定](../../docs/玩法更新阶段.md) · [可编译示例](../../DevProject/Assets/Tests/PlayMode/ApiRecipes.cs)
+源码：[ILateUpdateGameplay](../../../DevProject/Assets/Scripts/GameFramework/Runtime/Modules/Gameplay/ILateUpdateGameplay.cs) · 指南：[使用约定](../../../docs/framework/玩法更新阶段.md) · [可编译示例](../../../DevProject/Assets/Tests/PlayMode/ApiRecipes.cs)
 
 所有者：玩法生命周期控制派发；取消：暂停或退出停止后续回调；失败：旧玩法无需实现该接口；线程：Unity 主线程；暂停：按具体调用及模块文档。
 
@@ -634,7 +634,7 @@ public void LateUpdate(float deltaTime);
 
 辅助类型，不经 `GameEntry.Get<T>()` 获取。命名空间：`GameFramework`
 
-源码：[GameVirtualList](../../DevProject/Assets/Scripts/GameFramework/Runtime/UI/Controls/GameVirtualList.cs) · 指南：[使用约定](../../docs/UI虚拟列表.md) · [可编译示例](../../DevProject/Assets/Tests/PlayMode/ApiRecipes.cs)
+源码：[GameVirtualList](../../../DevProject/Assets/Scripts/GameFramework/Runtime/UI/Controls/GameVirtualList.cs) · 指南：[使用约定](../../../docs/framework/UI虚拟列表.md) · [可编译示例](../../../DevProject/Assets/Tests/PlayMode/ApiRecipes.cs)
 
 所有者：列表持有可见项及缓冲实例；取消：禁用或销毁结束条目作用域；失败：配置无效时拒绝初始化；线程：Unity 主线程；暂停：按具体调用及模块文档。
 
@@ -655,7 +655,7 @@ public void SetCount(int count);
 
 辅助类型，不经 `GameEntry.Get<T>()` 获取。命名空间：`GameFramework`
 
-源码：[GameVirtualListItem](../../DevProject/Assets/Scripts/GameFramework/Runtime/UI/Controls/GameVirtualListItem.cs) · 指南：[使用约定](../../docs/UI虚拟列表.md) · [可编译示例](../../DevProject/Assets/Tests/PlayMode/ApiRecipes.cs)
+源码：[GameVirtualListItem](../../../DevProject/Assets/Scripts/GameFramework/Runtime/UI/Controls/GameVirtualListItem.cs) · 指南：[使用约定](../../../docs/framework/UI虚拟列表.md) · [可编译示例](../../../DevProject/Assets/Tests/PlayMode/ApiRecipes.cs)
 
 所有者：BindingScope 持有本次绑定工作；取消：异步资源使用绑定令牌并检查绑定轮次；失败：回收后迟到结果不得写入；线程：Unity 主线程；暂停：按具体调用及模块文档。
 
@@ -672,7 +672,7 @@ public void Unbind();
 
 辅助类型，不经 `GameEntry.Get<T>()` 获取。命名空间：`GameFramework`
 
-源码：[GameWindow](../../DevProject/Assets/Scripts/GameFramework/Runtime/UI/Windows/GameWindow.cs) · 指南：[使用约定](../../docs/UI系统.md) · [可编译示例](../../DevProject/Assets/Tests/PlayMode/ApiRecipes.cs)
+源码：[GameWindow](../../../DevProject/Assets/Scripts/GameFramework/Runtime/UI/Windows/GameWindow.cs) · 指南：[使用约定](../../../docs/framework/UI系统.md) · [可编译示例](../../../DevProject/Assets/Tests/PlayMode/ApiRecipes.cs)
 
 所有者：OpenScope 持有本轮监听；取消：关闭使 OpenScope 失活；失败：重复 Show 只刷新显示；线程：Unity 主线程；暂停：按具体调用及模块文档。
 
@@ -699,7 +699,7 @@ protected void Show(GameWindowOpenArgs args);
 
 辅助类型，不经 `GameEntry.Get<T>()` 获取。命名空间：`GameFramework`
 
-源码：[Tween](../../DevProject/Assets/Scripts/GameFramework/Runtime/Modules/Tween/TweenClip.cs) · 指南：[使用约定](../../docs/通用Tween.md) · [可编译示例](../../DevProject/Assets/Tests/PlayMode/ApiRecipes.cs)
+源码：[Tween](../../../DevProject/Assets/Scripts/GameFramework/Runtime/Modules/Tween/TweenClip.cs) · 指南：[使用约定](../../../docs/framework/通用Tween.md) · [可编译示例](../../../DevProject/Assets/Tests/PlayMode/ApiRecipes.cs)
 
 所有者：ITweenModule.Play 返回播放句柄；取消：作用域或句柄结束播放；失败：目标销毁后不再写入；线程：Unity 主线程；暂停：按具体调用及模块文档。
 
@@ -719,7 +719,7 @@ public TweenClip To(float from, float to, float duration, Action<float> setter, 
 
 辅助类型，不经 `GameEntry.Get<T>()` 获取。命名空间：`GameFramework`
 
-源码：[TweenTargets](../../DevProject/Assets/Scripts/GameFramework/Runtime/Modules/Tween/TweenTargets.cs) · 指南：[使用约定](../../docs/通用Tween.md) · [可编译示例](../../DevProject/Assets/Tests/PlayMode/ApiRecipes.cs)
+源码：[TweenTargets](../../../DevProject/Assets/Scripts/GameFramework/Runtime/Modules/Tween/TweenTargets.cs) · 指南：[使用约定](../../../docs/framework/通用Tween.md) · [可编译示例](../../../DevProject/Assets/Tests/PlayMode/ApiRecipes.cs)
 
 所有者：目标对象由业务持有；取消：作用域取消动画；失败：目标销毁后停止写入；线程：Unity 主线程；暂停：按具体调用及模块文档。
 
@@ -738,7 +738,7 @@ public TweenClip VolumeTo(AudioSource target, float to, float duration, TweenEas
 
 辅助类型，不经 `GameEntry.Get<T>()` 获取。命名空间：`GameFramework`
 
-源码：[PrefabPool](../../DevProject/Assets/Scripts/GameFramework/Runtime/Modules/PrefabPool/PrefabPool.cs) · 指南：[使用约定](../../docs/Prefab实例池.md) · [可编译示例](../../DevProject/Assets/Tests/PlayMode/ApiRecipes.cs)
+源码：[PrefabPool](../../../DevProject/Assets/Scripts/GameFramework/Runtime/Modules/PrefabPool/PrefabPool.cs) · 指南：[使用约定](../../../docs/framework/Prefab实例池.md) · [可编译示例](../../../DevProject/Assets/Tests/PlayMode/ApiRecipes.cs)
 
 所有者：场景或玩法持有池；取消：等待 DisposeAsync 完成租约释放；失败：Spawn 失败时返回空；线程：Unity 主线程；暂停：按具体调用及模块文档。
 
@@ -762,7 +762,7 @@ string PackageName { get; }
 
 辅助类型，不经 `GameEntry.Get<T>()` 获取。命名空间：`GameFramework`
 
-源码：[PrefabInstance](../../DevProject/Assets/Scripts/GameFramework/Runtime/Modules/PrefabPool/PrefabInstance.cs) · 指南：[使用约定](../../docs/Prefab实例池.md) · [可编译示例](../../DevProject/Assets/Tests/PlayMode/ApiRecipes.cs)
+源码：[PrefabInstance](../../../DevProject/Assets/Scripts/GameFramework/Runtime/Modules/PrefabPool/PrefabInstance.cs) · 指南：[使用约定](../../../docs/framework/Prefab实例池.md) · [可编译示例](../../../DevProject/Assets/Tests/PlayMode/ApiRecipes.cs)
 
 所有者：PrefabPool 持有实例；取消：Despawn 结束 SpawnScope；失败：失效句柄不可继续使用；线程：Unity 主线程；暂停：按具体调用及模块文档。
 
@@ -778,7 +778,7 @@ public void Dispose();
 
 辅助类型，不经 `GameEntry.Get<T>()` 获取。命名空间：`GameFramework`
 
-源码：[SaveSession<T>](../../DevProject/Assets/Scripts/GameFramework/Runtime/Modules/Save/Session/SaveSession.cs) · 指南：[使用约定](../../docs/正式存档使用指南.md) · [可编译示例](../../DevProject/Assets/Tests/PlayMode/ApiRecipes.cs)
+源码：[SaveSession<T>](../../../DevProject/Assets/Scripts/GameFramework/Runtime/Modules/Save/Session/SaveSession.cs) · 指南：[使用约定](../../../docs/framework/正式存档使用指南.md) · [可编译示例](../../../DevProject/Assets/Tests/PlayMode/ApiRecipes.cs)
 
 所有者：项目持有会话并等待 CloseAsync；取消：关闭用独立清理令牌；失败：检查 SaveResult 和会话状态；线程：Unity 主线程；暂停：按具体调用及模块文档。
 
@@ -802,7 +802,7 @@ public void Tick();
 
 辅助类型，不经 `GameEntry.Get<T>()` 获取。命名空间：`GameFramework`
 
-源码：[GameRoundFlow](../../DevProject/Assets/Scripts/GameFramework/Runtime/Modules/Gameplay/Flow/GameRoundFlow.cs) · 指南：[使用约定](../../docs/关卡与单局流程.md) · [可编译示例](../../DevProject/Assets/Tests/PlayMode/ApiRecipes.cs)
+源码：[GameRoundFlow](../../../DevProject/Assets/Scripts/GameFramework/Runtime/Modules/Gameplay/Flow/GameRoundFlow.cs) · 指南：[使用约定](../../../docs/framework/关卡与单局流程.md) · [可编译示例](../../../DevProject/Assets/Tests/PlayMode/ApiRecipes.cs)
 
 所有者：项目持有流程并等待 CloseAsync；取消：CancelLoading 取消进入；失败：检查状态、错误和 bool 结果；线程：Unity 主线程；暂停：按具体调用及模块文档。
 

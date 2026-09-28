@@ -18,7 +18,7 @@ Excel 源表放在仓库 `config/excel/`，通过 `tool/export-excel.mjs` 生成
 
 ## 编写表格
 
-第 1 行写字段名，**物理单元格 A1 必须是 `ID`**；第 2 行写字段类型；第 3 行起写数据。例如仓库示例 [`ExampleItems.xlsx`](../config/excel/ExampleItems.xlsx) 的工作表 `ExampleItems`：
+第 1 行写字段名，**物理单元格 A1 必须是 `ID`**；第 2 行写字段类型；第 3 行起写数据。例如 Demo 模板中的 `config/excel/ExampleItems.xlsx` 工作表 `ExampleItems`（当前 Minimal 项目不包含该示例表）：
 
 | ID | name | price | tags | weights |
 | --- | --- | --- | --- | --- |

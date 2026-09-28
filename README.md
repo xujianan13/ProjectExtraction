@@ -6,7 +6,7 @@
 
 ## 打开与运行
 
-用 Unity **2022.3.62f2** 打开 [DevProject](DevProject/)，等待首次导入、依赖解析和编译。打开 [Assets/Scenes/Main.unity](DevProject/Assets/Scenes/Main.unity) 后点击 Play，检查固定启动、Loading、`GamePackage` 和 `Home` 入口。首次导入与本项目实测结果记录在[项目基础接入验收](docs/项目基础接入验收.md)；源框架文档中的历史验收数字不代表本项目结果。
+用 Unity **2022.3.62f2** 打开 [DevProject](DevProject/)，等待首次导入、依赖解析和编译。打开 [Assets/Scenes/Main.unity](DevProject/Assets/Scenes/Main.unity) 后点击 Play，检查固定启动、Loading、`GamePackage` 和 `Home` 入口。首次导入与本项目实测结果记录在[项目基础接入验收](docs/project/项目基础接入验收.md)；源框架文档中的历史验收数字不代表本项目结果。
 
 首次 Git 检出先运行 `npm ci --prefix tool`；等待 Unity 编译完成后，或以后修改源码、内容后，在 Unity 菜单运行 **Tools → Unity Mini Game Framework → Prepare GamePackage**，使当前编译的 `GameLogic` 进入热更包，再运行场景。修改 `config/excel/*.xlsx` 时，先在仓库根目录导出并校验，等待 Unity 导入生成的 JSON 与 C#，然后执行 Prepare GamePackage；当前源表为空，导出与校验也应保持可运行。
 
@@ -21,7 +21,7 @@ node tool/export-excel.mjs verify
 & .\tools\verify.ps1
 ```
 
-Quick 的检查范围和结果文件见[统一验收](docs/统一验收.md)。日常开发无需运行 `-Mode Full`；Full 会创建隔离的新工程并执行额外验证。仅将本项目实际执行过的检查写入验收记录。
+Quick 的检查范围和结果文件见[统一验收](docs/framework/统一验收.md)。日常开发无需运行 `-Mode Full`；Full 会创建隔离的新工程并执行额外验证。仅将本项目实际执行过的检查写入验收记录。
 
 ## 源码与资产边界
 
@@ -38,9 +38,11 @@ Quick 的检查范围和结果文件见[统一验收](docs/统一验收.md)。�
 
 ## 开发资料
 
-- [项目工作指引](AGENTS.md)：当前项目事实、修改边界与验收原则。
-- [AI 开发入口](docs/AI开发入口.md)、[脚手架使用指南](docs/AI开发脚手架使用指南.md)与 [API 索引](docs/api/README.md)：新增玩法、窗口和场景的入口；使用现有 API 时以实际源码和签名为准。
-- [新项目复用](docs/新项目复用.md)与[资源依赖清单](docs/新项目资源与依赖清单.md)：Minimal 模板的生成流程、固定资产和依赖；其中源框架的历史验证记录仅供参考。
-- [热更启动流程](docs/热更启动流程.md)、[Excel 数据表](docs/Excel数据表.md)与[UI 系统](docs/UI系统.md)：对应系统的配置和开发说明。
+文档总入口为 [docs/README.md](docs/README.md)：通用框架文档位于 `docs/framework`，本项目需求、设计与验收位于 `docs/project`。
 
-当前项目由 `UnityMiniGameFramework` 的干净提交 `267f15313f997b703e90af351279e03bb82ea15e` 经 `tools/new-project.ps1 -Template Minimal` 创建。后续业务实现与平台验收以本仓库的代码和[项目基础接入验收](docs/项目基础接入验收.md)为准。
+- [项目工作指引](AGENTS.md)：当前项目事实、修改边界与验收原则。
+- [AI 开发入口](docs/framework/AI开发入口.md)、[脚手架使用指南](docs/framework/AI开发脚手架使用指南.md)与 [API 索引](docs/framework/api/README.md)：新增玩法、窗口和场景的入口；使用现有 API 时以实际源码和签名为准。
+- [新项目复用](docs/framework/新项目复用.md)与[资源依赖清单](docs/framework/新项目资源与依赖清单.md)：Minimal 模板的生成流程、固定资产和依赖；其中源框架的历史验证记录仅供参考。
+- [热更启动流程](docs/framework/热更启动流程.md)、[Excel 数据表](docs/framework/Excel数据表.md)与[UI 系统](docs/framework/UI系统.md)：对应系统的配置和开发说明。
+
+当前项目由 `UnityMiniGameFramework` 的干净提交 `267f15313f997b703e90af351279e03bb82ea15e` 经 `tools/new-project.ps1 -Template Minimal` 创建。后续业务实现与平台验收以本仓库的代码和[项目基础接入验收](docs/project/项目基础接入验收.md)为准。

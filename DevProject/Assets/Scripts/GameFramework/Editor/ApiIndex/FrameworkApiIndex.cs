@@ -14,10 +14,10 @@ namespace GameFramework.Editor.ApiIndex
     /// </summary>
     public static class FrameworkApiIndex
     {
-        private const string IndexPath = "docs/api/index.json";
-        private const string ReadmePath = "docs/api/README.md";
+        private const string IndexPath = "docs/framework/api/index.json";
+        private const string ReadmePath = "docs/framework/api/README.md";
         private const string RecipePath = "DevProject/Assets/Tests/PlayMode/ApiRecipes.cs";
-        private const string LifetimeGuide = "docs/生命周期作用域使用指南.md";
+        private const string LifetimeGuide = "docs/framework/生命周期作用域使用指南.md";
 
         private sealed class Entry
         {
@@ -60,48 +60,48 @@ namespace GameFramework.Editor.ApiIndex
 
         private static readonly Entry[] Entries =
         {
-            Module("ILogModule", "记录运行日志", "Modules/Log/ILogModule.cs", "docs/运行诊断.md", "模块持有日志 Sink", "同步调用无取消", "按日志等级与 Sink 配置输出"),
-            Module("IDiagnosticsModule", "检查资源、输入与模块状态", "Modules/Diagnostics/IDiagnosticsModule.cs", "docs/运行诊断.md", "调用方释放 RegisterProvider 返回的订阅", "同步快照无取消", "快照反映调用时状态"),
+            Module("ILogModule", "记录运行日志", "Modules/Log/ILogModule.cs", "docs/framework/运行诊断.md", "模块持有日志 Sink", "同步调用无取消", "按日志等级与 Sink 配置输出"),
+            Module("IDiagnosticsModule", "检查资源、输入与模块状态", "Modules/Diagnostics/IDiagnosticsModule.cs", "docs/framework/运行诊断.md", "调用方释放 RegisterProvider 返回的订阅", "同步快照无取消", "快照反映调用时状态"),
             Module("IEventModule", "发布和订阅业务事件", "Modules/Event/IEventModule.cs", LifetimeGuide, "订阅者在作用域结束时退订", "作用域结束后不再处理", "回调错误按事件模块实现记录"),
             Module("ITimerModule", "延迟、循环及下一帧任务", "Modules/Timer/ITimerModule.cs", LifetimeGuide, "作用域持有 TimerHandle", "取消句柄或传入 CancellationToken", "取消后不执行回调", paused: "缩放时间计时随玩法暂停；可选 unscaledTime"),
-            Module("ITweenModule", "播放属性动画", "Modules/Tween/ITweenModule.cs", "docs/通用Tween.md", "传入的 LifetimeScope 持有 TweenHandle", "作用域结束或令牌取消时停止", "目标消失时动画停止", paused: "默认缩放时间；UI 可指定 unscaledTime"),
-            Module("IStorageModule", "保存轻量偏好", "Modules/Storage/IStorageModule.cs", "docs/正式存档使用指南.md", "StorageModule 管理命名空间", "同步 API 无取消", "持久化依赖底层存储"),
-            Module("ISaveModule", "保存正式进度", "Modules/Save/Contracts/ISaveModule.cs", "docs/正式存档使用指南.md", "项目持有 SaveSession 并等待 CloseAsync", "保存操作使用独立清理令牌", "检查 SaveResult 而非假定成功"),
+            Module("ITweenModule", "播放属性动画", "Modules/Tween/ITweenModule.cs", "docs/framework/通用Tween.md", "传入的 LifetimeScope 持有 TweenHandle", "作用域结束或令牌取消时停止", "目标消失时动画停止", paused: "默认缩放时间；UI 可指定 unscaledTime"),
+            Module("IStorageModule", "保存轻量偏好", "Modules/Storage/IStorageModule.cs", "docs/framework/正式存档使用指南.md", "StorageModule 管理命名空间", "同步 API 无取消", "持久化依赖底层存储"),
+            Module("ISaveModule", "保存正式进度", "Modules/Save/Contracts/ISaveModule.cs", "docs/framework/正式存档使用指南.md", "项目持有 SaveSession 并等待 CloseAsync", "保存操作使用独立清理令牌", "检查 SaveResult 而非假定成功"),
             Module("IPoolModule", "复用普通对象", "Modules/Pool/IPoolModule.cs", LifetimeGuide, "借用方归还对象", "同步归还无取消", "无效归还按池实现处理"),
-            Module("IResourceModule", "加载资产、内容场景及下载资源包", "Modules/Resource/IResourceModule.cs", "docs/按需资源加载.md", "调用方或作用域释放 ResourceLease；场景显式卸载", "异步调用传入本轮令牌", "检查租约、下载状态和错误"),
-            Module("IPrefabPoolModule", "创建可复用 Unity 实例", "Modules/PrefabPool/IPrefabPoolModule.cs", "docs/Prefab实例池.md", "调用方持有 PrefabPool 并等待 DisposeAsync", "创建池传入本轮令牌", "创建或 Spawn 可返回空"),
-            Module("IInputModule", "读取动作与管理输入上下文", "Modules/Input/IInputModule.cs", "docs/游戏输入系统使用指南.md", "作用域释放上下文与订阅", "重绑定使用本轮令牌", "检查加载及重绑定结果", paused: "玩法暂停时输入由上下文和业务控制"),
+            Module("IResourceModule", "加载资产、内容场景及下载资源包", "Modules/Resource/IResourceModule.cs", "docs/framework/按需资源加载.md", "调用方或作用域释放 ResourceLease；场景显式卸载", "异步调用传入本轮令牌", "检查租约、下载状态和错误"),
+            Module("IPrefabPoolModule", "创建可复用 Unity 实例", "Modules/PrefabPool/IPrefabPoolModule.cs", "docs/framework/Prefab实例池.md", "调用方持有 PrefabPool 并等待 DisposeAsync", "创建池传入本轮令牌", "创建或 Spawn 可返回空"),
+            Module("IInputModule", "读取动作与管理输入上下文", "Modules/Input/IInputModule.cs", "docs/framework/游戏输入系统使用指南.md", "作用域释放上下文与订阅", "重绑定使用本轮令牌", "检查加载及重绑定结果", paused: "玩法暂停时输入由上下文和业务控制"),
             Module("IFlowModule", "运行通用流程", "Modules/Flow/IFlowModule.cs", LifetimeGuide, "调用方保存 FlowHandle 并取消", "Cancel 结束运行", "检查句柄和状态"),
-            Module("IHttpModule", "发送 HTTP 请求", "Modules/Http/IHttpModule.cs", "docs/AI开发入口.md", "调用方持有请求任务", "传入请求令牌", "检查 HttpResponse"),
-            Module("INetworkModule", "管理网络连接", "Modules/Network/INetworkModule.cs", "docs/AI开发入口.md", "调用方 Destroy 对应连接", "连接自己的操作负责取消", "创建和查找可能返回空"),
-            Module("IAudioModule", "播放音乐与音效", "Modules/Audio/IAudioModule.cs", "docs/音频系统.md", "调用方保存 AudioHandle 并停止循环音频", "加载时传入令牌；退出停止句柄", "检查句柄及播放状态", paused: "模块响应应用后台；业务暂停策略由项目决定"),
-            Module("IModelModule", "重置项目模型", "Modules/Model/IModelModule.cs", "docs/AI开发入口.md", "模块管理模型生命周期", "同步操作无取消", "模型实现负责自身错误"),
-            Module("ISceneModule", "切换逻辑场景", "Modules/Scene/ISceneModule.cs", "docs/关卡与单局流程.md", "场景本轮内容由 SceneScope 持有", "切换传入进入令牌；退出使用清理令牌", "进入失败需清理部分内容"),
-            Module("IGameplayModule", "启动及停止玩法", "Modules/Gameplay/IGameplayModule.cs", "docs/关卡与单局流程.md", "调用方保存 GameplayHandle 并等待 StopAsync", "进入传本轮令牌；退出用独立令牌", "启动失败不可继续使用句柄"),
-            Module("IServiceModule", "管理项目服务", "Modules/Service/IServiceModule.cs", "docs/AI开发入口.md", "模块初始化和关闭服务", "同步操作无取消", "服务实现负责自身错误"),
-            Module("IUIModule", "配置、打开和关闭窗口", "UI/IUIModule.cs", "docs/UI系统.md", "UI 管理器持有窗口租约；OpenScope 持有本轮订阅", "打开和关闭传入对应令牌", "检查窗口或 bool 返回值", paused: "窗口交互和非缩放动画可继续")
+            Module("IHttpModule", "发送 HTTP 请求", "Modules/Http/IHttpModule.cs", "docs/framework/AI开发入口.md", "调用方持有请求任务", "传入请求令牌", "检查 HttpResponse"),
+            Module("INetworkModule", "管理网络连接", "Modules/Network/INetworkModule.cs", "docs/framework/AI开发入口.md", "调用方 Destroy 对应连接", "连接自己的操作负责取消", "创建和查找可能返回空"),
+            Module("IAudioModule", "播放音乐与音效", "Modules/Audio/IAudioModule.cs", "docs/framework/音频系统.md", "调用方保存 AudioHandle 并停止循环音频", "加载时传入令牌；退出停止句柄", "检查句柄及播放状态", paused: "模块响应应用后台；业务暂停策略由项目决定"),
+            Module("IModelModule", "重置项目模型", "Modules/Model/IModelModule.cs", "docs/framework/AI开发入口.md", "模块管理模型生命周期", "同步操作无取消", "模型实现负责自身错误"),
+            Module("ISceneModule", "切换逻辑场景", "Modules/Scene/ISceneModule.cs", "docs/framework/关卡与单局流程.md", "场景本轮内容由 SceneScope 持有", "切换传入进入令牌；退出使用清理令牌", "进入失败需清理部分内容"),
+            Module("IGameplayModule", "启动及停止玩法", "Modules/Gameplay/IGameplayModule.cs", "docs/framework/关卡与单局流程.md", "调用方保存 GameplayHandle 并等待 StopAsync", "进入传本轮令牌；退出用独立令牌", "启动失败不可继续使用句柄"),
+            Module("IServiceModule", "管理项目服务", "Modules/Service/IServiceModule.cs", "docs/framework/AI开发入口.md", "模块初始化和关闭服务", "同步操作无取消", "服务实现负责自身错误"),
+            Module("IUIModule", "配置、打开和关闭窗口", "UI/IUIModule.cs", "docs/framework/UI系统.md", "UI 管理器持有窗口租约；OpenScope 持有本轮订阅", "打开和关闭传入对应令牌", "检查窗口或 bool 返回值", paused: "窗口交互和非缩放动画可继续")
         };
 
         private static readonly Entry[] CompanionEntries =
         {
             Module("LifetimeScope", "托管本轮生命周期", "Core/Lifetime/LifetimeScope.cs", LifetimeGuide, "创建者持有并释放作用域", "Stop 取消本轮；Dispose 完成同步清理", "失活后登记立即清理"),
             Module("LifetimeScopeExtensions", "将事件、输入、计时器和资源绑定到作用域", "Core/Lifetime/LifetimeScopeExtensions.cs", LifetimeGuide, "调用方的 LifetimeScope 持有登记", "作用域停止后回调失活", "迟到资源自动释放"),
-            Module("SceneBase", "实现逻辑场景生命周期", "Modules/Scene/SceneBase.cs", "docs/关卡与单局流程.md", "SceneScope 持有本轮工作", "退出使用独立令牌", "进入失败时释放本轮作用域"),
-            Module("GameplayRoot", "实现玩法根节点", "Modules/Gameplay/GameplayRoot.cs", "docs/关卡与单局流程.md", "GameplayScope 持有本轮工作", "退出令牌独立于 GameplayToken", "进入失败时清理本轮工作"),
+            Module("SceneBase", "实现逻辑场景生命周期", "Modules/Scene/SceneBase.cs", "docs/framework/关卡与单局流程.md", "SceneScope 持有本轮工作", "退出使用独立令牌", "进入失败时释放本轮作用域"),
+            Module("GameplayRoot", "实现玩法根节点", "Modules/Gameplay/GameplayRoot.cs", "docs/framework/关卡与单局流程.md", "GameplayScope 持有本轮工作", "退出令牌独立于 GameplayToken", "进入失败时清理本轮工作"),
             Module("GameplayFeature", "实现玩法功能组件", "Modules/Gameplay/GameplayFeature.cs", LifetimeGuide, "所属 GameplayRoot 管理 Feature", "Enter 后使用 GameplayScope", "由玩法根节点管理失败清理"),
-            Module("IFixedUpdateModule", "接入固定步长模块更新", "Core/IFixedUpdateModule.cs", "docs/玩法更新阶段.md", "ModuleManager 管理注册模块", "同步阶段无取消", "异常由模块派发边界处理"),
-            Module("ILateUpdateModule", "接入帧末模块更新", "Core/ILateUpdateModule.cs", "docs/玩法更新阶段.md", "ModuleManager 管理注册模块", "同步阶段无取消", "异常由模块派发边界处理"),
-            Module("IFixedUpdateGameplay", "接入玩法固定步长更新", "Modules/Gameplay/IFixedUpdateGameplay.cs", "docs/玩法更新阶段.md", "玩法生命周期控制派发", "暂停或退出停止后续回调", "旧玩法无需实现该接口"),
-            Module("ILateUpdateGameplay", "接入玩法帧末更新", "Modules/Gameplay/ILateUpdateGameplay.cs", "docs/玩法更新阶段.md", "玩法生命周期控制派发", "暂停或退出停止后续回调", "旧玩法无需实现该接口"),
-            Module("GameVirtualList", "显示大量固定尺寸列表项", "UI/Controls/GameVirtualList.cs", "docs/UI虚拟列表.md", "列表持有可见项及缓冲实例", "禁用或销毁结束条目作用域", "配置无效时拒绝初始化"),
-            Module("GameVirtualListItem", "实现可复用列表项", "UI/Controls/GameVirtualListItem.cs", "docs/UI虚拟列表.md", "BindingScope 持有本次绑定工作", "异步资源使用绑定令牌并检查绑定轮次", "回收后迟到结果不得写入"),
-            Module("GameWindow", "实现窗口生命周期", "UI/Windows/GameWindow.cs", "docs/UI系统.md", "OpenScope 持有本轮监听", "关闭使 OpenScope 失活", "重复 Show 只刷新显示"),
-            Module("Tween", "创建串行与并行动画片段", "Modules/Tween/TweenClip.cs", "docs/通用Tween.md", "ITweenModule.Play 返回播放句柄", "作用域或句柄结束播放", "目标销毁后不再写入"),
-            Module("TweenTargets", "绑定动画目标属性", "Modules/Tween/TweenTargets.cs", "docs/通用Tween.md", "目标对象由业务持有", "作用域取消动画", "目标销毁后停止写入"),
-            Module("PrefabPool", "生成、回收并释放 Prefab 实例", "Modules/PrefabPool/PrefabPool.cs", "docs/Prefab实例池.md", "场景或玩法持有池", "等待 DisposeAsync 完成租约释放", "Spawn 失败时返回空"),
-            Module("PrefabInstance", "管理一次 Prefab 生成轮次", "Modules/PrefabPool/PrefabInstance.cs", "docs/Prefab实例池.md", "PrefabPool 持有实例", "Despawn 结束 SpawnScope", "失效句柄不可继续使用"),
-            Module("SaveSession`1", "激活、写入并关闭正式存档会话", "Modules/Save/Session/SaveSession.cs", "docs/正式存档使用指南.md", "项目持有会话并等待 CloseAsync", "关闭用独立清理令牌", "检查 SaveResult 和会话状态"),
-            Module("GameRoundFlow", "管理单局进入、结算和返回菜单", "Modules/Gameplay/Flow/GameRoundFlow.cs", "docs/关卡与单局流程.md", "项目持有流程并等待 CloseAsync", "CancelLoading 取消进入", "检查状态、错误和 bool 结果")
+            Module("IFixedUpdateModule", "接入固定步长模块更新", "Core/IFixedUpdateModule.cs", "docs/framework/玩法更新阶段.md", "ModuleManager 管理注册模块", "同步阶段无取消", "异常由模块派发边界处理"),
+            Module("ILateUpdateModule", "接入帧末模块更新", "Core/ILateUpdateModule.cs", "docs/framework/玩法更新阶段.md", "ModuleManager 管理注册模块", "同步阶段无取消", "异常由模块派发边界处理"),
+            Module("IFixedUpdateGameplay", "接入玩法固定步长更新", "Modules/Gameplay/IFixedUpdateGameplay.cs", "docs/framework/玩法更新阶段.md", "玩法生命周期控制派发", "暂停或退出停止后续回调", "旧玩法无需实现该接口"),
+            Module("ILateUpdateGameplay", "接入玩法帧末更新", "Modules/Gameplay/ILateUpdateGameplay.cs", "docs/framework/玩法更新阶段.md", "玩法生命周期控制派发", "暂停或退出停止后续回调", "旧玩法无需实现该接口"),
+            Module("GameVirtualList", "显示大量固定尺寸列表项", "UI/Controls/GameVirtualList.cs", "docs/framework/UI虚拟列表.md", "列表持有可见项及缓冲实例", "禁用或销毁结束条目作用域", "配置无效时拒绝初始化"),
+            Module("GameVirtualListItem", "实现可复用列表项", "UI/Controls/GameVirtualListItem.cs", "docs/framework/UI虚拟列表.md", "BindingScope 持有本次绑定工作", "异步资源使用绑定令牌并检查绑定轮次", "回收后迟到结果不得写入"),
+            Module("GameWindow", "实现窗口生命周期", "UI/Windows/GameWindow.cs", "docs/framework/UI系统.md", "OpenScope 持有本轮监听", "关闭使 OpenScope 失活", "重复 Show 只刷新显示"),
+            Module("Tween", "创建串行与并行动画片段", "Modules/Tween/TweenClip.cs", "docs/framework/通用Tween.md", "ITweenModule.Play 返回播放句柄", "作用域或句柄结束播放", "目标销毁后不再写入"),
+            Module("TweenTargets", "绑定动画目标属性", "Modules/Tween/TweenTargets.cs", "docs/framework/通用Tween.md", "目标对象由业务持有", "作用域取消动画", "目标销毁后停止写入"),
+            Module("PrefabPool", "生成、回收并释放 Prefab 实例", "Modules/PrefabPool/PrefabPool.cs", "docs/framework/Prefab实例池.md", "场景或玩法持有池", "等待 DisposeAsync 完成租约释放", "Spawn 失败时返回空"),
+            Module("PrefabInstance", "管理一次 Prefab 生成轮次", "Modules/PrefabPool/PrefabInstance.cs", "docs/framework/Prefab实例池.md", "PrefabPool 持有实例", "Despawn 结束 SpawnScope", "失效句柄不可继续使用"),
+            Module("SaveSession`1", "激活、写入并关闭正式存档会话", "Modules/Save/Session/SaveSession.cs", "docs/framework/正式存档使用指南.md", "项目持有会话并等待 CloseAsync", "关闭用独立清理令牌", "检查 SaveResult 和会话状态"),
+            Module("GameRoundFlow", "管理单局进入、结算和返回菜单", "Modules/Gameplay/Flow/GameRoundFlow.cs", "docs/framework/关卡与单局流程.md", "项目持有流程并等待 CloseAsync", "CancelLoading 取消进入", "检查状态、错误和 bool 结果")
         };
 
         /// <summary>
@@ -194,8 +194,8 @@ namespace GameFramework.Editor.ApiIndex
                 if (signatures.Length == 0) { Debug.LogError("API 接口无公开成员：" + entry.Name); return false; }
                 md.Append("## ").Append(entry.Task).Append(" · ").Append(entry.Name).Append("\n\n");
                 md.Append("取得：`GameEntry.Get<").Append(entry.Name).Append(">()` · 命名空间：`GameFramework`\n\n");
-                md.Append("源码：[").Append(entry.Name).Append("](../../").Append(entry.Source).Append(") · 指南：[使用约定](../../")
-                    .Append(entry.Guide).Append(") · [可编译示例](../../").Append(RecipePath).Append(")\n\n");
+                md.Append("源码：[").Append(entry.Name).Append("](../../../").Append(entry.Source).Append(") · 指南：[使用约定](../../../")
+                    .Append(entry.Guide).Append(") · [可编译示例](../../../").Append(RecipePath).Append(")\n\n");
                 md.Append("所有者：").Append(entry.Owner).Append("；取消：").Append(entry.Cancellation).Append("；失败：")
                     .Append(entry.Failure).Append("；线程：").Append(entry.Thread).Append("；暂停：").Append(entry.Paused).Append("。\n\n");
                 md.Append("```csharp\n");
@@ -232,8 +232,8 @@ namespace GameFramework.Editor.ApiIndex
                 if (signatures.Length == 0) { Debug.LogError("API 辅助类型没有可检索成员：" + entry.Name); return false; }
                 md.Append("## ").Append(entry.Task).Append(" · ").Append(TypeName(type)).Append("\n\n");
                 md.Append("辅助类型，不经 `GameEntry.Get<T>()` 获取。命名空间：`GameFramework`\n\n");
-                md.Append("源码：[").Append(TypeName(type)).Append("](../../").Append(entry.Source).Append(") · 指南：[使用约定](../../")
-                    .Append(entry.Guide).Append(") · [可编译示例](../../").Append(RecipePath).Append(")\n\n");
+                md.Append("源码：[").Append(TypeName(type)).Append("](../../../").Append(entry.Source).Append(") · 指南：[使用约定](../../../")
+                    .Append(entry.Guide).Append(") · [可编译示例](../../../").Append(RecipePath).Append(")\n\n");
                 md.Append("所有者：").Append(entry.Owner).Append("；取消：").Append(entry.Cancellation).Append("；失败：")
                     .Append(entry.Failure).Append("；线程：").Append(entry.Thread).Append("；暂停：").Append(entry.Paused).Append("。\n\n");
                 md.Append("```csharp\n");

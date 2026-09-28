@@ -40,7 +40,9 @@ UnityMiniGameFramework/
 │  │  ├─ YooAsset/                    本地内嵌依赖
 │  │  └─ manifest.json                uGUI、TMP、Test Framework 等
 │  └─ ProjectSettings/
-└─ docs/                               设计与验收记录
+└─ docs/
+   ├─ framework/                    框架设计、指南与历史验收
+   └─ project/                      当前项目设计与验收
 ~~~
 
 框架代码直接作为 Unity `Assets` 源码维护，`GameFramework.asmdef` 仍定义独立运行时程序集，`Editor/` 与 `Tests/` 保留各自代码和 `.meta`。`GameFramework/package.json` 当前只保存未来导出包的元数据；开发工程不引用这个包，避免同一源码被导入两次。外部 UniTask、YooAsset 的版本以其 `package.json` 为准，uGUI/TMP 与 Test Framework 由开发工程 manifest 显式声明。框架 Runtime 不引用样例游戏程序集；样例负责组合根与内容。

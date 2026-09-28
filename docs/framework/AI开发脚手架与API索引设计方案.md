@@ -25,11 +25,11 @@
 
 事实入口：
 
-- [GameMain](../DevProject/Assets/Scripts/GameLogic/Runtime/GameMain.cs)
-- [IGameplayModule](../DevProject/Assets/Scripts/GameFramework/Runtime/Modules/Gameplay/IGameplayModule.cs)
-- [ISceneModule](../DevProject/Assets/Scripts/GameFramework/Runtime/Modules/Scene/ISceneModule.cs)
-- [UIModule](../DevProject/Assets/Scripts/GameFramework/Runtime/UI/UIModule.cs)
-- [GameContentCollectorSetup](../DevProject/Assets/Editor/GameContentCollectorSetup.cs)
+- [GameMain](../../DevProject/Assets/Scripts/GameLogic/Runtime/GameMain.cs)
+- [IGameplayModule](../../DevProject/Assets/Scripts/GameFramework/Runtime/Modules/Gameplay/IGameplayModule.cs)
+- [ISceneModule](../../DevProject/Assets/Scripts/GameFramework/Runtime/Modules/Scene/ISceneModule.cs)
+- [UIModule](../../DevProject/Assets/Scripts/GameFramework/Runtime/UI/UIModule.cs)
+- [GameContentCollectorSetup](../../DevProject/Assets/Editor/GameContentCollectorSetup.cs)
 - [现有 AI 开发入口](AI开发入口.md)
 
 ## 3. 总体结构
@@ -158,7 +158,7 @@ DevProject/Assets/
     UI/Shop/UI_Shop.prefab
     Scenes/Lobby/SC_Lobby.prefab
 
-docs/api/
+docs/framework/api/
   README.md
   index.json
   生命周期约定.md
@@ -224,8 +224,8 @@ DryRun 输出将创建与更新的文件、地址、登记项及冲突。执行�
 
 提供两种入口：
 
-- docs/api/README.md：按“我要打开窗口、生成角色、切换场景、保存进度”等任务查找。
-- docs/api/index.json：供 AI 按模块、符号及关键词检索。
+- docs/framework/api/README.md：按“我要打开窗口、生成角色、切换场景、保存进度”等任务查找。
+- docs/framework/api/index.json：供 AI 按模块、符号及关键词检索。
 
 每条索引包含：
 
