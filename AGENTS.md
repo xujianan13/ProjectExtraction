@@ -11,7 +11,7 @@
 
 - [README.md](README.md)：定位、工程打开方式、日常开发命令和源码位置。
 - [核心玩法设计](docs/project/核心玩法设计.md)：当前已确认的玩法与结算规则；其中待定项不能当作已批准需求。
-- [玩法模块与迭代计划](docs/project/玩法模块与迭代计划.md)：M01～M08 的职责、协作契约、开发顺序和待定事项；均为设计草案，不能当作已实现 API。
+- [玩法模块与迭代计划](docs/project/玩法模块与迭代计划.md)：M01～M09 的职责、协作契约、开发顺序和待定事项；均为设计草案，不能当作已实现 API。
 - [项目基础接入验收](docs/project/项目基础接入验收.md)：本项目首次导入与实测结果；源框架历史验收不得算作本项目验收。
 - [AI 开发入口](docs/framework/AI开发入口.md)、[脚手架指南](docs/framework/AI开发脚手架使用指南.md)与 [API 索引](docs/framework/api/README.md)：新增玩法、窗口和场景及查阅现有公开 API。
 - [新项目复用](docs/framework/新项目复用.md)、[依赖清单](docs/framework/新项目资源与依赖清单.md)与[统一验收](docs/framework/统一验收.md)：Minimal 模板、固定资产和 Quick/Full 检查范围。
@@ -21,7 +21,7 @@
 
 - `DevProject` 使用 Unity **2022.3.62f2**，由源框架干净提交 `267f15313f997b703e90af351279e03bb82ea15e` 的 `Minimal` 模板创建。公司名 `MiniGameStudio` 和应用标识 `com.minigamestudio.projectextraction` 是可修改的开发占位。
 - 目标是 3D 搜打撤 + Roguelike，支持 PC、Mobile 与微信小游戏；优先 Mobile、微信小游戏，并适配 PC 输入和屏幕。默认竖屏，兼容横屏；UI 规划为主 UI 加模态弹窗。目标不等于已实现功能或通过的平台验收。
-- 当前确认的玩法为单一基础攻击方式的近战自动攻击、程序化房间探索及撤离成长；正常撤离全部携出，死亡丢失安全箱外的入场装备和战利品，技能为可携出的特殊物品，安全箱默认容量 X 后续配置。具体规则以[核心玩法设计](docs/project/核心玩法设计.md)为准。
+- 当前确认的玩法为单一基础攻击方式的近战自动攻击、程序化房间探索及撤离成长；正常撤离全部携出，死亡丢失安全箱外的入场装备和战利品，技能为可携出的特殊物品，安全箱默认容量 X 后续配置。新增体力规则为上限暂定 100、每局消耗 10、每 6 分钟恢复 1、每天 5 点重置到 100、12 点/18 点/24 点各可手动领取 40；打怪与成功撤离均产经验并自动升级，等级约束高级装备/技能、关卡和局外购买。补给领取窗口、溢出等边界以[核心玩法设计](docs/project/核心玩法设计.md)及模块待定项为准。
 - 当前只有空 `Main` 玩法、`Home` 页面窗口及 Prefab 模式的 `Home` 逻辑首场景，玩法规则与内容待开发。尚未为本项目新增广告、付费、联网服务或微信 SDK。
 - `DevProject/Assets/Scripts/GameFramework` 是框架唯一源码，当前不是已安装的 UPM 包；`DevProject/Packages` 保留 UniTask **2.5.11**、YooAsset **3.0.1-beta**、HybridCLR **8.12.0** 等模板依赖，渲染管线沿用模板。`GameFramework/package.json` 仅作未来包元数据。
 - `Assets/Resources/Framework.prefab`、`Assets/Scenes/Main.unity` 和 `Loading.unity` 属于固定宿主资产。`Assets/Scripts/Boot` 为固定启动层；`Assets/Scripts/GameLogic` 为热更游戏代码；`Assets/GameResources` 是 YooAsset `GamePackage` 的热更内容源。通用框架不得依赖项目玩法。

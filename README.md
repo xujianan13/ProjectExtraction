@@ -4,7 +4,7 @@
 
 当前工程由 `UnityMiniGameFramework` 的 `Minimal` 模板创建，是空业务起点：只有空 `Main` 玩法、`Home` 页面窗口及 `Home` 逻辑首场景，没有搜打撤关卡或 Roguelike 规则。项目公司名 `MiniGameStudio`、应用标识 `com.minigamestudio.projectextraction` 是可修改的开发占位。当前不接入广告、付费、联网服务或微信 SDK。
 
-当前玩法方向为近战自动攻击与程序化房间探索。正常撤离带回全部持有物品；死亡丢失安全箱外的入场装备及战利品；技能是可携出的特殊物品，安全箱容量由配置决定。已确认规则和待定事项见[核心玩法设计](docs/project/核心玩法设计.md)，这些玩法尚未实现。
+当前玩法方向为近战自动攻击与程序化房间探索。正常撤离带回全部持有物品；死亡丢失安全箱外的入场装备及战利品；技能是可携出的特殊物品，安全箱容量由配置决定。局外增加体力与定时补给，打怪/成功撤离经验推动自动升级，等级约束装备、技能、关卡及局外购买。已确认规则和待定事项见[核心玩法设计](docs/project/核心玩法设计.md)，这些玩法尚未实现。
 
 ## 打开与运行
 
@@ -43,7 +43,7 @@ Quick 的检查范围和结果文件见[统一验收](docs/framework/统一验�
 文档总入口为 [docs/README.md](docs/README.md)：通用框架文档位于 `docs/framework`，本项目需求、设计与验收位于 `docs/project`。
 
 - [项目工作指引](AGENTS.md)：当前项目事实、修改边界与验收原则。
-- [玩法模块与迭代计划](docs/project/玩法模块与迭代计划.md)：8 个玩法模块的设计入口、职责边界、验收条件和迭代顺序，当前尚未实现。
+- [玩法模块与迭代计划](docs/project/玩法模块与迭代计划.md)：9 个玩法模块的设计入口、职责边界、验收条件和迭代顺序，当前尚未实现。
 - [AI 开发入口](docs/framework/AI开发入口.md)、[脚手架使用指南](docs/framework/AI开发脚手架使用指南.md)与 [API 索引](docs/framework/api/README.md)：新增玩法、窗口和场景的入口；使用现有 API 时以实际源码和签名为准。
 - [新项目复用](docs/framework/新项目复用.md)与[资源依赖清单](docs/framework/新项目资源与依赖清单.md)：Minimal 模板的生成流程、固定资产和依赖；其中源框架的历史验证记录仅供参考。
 - [热更启动流程](docs/framework/热更启动流程.md)、[Excel 数据表](docs/framework/Excel数据表.md)与[UI 系统](docs/framework/UI系统.md)：对应系统的配置和开发说明。
