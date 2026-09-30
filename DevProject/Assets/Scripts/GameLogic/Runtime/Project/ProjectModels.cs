@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using UnityEngine;
 
@@ -156,6 +156,12 @@ namespace GameLogic.Project
         public int ActiveRunEntryCost;
         public string LastSettledRunId = "";
         public string LastRunSummary = "";
+        public ProjectRunStage Stage;
+        public int ActiveLevelId;
+        public int ActiveSeed;
+        public int ActiveRulesVersion;
+        public ProjectRunOutcome Outcome;
+        public ProjectRunResult LastResult;
         public List<ProjectItem> Warehouse = new();
         public List<ProjectItem> EntryItems = new();
 
@@ -184,6 +190,8 @@ namespace GameLogic.Project
             var copy = (ProjectSaveData)MemberwiseClone();
             copy.Warehouse = Warehouse.ConvertAll(item => item.Copy());
             copy.EntryItems = EntryItems.ConvertAll(item => item.Copy());
+            copy.Outcome = Outcome?.Copy();
+            copy.LastResult = LastResult?.Copy();
             return copy;
         }
 
@@ -207,6 +215,7 @@ namespace GameLogic.Project
                 if (!ValidItem(item, ids)) return "入场物品无效或身份重复。";
             if (data.ActiveRunEntryCost < 0 || (string.IsNullOrEmpty(data.ActiveRunId) &&
                 (data.EntryItems.Count > 0 || data.ActiveRunEntryCost != 0))) return "入场托管状态无效。";
+            if (!ProjectRunRecordRules.ValidateRecord(data, out string recordError)) return recordError;
             return null;
         }
 
@@ -248,7 +257,8 @@ namespace GameLogic.Project
         /// <returns>是否完成单局回退。</returns>
         public static bool TryRecoverInterruptedRun(ProjectSaveData candidate, string reason)
         {
-            if (candidate == null || string.IsNullOrEmpty(candidate.ActiveRunId)) return false;
+            if (candidate == null || string.IsNullOrEmpty(candidate.ActiveRunId) || candidate.Outcome != null ||
+                candidate.Stage == ProjectRunStage.OutcomeRecorded) return false;
             int cost = candidate.ActiveRunEntryCost > 0 ? candidate.ActiveRunEntryCost : PrototypeRules.EntryCost;
             if (candidate.Stamina > int.MaxValue - cost) return false;
             foreach (ProjectItem item in candidate.EntryItems) candidate.Warehouse.Add(item.Copy());
@@ -257,6 +267,11 @@ namespace GameLogic.Project
             candidate.LastSettledRunId = candidate.ActiveRunId;
             candidate.ActiveRunId = "";
             candidate.ActiveRunEntryCost = 0;
+            candidate.Stage = ProjectRunStage.None;
+            candidate.ActiveLevelId = 0;
+            candidate.ActiveSeed = 0;
+            candidate.ActiveRulesVersion = 0;
+            candidate.LastResult = null;
             candidate.LastRunSummary = string.IsNullOrWhiteSpace(reason) ?
                 "关卡异常中断：已退回入场装备与体力，未结算战利品。" :
                 "关卡异常中断（" + reason + "）：已退回入场装备与体力，未结算战利品。";

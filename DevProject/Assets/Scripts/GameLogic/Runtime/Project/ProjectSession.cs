@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Threading;
 using Cysharp.Threading.Tasks;
@@ -8,7 +8,7 @@ using GameLogic.Gameplay.Expedition;
 namespace GameLogic.Project
 {
     /// <summary>
-    /// 局外成长与单局出入的唯一项目会话，持久化确认后才公布交易结果。
+    /// 局外状态与单局事务的唯一存档入口，持久化确认后才公布交易结果。
     /// </summary>
     public sealed class ProjectSession : IDisposable
     {
@@ -17,19 +17,14 @@ namespace GameLogic.Project
         private ProjectSaveData pending;
         private Action pendingAccepted;
         private string pendingMessage;
-        private PendingFollowUp pendingFollowUp;
         private bool pendingMarked;
         private long pendingRevision;
-        private ExpeditionRun preparedRun;
-        private ExpeditionRun retiringRun;
-        private bool needsHomeReturn;
         private bool saving;
-        private bool changingScene;
         private bool disposed;
+        private bool homeEditable;
         private int displayedStamina;
         private readonly ProjectLevelOption[] levels = PrototypeRules.CreateLevels();
 
-        private enum PendingFollowUp { None, EnterBattle, ReturnHome }
 
         public event Action Changed;
         public int Level => profile.Level;
@@ -43,11 +38,31 @@ namespace GameLogic.Project
         public int PowerRank => profile.PowerRank;
         public int VitalityRank => profile.VitalityRank;
         public int AgilityRank => profile.AgilityRank;
-        public string LastRunSummary => pending != null ? "保存未完成，请重试原操作。" :
-            needsHomeReturn ? "结算已保存，返回局外失败，请重试。" : profile.LastRunSummary;
-        public bool IsBusy => saving || changingScene || pending != null || needsHomeReturn || disposed;
-        public bool HasPendingSave => (pending != null || needsHomeReturn) && !saving && !changingScene;
+        public string LastRunSummary => pending != null ? "保存未完成，请重试原操作。" : profile.LastRunSummary;
+        public bool IsBusy => saving || pending != null || !homeEditable || disposed;
+        public bool HasPendingSave => pending != null && !saving && !disposed;
         public ExpeditionRun CurrentRun { get; private set; }
+
+        /// <summary>
+        /// 当前持久化单局身份。
+        /// </summary>
+        public string ActiveRunId => profile.ActiveRunId;
+
+        /// <summary>
+        /// 当前持久化单局阶段。
+        /// </summary>
+        public ProjectRunStage RunStage => profile.Stage;
+
+        /// <summary>
+        /// 已记录的终局副本，不暴露存档中的可写集合。
+        /// </summary>
+        public ProjectRunOutcome RecordedOutcome => profile.Outcome?.Copy();
+
+        /// <summary>
+        /// 最近已保存结果的独立副本。
+        /// </summary>
+        public ProjectRunResult LastResult => profile.LastResult?.Copy();
+
         public IReadOnlyList<ProjectLevelOption> Levels => levels;
         public IReadOnlyList<ProjectItem> Warehouse => profile.Warehouse.ConvertAll(item => item.Copy());
         public IReadOnlyList<ProjectSkill> Skills => new[]
@@ -76,7 +91,8 @@ namespace GameLogic.Project
         /// <returns>成功会话，失败时为空。</returns>
         public static async UniTask<ProjectSession> OpenAsync(CancellationToken ct)
         {
-            var definition = new SaveDefinition<ProjectSaveData>(1, ProjectSaveData.CreateDefault, ProjectSaveData.Validate);
+            var definition = new SaveDefinition<ProjectSaveData>(2, ProjectSaveData.CreateDefault, ProjectSaveData.Validate,
+                codec: new ProjectSaveCodec(), migrations: new[] { ProjectRunRecordRules.CreateMigration() });
             var policy = new SavePolicy { AutoSave = false, FlushOnBackground = false };
             SaveOpenResult<ProjectSaveData> opened = await GameEntry.Get<ISaveModule>().OpenAsync(
                 new SaveIdentity("ProjectExtraction", "prototype", "local", "profile"), definition, policy, ct);
@@ -94,12 +110,6 @@ namespace GameLogic.Project
                 GameEntry.Get<ILogModule>()?.Error("ProjectSession", activation.Message);
                 session.Dispose();
                 return null;
-            }
-            if (!string.IsNullOrEmpty(session.profile.ActiveRunId))
-            {
-                ProjectSaveData recovered = session.Candidate();
-                if (ProjectProfileRules.TryRecoverInterruptedRun(recovered, "上次游戏中断"))
-                    await session.CommitAsync(recovered, recovered.LastRunSummary);
             }
             session.RefreshClock();
             return session;
@@ -191,92 +201,130 @@ namespace GameLogic.Project
         }
 
         /// <summary>
-        /// 准备关卡，保存体力与携装变更后进入战斗逻辑场景。
+        /// 由协调器设置局外变更门禁。
         /// </summary>
-        /// <param name="levelId">关卡配置身份。</param>
-        /// <returns>是否成功进入关卡。</returns>
-        public async UniTask<bool> StartRunAsync(int levelId)
+        /// <param name="editable">是否允许新局外事务。</param>
+        internal void SetHomeEditable(bool editable)
         {
-            if (!CanEdit()) return false;
+            homeEditable = editable;
+            Changed?.Invoke();
+        }
+
+        /// <summary>
+        /// 绑定或解除当前运行对象；资源释放归单局会话。
+        /// </summary>
+        /// <param name="run">当前运行对象，退出后传空。</param>
+        internal void BindRun(ExpeditionRun run) => CurrentRun = run;
+
+        /// <summary>
+        /// 按最新存档校验并生成尚未激活的单局。
+        /// </summary>
+        /// <param name="runId">框架生成的唯一单局身份。</param>
+        /// <param name="levelId">选定关卡。</param>
+        /// <param name="run">准备成功的单局。</param>
+        /// <param name="error">失败原因。</param>
+        /// <returns>是否准备成功。</returns>
+        internal bool TryPrepareRun(string runId, int levelId, out ExpeditionRun run, out string error)
+        {
+            run = null;
+            error = "当前单局或存档事务尚未结束。";
+            if (disposed || saving || pending != null || CurrentRun != null || !string.IsNullOrEmpty(profile.ActiveRunId)) return false;
+            ProjectSaveData candidate = Candidate();
             ProjectLevelOption level = Array.Find(levels, value => value.Id == levelId);
-            ProjectSaveData candidate = Candidate();
-            if (level == null || candidate.Level < level.RequiredLevel || candidate.Stamina < PrototypeRules.EntryCost) return false;
-            string runId = Guid.NewGuid().ToString("N");
+            error = "关卡未解锁。";
+            if (level == null || candidate.Level < level.RequiredLevel) return false;
+            error = "体力不足，需要 10 点体力。";
+            if (candidate.Stamina < PrototypeRules.EntryCost) return false;
             var items = candidate.Warehouse.FindAll(item => item.Equipped);
-            if (!ExpeditionRun.TryCreate(this, runId, levelId, items, out ExpeditionRun run)) return false;
-            candidate.Stamina -= PrototypeRules.EntryCost;
-            candidate.ActiveRunId = runId;
-            candidate.ActiveRunEntryCost = PrototypeRules.EntryCost;
-            candidate.EntryItems = items;
-            candidate.Warehouse.RemoveAll(item => item.Equipped);
-            preparedRun = run;
-            ProjectOperationResult result = await CommitAsync(candidate, "入场准备完成。", () =>
+            error = "携入装备等级不符合要求。";
+            if (items.Exists(item => item.RequiredLevel > candidate.Level)) return false;
+            error = "关卡配置或地图准备失败。";
+            if (!ExpeditionRun.TryCreate(this, runId, levelId, items, out run)) return false;
+            error = null;
+            return true;
+        }
+
+        /// <summary>
+        /// 一次保存扣体力、携入托管和单局身份。
+        /// </summary>
+        /// <param name="run">已经准备但未激活的单局。</param>
+        /// <returns>入场持久化结果。</returns>
+        internal UniTask<ProjectOperationResult> AdmitAsync(ExpeditionRun run)
+        {
+            if (run == null) return Rejected("缺少单局上下文。");
+            ProjectSaveData candidate = Candidate();
+            if (!ProjectRunRecordRules.TryAdmit(candidate, run.RunId, run.LevelId, run.Maps.Seed,
+                candidate.Warehouse.FindAll(item => item.Equipped), out string error)) return Rejected(error);
+            return CommitAsync(candidate, "入场记录已保存。");
+        }
+
+        /// <summary>
+        /// 将开始授权持久化，保存成功前不得运行模拟。
+        /// </summary>
+        /// <param name="runId">当前单局身份。</param>
+        /// <returns>授权保存结果。</returns>
+        internal UniTask<ProjectOperationResult> MarkRunningAsync(string runId)
+        {
+            ProjectSaveData candidate = Candidate();
+            if (!ProjectRunRecordRules.TryMarkRunning(candidate, runId, out string error)) return Rejected(error);
+            return CommitAsync(candidate, "关卡已准备完成。");
+        }
+
+        /// <summary>
+        /// 保存冻结的终局事实，本阶段不发放奖励。
+        /// </summary>
+        /// <param name="outcome">不可再变化的终局快照。</param>
+        /// <returns>终局记录保存结果。</returns>
+        internal UniTask<ProjectOperationResult> RecordOutcomeAsync(ProjectRunOutcome outcome)
+        {
+            ProjectSaveData candidate = Candidate();
+            if (!ProjectRunRecordRules.TryRecordOutcome(candidate, outcome, out string error)) return Rejected(error);
+            return CommitAsync(candidate, "终局记录已保存。");
+        }
+
+        /// <summary>
+        /// 根据已持久化终局统一结算；只重试属于此结果的候选。
+        /// </summary>
+        /// <param name="runId">需要结算的稳定单局身份。</param>
+        /// <returns>结算持久化结果。</returns>
+        internal UniTask<ProjectOperationResult> SettleOutcomeAsync(string runId)
+        {
+            if (string.IsNullOrEmpty(runId)) return Rejected("结算身份无效。");
+            if (pending != null)
             {
-                CurrentRun = preparedRun;
-                preparedRun = null;
-            }, PendingFollowUp.EnterBattle);
-            if (!result.Success)
-            {
-                if (pending == null)
-                {
-                    preparedRun?.Dispose();
-                    preparedRun = null;
-                }
-                return false;
+                if (pending.LastSettledRunId != runId || pending.LastResult == null) return Rejected("存在其他未完成保存。");
+                return RetryPendingSaveAsync();
             }
-            return await EnterPreparedRunAsync();
+            if (profile.LastSettledRunId == runId && profile.LastResult != null)
+                return UniTask.FromResult(new ProjectOperationResult(true, profile.LastRunSummary));
+            if (profile.ActiveRunId != runId) return Rejected("结算不是当前单局。");
+            ProjectSaveData candidate = Candidate();
+            if (!ProjectRunRecordRules.TrySettleOutcome(candidate, out string error)) return Rejected(error);
+            return CommitAsync(candidate, candidate.LastRunSummary);
         }
 
         /// <summary>
-        /// 将唯一终局结果和完整携出计划一次提交。
+        /// 按开发期策略补偿未记录终局的入场资源。
         /// </summary>
-        /// <param name="extracted">是否正常撤离。</param>
-        /// <returns>结算是否保存。</returns>
-        public async UniTask<bool> FinishRunAsync(bool extracted)
+        /// <param name="reason">中断原因。</param>
+        /// <returns>补偿保存结果。</returns>
+        internal UniTask<ProjectOperationResult> CompensateEntryAsync(string reason)
         {
-            ExpeditionRun run = CurrentRun;
-            if (run == null || IsBusy || profile.LastSettledRunId == run.RunId) return false;
-            run.Stop();
             ProjectSaveData candidate = Candidate();
-            if (candidate.ActiveRunId != run.RunId || run.GoldSpent < 0 || run.GoldSpent > candidate.Gold) return false;
-            IReadOnlyList<ProjectItem> carried = run.GetRetainedItems(extracted);
-            foreach (ProjectItem item in carried) candidate.Warehouse.Add(item.Copy());
-            candidate.EntryItems.Clear();
-            candidate.ActiveRunId = "";
-            candidate.ActiveRunEntryCost = 0;
-            candidate.LastSettledRunId = run.RunId;
-            candidate.Gold -= run.GoldSpent;
-            int experience = extracted || PrototypeRules.KeepKillExperienceOnDeath ? run.KillExperience : 0;
-            if (extracted) experience += PrototypeRules.ExtractionExperience;
-            ProjectProfileRules.AddExperience(candidate, experience);
-            candidate.LastRunSummary = (extracted ? "撤离成功" : "角色死亡") + " · 携回 " + carried.Count + " 件 · 经验 +" + experience;
-            ProjectOperationResult result = await CommitAsync(candidate, candidate.LastRunSummary, () =>
-            {
-                retiringRun = CurrentRun;
-                CurrentRun = null;
-            }, PendingFollowUp.ReturnHome);
-            if (!result.Success) return false;
-            return await ReturnHomeAsync();
+            if (!ProjectProfileRules.TryRecoverInterruptedRun(candidate, reason)) return Rejected("该单局不能按中断退回。");
+            return CommitAsync(candidate, candidate.LastRunSummary);
         }
 
         /// <summary>
-        /// 异常中断时退回本局原入场装备和入场体力，并丢弃未结算收益。
+        /// 单独确认结果已查看，不重复执行结算。
         /// </summary>
-        /// <param name="reason">异常原因，仅用于结算说明。</param>
-        /// <returns>是否已保存回退并返回局外。</returns>
-        public async UniTask<bool> RecoverInterruptedRunAsync(string reason)
+        /// <param name="runId">结果所属单局。</param>
+        /// <returns>查看标记保存结果。</returns>
+        internal UniTask<ProjectOperationResult> AcknowledgeResultAsync(string runId)
         {
-            if (disposed || pending != null || saving || changingScene || string.IsNullOrEmpty(profile.ActiveRunId)) return false;
-            CurrentRun?.Stop();
             ProjectSaveData candidate = Candidate();
-            if (!ProjectProfileRules.TryRecoverInterruptedRun(candidate, reason)) return false;
-            ProjectOperationResult result = await CommitAsync(candidate, candidate.LastRunSummary, () =>
-            {
-                retiringRun = CurrentRun;
-                CurrentRun = null;
-            }, PendingFollowUp.ReturnHome);
-            if (!result.Success) return false;
-            return await ReturnHomeAsync();
+            if (!ProjectRunRecordRules.TryAcknowledgeResult(candidate, runId, out string error)) return Rejected(error);
+            return CommitAsync(candidate, "已返回主界面。");
         }
 
         /// <summary>
@@ -285,13 +333,7 @@ namespace GameLogic.Project
         /// <returns>原交易保存或返场结果。</returns>
         public async UniTask<ProjectOperationResult> RetryPendingSaveAsync()
         {
-            if (disposed || saving || changingScene) return new ProjectOperationResult(false, "当前不能重试。");
-            if (pending == null)
-            {
-                if (!needsHomeReturn) return new ProjectOperationResult(false, "没有可重试的保存。");
-                bool returned = await ReturnHomeAsync();
-                return new ProjectOperationResult(returned, returned ? "已返回局外。" : "返回局外失败，请重试。");
-            }
+            if (disposed || saving || pending == null) return new ProjectOperationResult(false, "没有可重试的保存。");
             saving = true;
             Changed?.Invoke();
             if (!pendingMarked)
@@ -307,7 +349,6 @@ namespace GameLogic.Project
                 pendingMarked = true;
                 pendingRevision = saves.GetStatus().Revision;
             }
-            PendingFollowUp followUp = pendingFollowUp;
             SaveFlushResult receipt;
             try { receipt = await saves.RetryAsync(); }
             catch (Exception error)
@@ -317,19 +358,7 @@ namespace GameLogic.Project
                 Changed?.Invoke();
                 return new ProjectOperationResult(false, "保存失败，请重试：" + error.Message);
             }
-            ProjectOperationResult result = AcceptReceipt(receipt);
-            if (!result.Success) return result;
-            if (followUp == PendingFollowUp.EnterBattle)
-            {
-                bool entered = await EnterPreparedRunAsync();
-                return new ProjectOperationResult(entered, entered ? result.Message : "入场失败，正在恢复原入场资源。");
-            }
-            if (followUp == PendingFollowUp.ReturnHome)
-            {
-                bool returned = await ReturnHomeAsync();
-                return new ProjectOperationResult(returned, returned ? result.Message : "结算已保存，返回局外失败，请重试。");
-            }
-            return result;
+            return AcceptReceipt(receipt);
         }
 
         /// <summary>
@@ -339,12 +368,7 @@ namespace GameLogic.Project
         {
             if (disposed) return;
             disposed = true;
-            CurrentRun?.Dispose();
             CurrentRun = null;
-            preparedRun?.Dispose();
-            preparedRun = null;
-            retiringRun?.Dispose();
-            retiringRun = null;
             saves.Dispose();
             Changed = null;
         }
@@ -372,10 +396,8 @@ namespace GameLogic.Project
         /// <param name="candidate">交易后的独立快照。</param>
         /// <param name="message">成功提示。</param>
         /// <param name="accepted">保存确认后的内存状态更新。</param>
-        /// <param name="followUp">持久化确认后的场景操作。</param>
         /// <returns>持久化确认结果。</returns>
-        private async UniTask<ProjectOperationResult> CommitAsync(ProjectSaveData candidate, string message, Action accepted = null,
-            PendingFollowUp followUp = PendingFollowUp.None)
+        private async UniTask<ProjectOperationResult> CommitAsync(ProjectSaveData candidate, string message, Action accepted = null)
         {
             if (disposed || pending != null || saving) return new ProjectOperationResult(false, "上一操作尚未保存。");
             string invalid = ProjectSaveData.Validate(candidate);
@@ -383,7 +405,6 @@ namespace GameLogic.Project
             pending = candidate;
             pendingMessage = message;
             pendingAccepted = accepted;
-            pendingFollowUp = followUp;
             pendingMarked = false;
             pendingRevision = 0;
             saving = true;
@@ -431,70 +452,10 @@ namespace GameLogic.Project
             pendingAccepted = null;
             pendingMarked = false;
             pendingRevision = 0;
-            pendingFollowUp = PendingFollowUp.None;
             accepted?.Invoke();
             displayedStamina = profile.Stamina;
             Changed?.Invoke();
             return new ProjectOperationResult(true, pendingMessage);
-        }
-
-        /// <summary>
-        /// 进入已经持久化入场扣费的关卡，场景异常时恢复入场资源。
-        /// </summary>
-        /// <returns>是否成功进入战斗场景。</returns>
-        private async UniTask<bool> EnterPreparedRunAsync()
-        {
-            if (CurrentRun == null || disposed) return false;
-            changingScene = true;
-            bool entered = false;
-            try
-            {
-                await GameEntry.Get<ISceneModule>().ChangeSceneAsync(ProjectServices.BattleSceneName);
-                entered = GameEntry.Get<ISceneModule>().CurrentScene?.Name == ProjectServices.BattleSceneName;
-            }
-            catch (Exception error)
-            {
-                GameEntry.Get<ILogModule>()?.Error("ProjectSession", "进入关卡失败：" + error.Message);
-            }
-            finally
-            {
-                changingScene = false;
-                Changed?.Invoke();
-            }
-            if (!entered) await RecoverInterruptedRunAsync("进入关卡失败");
-            return entered;
-        }
-
-        /// <summary>
-        /// 在结算保存后返回局外；失败保留可重试状态并解除场景切换锁。
-        /// </summary>
-        /// <returns>是否已进入局外场景。</returns>
-        private async UniTask<bool> ReturnHomeAsync()
-        {
-            if (disposed) return false;
-            changingScene = true;
-            bool returned = false;
-            try
-            {
-                await GameEntry.Get<ISceneModule>().ChangeSceneAsync(GameLogic.Scaffold.ContentIds.HomeScene);
-                returned = GameEntry.Get<ISceneModule>().CurrentScene?.Name == GameLogic.Scaffold.ContentIds.HomeScene;
-            }
-            catch (Exception error)
-            {
-                GameEntry.Get<ILogModule>()?.Error("ProjectSession", "返回局外失败：" + error.Message);
-            }
-            finally
-            {
-                changingScene = false;
-                needsHomeReturn = !returned;
-                if (returned)
-                {
-                    retiringRun?.Dispose();
-                    retiringRun = null;
-                }
-                Changed?.Invoke();
-            }
-            return returned;
         }
 
         /// <summary>

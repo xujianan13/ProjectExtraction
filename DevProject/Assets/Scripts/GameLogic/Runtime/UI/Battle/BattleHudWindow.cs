@@ -1,5 +1,4 @@
 using System.Collections.Generic;
-using Cysharp.Threading.Tasks;
 using GameFramework;
 using GameLogic.Gameplay.Combat;
 using GameLogic.Gameplay.Expedition;
@@ -16,11 +15,10 @@ namespace GameLogic.UI.Battle
     public sealed class BattleHudWindow : GameWindow
     {
         private ExpeditionRun run;
-        private ProjectSession session;
+        private ProjectRunCoordinator coordinator;
         private UnityEngine.UI.Text interactionLabel;
         private UnityEngine.UI.Text status;
         private UnityEngine.UI.Text hint;
-        private UnityEngine.UI.Button retry;
         private RectTransform map;
         private RectTransform bag;
         private RectTransform bagContent;
@@ -29,7 +27,6 @@ namespace GameLogic.UI.Battle
         private int mapCleared = -1;
         private int bagCount = -1;
         private int safeCount = -1;
-        private bool retrying;
 
         /// <summary>
         /// 建立代码驱动的 HUD 层级，沿用框架的 Canvas 与 EventSystem。
@@ -50,13 +47,11 @@ namespace GameLogic.UI.Battle
             joystick = stick.gameObject.AddComponent<ExpeditionJoystick>();
             var moveLabel = ProjectUiFactory.Label(stick, "移动", 27, TextAnchor.MiddleCenter, Color.white);
             ProjectUiFactory.Stretch(moveLabel.rectTransform, 0);
-            var interact = ProjectUiFactory.ActionButton(content, "交互 / E", () => run?.RequestInteraction());
+            var interact = ProjectUiFactory.ActionButton(content, "交互 / E", RequestInteraction);
             interactionLabel = interact.GetComponentInChildren<UnityEngine.UI.Text>();
             Place((RectTransform)interact.transform, new Vector2(0.69f, 0.07f), new Vector2(0.95f, 0.17f));
             var bagButton = ProjectUiFactory.ActionButton(content, "背包 / 安全箱", ToggleBag);
             Place((RectTransform)bagButton.transform, new Vector2(0.64f, 0.2f), new Vector2(0.95f, 0.28f));
-            retry = ProjectUiFactory.ActionButton(content, "重试结算保存", () => RetrySaveAsync().Forget());
-            Place((RectTransform)retry.transform, new Vector2(0.28f, 0.46f), new Vector2(0.72f, 0.54f));
             bag = ProjectUiFactory.Panel(content, "RunInventory", new Color(0.055f, 0.1f, 0.15f, 0.98f));
             Place(bag, new Vector2(0.06f, 0.3f), new Vector2(0.94f, 0.76f));
             UnityEngine.UI.ScrollRect scroll = ProjectUiFactory.Scroll(bag, "Items", out bagContent);
@@ -74,12 +69,12 @@ namespace GameLogic.UI.Battle
             if (run == null) return;
             joystick.Bind(run.SetTouchMove);
             run.Changed += Refresh;
-            session = ProjectServices.Session;
-            session.Changed += Refresh;
+            coordinator = ProjectServices.Coordinator;
+            if (coordinator != null) coordinator.Changed += Refresh;
             OpenScope.Defer(() =>
             {
                 run.Changed -= Refresh;
-                session.Changed -= Refresh;
+                if (coordinator != null) coordinator.Changed -= Refresh;
                 run.SetTouchMove(Vector2.zero);
             });
             Refresh();
@@ -96,8 +91,6 @@ namespace GameLogic.UI.Battle
                 "\n本局经验 " + run.KillExperience + " · 金币 " + run.AvailableGold;
             hint.text = run.Message;
             interactionLabel.text = run.InteractionLabel;
-            retry.gameObject.SetActive(session.HasPendingSave);
-            retry.interactable = !retrying;
             int cleared = 0;
             foreach (LevelRoomState room in run.Maps.Rooms) if (room.IsCleared) cleared++;
             if (mapRoom != run.Maps.CurrentRoomId || cleared != mapCleared)
@@ -151,6 +144,7 @@ namespace GameLogic.UI.Battle
         /// </summary>
         private void ToggleBag()
         {
+            if (coordinator == null || coordinator.Phase != ProjectRunPhase.Playing) return;
             bag.gameObject.SetActive(!bag.gameObject.activeSelf);
             run?.SetTouchMove(Vector2.zero);
             if (bag.gameObject.activeSelf) RefreshBag();
@@ -172,23 +166,18 @@ namespace GameLogic.UI.Battle
             {
                 string id = item.Id;
                 string label = (run.IsProtected(id) ? "[安全箱] " : "[背包] ") + item.Name + (item.Equipped ? " · 已穿戴" : "");
-                var button = ProjectUiFactory.ActionButton(bagContent, label, () => { run.ToggleSafe(id); RefreshBag(); });
-                button.interactable = run.IsRunning && !item.Equipped;
+                var button = ProjectUiFactory.ActionButton(bagContent, label, () => { if (coordinator?.Phase != ProjectRunPhase.Playing) return; run.ToggleSafe(id); RefreshBag(); });
+                button.interactable = coordinator != null && coordinator.Phase == ProjectRunPhase.Playing && run.IsRunning && !item.Equipped;
                 ProjectUiFactory.Height((RectTransform)button.transform, 65);
             }
         }
 
         /// <summary>
-        /// 重试被冻结的原结算候选。
+        /// 仅在本局游玩阶段提交交互请求。
         /// </summary>
-        /// <returns>重试任务。</returns>
-        private async UniTask RetrySaveAsync()
+        private void RequestInteraction()
         {
-            if (retrying) return;
-            retrying = true;
-            await session.RetryPendingSaveAsync();
-            retrying = false;
-            if (State == GameWindowState.Opened) Refresh();
+            if (coordinator?.Phase == ProjectRunPhase.Playing) run?.RequestInteraction();
         }
 
         /// <summary>

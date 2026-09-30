@@ -2,6 +2,7 @@ using System;
 using System.Threading;
 using Cysharp.Threading.Tasks;
 using GameFramework;
+using GameLogic.Project;
 using UnityEngine.SceneManagement;
 using YooAsset;
 
@@ -10,8 +11,13 @@ namespace GameLogic.Scenes.Home
     /// <summary>
     /// Home逻辑场景；内容和玩法均由本轮进入持有。
     /// </summary>
-    public sealed class HomeScene : SceneBase
+    public sealed class HomeScene : SceneBase, IProjectHomeReady
     {
+        /// <summary>
+        /// 当前内容、玩法和窗口是否已经完成绑定。
+        /// </summary>
+        public bool IsReady { get; private set; }
+
         private LifetimeScope ownedScope;
         private IGameplayModule gameplays;
         private GameplayHandle gameplayHandle;
@@ -34,6 +40,7 @@ namespace GameLogic.Scenes.Home
         /// <returns>场景进入任务。</returns>
         protected override async UniTask OnEnterSceneAsync(SceneEnterData enterData, CancellationToken ct)
         {
+            IsReady = false;
             LifetimeScope scope = SceneScope;
             ownedScope = scope;
             bool entered = false;
@@ -62,8 +69,11 @@ namespace GameLogic.Scenes.Home
                 gameplayHandle = started;
                 if (!ReferenceEquals(ownedScope, scope) || !scope.IsActive) return;
                 ui = GameEntry.Get<IUIModule>();
-                await ui.OpenWindowAsync(GameLogic.Scaffold.ContentIds.HomeWindow, ct: ct);
+                if (await ui.OpenWindowAsync(GameLogic.Scaffold.ContentIds.HomeWindow, ct: ct) == null)
+                    throw new InvalidOperationException("无法创建 Home 主界面。");
                 openedWindow = true;
+                if (!ReferenceEquals(ownedScope, scope) || !scope.IsActive) return;
+                IsReady = true;
                 entered = true;
             }
             finally
@@ -84,6 +94,7 @@ namespace GameLogic.Scenes.Home
         /// </summary>
         protected override void OnForceExit()
         {
+            IsReady = false;
             GameplayHandle handle = gameplayHandle;
             IGameplayModule currentGameplays = gameplays;
             PrefabInstance currentInstance = instance;
@@ -139,6 +150,7 @@ namespace GameLogic.Scenes.Home
         private async UniTask CleanupAsync(LifetimeScope scope)
         {
             if (!ReferenceEquals(ownedScope, scope)) return;
+            IsReady = false;
             GameplayHandle handle = gameplayHandle;
             IGameplayModule currentGameplays = gameplays;
             PrefabInstance currentInstance = instance;

@@ -2,6 +2,7 @@ using GameFramework;
 using GameLogic.Project;
 using GameLogic.Scenes.Expedition;
 using GameLogic.UI.Battle;
+using GameLogic.UI.Run;
 using GameLogic.UI.Warehouse;
 using GameLogic.UI.Skills;
 using UnityEngine;
@@ -32,12 +33,16 @@ namespace GameLogic.Scaffold
             {
                 CreateProjectWindow<WarehouseWindow>(2101, "Warehouse", GameUILayers.Popup, true),
                 CreateProjectWindow<SkillsWindow>(2102, "Skills", GameUILayers.Popup, true),
-                CreateProjectWindow<BattleHudWindow>(ProjectServices.BattleHudWindow, "BattleHud", GameUILayers.Hud, false)
+                CreateProjectWindow<BattleHudWindow>(ProjectServices.BattleHudWindow, "BattleHud", GameUILayers.Hud, false),
+                CreateProjectWindow<RunTransitionWindow>(2300, "RunTransition", GameUILayers.Guide, false, GameWindowScope.Global),
+                CreateProjectWindow<RunResultWindow>(2301, "RunResult", GameUILayers.Popup, false, GameWindowScope.Global)
             }, registry =>
             {
                 registry.Register<WarehouseWindow>(2101);
                 registry.Register<SkillsWindow>(2102);
                 registry.Register<BattleHudWindow>(ProjectServices.BattleHudWindow);
+                registry.Register<RunTransitionWindow>(2300);
+                registry.Register<RunResultWindow>(2301);
             });
             projectUi = ui;
             GameEntry.ApplicationScope.Defer(() => { projectScenes = null; projectUi = null; });
@@ -51,9 +56,10 @@ namespace GameLogic.Scaffold
         /// <param name="name">窗口名称。</param>
         /// <param name="layer">框架渲染层。</param>
         /// <param name="modal">是否启用模态遮罩。</param>
-        /// <returns>场景作用域窗口配置。</returns>
-        private static GameWindowConfig CreateProjectWindow<T>(int id, string name, int layer, bool modal) where T : GameWindow
-            => new(id, name, typeof(T).FullName, "", layer, GameWindowScope.Scene, GameWindowCacheMode.Immediate,
+        /// <param name="scope">窗口生命周期作用域。</param>
+        /// <returns>项目窗口配置。</returns>
+        private static GameWindowConfig CreateProjectWindow<T>(int id, string name, int layer, bool modal, GameWindowScope scope = GameWindowScope.Scene) where T : GameWindow
+            => new(id, name, typeof(T).FullName, "", layer, scope, GameWindowCacheMode.Immediate,
                 0, false, modal, new Color(0, 0, 0, 0.7f));
     }
 }

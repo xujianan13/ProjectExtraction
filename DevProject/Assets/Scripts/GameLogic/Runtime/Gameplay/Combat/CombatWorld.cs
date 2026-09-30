@@ -307,8 +307,9 @@ namespace GameLogic.Gameplay.Combat
         /// 根据真实经过时间补走固定的六十分之一秒战斗帧。
         /// </summary>
         /// <param name="deltaTime">真实经过的秒数。</param>
+        /// <param name="afterTick">每个完整 tick 后的回调；返回假时停止本次剩余推进。</param>
         /// <returns>本次完成的逻辑帧数量。</returns>
-        public int Advance(float deltaTime)
+        public int Advance(float deltaTime, Func<bool> afterTick = null)
         {
             if (faulted || float.IsNaN(deltaTime) || float.IsInfinity(deltaTime) || deltaTime < 0f) return 0;
             accumulator += deltaTime;
@@ -317,10 +318,17 @@ namespace GameLogic.Gameplay.Combat
             {
                 accumulator -= TickSeconds;
                 Step();
+                if (faulted) break;
                 stepped++;
+                if (afterTick != null && !afterTick()) break;
             }
             return stepped;
         }
+
+        /// <summary>
+        /// 清除尚未执行的累计时间，避免暂停或终局后补跑战斗。
+        /// </summary>
+        public void ClearPendingTime() => accumulator = 0;
 
         /// <summary>
         /// 查询角色状态快照。

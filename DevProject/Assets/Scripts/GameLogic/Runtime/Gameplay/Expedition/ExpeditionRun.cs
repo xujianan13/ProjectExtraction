@@ -33,6 +33,8 @@ namespace GameLogic.Gameplay.Expedition
         private readonly HashSet<string> protectedItems = new();
         private readonly List<ExpeditionDrop> drops = new();
         private bool disposed;
+        private bool stopped;
+        private bool paused;
         private bool interactionRequested;
         private Vector2 touchMove;
 
@@ -40,15 +42,18 @@ namespace GameLogic.Gameplay.Expedition
         public event Action<CombatEvent> CombatEventPublished;
         public string RunId { get; }
         public int LevelId { get; }
+        public int Seed => Maps.Seed;
         public LevelRunState Maps { get; }
         public CombatWorld World { get; }
         public CombatEntityRef Player { get; }
         public LevelRoomView RoomView { get; private set; }
         public LevelRoomLayout Layout { get; } = new();
-        public bool IsRunning { get; private set; } = true;
+        public bool IsReady { get; private set; }
+        public bool IsRunning { get; private set; }
         public int KillExperience { get; private set; }
         public int GoldSpent { get; private set; }
         public int AvailableGold => session.Gold - GoldSpent;
+        private bool CanInteract => IsRunning && IsReady && !paused && !disposed && !stopped && !session.HasPendingSave && !GameEntry.IsInBackground;
         public string Message { get; private set; } = "移动靠近敌人自动攻击；靠近出口或物品后交互。";
         public IReadOnlyList<ProjectItem> Inventory => inventory;
         public IReadOnlyList<ExpeditionDrop> Drops => drops;
@@ -101,10 +106,22 @@ namespace GameLogic.Gameplay.Expedition
         /// <param name="items">入场装备快照。</param>
         /// <param name="run">创建成功的单局。</param>
         /// <returns>图和战斗玩家均创建成功时为真。</returns>
-        public static bool TryCreate(ProjectSession session, string runId, int levelId, List<ProjectItem> items, out ExpeditionRun run)
+        public static bool TryCreate(ProjectSession session, string runId, int levelId, List<ProjectItem> items, out ExpeditionRun run) =>
+            TryCreate(session, runId, levelId, Guid.NewGuid().GetHashCode(), items, out run);
+
+        /// <summary>
+        /// 使用指定种子生成关卡并准备未激活单局。
+        /// </summary>
+        /// <param name="session">项目会话。</param>
+        /// <param name="runId">单局身份。</param>
+        /// <param name="levelId">关卡配置。</param>
+        /// <param name="seed">本局随机种子。</param>
+        /// <param name="items">入场装备快照。</param>
+        /// <param name="run">创建成功的单局。</param>
+        /// <returns>图和战斗玩家均创建成功时为真。</returns>
+        public static bool TryCreate(ProjectSession session, string runId, int levelId, int seed, List<ProjectItem> items, out ExpeditionRun run)
         {
             run = null;
-            int seed = Guid.NewGuid().GetHashCode();
             if (!LevelGenerator.TryGenerate(seed, out LevelRunState maps)) return false;
             var created = new ExpeditionRun(session, runId, levelId, maps, items);
             if (created.Player.Id == 0)
@@ -121,24 +138,96 @@ namespace GameLogic.Gameplay.Expedition
         /// </summary>
         public void AttachScene()
         {
-            if (disposed || RoomView != null) return;
+            if (disposed || stopped || RoomView != null) return;
             RoomView = LevelRoomView.Create(CurrentRoom);
+            if (RoomView == null) return;
             SpawnRoomEnemies(CurrentRoom);
             Changed?.Invoke();
         }
 
         /// <summary>
-        /// 在唯一玩法更新入口推进模拟，并在完整 tick 后处理物品和换图。
+        /// 在地图、玩法和界面全部建立后声明场景就绪。
+        /// </summary>
+        /// <returns>场景内容完整且可以等待激活时为真。</returns>
+        public bool MarkReady()
+        {
+            if (disposed || stopped || RoomView == null) return false;
+            IsReady = true;
+            return true;
+        }
+
+        /// <summary>
+        /// 在入场 Running 记录确认后开放玩法模拟。
+        /// </summary>
+        /// <returns>当前单局满足激活条件时为真。</returns>
+        public bool Activate()
+        {
+            if (disposed || stopped || !IsReady) return false;
+            IsRunning = true;
+            paused = false;
+            World.ClearPendingTime();
+            return true;
+        }
+
+        /// <summary>
+        /// 暂停或恢复本局模拟，暂停时间不进入战斗累计器。
+        /// </summary>
+        /// <param name="value">是否暂停。</param>
+        public void SetPaused(bool value)
+        {
+            paused = value;
+            if (!value) return;
+            touchMove = Vector2.zero;
+            interactionRequested = false;
+            World.ClearPendingTime();
+            World.SetMove(Player, Vector2.zero);
+        }
+
+        /// <summary>
+        /// 释放场景表现和地图视图，不释放单局战斗世界。
+        /// </summary>
+        public void DetachScene()
+        {
+            Stop();
+            IsReady = false;
+            RoomView?.Dispose();
+            RoomView = null;
+        }
+
+        /// <summary>
+        /// 在唯一玩法更新入口推进模拟，每个完整 tick 后立即仲裁终局。
         /// </summary>
         /// <param name="deltaTime">本帧模拟秒数。</param>
         public void Advance(float deltaTime)
         {
-            if (!IsRunning || disposed || RoomView == null || session.HasPendingSave) return;
+            if (!IsRunning || !IsReady || paused || disposed || RoomView == null || session.HasPendingSave || GameEntry.IsInBackground)
+            {
+                World.ClearPendingTime();
+                if (GameEntry.IsInBackground) SetPaused(true);
+                return;
+            }
             IInputModule input = GameEntry.Get<IInputModule>();
             Vector2 movement = input.GetVector2("Gameplay/Move");
             if (touchMove.sqrMagnitude > movement.sqrMagnitude) movement = touchMove;
             World.SetMove(Player, movement);
-            World.Advance(deltaTime);
+            bool interact = interactionRequested || input.GetButton("Gameplay/Interact").PressedThisFrame;
+            World.Advance(deltaTime, () =>
+            {
+                bool continueRunning = CompleteTick(interact);
+                interact = false;
+                interactionRequested = false;
+                return continueRunning;
+            });
+            if (World.Faulted && IsRunning) HandleFault("战斗世界异常，正在处理中断的单局。");
+        }
+
+        /// <summary>
+        /// 处理一个完整 tick 的事实、终局和玩家交互。
+        /// </summary>
+        /// <param name="interact">该 tick 是否接收玩家交互。</param>
+        /// <returns>可以继续执行本帧剩余 tick 时为真。</returns>
+        private bool CompleteTick(bool interact)
+        {
             events.Clear();
             World.DrainEvents(events);
             bool playerDied = false;
@@ -161,45 +250,77 @@ namespace GameLogic.Gameplay.Expedition
                     room.MarkCleared();
             }
             RoomView.Refresh();
-            if (playerDied)
-            {
-                Stop();
-                session.FinishRunAsync(false).Forget();
-                Changed?.Invoke();
-                return;
-            }
-            if (World.Faulted)
-            {
-                Stop();
-                Message = "战斗异常，正在恢复入场装备和体力。";
-                session.RecoverInterruptedRunAsync(Message).Forget();
-                Changed?.Invoke();
-                return;
-            }
+            if (World.Faulted) { HandleFault("战斗世界异常，正在处理中断的单局。"); return false; }
+            if (playerDied) { EndRun(false); return false; }
             if (World.TryGetActor(Player, out CombatActorSnapshot player))
             {
                 UpdateInteractionLabel(player.Position);
                 if (RoomView.TryGetInteractionNear(player.Position, out LevelInteractionKind kind) && kind == LevelInteractionKind.Extraction)
-                {
-                    Stop();
-                    session.FinishRunAsync(true).Forget();
-                }
-                else if (interactionRequested || input.GetButton("Gameplay/Interact").PressedThisFrame) Interact(player.Position);
+                { EndRun(true); return false; }
+                if (interact) Interact(player.Position);
             }
-            interactionRequested = false;
             Changed?.Invoke();
+            return IsRunning;
+        }
+
+        /// <summary>
+        /// 冻结正常终局并请求统一流程接收。
+        /// </summary>
+        /// <param name="extracted">是否成功撤离。</param>
+        private void EndRun(bool extracted)
+        {
+            Stop();
+            Changed?.Invoke();
+            if (ProjectServices.Coordinator?.TryEndRun(this, extracted) != true)
+            {
+                string reason = "终局未被流程接收，正在处理中断的单局。";
+                GameEntry.Get<ILogModule>()?.Error("Expedition", reason);
+                RecoverAfterTickAsync(reason).Forget();
+            }
+        }
+
+        /// <summary>
+        /// 冻结故障状态，并在战斗调用栈退出后转交中断恢复。
+        /// </summary>
+        /// <param name="reason">可展示的故障原因。</param>
+        private void HandleFault(string reason)
+        {
+            Stop();
+            Message = reason;
+            Changed?.Invoke();
+            RecoverAfterTickAsync(reason).Forget();
+        }
+
+        /// <summary>
+        /// 等待模拟调用栈退出后通知流程处理故障。
+        /// </summary>
+        /// <param name="reason">故障原因。</param>
+        /// <returns>中断恢复任务。</returns>
+        private async UniTask RecoverAfterTickAsync(string reason)
+        {
+            await UniTask.Yield();
+            if (disposed || !ReferenceEquals(ProjectServices.Session?.CurrentRun, this) ||
+                ProjectServices.Session.ActiveRunId != RunId) return;
+            if (ProjectServices.Coordinator != null) await ProjectServices.Coordinator.RecoverInterruptedRunAsync(reason);
         }
 
         /// <summary>
         /// 提交触屏移动轴，松手时传入零向量。
         /// </summary>
         /// <param name="axis">归一化摇杆输入。</param>
-        public void SetTouchMove(Vector2 axis) => touchMove = Vector2.ClampMagnitude(axis, 1);
+        public void SetTouchMove(Vector2 axis)
+        {
+            if (!CanInteract) return;
+            touchMove = Vector2.ClampMagnitude(axis, 1);
+        }
 
         /// <summary>
         /// 将 UI 交互请求延迟到战斗 tick 收束之后。
         /// </summary>
-        public void RequestInteraction() => interactionRequested = true;
+        public void RequestInteraction()
+        {
+            if (CanInteract) interactionRequested = true;
+        }
 
         /// <summary>
         /// 切换战利品的安全箱保护；已穿戴物品须先在后续装备界面卸下。
@@ -208,7 +329,7 @@ namespace GameLogic.Gameplay.Expedition
         /// <returns>是否已经改变保护状态。</returns>
         public bool ToggleSafe(string itemId)
         {
-            if (!IsRunning) return false;
+            if (!CanInteract) return false;
             ProjectItem item = inventory.Find(value => value.Id == itemId);
             if (item == null || item.Equipped) return false;
             if (protectedItems.Remove(itemId)) { Changed?.Invoke(); return true; }
@@ -239,11 +360,35 @@ namespace GameLogic.Gameplay.Expedition
         }
 
         /// <summary>
+        /// 为已停止的单局创建独立的终局数据快照。
+        /// </summary>
+        /// <param name="extracted">是否成功撤离。</param>
+        /// <returns>包含全部持有物品和安全箱身份的终局快照。</returns>
+        public ProjectRunOutcome CreateOutcome(bool extracted)
+        {
+            if (!stopped || disposed) return null;
+            var outcome = new ProjectRunOutcome
+            {
+                RunId = RunId, LevelId = LevelId, Seed = Seed, RulesVersion = ProjectRunRecordRules.RulesVersion,
+                Tick = World.TickIndex, ElapsedSeconds = World.TickIndex * CombatWorld.TickSeconds,
+                Extracted = extracted, KillExperience = KillExperience,
+                AwardedKillExperience = extracted || PrototypeRules.KeepKillExperienceOnDeath ? KillExperience : 0,
+                ExtractionExperience = extracted ? PrototypeRules.ExtractionExperience : 0,
+                GoldSpent = GoldSpent, Items = new List<ProjectItem>(), SafeItemIds = new List<string>(protectedItems)
+            };
+            foreach (ProjectItem item in inventory) outcome.Items.Add(item.Copy());
+            outcome.SafeItemIds.Sort(StringComparer.Ordinal);
+            return outcome;
+        }
+
+        /// <summary>
         /// 冻结战斗和输入，等待唯一结算结果。
         /// </summary>
         public void Stop()
         {
+            stopped = true;
             IsRunning = false;
+            World.ClearPendingTime();
             touchMove = Vector2.zero;
             interactionRequested = false;
         }
@@ -256,8 +401,7 @@ namespace GameLogic.Gameplay.Expedition
             if (disposed) return;
             disposed = true;
             Stop();
-            RoomView?.Dispose();
-            RoomView = null;
+            DetachScene();
             World.Dispose();
             Changed = null;
             CombatEventPublished = null;
@@ -289,6 +433,7 @@ namespace GameLogic.Gameplay.Expedition
         /// <param name="position">玩家权威位置。</param>
         private void Interact(Vector3 position)
         {
+            if (!CanInteract) return;
             if (RoomView.TryGetExitNear(position, out RoomDirection direction)) { ChangeRoom(direction); return; }
             foreach (ExpeditionDrop drop in drops)
             {
@@ -324,6 +469,7 @@ namespace GameLogic.Gameplay.Expedition
         /// <param name="direction">当前出口方向。</param>
         private void ChangeRoom(RoomDirection direction)
         {
+            if (!CanInteract) return;
             if (!Maps.TryGetDestination(direction, out int destination) || !Maps.TryGetRoom(destination, out LevelRoomState room)) return;
             LevelRoomView prepared = LevelRoomView.Create(room);
             if (prepared == null) { Message = "目标地图准备失败。"; return; }
@@ -335,7 +481,7 @@ namespace GameLogic.Gameplay.Expedition
             {
                 prepared.Dispose();
                 Stop();
-                session.RecoverInterruptedRunAsync("地图切换失败，已恢复入场装备和体力。").Forget();
+                RecoverAfterTickAsync("地图切换失败，正在处理中断的单局。").Forget();
                 return;
             }
             LevelRoomView previous = RoomView;

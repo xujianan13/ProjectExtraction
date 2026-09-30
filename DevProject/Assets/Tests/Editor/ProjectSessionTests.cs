@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using GameLogic.Project;
 using NUnit.Framework;
 
@@ -33,6 +33,7 @@ namespace ProjectExtraction.Tests
             committed.Warehouse.Clear();
             committed.Stamina = 90;
             committed.ActiveRunId = "run-1";
+            committed.Stage = ProjectRunStage.Running;
             committed.ActiveRunEntryCost = 10;
             committed.EntryItems.Add(original);
             Assert.IsNull(ProjectSaveData.Validate(committed));
@@ -67,6 +68,7 @@ namespace ProjectExtraction.Tests
             candidate.Warehouse.Clear();
             candidate.EntryItems.Add(new ProjectItem { Id = "entry", Name = "旧入场装备", Type = ProjectItemType.Weapon, RequiredLevel = 1 });
             candidate.ActiveRunId = "legacy";
+            candidate.Stage = ProjectRunStage.Running;
             candidate.Stamina = 80;
             Assert.IsTrue(ProjectProfileRules.TryRecoverInterruptedRun(candidate, ""));
             Assert.AreEqual(80 + PrototypeRules.EntryCost, candidate.Stamina);

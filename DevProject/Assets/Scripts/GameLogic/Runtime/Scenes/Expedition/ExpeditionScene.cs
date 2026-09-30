@@ -28,13 +28,20 @@ namespace GameLogic.Scenes.Expedition
         /// <returns>场景准备任务。</returns>
         protected override async UniTask OnEnterSceneAsync(SceneEnterData enterData, CancellationToken ct)
         {
-            run = ProjectServices.Session?.CurrentRun;
-            if (run == null)
-            {
-                throw new System.InvalidOperationException("没有已提交的单局，拒绝进入战斗场景。");
-            }
+            ExpeditionRun current = ProjectServices.Session?.CurrentRun;
+            if (enterData is not ProjectRunEnterData request || current == null ||
+                request.RunId != current.RunId || request.LevelId != current.LevelId ||
+                request.OperationId != ProjectServices.Coordinator?.OperationId)
+                throw new System.InvalidOperationException("关卡场景入参与当前单局不匹配。");
+            run = current;
             LifetimeScope scope = SceneScope;
+            scope.Defer(() =>
+            {
+                if (gameplay.IsValid) GameEntry.Get<IGameplayModule>().Stop(gameplay);
+                Cleanup();
+            });
             run.AttachScene();
+            if (run.RoomView == null) throw new System.InvalidOperationException("首张地图准备失败。");
             presentation = new ExpeditionPresentation(run);
             var inputContext = GameEntry.Get<IInputModule>().PushContext("Gameplay");
             scope.Defer(inputContext.Dispose);
@@ -45,16 +52,20 @@ namespace GameLogic.Scenes.Expedition
                 gameplay = GameplayHandle.Invalid;
                 return;
             }
-            await GameEntry.Get<IUIModule>().OpenWindowAsync(ProjectServices.BattleHudWindow, new GameWindowOpenArgs(run), ct);
+            GameWindow hud = await GameEntry.Get<IUIModule>().OpenWindowAsync(ProjectServices.BattleHudWindow, new GameWindowOpenArgs(run), ct);
+            if (hud == null || !gameplay.IsValid || !scope.IsActive || !ReferenceEquals(ProjectServices.Session?.CurrentRun, run) ||
+                request.OperationId != ProjectServices.Coordinator?.OperationId || !run.MarkReady())
+                throw new System.InvalidOperationException("关卡内容或 HUD 未能完成准备。");
         }
 
         /// <summary>
-        /// 先停止模拟和界面，再释放场景表现与战斗数据。
+        /// 先停止模拟和界面，再释放本场景表现。
         /// </summary>
         /// <param name="ct">退出阶段取消令牌。</param>
         /// <returns>退出任务。</returns>
         protected override async UniTask OnExitSceneAsync(CancellationToken ct)
         {
+            run?.Stop();
             await GameEntry.Get<IUIModule>().CloseWindowAsync(ProjectServices.BattleHudWindow, GameWindowCloseReason.ScopeExit);
             if (gameplay.IsValid) await GameEntry.Get<IGameplayModule>().StopAsync(gameplay);
             Cleanup();
@@ -65,6 +76,7 @@ namespace GameLogic.Scenes.Expedition
         /// </summary>
         protected override void OnForceExit()
         {
+            run?.Stop();
             if (gameplay.IsValid) GameEntry.Get<IGameplayModule>().Stop(gameplay);
             Cleanup();
         }
@@ -77,7 +89,7 @@ namespace GameLogic.Scenes.Expedition
             gameplay = GameplayHandle.Invalid;
             presentation?.Dispose();
             presentation = null;
-            run?.Dispose();
+            run?.DetachScene();
             run = null;
         }
     }

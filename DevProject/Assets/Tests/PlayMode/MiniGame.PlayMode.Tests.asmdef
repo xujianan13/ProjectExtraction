@@ -5,7 +5,8 @@
     "GameFramework",
     "GameLogic",
     "UniTask",
-    "Unity.InputSystem"
+    "Unity.InputSystem",
+    "YooAsset"
   ],
   "includePlatforms": [],
   "excludePlatforms": [],

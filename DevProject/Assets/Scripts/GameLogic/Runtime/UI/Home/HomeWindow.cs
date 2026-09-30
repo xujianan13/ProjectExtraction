@@ -24,7 +24,7 @@ namespace GameLogic.UI.Home
         private UnityEngine.UI.Button warehouseButton;
         private UnityEngine.UI.Button skillsButton;
         private ProjectSession session;
-        private int selectedLevelId = -1;
+        private ProjectRunCoordinator coordinator;
         private bool launching;
         private bool retrying;
 
@@ -96,7 +96,8 @@ namespace GameLogic.UI.Home
         protected override void Open(GameWindowOpenArgs args)
         {
             session = ProjectServices.Session;
-            if (session == null)
+            coordinator = ProjectServices.Coordinator;
+            if (session == null || coordinator == null)
             {
                 feedback.text = "项目数据尚未就绪";
                 startButton.interactable = false;
@@ -107,6 +108,8 @@ namespace GameLogic.UI.Home
             }
             session.Changed += Refresh;
             OpenScope.Defer(() => session.Changed -= Refresh);
+            coordinator.Changed += Refresh;
+            OpenScope.Defer(() => coordinator.Changed -= Refresh);
             session.RefreshClock();
         }
 
@@ -121,17 +124,24 @@ namespace GameLogic.UI.Home
         /// </summary>
         private void Refresh()
         {
-            if (session == null) return;
+            if (session == null || coordinator == null) return;
             progression.text = $"等级 {session.Level}    经验 {session.Experience}/{session.ExperienceToNextLevel}";
             resources.text = $"体力 {session.Stamina}/{session.StaminaCap}    金币 {session.Gold}    钻石 {session.Diamonds}";
             Vector2 maximum = experienceFill.anchorMax;
             maximum.x = Mathf.Clamp01((float)session.Experience / Mathf.Max(1, session.ExperienceToNextLevel));
             experienceFill.anchorMax = maximum;
             ProjectUiFactory.Clear(levelList);
+            int selectedLevelId = coordinator.SelectedLevelId;
             bool selectedExists = false;
             foreach (ProjectLevelOption option in session.Levels)
-                if (option.Id == selectedLevelId) selectedExists = true;
-            if (!selectedExists && session.Levels.Count > 0) selectedLevelId = session.Levels[0].Id;
+                if (option.Id == selectedLevelId && session.Level >= option.RequiredLevel) selectedExists = true;
+            if (!selectedExists)
+            {
+                selectedLevelId = -1;
+                foreach (ProjectLevelOption option in session.Levels)
+                    if (session.Level >= option.RequiredLevel) { selectedLevelId = option.Id; break; }
+            }
+            if (selectedLevelId > 0 && coordinator.SelectedLevelId != selectedLevelId) coordinator.SelectedLevelId = selectedLevelId;
             foreach (ProjectLevelOption option in session.Levels)
             {
                 int id = option.Id;
@@ -144,13 +154,15 @@ namespace GameLogic.UI.Home
             foreach (ProjectLevelOption option in session.Levels)
                 if (option.Id == selectedLevelId) selected = option;
             levelDetails.text = selected == null ? "暂无可选关卡" : selected.Description + (session.Level < selected.RequiredLevel ? "\n等级不足" : string.Empty);
-            bool canStart = selected != null && session.Level >= selected.RequiredLevel && session.Stamina >= PrototypeRules.EntryCost && !session.IsBusy && !launching;
+            bool canStart = selected != null && session.Level >= selected.RequiredLevel && session.Stamina >= PrototypeRules.EntryCost &&
+                coordinator.CanStart && !session.IsBusy && !launching;
             startButton.interactable = canStart;
-            supplyButton.interactable = !session.IsBusy && !launching;
-            warehouseButton.interactable = !session.IsBusy && !launching;
-            skillsButton.interactable = !session.IsBusy && !launching;
+            bool canEdit = coordinator.Phase == ProjectRunPhase.HomeReady && !session.IsBusy && !launching;
+            supplyButton.interactable = canEdit;
+            warehouseButton.interactable = canEdit;
+            skillsButton.interactable = canEdit;
             retryButton.gameObject.SetActive(session.HasPendingSave);
-            retryButton.interactable = session.HasPendingSave && !retrying;
+            retryButton.interactable = session.HasPendingSave && coordinator.Phase == ProjectRunPhase.HomeReady && !retrying && !launching;
             if (!string.IsNullOrEmpty(session.LastRunSummary) && string.IsNullOrEmpty(feedback.text))
                 feedback.text = session.LastRunSummary;
         }
@@ -161,8 +173,8 @@ namespace GameLogic.UI.Home
         /// <param name="id">关卡标识。</param>
         private void SelectLevel(int id)
         {
-            selectedLevelId = id;
-            Refresh();
+            if (coordinator == null || coordinator.Phase != ProjectRunPhase.HomeReady) return;
+            coordinator.SelectedLevelId = id;
         }
 
         /// <summary>
@@ -171,13 +183,13 @@ namespace GameLogic.UI.Home
         /// <returns>异步操作。</returns>
         private async UniTaskVoid StartRunAsync()
         {
-            if (session == null || session.IsBusy || launching || !startButton.interactable) return;
+            if (session == null || coordinator == null || session.IsBusy || launching || !startButton.interactable) return;
             launching = true;
             Refresh();
-            bool started = await session.StartRunAsync(selectedLevelId);
+            bool started = await coordinator.StartRunAsync(coordinator.SelectedLevelId);
             if (Root == null || State != GameWindowState.Opened) return;
             launching = false;
-            feedback.text = started ? "已开始出战" : "出战未完成，请检查等级与体力";
+            feedback.text = started ? "已开始出战" : coordinator.Message;
             Refresh();
         }
 

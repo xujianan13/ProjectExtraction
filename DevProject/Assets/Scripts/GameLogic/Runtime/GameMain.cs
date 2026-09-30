@@ -37,7 +37,8 @@ namespace GameLogic
             ProjectScaffoldBridge.Register(GameEntry.Get<ISceneModule>(), GameEntry.Get<IUIModule>());
             if (string.IsNullOrWhiteSpace(ProjectScaffoldBridge.StartupScene) || !string.IsNullOrWhiteSpace(settings.StartupSceneLocation))
                 throw new InvalidOperationException("最小项目需要唯一的脚手架逻辑首场景。");
-            await ProjectScaffoldBridge.StartAsync(ct);
+            await GameLogic.Project.ProjectServices.Coordinator.InitializeAsync();
+            ct.ThrowIfCancellationRequested();
             if (!GameStartupCompletion.Register(CompleteStartupAsync))
                 throw new InvalidOperationException("项目启动收尾已经登记。");
         }

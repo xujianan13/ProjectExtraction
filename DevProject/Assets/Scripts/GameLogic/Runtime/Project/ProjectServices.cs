@@ -11,7 +11,11 @@ namespace GameLogic.Project
     {
         public const string BattleSceneName = "Expedition";
         public const int BattleHudWindow = 2200;
+        public const int TransitionWindow = 2300;
+        public const int ResultWindow = 2301;
+        public static ProjectRunCoordinator Coordinator { get; private set; }
         public static ProjectSession Session { get; private set; }
+        private static UnityEngine.GameObject lifecycleObserver;
 
         /// <summary>
         /// 读取玩家存档并绑定当前应用作用域。
@@ -20,13 +24,27 @@ namespace GameLogic.Project
         /// <returns>项目状态是否准备成功。</returns>
         public static async UniTask<bool> InitializeAsync(CancellationToken ct)
         {
+            if (Coordinator != null && !await Coordinator.CloseAsync()) return false;
+            Coordinator = null;
+            if (lifecycleObserver != null) UnityEngine.Object.Destroy(lifecycleObserver);
+            lifecycleObserver = null;
             Session?.Dispose();
             ProjectSession created = await ProjectSession.OpenAsync(ct);
             if (created == null) return false;
             Session = created;
+            var coordinator = new ProjectRunCoordinator(created);
+            Coordinator = coordinator;
+            UnityEngine.GameObject observer = new UnityEngine.GameObject("ProjectRunLifecycle");
+            UnityEngine.Object.DontDestroyOnLoad(observer);
+            observer.AddComponent<ProjectRunLifecycle>();
+            lifecycleObserver = observer;
             GameEntry.ApplicationScope.Defer(() =>
             {
+                coordinator.Dispose();
                 created.Dispose();
+                if (observer != null) UnityEngine.Object.Destroy(observer);
+                if (ReferenceEquals(lifecycleObserver, observer)) lifecycleObserver = null;
+                if (ReferenceEquals(Coordinator, coordinator)) Coordinator = null;
                 if (ReferenceEquals(Session, created)) Session = null;
             });
             return true;
