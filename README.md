@@ -1,10 +1,10 @@
 # ProjectExtraction
 
-3D 搜打撤 + Roguelike 小游戏项目。目标平台为 Mobile、微信小游戏和 PC，优先设计与验证 Mobile、微信小游戏体验，同时适配 PC 输入与屏幕。默认竖屏，兼容横屏；界面采用主 UI 与模态弹窗结构。这些是开发目标，平台适配与玩法尚待实现和验收。
+3D 搜打撤 + Roguelike 小游戏项目。目标平台为 Mobile、微信小游戏和 PC，优先设计与验证 Mobile、微信小游戏体验，同时适配 PC 输入与屏幕。默认竖屏，兼容横屏；界面采用主 UI 与模态弹窗结构。平台目标仍须单独验收。
 
-当前工程由 `UnityMiniGameFramework` 的 `Minimal` 模板创建，是空业务起点：只有空 `Main` 玩法、`Home` 页面窗口及 `Home` 逻辑首场景，没有搜打撤关卡或 Roguelike 规则。项目公司名 `MiniGameStudio`、应用标识 `com.minigamestudio.projectextraction` 是可修改的开发占位。当前不接入广告、付费、联网服务或微信 SDK。
+当前工程由 `UnityMiniGameFramework` 的 `Minimal` 模板创建，已接入主界面、仓库/技能、随机地图、ECS 自动近战和出入场保存的首版代码。使用运行时生成的占位界面与场景内容，具体实现和原型参数见[首版代码实现与验证](docs/project/首版代码实现与验证.md)。项目公司名 `MiniGameStudio`、应用标识 `com.minigamestudio.projectextraction` 是可修改的开发占位。当前不接入广告、付费、联网服务或微信 SDK。
 
-当前玩法方向为近战自动攻击与随机连通地图探索，暂定无需完成当前地图即可前往相连地图。正常撤离带回全部持有物品；死亡丢失安全箱外的入场装备及战利品，安全箱容量由配置决定。技能是局外成长：角色升级获得技能点，在局外提升，已保存技能成长不随物品死亡损失清除。局外增加体力与定时补给，打怪/成功撤离经验推动自动升级，等级约束高级装备穿戴、关卡及局外购买。玩家主要属性为等级、经验、体力、金币、钻石；金币用于常规消费并可通过出售战利品获得，钻石为独立的高级货币，具体产出与高级消费项目单独定义。已确认规则和待定事项见[核心玩法设计](docs/project/核心玩法设计.md)，这些玩法尚未实现。
+当前玩法方向为近战自动攻击与随机连通地图探索，暂定无需完成当前地图即可前往相连地图。正常撤离带回全部持有物品；死亡丢失安全箱外的入场装备及战利品，安全箱容量由配置决定。技能是局外成长：角色升级获得技能点，在局外提升，已保存技能成长不随物品死亡损失清除。局外增加体力与定时补给，打怪/成功撤离经验推动自动升级，等级约束高级装备穿戴、关卡及局外购买。玩家主要属性为等级、经验、体力、金币、钻石；金币用于常规消费并可通过出售战利品获得，钻石为独立的高级货币，具体产出与高级消费项目单独定义。已确认规则和待定事项见[核心玩法设计](docs/project/核心玩法设计.md)；各项落地范围以首版实现记录为准。
 
 ## 打开与运行
 
@@ -32,7 +32,7 @@ Quick 的检查范围和结果文件见[统一验收](docs/framework/统一验�
 | [GameFramework](DevProject/Assets/Scripts/GameFramework/) | 通用框架唯一源码；`package.json` 只是未来导出包的元数据，当前不是已安装的 UPM 框架包。 |
 | [Boot](DevProject/Assets/Scripts/Boot/) | 固定启动代码，包括 `HotUpdateBootstrap`。 |
 | [GameLogic](DevProject/Assets/Scripts/GameLogic/) | 游戏热更程序与后续玩法代码；[GameMain.cs](DevProject/Assets/Scripts/GameLogic/Runtime/GameMain.cs) 是当前入口。 |
-| [GameResources](DevProject/Assets/GameResources/) | YooAsset `GamePackage` 热更内容源；当前包含空 `Main` 玩法、`Home` 窗口与逻辑场景。 |
+| [GameResources](DevProject/Assets/GameResources/) | YooAsset `GamePackage` 热更内容源；保留 `Main`、`Home` 模板资源，战斗场景和新增界面由项目代码构建。 |
 | [Framework.prefab](DevProject/Assets/Resources/Framework.prefab) | 固定且不可热更的通用框架启动资产。 |
 | [config/excel](config/excel/) 与 [tool](tool/) | Excel 源表及导表工具；生成数据和代码分别进入 `GameResources/Config/Tables` 与 `GameLogic/Runtime/Gen`。 |
 
@@ -46,9 +46,9 @@ Quick 的检查范围和结果文件见[统一验收](docs/framework/统一验�
 - [玩家主要属性与货币设计](docs/project/玩家主要属性与货币设计.md)：五项主要属性、金币/钻石定位、买卖与存档边界。
 - [技能成长设计](docs/project/技能成长设计.md)：升级技能点与局外提升规则。
 - [关卡与地图设计](docs/project/关卡与地图设计.md)：随机连通地图、未清图自由往返、回访状态与撤离建议。
-- [ECS 战斗框架设计](docs/project/战斗框架设计.md)：统一效果执行、技能时间轴、飞弹和 Buff，包含固定时序与跨图状态；当前仅为设计，尚未实现。
+- [ECS 战斗框架设计](docs/project/战斗框架设计.md)：统一效果执行、技能时间轴、飞弹和 Buff，包含固定时序与跨图状态；首版实现与验证范围见[首版代码实现与验证](docs/project/首版代码实现与验证.md)。
 - [主界面设计](docs/project/主界面设计.md)：顶部五项属性、底部仓库与技能入口。
-- [玩法模块与迭代计划](docs/project/玩法模块与迭代计划.md)：9 个玩法模块的设计入口、职责边界、验收条件和迭代顺序，当前尚未实现。
+- [玩法模块与迭代计划](docs/project/玩法模块与迭代计划.md)：9 个玩法模块的设计入口、职责边界、验收条件和迭代顺序，当前按模块逐步实现。
 - [AI 开发入口](docs/framework/AI开发入口.md)、[脚手架使用指南](docs/framework/AI开发脚手架使用指南.md)与 [API 索引](docs/framework/api/README.md)：新增玩法、窗口和场景的入口；使用现有 API 时以实际源码和签名为准。
 - [新项目复用](docs/framework/新项目复用.md)与[资源依赖清单](docs/framework/新项目资源与依赖清单.md)：Minimal 模板的生成流程、固定资产和依赖；其中源框架的历史验证记录仅供参考。
 - [热更启动流程](docs/framework/热更启动流程.md)、[Excel 数据表](docs/framework/Excel数据表.md)与[UI 系统](docs/framework/UI系统.md)：对应系统的配置和开发说明。

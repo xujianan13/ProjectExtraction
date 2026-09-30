@@ -1,48 +1,232 @@
 using Cysharp.Threading.Tasks;
 using GameFramework;
-using UnityEngine.UI;
+using GameLogic.Project;
+using GameLogic.UI.Common;
+using UnityEngine;
 
 namespace GameLogic.UI.Home
 {
     /// <summary>
-    /// Home窗口逻辑；显示组件保存在资源 Prefab 中。
+    /// 局外主界面，读取项目会话并导航至仓库和技能窗口。
     /// </summary>
     public sealed class HomeWindow : GameWindow
     {
-        private Text title;
-        private Button closeButton;
+        private RectTransform legacyPanel;
+        private RectTransform levelList;
+        private UnityEngine.UI.Text progression;
+        private UnityEngine.UI.Text resources;
+        private RectTransform experienceFill;
+        private UnityEngine.UI.Text levelDetails;
+        private UnityEngine.UI.Text feedback;
+        private UnityEngine.UI.Button startButton;
+        private UnityEngine.UI.Button retryButton;
+        private UnityEngine.UI.Button supplyButton;
+        private UnityEngine.UI.Button warehouseButton;
+        private UnityEngine.UI.Button skillsButton;
+        private ProjectSession session;
+        private int selectedLevelId = -1;
+        private bool launching;
+        private bool retrying;
 
         /// <summary>
-        /// 绑定窗口必需组件。
+        /// 查找现有 Home Prefab 宿主。
         /// </summary>
         protected override void BindComponents()
         {
-            title = FindRequired<Text>("Panel/Title");
-            closeButton = FindRequired<Button>("Panel/CloseButton");
+            Transform panel = RootTransform.Find("Panel");
+            if (panel != null)
+            {
+                legacyPanel = panel as RectTransform;
+                Transform title = panel.Find("Title");
+                if (title != null) ProjectUiFactory.UseFont(title.GetComponent<UnityEngine.UI.Text>()?.font);
+            }
         }
 
         /// <summary>
-        /// 每轮打开登记按钮监听。
+        /// 构建安全区内的主界面。
         /// </summary>
-        /// <param name="args">打开参数。</param>
+        protected override void Init()
+        {
+            if (legacyPanel != null) legacyPanel.gameObject.SetActive(false);
+            RectTransform surface = ProjectUiFactory.Fill(RootTransform, "HomeContent", new Color(0.04f, 0.08f, 0.12f, 1f));
+            RectTransform header = ProjectUiFactory.Vertical(surface, "Header", 12f);
+            SetArea(header, new Vector2(0f, 0.77f), Vector2.one, new Vector2(24f, -16f), new Vector2(-24f, -10f));
+            progression = ProjectUiFactory.Label(header, string.Empty, 31, TextAnchor.MiddleLeft, Color.white);
+            ProjectUiFactory.Height(progression.rectTransform, 62f);
+            RectTransform experienceBar = ProjectUiFactory.Panel(header, "ExperienceBar", new Color(0.14f, 0.25f, 0.3f, 1f));
+            ProjectUiFactory.Height(experienceBar, 14f);
+            experienceFill = ProjectUiFactory.Panel(experienceBar, "Fill", new Color(0.42f, 0.78f, 0.84f, 1f));
+            experienceFill.anchorMin = Vector2.zero;
+            experienceFill.anchorMax = Vector2.one;
+            experienceFill.offsetMin = Vector2.zero;
+            experienceFill.offsetMax = Vector2.zero;
+            resources = ProjectUiFactory.Label(header, string.Empty, 23, TextAnchor.MiddleLeft, new Color(0.76f, 0.9f, 0.95f));
+            ProjectUiFactory.Height(resources.rectTransform, 70f);
+            supplyButton = ProjectUiFactory.ActionButton(header, "领取补给", () => ClaimSupplyAsync().Forget());
+            ProjectUiFactory.Height(supplyButton.GetComponent<RectTransform>(), 48f);
+
+            RectTransform body = ProjectUiFactory.Vertical(surface, "Main", 14f);
+            SetArea(body, new Vector2(0f, 0.2f), new Vector2(1f, 0.75f), new Vector2(24f, 0f), new Vector2(-24f, 0f));
+            UnityEngine.UI.Text heading = ProjectUiFactory.Label(body, "选择关卡", 32, TextAnchor.MiddleLeft, Color.white);
+            ProjectUiFactory.Height(heading.rectTransform, 56f);
+            UnityEngine.UI.ScrollRect scroll = ProjectUiFactory.Scroll(body, "Levels", out levelList);
+            UnityEngine.UI.LayoutElement scrollSize = scroll.gameObject.AddComponent<UnityEngine.UI.LayoutElement>();
+            scrollSize.flexibleHeight = 1f;
+            scrollSize.minHeight = 120f;
+            levelDetails = ProjectUiFactory.Label(body, string.Empty, 23, TextAnchor.MiddleLeft, Color.white);
+            ProjectUiFactory.Height(levelDetails.rectTransform, 94f);
+            startButton = ProjectUiFactory.ActionButton(body, "出战", () => StartRunAsync().Forget());
+            ProjectUiFactory.Height(startButton.GetComponent<RectTransform>(), 72f);
+            retryButton = ProjectUiFactory.ActionButton(body, "重试保存", () => RetrySaveAsync().Forget());
+            ProjectUiFactory.Height(retryButton.GetComponent<RectTransform>(), 64f);
+            retryButton.gameObject.SetActive(false);
+            feedback = ProjectUiFactory.Label(body, string.Empty, 21, TextAnchor.MiddleLeft, new Color(1f, 0.8f, 0.5f));
+            ProjectUiFactory.Height(feedback.rectTransform, 50f);
+
+            RectTransform footer = ProjectUiFactory.Horizontal(surface, "Footer", 16f);
+            SetArea(footer, Vector2.zero, new Vector2(1f, 0.18f), new Vector2(24f, 18f), new Vector2(-24f, -12f));
+            warehouseButton = ProjectUiFactory.ActionButton(footer, "仓库", () => GameEntry.Get<IUIModule>().OpenWindowAsync(2101).Forget());
+            skillsButton = ProjectUiFactory.ActionButton(footer, "技能", () => GameEntry.Get<IUIModule>().OpenWindowAsync(2102).Forget());
+        }
+
+        /// <summary>
+        /// 绑定本轮会话变化通知。
+        /// </summary>
+        /// <param name="args">窗口打开参数。</param>
         protected override void Open(GameWindowOpenArgs args)
         {
-            closeButton.onClick.AddListener(OnCloseClicked);
-            OpenScope.Defer(() => closeButton.onClick.RemoveListener(OnCloseClicked));
+            session = ProjectServices.Session;
+            if (session == null)
+            {
+                feedback.text = "项目数据尚未就绪";
+                startButton.interactable = false;
+                supplyButton.interactable = false;
+                warehouseButton.interactable = false;
+                skillsButton.interactable = false;
+                return;
+            }
+            session.Changed += Refresh;
+            OpenScope.Defer(() => session.Changed -= Refresh);
+            session.RefreshClock();
         }
 
         /// <summary>
-        /// 刷新本次显示。
+        /// 刷新真实项目数据。
         /// </summary>
-        /// <param name="args">显示参数。</param>
-        protected override void Show(GameWindowOpenArgs args)
+        /// <param name="args">窗口显示参数。</param>
+        protected override void Show(GameWindowOpenArgs args) => Refresh();
+
+        /// <summary>
+        /// 刷新顶部属性、关卡与按钮。
+        /// </summary>
+        private void Refresh()
         {
-            title.text = args.UserData as string ?? "Home";
+            if (session == null) return;
+            progression.text = $"等级 {session.Level}    经验 {session.Experience}/{session.ExperienceToNextLevel}";
+            resources.text = $"体力 {session.Stamina}/{session.StaminaCap}    金币 {session.Gold}    钻石 {session.Diamonds}";
+            Vector2 maximum = experienceFill.anchorMax;
+            maximum.x = Mathf.Clamp01((float)session.Experience / Mathf.Max(1, session.ExperienceToNextLevel));
+            experienceFill.anchorMax = maximum;
+            ProjectUiFactory.Clear(levelList);
+            bool selectedExists = false;
+            foreach (ProjectLevelOption option in session.Levels)
+                if (option.Id == selectedLevelId) selectedExists = true;
+            if (!selectedExists && session.Levels.Count > 0) selectedLevelId = session.Levels[0].Id;
+            foreach (ProjectLevelOption option in session.Levels)
+            {
+                int id = option.Id;
+                string lockText = session.Level >= option.RequiredLevel ? string.Empty : $" · 需等级 {option.RequiredLevel}";
+                UnityEngine.UI.Button button = ProjectUiFactory.ActionButton(levelList, (option.Id == selectedLevelId ? "● " : "○ ") + option.Name + lockText,
+                    () => SelectLevel(id));
+                ProjectUiFactory.Height(button.GetComponent<RectTransform>(), 62f);
+            }
+            ProjectLevelOption selected = null;
+            foreach (ProjectLevelOption option in session.Levels)
+                if (option.Id == selectedLevelId) selected = option;
+            levelDetails.text = selected == null ? "暂无可选关卡" : selected.Description + (session.Level < selected.RequiredLevel ? "\n等级不足" : string.Empty);
+            bool canStart = selected != null && session.Level >= selected.RequiredLevel && session.Stamina >= PrototypeRules.EntryCost && !session.IsBusy && !launching;
+            startButton.interactable = canStart;
+            supplyButton.interactable = !session.IsBusy && !launching;
+            warehouseButton.interactable = !session.IsBusy && !launching;
+            skillsButton.interactable = !session.IsBusy && !launching;
+            retryButton.gameObject.SetActive(session.HasPendingSave);
+            retryButton.interactable = session.HasPendingSave && !retrying;
+            if (!string.IsNullOrEmpty(session.LastRunSummary) && string.IsNullOrEmpty(feedback.text))
+                feedback.text = session.LastRunSummary;
         }
 
         /// <summary>
-        /// 用户点击关闭按钮。
+        /// 选择当前准备进入的关卡。
         /// </summary>
-        private void OnCloseClicked() => CloseSelfAsync().Forget();
+        /// <param name="id">关卡标识。</param>
+        private void SelectLevel(int id)
+        {
+            selectedLevelId = id;
+            Refresh();
+        }
+
+        /// <summary>
+        /// 等待单局启动结果再显示反馈。
+        /// </summary>
+        /// <returns>异步操作。</returns>
+        private async UniTaskVoid StartRunAsync()
+        {
+            if (session == null || session.IsBusy || launching || !startButton.interactable) return;
+            launching = true;
+            Refresh();
+            bool started = await session.StartRunAsync(selectedLevelId);
+            if (Root == null || State != GameWindowState.Opened) return;
+            launching = false;
+            feedback.text = started ? "已开始出战" : "出战未完成，请检查等级与体力";
+            Refresh();
+        }
+
+        /// <summary>
+        /// 提交补给领取事务并显示已保存结果。
+        /// </summary>
+        /// <returns>异步操作。</returns>
+        private async UniTaskVoid ClaimSupplyAsync()
+        {
+            if (session == null || session.IsBusy || launching || !supplyButton.interactable) return;
+            launching = true;
+            Refresh();
+            ProjectOperationResult result = await session.ClaimSupplyAsync();
+            if (Root == null || State != GameWindowState.Opened) return;
+            launching = false;
+            feedback.text = result.Message;
+            Refresh();
+        }
+
+        /// <summary>
+        /// 重试原存档事务，不重复发放奖励。
+        /// </summary>
+        /// <returns>异步操作。</returns>
+        private async UniTaskVoid RetrySaveAsync()
+        {
+            if (session == null || !session.HasPendingSave || retrying) return;
+            retrying = true;
+            Refresh();
+            ProjectOperationResult result = await session.RetryPendingSaveAsync();
+            if (Root == null || State != GameWindowState.Opened) return;
+            retrying = false;
+            feedback.text = result.Message;
+            Refresh();
+        }
+
+        /// <summary>
+        /// 设置矩形的相对安全区边界。
+        /// </summary>
+        /// <param name="rect">待设置节点。</param>
+        /// <param name="minimum">左下锚点。</param>
+        /// <param name="maximum">右上锚点。</param>
+        /// <param name="minimumOffset">左下边距。</param>
+        /// <param name="maximumOffset">右上边距。</param>
+        private static void SetArea(RectTransform rect, Vector2 minimum, Vector2 maximum, Vector2 minimumOffset, Vector2 maximumOffset)
+        {
+            rect.anchorMin = minimum;
+            rect.anchorMax = maximum;
+            rect.offsetMin = minimumOffset;
+            rect.offsetMax = maximumOffset;
+        }
     }
 }

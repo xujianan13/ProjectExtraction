@@ -32,6 +32,8 @@ namespace GameLogic
             await GameTables.LoadAsync(GameEntry.Get<IResourceModule>(), ct);
             if (!await GameEntry.Get<IInputModule>().LoadGameplayActionsAsync("GameInputActions", ct))
                 throw new InvalidOperationException("无法加载项目输入动作。");
+            if (!await GameLogic.Project.ProjectServices.InitializeAsync(ct))
+                throw new InvalidOperationException("项目存档初始化失败，停止进入玩法。");
             ProjectScaffoldBridge.Register(GameEntry.Get<ISceneModule>(), GameEntry.Get<IUIModule>());
             if (string.IsNullOrWhiteSpace(ProjectScaffoldBridge.StartupScene) || !string.IsNullOrWhiteSpace(settings.StartupSceneLocation))
                 throw new InvalidOperationException("最小项目需要唯一的脚手架逻辑首场景。");

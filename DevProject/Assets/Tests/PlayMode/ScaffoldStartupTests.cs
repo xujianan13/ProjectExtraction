@@ -18,7 +18,7 @@ namespace MiniGame.Tests
         public void TearDown() => GameEntry.StopFramework();
 
         /// <summary>
-        /// 同一轮重复登记只添加一次清理项，复用模块重启后仍重新登记。
+        /// 同一轮生成内容和项目扩展各登记一项清理，复用模块重启后仍重新登记。
         /// </summary>
         /// <returns>等待 Unity 完成上一轮 UI 宿主销毁的逐帧测试。</returns>
         [UnityTest]
@@ -34,10 +34,10 @@ namespace MiniGame.Tests
             Assert.That(first.IsActive, Is.True);
             int firstBaseline = first.RegistrationCount;
             ProjectScaffoldBridge.Register(scenes, ui);
-            Assert.That(first.RegistrationCount, Is.EqualTo(firstBaseline + 1));
+            Assert.That(first.RegistrationCount, Is.EqualTo(firstBaseline + 2));
             ProjectContent.Register(scenes, ui);
             ProjectScaffoldBridge.Register(scenes, ui);
-            Assert.That(first.RegistrationCount, Is.EqualTo(firstBaseline + 1), "同轮重复调用添加了多余清理项。");
+            Assert.That(first.RegistrationCount, Is.EqualTo(firstBaseline + 2), "同轮重复调用添加了多余清理项。");
 
             GameEntry.StopFramework();
             Assert.That(first.State, Is.EqualTo(LifetimeScopeState.Disposed));
@@ -52,9 +52,9 @@ namespace MiniGame.Tests
             Assert.That(second, Is.Not.SameAs(first));
             int secondBaseline = second.RegistrationCount;
             ProjectScaffoldBridge.Register(scenes, ui);
-            Assert.That(second.RegistrationCount, Is.EqualTo(secondBaseline + 1), "新运行轮次未重新登记清理项。");
+            Assert.That(second.RegistrationCount, Is.EqualTo(secondBaseline + 2), "新运行轮次未重新登记清理项。");
             ProjectContent.Register(scenes, ui);
-            Assert.That(second.RegistrationCount, Is.EqualTo(secondBaseline + 1));
+            Assert.That(second.RegistrationCount, Is.EqualTo(secondBaseline + 2));
             GameEntry.StopFramework();
             Assert.That(second.State, Is.EqualTo(LifetimeScopeState.Disposed));
             Assert.That(second.RegistrationCount, Is.Zero);

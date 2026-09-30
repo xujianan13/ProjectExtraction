@@ -5,17 +5,18 @@ using GameFramework;
 namespace GameLogic.Gameplay.Main
 {
     /// <summary>
-    /// Main玩法根；在这里扩展玩法规则。
+    /// 局外玩法根，驱动主界面所需的时间刷新。
     /// </summary>
     public sealed class MainGameplay : GameplayRoot<MainGameplay>
     {
+        private float clockElapsed;
+
         /// <summary>
         /// 创建玩法并连接本地功能模块。
         /// </summary>
         public MainGameplay()
         {
             AddFeature<MainFeature>();
-            
         }
 
         /// <summary>
@@ -29,7 +30,13 @@ namespace GameLogic.Gameplay.Main
         /// 每帧推进玩法规则。
         /// </summary>
         /// <param name="deltaTime">本帧经过的秒数。</param>
-        protected override void OnUpdateGameplay(float deltaTime) { }
+        protected override void OnUpdateGameplay(float deltaTime)
+        {
+            clockElapsed += deltaTime;
+            if (clockElapsed < 1) return;
+            clockElapsed = 0;
+            GameLogic.Project.ProjectServices.Session?.RefreshClock();
+        }
 
         /// <summary>
         /// 在固定步长阶段更新物理玩法。
