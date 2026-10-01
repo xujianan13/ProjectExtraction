@@ -37,6 +37,8 @@ namespace GameLogic.Gameplay.Expedition
         private bool stopped;
         private bool paused;
         private bool interactionRequested;
+        private ExpeditionVisualAssets visualAssets;
+        private Transform sceneParent;
         private Vector2 touchMove;
 
         public event Action Changed;
@@ -151,10 +153,14 @@ namespace GameLogic.Gameplay.Expedition
         /// <summary>
         /// 场景进入后建立当前地图内容，回访不重生敌人。
         /// </summary>
-        public void AttachScene()
+        /// <param name="assets">场景作用域持有的关卡预制件。</param>
+        /// <param name="parent">可选的场景父节点。</param>
+        public void AttachScene(ExpeditionVisualAssets assets, Transform parent = null)
         {
-            if (disposed || stopped || RoomView != null) return;
-            RoomView = LevelRoomView.Create(CurrentRoom);
+            if (disposed || stopped || RoomView != null || assets == null) return;
+            visualAssets = assets;
+            sceneParent = parent;
+            RoomView = LevelRoomView.Create(CurrentRoom, assets, parent);
             if (RoomView == null) return;
             SpawnRoomEnemies(CurrentRoom);
             Changed?.Invoke();
@@ -212,6 +218,8 @@ namespace GameLogic.Gameplay.Expedition
             IsReady = false;
             RoomView?.Dispose();
             RoomView = null;
+            visualAssets = null;
+            sceneParent = null;
         }
 
         /// <summary>
@@ -500,7 +508,7 @@ namespace GameLogic.Gameplay.Expedition
         {
             if (!CanInteract) return;
             if (!Maps.TryGetDestination(direction, out int destination) || !Maps.TryGetRoom(destination, out LevelRoomState room)) return;
-            LevelRoomView prepared = LevelRoomView.Create(room);
+            LevelRoomView prepared = LevelRoomView.Create(room, visualAssets, sceneParent);
             if (prepared == null) { Message = "目标地图准备失败。"; return; }
             RoomDirection entrySide = LevelGenerator.Opposite(direction);
             Vector3 spawn = prepared.GetSpawnPosition(entrySide);

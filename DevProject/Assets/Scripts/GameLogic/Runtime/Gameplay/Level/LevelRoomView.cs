@@ -1,11 +1,11 @@
 using System;
-using System.Collections.Generic;
+using GameLogic.Gameplay.Expedition;
 using UnityEngine;
 
 namespace GameLogic.Gameplay.Level
 {
     /// <summary>
-    /// 代码构建的单张地图占位表现，生命周期由持有者显式释放。
+    /// 由热更预制件构成的单张地图表现，生命周期由持有者显式释放。
     /// </summary>
     public sealed class LevelRoomView : IDisposable
     {
@@ -14,33 +14,34 @@ namespace GameLogic.Gameplay.Level
         private readonly GameObject extractionMarker;
         private readonly GameObject chestMarker;
         private readonly LevelRoomLayout layout = new LevelRoomLayout();
-        private readonly List<Material> materials = new List<Material>();
+        private readonly ExpeditionVisualAssets assets;
         private bool disposed;
 
         public GameObject Root => root;
         public LevelRoomLayout Layout => layout;
 
         /// <summary>
-        /// 创建地图占位视图和全部固定环境物件。
+        /// 创建地图视图和全部固定环境物件。
         /// </summary>
         /// <param name="state">待显示的单局地图状态。</param>
+        /// <param name="visualAssets">已加载的关卡预制件。</param>
         /// <param name="parent">可选的场景父节点。</param>
-        private LevelRoomView(LevelRoomState state, Transform parent)
+        private LevelRoomView(LevelRoomState state, ExpeditionVisualAssets visualAssets, Transform parent)
         {
             room = state;
-            root = new GameObject("LevelRoom_" + state.RoomId);
-            if (parent != null) root.transform.SetParent(parent, false);
-            CreatePart("Floor", PrimitiveType.Cube, Vector3.zero, new Vector3(PrototypeLevelConfig.RoomHalfExtent * 2f, 0.3f, PrototypeLevelConfig.RoomHalfExtent * 2f), Color.gray, true);
+            assets = visualAssets;
+            root = UnityEngine.Object.Instantiate(assets.Room, parent, false);
+            root.name = "LevelRoom_" + state.RoomId;
             BuildWalls();
             BuildObstacles();
             BuildExits();
             if (state.Type == LevelRoomType.Loot)
-                chestMarker = CreatePart("Chest", PrimitiveType.Cube, ChestPosition + Vector3.up * 0.6f, new Vector3(1.3f, 1.2f, 1f), Color.yellow, false);
+                chestMarker = CreatePart("Chest", assets.Chest, ChestPosition + Vector3.up * 0.6f, new Vector3(1.3f, 1.2f, 1f));
             if (state.Type == LevelRoomType.Npc)
-                CreatePart("Npc", PrimitiveType.Capsule, NpcPosition + Vector3.up, new Vector3(1f, 1f, 1f), Color.cyan, false);
+                CreatePart("Npc", assets.Npc, NpcPosition + Vector3.up, Vector3.one);
             if (state.HasExtractionCandidate)
-                extractionMarker = CreatePart("Extraction", PrimitiveType.Cylinder, ExtractionPosition + Vector3.up * 0.08f,
-                    new Vector3(1.5f, 0.08f, 1.5f), Color.green, false);
+                extractionMarker = CreatePart("Extraction", assets.Extraction, ExtractionPosition + Vector3.up * 0.08f,
+                    new Vector3(1.5f, 0.08f, 1.5f));
             Refresh();
         }
 
@@ -49,14 +50,15 @@ namespace GameLogic.Gameplay.Level
         private static Vector3 ExtractionPosition => new Vector3(4f, 0f, -1f);
 
         /// <summary>
-        /// 创建一张地图的占位视图。
+        /// 创建一张地图的预制件视图。
         /// </summary>
         /// <param name="room">单局地图状态。</param>
+        /// <param name="assets">已加载的关卡预制件。</param>
         /// <param name="parent">可选的场景父节点。</param>
         /// <returns>需要由持有者释放的地图视图。</returns>
-        public static LevelRoomView Create(LevelRoomState room, Transform parent = null)
+        public static LevelRoomView Create(LevelRoomState room, ExpeditionVisualAssets assets, Transform parent = null)
         {
-            return room == null ? null : new LevelRoomView(room, parent);
+            return room == null || assets == null ? null : new LevelRoomView(room, assets, parent);
         }
 
         /// <summary>
@@ -78,10 +80,10 @@ namespace GameLogic.Gameplay.Level
             float offset = PrototypeLevelConfig.RoomHalfExtent - PrototypeLevelConfig.SpawnInset;
             switch (entrySide)
             {
-                case RoomDirection.North: return new Vector3(0f, 0.2f, offset);
-                case RoomDirection.East: return new Vector3(offset, 0.2f, 0f);
-                case RoomDirection.South: return new Vector3(0f, 0.2f, -offset);
-                default: return new Vector3(-offset, 0.2f, 0f);
+                case RoomDirection.North: return new Vector3(0f, 0f, offset);
+                case RoomDirection.East: return new Vector3(offset, 0f, 0f);
+                case RoomDirection.South: return new Vector3(0f, 0f, -offset);
+                default: return new Vector3(-offset, 0f, 0f);
             }
         }
 
@@ -137,50 +139,31 @@ namespace GameLogic.Gameplay.Level
         }
 
         /// <summary>
-        /// 销毁地图占位表现，不改变单局状态。
+        /// 销毁地图实例，不改变单局状态。
         /// </summary>
         public void Dispose()
         {
             if (disposed) return;
             disposed = true;
+            root.SetActive(false);
             if (Application.isPlaying) UnityEngine.Object.Destroy(root);
             else UnityEngine.Object.DestroyImmediate(root);
-            foreach (Material material in materials)
-            {
-                if (Application.isPlaying) UnityEngine.Object.Destroy(material);
-                else UnityEngine.Object.DestroyImmediate(material);
-            }
         }
 
         /// <summary>
-        /// 创建带基础材质颜色的环境占位物。
+        /// 按地图局部几何放置环境预制件。
         /// </summary>
         /// <param name="name">层级名称。</param>
-        /// <param name="primitive">Unity 基础形体。</param>
+        /// <param name="prefab">已加载的环境预制件。</param>
         /// <param name="position">局部位置。</param>
         /// <param name="scale">局部尺寸。</param>
-        /// <param name="color">表现颜色。</param>
-        /// <param name="solid">是否保留碰撞器。</param>
-        /// <returns>创建的物件。</returns>
-        private GameObject CreatePart(string name, PrimitiveType primitive, Vector3 position, Vector3 scale, Color color, bool solid)
+        /// <returns>创建的预制件实例。</returns>
+        private GameObject CreatePart(string name, GameObject prefab, Vector3 position, Vector3 scale)
         {
-            GameObject part = GameObject.CreatePrimitive(primitive);
+            GameObject part = UnityEngine.Object.Instantiate(prefab, root.transform, false);
             part.name = name;
-            part.transform.SetParent(root.transform, false);
             part.transform.localPosition = position;
             part.transform.localScale = scale;
-            Renderer renderer = part.GetComponent<Renderer>();
-            if (renderer != null)
-            {
-                Material material = renderer.material;
-                material.color = color;
-                materials.Add(material);
-            }
-            if (!solid)
-            {
-                Collider collider = part.GetComponent<Collider>();
-                if (collider != null) collider.enabled = false;
-            }
             return part;
         }
 
@@ -216,7 +199,7 @@ namespace GameLogic.Gameplay.Level
                 ? new Vector3(offset, height * 0.5f, direction == RoomDirection.North ? extent : -extent)
                 : new Vector3(direction == RoomDirection.East ? extent : -extent, height * 0.5f, offset);
             Vector3 scale = horizontal ? new Vector3(length, height, thickness) : new Vector3(thickness, height, length);
-            CreatePart("Wall_" + direction, PrimitiveType.Cube, position, scale, Color.black, true);
+            CreatePart("Wall_" + direction, assets.Wall, position, scale);
         }
 
         /// <summary>
@@ -228,8 +211,7 @@ namespace GameLogic.Gameplay.Level
             {
                 Vector2 size = obstacle.Max - obstacle.Min;
                 Vector2 center = (obstacle.Min + obstacle.Max) * 0.5f;
-                CreatePart("Obstacle", PrimitiveType.Cube, new Vector3(center.x, 0.8f, center.y),
-                    new Vector3(size.x, 1.6f, size.y), Color.red, true);
+                CreatePart("Obstacle", assets.Obstacle, new Vector3(center.x, 0.8f, center.y), new Vector3(size.x, 1.6f, size.y));
             }
         }
 
@@ -241,8 +223,7 @@ namespace GameLogic.Gameplay.Level
             foreach (RoomDirection direction in room.Exits.Keys)
             {
                 Vector3 position = ExitCenter(direction, PrototypeLevelConfig.RoomHalfExtent - 1f);
-                CreatePart("Exit_" + direction, PrimitiveType.Cube, position + Vector3.up * 0.1f,
-                    new Vector3(1.7f, 0.2f, 1.7f), Color.blue, false);
+                CreatePart("Exit_" + direction, assets.Exit, position + Vector3.up * 0.1f, new Vector3(1.7f, 0.2f, 1.7f));
             }
         }
 

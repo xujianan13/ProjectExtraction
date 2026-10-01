@@ -14,6 +14,7 @@
 - [玩家主要属性与货币设计](docs/project/玩家主要属性与货币设计.md)：等级、经验、体力、金币、钻石；M07 管成长和钱包，M09 管体力，买卖与物品变更统一保存。建议与待定项不能当作已批准规则。
 - [角色属性与装备词条](docs/project/角色属性与装备词条.md)：HP、攻击、防御、暴击值/暴击伤害、闪避、增伤/减伤，武器/护甲和六档品质；公式与词条数量为首版可调数值。
 - [Roguelike 三选一设计与实现](docs/project/Roguelike三选一设计与实现.md)：局内选择暂停、临时强化与物品奖励、默认关闭的刷新和第四项授权。
+- [测试资源与热更目录](docs/project/测试资源与热更目录.md)：关卡、胶囊体角色和障碍的热更 Prefab、生命周期与生成入口。
 - [战斗摇杆与界面适配](docs/project/战斗摇杆与界面适配.md)：1080×1920 默认竖屏、触屏摇杆控制、安全区和不同尺寸布局。
 - [技能成长设计](docs/project/技能成长设计.md)、[主界面设计](docs/project/主界面设计.md)：角色技能点的局外提升、Home 顶部五项属性与底部仓库/技能入口。
 - [关卡与地图设计](docs/project/关卡与地图设计.md)：随机连通地图、未清图自由往返、回访状态与撤离建议。
@@ -36,6 +37,7 @@
 - Roguelike 三选一首版以战利品房开箱为原型入口：暂停 ECS 模拟，选择一项临时属性或随机战利品后恢复。刷新和第四项授权逻辑具备但默认关闭，尚无广告提供器。临时属性不写入局外技能或装备，物品沿用已有携出规则；中途选择不提供断点存档。
 - `DevProject/Assets/Scripts/GameFramework` 是框架唯一源码，当前不是已安装的 UPM 包；`DevProject/Packages` 保留 UniTask **2.5.11**、YooAsset **3.0.1-beta**、HybridCLR **8.12.0** 等模板依赖，渲染管线沿用模板。`GameFramework/package.json` 仅作未来包元数据。
 - `Assets/Resources/Framework.prefab`、`Assets/Scenes/Main.unity` 和 `Loading.unity` 属于固定宿主资产。`Assets/Scripts/Boot` 为固定启动层；`Assets/Scripts/GameLogic` 为热更游戏代码；`Assets/GameResources` 是 YooAsset `GamePackage` 的热更内容源。通用框架不得依赖项目玩法。
+- 关卡测试表现已使用 14 个热更 Prefab：场景/房间位于 `GameResources/Scenes/Expedition`，角色、障碍和交互物位于 `GameResources/Gameplay/Expedition`，13 个材质位于 `GameResources/Art/Prototype/Materials`。由 `ExpeditionVisualAssets` 加载并随场景释放租约；角色为胶囊体，碰撞仍由 ECS 管理。资源生成入口为 `Tools/ProjectExtraction/Create Test Prefabs`，只补齐缺失资产；目录和验证见[测试资源与热更目录](docs/project/测试资源与热更目录.md)。
 - Excel 源表在 `config/excel`，当前为空；工具在 `tool`。生成 JSON 位于 `GameResources/Config/Tables`，可重生 C# 位于 `GameLogic/Runtime/Gen`，扩展 partial 位于 `GameLogic/Runtime/Ext`。
 
 ## 修改与验收

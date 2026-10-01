@@ -25,6 +25,19 @@ MonoBehaviour:
     AutoCollectShaders: 0
     IgnoreRuleName: NormalIgnoreRule
     Groups:
+    - GroupName: GameContent/Art
+      GroupDesc: Managed by GamePackageBuildPipeline
+      AssetTags: Art;Optional
+      ActiveRuleName: EnableGroup
+      Collectors:
+      - CollectPath: Assets/GameResources/Art
+        CollectorGUID: 0b15935c2cc2799449d82c2917365d71
+        CollectorType: 0
+        AddressRuleName: AddressByFileName
+        PackRuleName: PackSeparately
+        FilterRuleName: CollectAll
+        AssetTags:
+        UserData:
     - GroupName: GameContent/Code
       GroupDesc: Managed by GamePackageBuildPipeline
       AssetTags: Startup

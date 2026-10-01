@@ -116,8 +116,11 @@ namespace MiniGame.Tests
             var provider = new DeferredRogueAccessProvider();
             Assert.That(ExpeditionRun.TryCreate(ProjectServices.Session, "rogue-test-1", 1, 42,
                 new List<ProjectItem>(), out ExpeditionRun run, policy, provider), Is.True);
+            using var assetScope = new LifetimeScope("RoguelikePrefabTest");
             using var ownedRun = run;
-            run.AttachScene();
+            ExpeditionVisualAssets assets = await ExpeditionVisualAssets.LoadAsync(assetScope, GameEntry.Get<IResourceModule>());
+            Assert.That(assets, Is.Not.Null);
+            run.AttachScene(assets);
             Assert.That(run.MarkReady(), Is.True);
             Assert.That(run.Activate(), Is.True);
             Assert.That(run.TryBeginRogueChoice("source-1"), Is.True);

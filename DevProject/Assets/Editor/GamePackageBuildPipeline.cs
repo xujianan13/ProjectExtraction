@@ -127,6 +127,8 @@ namespace MiniGame.Editor
                 PackageName = PackageName,
                 PackageVersion = packageVersion,
                 EnableSharePackRule = true,
+                BuiltinShadersBundleName = DefaultBundlePackRule.CreateShadersPackRuleResult()
+                    .GetBundleName(PackageName, BundleCollectorSettingData.Setting.UniqueBundleName),
                 VerifyBuildingResult = true,
                 BundledCopyOption = copyOption,
                 BundledCopyParams = copyOption == EBundledCopyOption.ClearAndCopyByTags ? "Startup" : string.Empty,

@@ -12,4 +12,5 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 94ee74111009ea941a8c44f6ff7cb65c, type: 3}
   m_Name: GamePackageBuildSettings
   m_EditorClassIdentifier: 
-  _packageVersion: 1.0.3
+  _packageVersion: 1.0.4
+  _additionalStartupDirectories: []

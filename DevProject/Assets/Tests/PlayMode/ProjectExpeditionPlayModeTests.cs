@@ -56,6 +56,7 @@ namespace MiniGame.Tests
             GameEntry.Register<IInputModule>(new HeadlessInputModule());
             GameEntry.RegisterDefaults();
             GameEntry.StartFramework();
+            await InitializeEditorPackageAsync();
 
             ISceneModule scenes = GameEntry.Get<ISceneModule>();
             IUIModule ui = GameEntry.Get<IUIModule>();
@@ -118,26 +119,7 @@ namespace MiniGame.Tests
             GameEntry.Register<IInputModule>(new HeadlessInputModule());
             GameEntry.RegisterDefaults();
             GameEntry.StartFramework();
-            var build = EditorSimulateBuildInvoker.Build("GamePackage", (int)EBundleType.VirtualAssetBundle);
-            bool loaded = await GameEntry.Get<IResourceModule>().InitializePackageAsync("GamePackage", async package =>
-            {
-                if (package.InitializeStatus != EOperationStatus.Succeeded)
-                {
-                    var initialize = package.InitializePackageAsync(new EditorSimulateModeOptions
-                    {
-                        EditorFileSystemParameters = FileSystemParameters.CreateDefaultEditorFileSystemParameters(build.PackageRootDirectory)
-                    });
-                    await UniTask.WaitUntil(() => initialize.IsDone).Timeout(TimeSpan.FromSeconds(30));
-                    Assert.That(initialize.Status, Is.EqualTo(EOperationStatus.Succeeded), initialize.Error);
-                }
-                var version = package.RequestPackageVersionAsync(new RequestPackageVersionOptions(true, 30));
-                await UniTask.WaitUntil(() => version.IsDone).Timeout(TimeSpan.FromSeconds(30));
-                Assert.That(version.Status, Is.EqualTo(EOperationStatus.Succeeded), version.Error);
-                var manifest = package.LoadPackageManifestAsync(new LoadPackageManifestOptions(version.PackageVersion, 30));
-                await UniTask.WaitUntil(() => manifest.IsDone).Timeout(TimeSpan.FromSeconds(30));
-                Assert.That(manifest.Status, Is.EqualTo(EOperationStatus.Succeeded), manifest.Error);
-            });
-            Assert.That(loaded, Is.True, "实际 Home 内容资源包初始化失败。");
+            await InitializeEditorPackageAsync();
             ProjectContent.Register(GameEntry.Get<ISceneModule>(), GameEntry.Get<IUIModule>());
             Assert.That(await ProjectServices.InitializeAsync(default), Is.True);
             Assert.That(await ProjectServices.Coordinator.InitializeAsync(), Is.True);
@@ -386,6 +368,34 @@ namespace MiniGame.Tests
         });
 
         /// <summary>
+        /// 初始化包含真实关卡和界面预制体的 Editor 模拟资源包。
+        /// </summary>
+        /// <returns>资源清单激活任务。</returns>
+        private static async UniTask InitializeEditorPackageAsync()
+        {
+            var build = EditorSimulateBuildInvoker.Build("GamePackage", (int)EBundleType.VirtualAssetBundle);
+            bool loaded = await GameEntry.Get<IResourceModule>().InitializePackageAsync("GamePackage", async package =>
+            {
+                if (package.InitializeStatus != EOperationStatus.Succeeded)
+                {
+                    var initialize = package.InitializePackageAsync(new EditorSimulateModeOptions
+                    {
+                        EditorFileSystemParameters = FileSystemParameters.CreateDefaultEditorFileSystemParameters(build.PackageRootDirectory)
+                    });
+                    await UniTask.WaitUntil(() => initialize.IsDone).Timeout(TimeSpan.FromSeconds(30));
+                    Assert.That(initialize.Status, Is.EqualTo(EOperationStatus.Succeeded), initialize.Error);
+                }
+                var version = package.RequestPackageVersionAsync(new RequestPackageVersionOptions(true, 30));
+                await UniTask.WaitUntil(() => version.IsDone).Timeout(TimeSpan.FromSeconds(30));
+                Assert.That(version.Status, Is.EqualTo(EOperationStatus.Succeeded), version.Error);
+                var manifest = package.LoadPackageManifestAsync(new LoadPackageManifestOptions(version.PackageVersion, 30));
+                await UniTask.WaitUntil(() => manifest.IsDone).Timeout(TimeSpan.FromSeconds(30));
+                Assert.That(manifest.Status, Is.EqualTo(EOperationStatus.Succeeded), manifest.Error);
+            });
+            Assert.That(loaded, Is.True, "Editor 模拟资源包初始化失败。");
+        }
+
+        /// <summary>
         /// 建立隔离存档、测试输入和逻辑主界面的项目运行环境。
         /// </summary>
         /// <param name="backend">可重复打开的测试存储。</param>
@@ -401,6 +411,7 @@ namespace MiniGame.Tests
             GameEntry.Register<IInputModule>(new HeadlessInputModule());
             GameEntry.RegisterDefaults();
             GameEntry.StartFramework();
+            await InitializeEditorPackageAsync();
             if (initial != null)
             {
                 var definition = new SaveDefinition<ProjectSaveData>(schemaVersion, initial.Copy, ProjectSaveData.Validate, new ProjectSaveCodec());
@@ -587,7 +598,11 @@ namespace MiniGame.Tests
             Assert.That(scenes.CurrentScene, Is.TypeOf<ExpeditionScene>());
             Assert.That(ui.OpenedWindows.Any(window => window is BattleHudWindow), Is.True);
             Assert.That(GameEntry.Get<IGameplayModule>().Count, Is.EqualTo(1));
-            Assert.That(GameObject.Find("ExpeditionPresentation"), Is.Not.Null);
+            GameObject visualRoot = GameObject.Find("ExpeditionPresentation");
+            Assert.That(visualRoot, Is.Not.Null);
+            Assert.That(GameObject.Find("Actor_1")?.transform.IsChildOf(visualRoot.transform), Is.True);
+            Assert.That(GameEntry.Get<IResourceModule>().TryEvict<GameObject>("SC_Expedition"), Is.False, "场景持有资源租约时不得淘汰。");
+            Assert.That(GameObject.Find("LevelRoom_" + session.CurrentRun.CurrentRoom.RoomId)?.transform.IsChildOf(visualRoot.transform), Is.True);
             Assert.That(session.CurrentRun, Is.Not.Null);
             Assert.That(session.CurrentRun.RoomView, Is.Not.Null);
             return session.CurrentRun;
@@ -608,6 +623,9 @@ namespace MiniGame.Tests
             Assert.That(ui.OpenedWindows.Any(window => window is BattleHudWindow), Is.False);
             Assert.That(GameEntry.Get<IGameplayModule>().Count, Is.Zero);
             Assert.That(GameObject.Find("ExpeditionPresentation"), Is.Null);
+            Assert.That(GameObject.Find("Actor_1"), Is.Null);
+            await GameEntry.Get<IResourceModule>().TrimAsync(true);
+            Assert.That(GameEntry.Get<IResourceModule>().TryAcquire<GameObject>("SC_Expedition", out _), Is.False, "退出后预制体租约应可清理。");
             Assert.That(session.CurrentRun, Is.Null);
             Assert.That(session.HasPendingSave, Is.False);
         }

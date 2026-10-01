@@ -2,16 +2,18 @@ using GameLogic.Project;
 using System;
 using System.Collections.Generic;
 using GameLogic.Gameplay.Combat;
+using GameLogic.Gameplay.Level;
 using UnityEngine;
 
 namespace GameLogic.Gameplay.Expedition
 {
     /// <summary>
-    /// 由 ECS 快照更新占位角色、战利品和俯视相机。
+    /// 由 ECS 快照更新热更 Prefab 实例、战利品和俯视相机。
     /// </summary>
     public sealed class ExpeditionPresentation : IDisposable
     {
         private readonly ExpeditionRun run;
+        private readonly ExpeditionVisualAssets assets;
         private readonly GameObject root;
         private readonly Camera camera;
         private readonly Dictionary<int, GameObject> actors = new();
@@ -21,9 +23,15 @@ namespace GameLogic.Gameplay.Expedition
         private readonly List<CombatProjectileSnapshot> projectileSnapshots = new();
         private readonly HashSet<CombatEntityRef> visibleProjectiles = new();
         private readonly List<CombatEntityRef> staleProjectiles = new();
-        private readonly Dictionary<Color, Material> materials = new();
+        private readonly MaterialPropertyBlock tint = new();
+        private static readonly int ColorId = Shader.PropertyToID("_Color");
         private readonly List<CombatCueView> cues = new();
         private bool disposed;
+
+        /// <summary>
+        /// 本局场景与模型实例的共同父节点。
+        /// </summary>
+        public Transform Root => root.transform;
 
         /// <summary>
         /// 时间轴表现提示，只读取模拟时间而不参与伤害判定。
@@ -38,30 +46,22 @@ namespace GameLogic.Gameplay.Expedition
         }
 
         /// <summary>
-        /// 创建本局独立表现根节点与相机。
+        /// 从已经加载的场景 Prefab 创建本局根节点、相机和灯光。
         /// </summary>
         /// <param name="run">读取快照的单局。</param>
-        public ExpeditionPresentation(ExpeditionRun run)
+        /// <param name="assets">由场景作用域持有租约的完整资源集。</param>
+        public ExpeditionPresentation(ExpeditionRun run, ExpeditionVisualAssets assets)
         {
             this.run = run;
-            root = new GameObject("ExpeditionPresentation");
-            var cameraObject = new GameObject("ExpeditionCamera", typeof(Camera));
-            cameraObject.transform.SetParent(root.transform, false);
-            camera = cameraObject.GetComponent<Camera>();
-            camera.depth = 10;
-            camera.clearFlags = CameraClearFlags.SolidColor;
-            camera.backgroundColor = new Color(0.06f, 0.09f, 0.13f);
-            camera.orthographic = true;
-            camera.orthographicSize = 11;
-            camera.nearClipPlane = 0.1f;
-            camera.farClipPlane = 100;
-            camera.transform.rotation = Quaternion.Euler(58, 0, 0);
-            var lightObject = new GameObject("ExpeditionLight", typeof(Light));
-            lightObject.transform.SetParent(root.transform, false);
-            lightObject.transform.rotation = Quaternion.Euler(55, -30, 0);
-            Light light = lightObject.GetComponent<Light>();
-            light.type = LightType.Directional;
-            light.intensity = 1.1f;
+            this.assets = assets;
+            root = UnityEngine.Object.Instantiate(assets.Scene);
+            root.name = "ExpeditionPresentation";
+            foreach (Camera candidate in root.GetComponentsInChildren<Camera>(true))
+            {
+                if (!candidate.isActiveAndEnabled) continue;
+                camera = candidate;
+                break;
+            }
             run.CombatEventPublished += PresentEvent;
             Refresh();
         }
@@ -79,12 +79,14 @@ namespace GameLogic.Gameplay.Expedition
                 if (snapshot.RoomId != run.Maps.CurrentRoomId || snapshot.Dead) continue;
                 if (!actors.TryGetValue(snapshot.ActorId, out GameObject actor))
                 {
-                    actor = CreatePrimitive("Actor_" + snapshot.ActorId, PrimitiveType.Capsule,
-                        snapshot.ActorId == 1 ? new Color(0.25f, 0.8f, 0.85f) : new Color(0.86f, 0.29f, 0.24f));
+                    bool isPlayer = snapshot.ActorId == 1;
+                    bool isBoss = !isPlayer && run.Maps.TryGetRoom(snapshot.RoomId, out LevelRoomState room) && room.Type == LevelRoomType.Boss;
+                    actor = CreateModel("Actor_" + snapshot.ActorId, isPlayer ? assets.Player : isBoss ? assets.Boss : assets.Enemy);
+                    actor.transform.localScale = isBoss ? new Vector3(1.8f, 1.5f, 1.8f) : new Vector3(0.9f, 1f, 0.9f);
                     actors.Add(snapshot.ActorId, actor);
                 }
                 actor.SetActive(true);
-                actor.transform.position = snapshot.Position + Vector3.up * 1.1f;
+                actor.transform.position = snapshot.Position + Vector3.up * actor.transform.localScale.y;
                 if (snapshot.ActorId == 1)
                 {
                     camera.transform.position = snapshot.Position + new Vector3(0, 18, -11.25f);
@@ -97,7 +99,8 @@ namespace GameLogic.Gameplay.Expedition
                 if (drop.RoomId != run.Maps.CurrentRoomId || drop.Collected) continue;
                 if (!loot.TryGetValue(drop.Item.Id, out GameObject item))
                 {
-                    item = CreatePrimitive("Loot_" + drop.Item.Id, PrimitiveType.Cube, ProjectEquipmentRules.QualityColor(drop.Item.Quality));
+                    item = CreateModel("Loot_" + drop.Item.Id, assets.Loot);
+                    ApplyTint(item, ProjectEquipmentRules.QualityColor(drop.Item.Quality));
                     item.transform.localScale = Vector3.one * 0.55f;
                     loot.Add(drop.Item.Id, item);
                 }
@@ -117,7 +120,6 @@ namespace GameLogic.Gameplay.Expedition
             disposed = true;
             run.CombatEventPublished -= PresentEvent;
             ReleaseObject(root);
-            foreach (Material material in materials.Values) ReleaseObject(material);
             actors.Clear();
             loot.Clear();
             projectiles.Clear();
@@ -137,7 +139,7 @@ namespace GameLogic.Gameplay.Expedition
                 visibleProjectiles.Add(snapshot.Entity);
                 if (!projectiles.TryGetValue(snapshot.Entity, out GameObject model))
                 {
-                    model = CreatePrimitive("Projectile_" + snapshot.Entity.Id, PrimitiveType.Sphere, new Color(1, 0.45f, 0.13f));
+                    model = CreateModel("Projectile_" + snapshot.Entity.Id, assets.Projectile);
                     model.transform.localScale = Vector3.one * 0.35f;
                     projectiles.Add(snapshot.Entity, model);
                 }
@@ -171,8 +173,8 @@ namespace GameLogic.Gameplay.Expedition
                 else direction = Vector3.forward;
                 break;
             }
-            GameObject model = CreatePrimitive("SkillCue", PrimitiveType.Cube,
-                fact.ActorId == 1 ? new Color(0.7f, 1, 1) : new Color(1, 0.55f, 0.2f));
+            GameObject model = CreateModel("SkillCue", assets.MeleeCue);
+            ApplyTint(model, fact.ActorId == 1 ? new Color(0.7f, 1, 1) : new Color(1, 0.55f, 0.2f));
             model.transform.localScale = new Vector3(0.14f, 0.14f, 1.7f);
             cues.Add(new CombatCueView { Object = model, ActorId = fact.ActorId, RoomId = fact.RoomId,
                 StartTick = fact.Tick, Direction = direction });
@@ -203,37 +205,37 @@ namespace GameLogic.Gameplay.Expedition
         /// 根据当前运行模式释放 Unity 表现对象。
         /// </summary>
         /// <param name="value">需要释放的对象。</param>
-        private static void ReleaseObject(UnityEngine.Object value)
+        private static void ReleaseObject(GameObject value)
         {
+            if (value == null) return;
+            value.SetActive(false);
             if (Application.isPlaying) UnityEngine.Object.Destroy(value);
             else UnityEngine.Object.DestroyImmediate(value);
         }
 
         /// <summary>
-        /// 创建不参与权威碰撞的占位模型。
+        /// 实例化已加载模型，资产租约由场景保持到所有实例释放后。
         /// </summary>
         /// <param name="name">模型名称。</param>
-        /// <param name="type">基础几何体类型。</param>
-        /// <param name="color">材质颜色。</param>
+        /// <param name="prefab">热更资源 Prefab。</param>
         /// <returns>归属于本局表现根节点的对象。</returns>
-        private GameObject CreatePrimitive(string name, PrimitiveType type, Color color)
+        private GameObject CreateModel(string name, GameObject prefab)
         {
-            GameObject instance = GameObject.CreatePrimitive(type);
+            GameObject instance = UnityEngine.Object.Instantiate(prefab, root.transform, false);
             instance.name = name;
-            instance.transform.SetParent(root.transform, false);
-            Collider collider = instance.GetComponent<Collider>();
-            if (collider != null) { collider.enabled = false; ReleaseObject(collider); }
-            Shader shader = Shader.Find("Standard");
-            if (shader != null)
-            {
-                if (!materials.TryGetValue(color, out Material material))
-                {
-                    material = new Material(shader) { color = color };
-                    materials.Add(color, material);
-                }
-                instance.GetComponent<Renderer>().sharedMaterial = material;
-            }
             return instance;
+        }
+
+        /// <summary>
+        /// 设置实例颜色，不修改共享资源材质或创建材质副本。
+        /// </summary>
+        /// <param name="instance">需要染色的模型实例。</param>
+        /// <param name="color">品质或阵营颜色。</param>
+        private void ApplyTint(GameObject instance, Color color)
+        {
+            tint.Clear();
+            tint.SetColor(ColorId, color);
+            foreach (Renderer renderer in instance.GetComponentsInChildren<Renderer>(true)) renderer.SetPropertyBlock(tint);
         }
     }
 }

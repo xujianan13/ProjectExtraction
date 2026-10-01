@@ -35,8 +35,11 @@ namespace GameLogic.Scenes.Expedition
                 request.RunId != current.RunId || request.LevelId != current.LevelId ||
                 request.OperationId != ProjectServices.Coordinator?.OperationId)
                 throw new System.InvalidOperationException("关卡场景入参与当前单局不匹配。");
-            run = current;
             LifetimeScope scope = SceneScope;
+            ExpeditionVisualAssets assets = await ExpeditionVisualAssets.LoadAsync(scope, GameEntry.Get<IResourceModule>(), ct);
+            if (assets == null) throw new InvalidOperationException("关卡测试资源加载失败。");
+            ct.ThrowIfCancellationRequested();
+            run = current;
             current.RogueChoiceChanged += OnRogueChoiceChanged;
             scope.Defer(() => current.RogueChoiceChanged -= OnRogueChoiceChanged);
             scope.Defer(() =>
@@ -44,9 +47,10 @@ namespace GameLogic.Scenes.Expedition
                 if (gameplay.IsValid) GameEntry.Get<IGameplayModule>().Stop(gameplay);
                 Cleanup();
             });
-            run.AttachScene();
+            presentation = new ExpeditionPresentation(run, assets);
+            run.AttachScene(assets, presentation.Root);
             if (run.RoomView == null) throw new System.InvalidOperationException("首张地图准备失败。");
-            presentation = new ExpeditionPresentation(run);
+            presentation.Refresh();
             var inputContext = GameEntry.Get<IInputModule>().PushContext("Gameplay");
             scope.Defer(inputContext.Dispose);
             gameplay = await GameEntry.Get<IGameplayModule>().StartAsync(new ExpeditionGameplay(run, presentation), ct: ct);
@@ -126,10 +130,10 @@ namespace GameLogic.Scenes.Expedition
         private void Cleanup()
         {
             gameplay = GameplayHandle.Invalid;
-            presentation?.Dispose();
-            presentation = null;
             run?.DetachScene();
             run = null;
+            presentation?.Dispose();
+            presentation = null;
         }
     }
 }
