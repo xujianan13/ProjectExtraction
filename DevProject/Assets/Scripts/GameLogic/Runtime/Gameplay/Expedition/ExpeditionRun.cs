@@ -55,6 +55,10 @@ namespace GameLogic.Gameplay.Expedition
         public int GoldSpent { get; private set; }
         public int AvailableGold => session.Gold - GoldSpent;
         private bool CanInteract => IsRunning && IsReady && !paused && !IsChoosingRogue && !disposed && !stopped && !session.HasPendingSave && !GameEntry.IsInBackground;
+        /// <summary>
+        /// 当前是否允许玩家输入，供局内触屏控件门禁使用。
+        /// </summary>
+        public bool CanAcceptPlayerInput => CanInteract;
         public string Message { get; private set; } = "移动靠近敌人自动攻击；靠近出口或物品后交互。";
         public IReadOnlyList<ProjectItem> Inventory => inventory;
         public IReadOnlyList<ExpeditionDrop> Drops => drops;
@@ -186,13 +190,17 @@ namespace GameLogic.Gameplay.Expedition
         /// <param name="value">是否暂停。</param>
         public void SetPaused(bool value)
         {
+            if (disposed || stopped || paused == value) return;
             paused = value;
+            if (value)
+            {
+                touchMove = Vector2.zero;
+                interactionRequested = false;
+                World.ClearPendingTime();
+                World.SetMove(Player, Vector2.zero);
+            }
             RogueChoiceChanged?.Invoke();
-            if (!value) return;
-            touchMove = Vector2.zero;
-            interactionRequested = false;
-            World.ClearPendingTime();
-            World.SetMove(Player, Vector2.zero);
+            Changed?.Invoke();
         }
 
         /// <summary>
@@ -322,6 +330,11 @@ namespace GameLogic.Gameplay.Expedition
         /// <param name="axis">归一化摇杆输入。</param>
         public void SetTouchMove(Vector2 axis)
         {
+            if (axis == Vector2.zero || float.IsNaN(axis.x) || float.IsInfinity(axis.x) || float.IsNaN(axis.y) || float.IsInfinity(axis.y))
+            {
+                touchMove = Vector2.zero;
+                return;
+            }
             if (!CanInteract) return;
             touchMove = Vector2.ClampMagnitude(axis, 1);
         }

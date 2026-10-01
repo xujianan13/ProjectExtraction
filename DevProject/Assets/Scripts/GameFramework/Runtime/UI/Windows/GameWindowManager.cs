@@ -106,6 +106,18 @@ namespace GameFramework
         }
 
         /// <summary>
+        /// 更新已创建的窗口根 Canvas 缩放设置。
+        /// </summary>
+        /// <param name="referenceResolution">参考分辨率。</param>
+        /// <param name="matchWidthOrHeight">宽高匹配权重。</param>
+        /// <returns>窗口根存在且已配置时为真。</returns>
+        internal bool TryConfigureCanvas(Vector2 referenceResolution, float matchWidthOrHeight)
+        {
+            if (!IsInitialized || _presentation == null) return false;
+            return _presentation.TryConfigureCanvas(referenceResolution, matchWidthOrHeight);
+        }
+
+        /// <summary>
         /// 按窗口 ID 打开；缓存命中时复用实例并再次调用 Show。
         /// </summary>
         /// <param name="id">窗口 ID。</param>
@@ -986,6 +998,7 @@ namespace GameFramework
         {
             private readonly SortedDictionary<int, RectTransform> _layers = new();
             private readonly GameObject _root;
+            private readonly CanvasScaler _scaler;
             private readonly RectTransform _maskTransform;
             private readonly Image _maskImage;
             private readonly RectTransform _outsideTransform;
@@ -1006,11 +1019,11 @@ namespace GameFramework
                 canvas.renderMode = RenderMode.ScreenSpaceOverlay;
                 canvas.overrideSorting = true;
                 canvas.sortingOrder = sortingOrder;
-                CanvasScaler scaler = _root.GetComponent<CanvasScaler>();
-                scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
-                scaler.referenceResolution = new Vector2(1920f, 1080f);
-                scaler.screenMatchMode = CanvasScaler.ScreenMatchMode.MatchWidthOrHeight;
-                scaler.matchWidthOrHeight = 0.5f;
+                _scaler = _root.GetComponent<CanvasScaler>();
+                _scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
+                _scaler.referenceResolution = new Vector2(1920f, 1080f);
+                _scaler.screenMatchMode = CanvasScaler.ScreenMatchMode.MatchWidthOrHeight;
+                _scaler.matchWidthOrHeight = 0.5f;
                 if (Application.isPlaying) UnityEngine.Object.DontDestroyOnLoad(_root);
 
                 GameObject mask = CreateStretchObject("[WindowMask]", _root.transform);
@@ -1031,6 +1044,22 @@ namespace GameFramework
             }
 
             internal event Action OutsideClicked;
+
+            /// <summary>
+            /// 将窗口根切换到调用方指定的参考尺寸。
+            /// </summary>
+            /// <param name="referenceResolution">参考分辨率。</param>
+            /// <param name="matchWidthOrHeight">宽高匹配权重。</param>
+            /// <returns>根 CanvasScaler 可用时为真。</returns>
+            internal bool TryConfigureCanvas(Vector2 referenceResolution, float matchWidthOrHeight)
+            {
+                if (_scaler == null) return false;
+                _scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
+                _scaler.referenceResolution = referenceResolution;
+                _scaler.screenMatchMode = CanvasScaler.ScreenMatchMode.MatchWidthOrHeight;
+                _scaler.matchWidthOrHeight = matchWidthOrHeight;
+                return true;
+            }
 
             /// <summary>
             /// 获取或创建指定窗口层级。

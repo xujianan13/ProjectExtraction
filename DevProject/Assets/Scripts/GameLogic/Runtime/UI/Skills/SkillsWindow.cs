@@ -29,23 +29,24 @@ namespace GameLogic.UI.Skills
             RectTransform layout = ProjectUiFactory.Vertical(surface, "Layout", 12f);
             ProjectUiFactory.Stretch(layout, 22f);
             RectTransform header = ProjectUiFactory.Horizontal(layout, "Header", 12f);
-            ProjectUiFactory.Height(header, 62f);
+            ProjectUiFactory.Height(header, 72f);
             UnityEngine.UI.Text title = ProjectUiFactory.Label(header, "技能", 31, TextAnchor.MiddleLeft, Color.white);
             title.gameObject.AddComponent<UnityEngine.UI.LayoutElement>().flexibleWidth = 1f;
             UnityEngine.UI.Button close = ProjectUiFactory.ActionButton(header, "关闭", () => CloseSelfAsync().Forget());
             close.gameObject.AddComponent<UnityEngine.UI.LayoutElement>().preferredWidth = 110f;
             points = ProjectUiFactory.Label(layout, string.Empty, 27, TextAnchor.MiddleLeft, new Color(0.9f, 0.81f, 0.52f));
-            ProjectUiFactory.Height(points.rectTransform, 60f);
+            ProjectUiFactory.Height(points.rectTransform, 58f);
             UnityEngine.UI.ScrollRect scroll = ProjectUiFactory.Scroll(layout, "SkillList", out list);
             UnityEngine.UI.LayoutElement scrollSize = scroll.gameObject.AddComponent<UnityEngine.UI.LayoutElement>();
             scrollSize.flexibleHeight = 1f;
-            scrollSize.minHeight = 180f;
-            details = ProjectUiFactory.Label(layout, "选择技能查看效果", 22, TextAnchor.MiddleLeft, Color.white);
-            ProjectUiFactory.Height(details.rectTransform, 144f);
+            scrollSize.minHeight = 100f;
+            UnityEngine.UI.ScrollRect detailsScroll = ProjectUiFactory.Scroll(layout, "SkillDetails", out RectTransform detailsContent);
+            ProjectUiFactory.Height((RectTransform)detailsScroll.transform, 150f);
+            details = ProjectUiFactory.Label(detailsContent, "选择技能查看效果", 22, TextAnchor.UpperLeft, Color.white);
             upgradeButton = ProjectUiFactory.ActionButton(layout, "提升技能", () => UpgradeAsync().Forget());
-            ProjectUiFactory.Height(upgradeButton.GetComponent<RectTransform>(), 70f);
+            ProjectUiFactory.Height(upgradeButton.GetComponent<RectTransform>(), 90f);
             feedback = ProjectUiFactory.Label(layout, string.Empty, 20, TextAnchor.MiddleLeft, new Color(1f, 0.8f, 0.5f));
-            ProjectUiFactory.Height(feedback.rectTransform, 55f);
+            ProjectUiFactory.Height(feedback.rectTransform, 50f);
         }
 
         /// <summary>

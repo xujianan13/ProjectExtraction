@@ -110,6 +110,28 @@ namespace GameFramework
             _root = null;
         }
 
+        /// <summary>
+        /// 同步配置反馈层和业务窗口根节点的缩放参考尺寸。
+        /// </summary>
+        /// <param name="referenceResolution">宽高均为有限正数的参考分辨率。</param>
+        /// <param name="matchWidthOrHeight">范围为零到一的宽高匹配权重。</param>
+        /// <returns>两个 Canvas 均配置成功时为真。</returns>
+        public bool TryConfigureCanvas(Vector2 referenceResolution, float matchWidthOrHeight = 0.5f)
+        {
+            if (!IsReady || _windows == null ||
+                float.IsNaN(referenceResolution.x) || float.IsInfinity(referenceResolution.x) || referenceResolution.x <= 0f ||
+                float.IsNaN(referenceResolution.y) || float.IsInfinity(referenceResolution.y) || referenceResolution.y <= 0f ||
+                float.IsNaN(matchWidthOrHeight) || float.IsInfinity(matchWidthOrHeight) ||
+                matchWidthOrHeight < 0f || matchWidthOrHeight > 1f) return false;
+            CanvasScaler feedbackScaler = _root.GetComponent<CanvasScaler>();
+            if (feedbackScaler == null || !_windows.TryConfigureCanvas(referenceResolution, matchWidthOrHeight)) return false;
+            feedbackScaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
+            feedbackScaler.referenceResolution = referenceResolution;
+            feedbackScaler.screenMatchMode = CanvasScaler.ScreenMatchMode.MatchWidthOrHeight;
+            feedbackScaler.matchWidthOrHeight = matchWidthOrHeight;
+            return true;
+        }
+
         /// <inheritdoc />
         public void ConfigureWindows(IEnumerable<GameWindowConfig> configs, Action<GameWindowRegistry> register)
         {

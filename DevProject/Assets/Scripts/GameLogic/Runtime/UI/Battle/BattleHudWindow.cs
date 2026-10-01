@@ -23,6 +23,7 @@ namespace GameLogic.UI.Battle
         private RectTransform map;
         private RectTransform bag;
         private UnityEngine.UI.Button resumeChoice;
+        private UnityEngine.UI.Button interactButton;
         private RectTransform bagContent;
         private ExpeditionJoystick joystick;
         private int mapRoom = -1;
@@ -37,28 +38,34 @@ namespace GameLogic.UI.Battle
         {
             RectTransform content = ProjectUiFactory.Fill(RootTransform, "BattleHud", Color.clear);
             var header = ProjectUiFactory.Vertical(content, "Status", 5);
-            Place(header, new Vector2(0.04f, 0.83f), new Vector2(0.64f, 0.97f));
-            status = ProjectUiFactory.Label(header, "", 27, TextAnchor.UpperLeft, Color.white);
-            ProjectUiFactory.Height(status.rectTransform, 80);
-            hint = ProjectUiFactory.Label(header, "", 22, TextAnchor.UpperLeft, Color.white);
-            ProjectUiFactory.Height(hint.rectTransform, 75);
+            status = ProjectUiFactory.Label(header, "", 34, TextAnchor.UpperLeft, Color.white);
+            ProjectUiFactory.Height(status.rectTransform, 104f);
+            hint = ProjectUiFactory.Label(header, "", 28, TextAnchor.UpperLeft, Color.white);
+            ProjectUiFactory.Height(hint.rectTransform, 104f);
             map = ProjectUiFactory.Panel(content, "Minimap", new Color(0.04f, 0.07f, 0.1f, 0.7f));
-            Place(map, new Vector2(0.67f, 0.79f), new Vector2(0.96f, 0.97f));
-            RectTransform stick = ProjectUiFactory.Panel(content, "MoveStick", new Color(0.1f, 0.25f, 0.35f, 0.7f));
-            Place(stick, new Vector2(0.05f, 0.04f), new Vector2(0.32f, 0.22f));
+            RectTransform stick = CreateDisc(content, "MoveStick", new Color(0.1f, 0.25f, 0.35f, 0.72f));
             joystick = stick.gameObject.AddComponent<ExpeditionJoystick>();
-            var moveLabel = ProjectUiFactory.Label(stick, "移动", 27, TextAnchor.MiddleCenter, Color.white);
-            ProjectUiFactory.Stretch(moveLabel.rectTransform, 0);
-            var interact = ProjectUiFactory.ActionButton(content, "交互 / E", RequestInteraction);
-            interactionLabel = interact.GetComponentInChildren<UnityEngine.UI.Text>();
-            Place((RectTransform)interact.transform, new Vector2(0.69f, 0.07f), new Vector2(0.95f, 0.17f));
-            var bagButton = ProjectUiFactory.ActionButton(content, "背包 / 安全箱", ToggleBag);
-            Place((RectTransform)bagButton.transform, new Vector2(0.64f, 0.2f), new Vector2(0.95f, 0.28f));
-            resumeChoice = ProjectUiFactory.ActionButton(content, "继续选择强化", OpenPendingChoice);
-            Place((RectTransform)resumeChoice.transform, new Vector2(0.64f, 0.3f), new Vector2(0.95f, 0.38f));
+            RectTransform handle = CreateDisc(stick, "Handle", new Color(0.3f, 0.72f, 0.82f, 0.9f));
+            handle.anchorMin = Vector2.one * 0.5f;
+            handle.anchorMax = Vector2.one * 0.5f;
+            handle.sizeDelta = Vector2.one * 100f;
+            handle.GetComponent<JoystickDiscGraphic>().raycastTarget = false;
+            joystick.SetHandle(handle);
+            RectTransform actions = ProjectUiFactory.Vertical(content, "ControlActions", 12f);
+            actions.GetComponent<UnityEngine.UI.VerticalLayoutGroup>().childAlignment = TextAnchor.LowerCenter;
+            interactButton = ProjectUiFactory.ActionButton(actions, "交互 / E", RequestInteraction);
+            interactionLabel = interactButton.GetComponentInChildren<UnityEngine.UI.Text>();
+            interactionLabel.fontSize = 32;
+            ProjectUiFactory.Height((RectTransform)interactButton.transform, 100f);
+            var bagButton = ProjectUiFactory.ActionButton(actions, "背包 / 安全箱", ToggleBag);
+            bagButton.GetComponentInChildren<UnityEngine.UI.Text>().fontSize = 32;
+            ProjectUiFactory.Height((RectTransform)bagButton.transform, 100f);
+            resumeChoice = ProjectUiFactory.ActionButton(actions, "继续选择强化", OpenPendingChoice);
+            resumeChoice.GetComponentInChildren<UnityEngine.UI.Text>().fontSize = 30;
+            ProjectUiFactory.Height((RectTransform)resumeChoice.transform, 100f);
             resumeChoice.gameObject.SetActive(false);
             bag = ProjectUiFactory.Panel(content, "RunInventory", new Color(0.055f, 0.1f, 0.15f, 0.98f));
-            Place(bag, new Vector2(0.06f, 0.3f), new Vector2(0.94f, 0.76f));
+            content.gameObject.AddComponent<BattleHudLayout>().Configure(header, map, stick, actions, bag);
             UnityEngine.UI.ScrollRect scroll = ProjectUiFactory.Scroll(bag, "Items", out bagContent);
             ProjectUiFactory.Stretch((RectTransform)scroll.transform, 12);
             bag.gameObject.SetActive(false);
@@ -72,7 +79,7 @@ namespace GameLogic.UI.Battle
         {
             run = args.UserData as ExpeditionRun;
             if (run == null) return;
-            joystick.Bind(run.SetTouchMove);
+            joystick.Bind(run.SetTouchMove, () => run.CanAcceptPlayerInput && !bag.gameObject.activeSelf);
             run.Changed += Refresh;
             coordinator = ProjectServices.Coordinator;
             if (coordinator != null) coordinator.Changed += Refresh;
@@ -80,6 +87,8 @@ namespace GameLogic.UI.Battle
             {
                 run.Changed -= Refresh;
                 if (coordinator != null) coordinator.Changed -= Refresh;
+                joystick.ResetInput();
+                joystick.Bind(null);
                 run.SetTouchMove(Vector2.zero);
             });
             Refresh();
@@ -97,7 +106,10 @@ namespace GameLogic.UI.Battle
             hint.text = run.Message;
             bool choosing = run.IsChoosingRogue && run.PendingRogueChoice != null;
             resumeChoice.gameObject.SetActive(choosing);
-            joystick.enabled = !choosing;
+            bool acceptsInput = run.CanAcceptPlayerInput && !bag.gameObject.activeSelf;
+            joystick.enabled = acceptsInput;
+            if (!acceptsInput) joystick.ResetInput();
+            interactButton.interactable = acceptsInput;
             if (choosing)
             {
                 bag.gameObject.SetActive(false);
@@ -161,6 +173,7 @@ namespace GameLogic.UI.Battle
             bag.gameObject.SetActive(!bag.gameObject.activeSelf);
             run?.SetTouchMove(Vector2.zero);
             if (bag.gameObject.activeSelf) RefreshBag();
+            Refresh();
         }
 
         /// <summary>
@@ -208,6 +221,21 @@ namespace GameLogic.UI.Battle
             if (run == null || !run.IsChoosingRogue || run.PendingRogueChoice == null) return;
             IUIModule ui = GameEntry.Get<IUIModule>();
             if (ui != null) ui.OpenWindowAsync(ProjectServices.RogueChoiceWindow, new GameWindowOpenArgs(run)).Forget();
+        }
+
+        /// <summary>
+        /// 为摇杆创建可随 Canvas 缩放的圆形控件。
+        /// </summary>
+        /// <param name="parent">父节点。</param>
+        /// <param name="name">控件名称。</param>
+        /// <param name="color">圆盘颜色。</param>
+        /// <returns>圆形控件矩形。</returns>
+        private static RectTransform CreateDisc(Transform parent, string name, Color color)
+        {
+            var node = new GameObject(name, typeof(RectTransform), typeof(JoystickDiscGraphic));
+            node.transform.SetParent(parent, false);
+            node.GetComponent<JoystickDiscGraphic>().color = color;
+            return (RectTransform)node.transform;
         }
 
         /// <summary>

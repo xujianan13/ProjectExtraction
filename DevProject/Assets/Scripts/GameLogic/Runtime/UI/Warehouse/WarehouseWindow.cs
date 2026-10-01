@@ -31,14 +31,14 @@ namespace GameLogic.UI.Warehouse
             RectTransform layout = ProjectUiFactory.Vertical(surface, "Layout", 12f);
             ProjectUiFactory.Stretch(layout, 22f);
             RectTransform header = ProjectUiFactory.Horizontal(layout, "Header", 12f);
-            ProjectUiFactory.Height(header, 62f);
+            ProjectUiFactory.Height(header, 72f);
             UnityEngine.UI.Text title = ProjectUiFactory.Label(header, "仓库", 31, TextAnchor.MiddleLeft, Color.white);
             title.gameObject.AddComponent<UnityEngine.UI.LayoutElement>().flexibleWidth = 1f;
             UnityEngine.UI.Button close = ProjectUiFactory.ActionButton(header, "关闭", () => CloseSelfAsync().Forget());
             close.gameObject.AddComponent<UnityEngine.UI.LayoutElement>().preferredWidth = 110f;
 
             RectTransform filters = ProjectUiFactory.Horizontal(layout, "Filters", 8f);
-            ProjectUiFactory.Height(filters, 56f);
+            ProjectUiFactory.Height(filters, 72f);
             string[] names = { "全部", "武器", "装备", "物品" };
             for (int index = 0; index < names.Length; index++)
             {
@@ -49,17 +49,17 @@ namespace GameLogic.UI.Warehouse
             UnityEngine.UI.ScrollRect scroll = ProjectUiFactory.Scroll(layout, "Items", out list);
             UnityEngine.UI.LayoutElement scrollSize = scroll.gameObject.AddComponent<UnityEngine.UI.LayoutElement>();
             scrollSize.flexibleHeight = 1f;
-            scrollSize.minHeight = 120f;
+            scrollSize.minHeight = 100f;
             detailsScroll = ProjectUiFactory.Scroll(layout, "ItemDetails", out detailsContent);
             UnityEngine.UI.LayoutElement detailsSize = detailsScroll.gameObject.AddComponent<UnityEngine.UI.LayoutElement>();
             detailsSize.flexibleHeight = 1.1f;
-            detailsSize.minHeight = 180f;
+            detailsSize.minHeight = 130f;
             RectTransform actions = ProjectUiFactory.Horizontal(layout, "Actions", 12f);
-            ProjectUiFactory.Height(actions, 66f);
+            ProjectUiFactory.Height(actions, 90f);
             equipButton = ProjectUiFactory.ActionButton(actions, "装备", () => EquipAsync().Forget());
             sellButton = ProjectUiFactory.ActionButton(actions, "出售", () => SellAsync().Forget());
             feedback = ProjectUiFactory.Label(layout, string.Empty, 20, TextAnchor.MiddleLeft, new Color(1f, 0.8f, 0.5f));
-            ProjectUiFactory.Height(feedback.rectTransform, 55f);
+            ProjectUiFactory.Height(feedback.rectTransform, 50f);
         }
 
         /// <summary>

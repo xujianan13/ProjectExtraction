@@ -28,16 +28,19 @@ namespace GameLogic.UI.Run
             RectTransform backdrop = ProjectUiFactory.Panel(RootTransform, "ResultBackdrop", new Color(0.025f, 0.055f, 0.09f, 1f));
             ProjectUiFactory.Stretch(backdrop, 0f);
             RectTransform safeArea = ProjectUiFactory.Fill(backdrop, "SafeArea", Color.clear);
-            RectTransform header = ProjectUiFactory.Vertical(safeArea, "ResultHeader", 12f);
-            Place(header, new Vector2(0.06f, 0.6f), new Vector2(0.94f, 0.96f));
-            title = ProjectUiFactory.Label(header, string.Empty, 42, TextAnchor.MiddleCenter, Color.white);
+            RectTransform layout = ProjectUiFactory.Vertical(safeArea, "ResultLayout", 12f);
+            ProjectUiFactory.Stretch(layout, 24f);
+            title = ProjectUiFactory.Label(layout, string.Empty, 42, TextAnchor.MiddleCenter, Color.white);
             ProjectUiFactory.Height(title.rectTransform, 72f);
-            summary = ProjectUiFactory.Label(header, string.Empty, 23, TextAnchor.MiddleLeft, new Color(0.8f, 0.9f, 0.96f));
-            ProjectUiFactory.Height(summary.rectTransform, 150f);
-            UnityEngine.UI.ScrollRect scroll = ProjectUiFactory.Scroll(safeArea, "ResultItems", out items);
-            Place((RectTransform)scroll.transform, new Vector2(0.06f, 0.19f), new Vector2(0.94f, 0.59f));
-            returnButton = ProjectUiFactory.ActionButton(safeArea, "返回主界面", () => ReturnHomeAsync().Forget());
-            Place((RectTransform)returnButton.transform, new Vector2(0.12f, 0.055f), new Vector2(0.88f, 0.14f));
+            UnityEngine.UI.ScrollRect summaryScroll = ProjectUiFactory.Scroll(layout, "ResultSummary", out RectTransform summaryContent);
+            ProjectUiFactory.Height((RectTransform)summaryScroll.transform, 160f);
+            summary = ProjectUiFactory.Label(summaryContent, string.Empty, 23, TextAnchor.UpperLeft, new Color(0.8f, 0.9f, 0.96f));
+            UnityEngine.UI.ScrollRect scroll = ProjectUiFactory.Scroll(layout, "ResultItems", out items);
+            UnityEngine.UI.LayoutElement itemsSize = scroll.gameObject.AddComponent<UnityEngine.UI.LayoutElement>();
+            itemsSize.flexibleHeight = 1f;
+            itemsSize.minHeight = 100f;
+            returnButton = ProjectUiFactory.ActionButton(layout, "返回主界面", () => ReturnHomeAsync().Forget());
+            ProjectUiFactory.Height((RectTransform)returnButton.transform, 90f);
         }
 
         /// <summary>
@@ -126,18 +129,5 @@ namespace GameLogic.UI.Run
             Refresh();
         }
 
-        /// <summary>
-        /// 按屏幕比例定位结果内容。
-        /// </summary>
-        /// <param name="rect">待布局节点。</param>
-        /// <param name="minimum">左下锚点。</param>
-        /// <param name="maximum">右上锚点。</param>
-        private static void Place(RectTransform rect, Vector2 minimum, Vector2 maximum)
-        {
-            rect.anchorMin = minimum;
-            rect.anchorMax = maximum;
-            rect.offsetMin = Vector2.zero;
-            rect.offsetMax = Vector2.zero;
-        }
     }
 }

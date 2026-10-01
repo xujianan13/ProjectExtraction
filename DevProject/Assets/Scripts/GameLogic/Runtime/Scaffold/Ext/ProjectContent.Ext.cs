@@ -31,6 +31,11 @@ namespace GameLogic.Scaffold
                 projectScenes = scenes;
             }
             if (ReferenceEquals(projectUi, ui)) return;
+            if (!ui.TryConfigureCanvas(new Vector2(1080f, 1920f), 0.5f))
+            {
+                GameEntry.Get<ILogModule>()?.Error("ProjectContent", "项目 UI Canvas 缩放配置失败，窗口内容未注册。");
+                return;
+            }
             ui.ConfigureWindows(new[]
             {
                 CreateProjectWindow<WarehouseWindow>(2101, "Warehouse", GameUILayers.Popup, true),

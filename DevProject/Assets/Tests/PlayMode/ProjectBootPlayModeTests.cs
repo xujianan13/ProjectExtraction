@@ -52,13 +52,22 @@ namespace MiniGame.Tests
             Assert.That(GameEntry.Get<IInputModule>(), Is.TypeOf<InputModule>());
             IUIModule ui = GameEntry.Get<IUIModule>();
             HomeWindow home = ui.OpenedWindows.OfType<HomeWindow>().Single();
+            await UniTask.Yield();
+            AssertWindowLayout(home);
             foreach (var entry in new[] { (label: "仓库", id: 2101), (label: "技能", id: 2102), (label: "角色属性", id: 2400) })
             {
                 Click(home, entry.label);
                 await WaitAsync(() => ui.OpenedWindows.Any(window => window.Id == entry.id && window.State == GameWindowState.Opened),
                     entry.label + "按钮未打开窗口。");
+                await UniTask.Yield();
+                AssertWindowLayout(ui.OpenedWindows.Single(window => window.Id == entry.id));
                 Assert.That(await ui.CloseWindowAsync(entry.id), Is.True);
             }
+            GameWindow resultWindow = await ui.OpenWindowAsync(ProjectServices.ResultWindow);
+            Assert.That(resultWindow, Is.Not.Null);
+            await UniTask.Yield();
+            AssertWindowLayout(resultWindow);
+            Assert.That(await ui.CloseWindowAsync(ProjectServices.ResultWindow), Is.True);
             int stamina = ProjectServices.Session.Stamina;
             Click(home, "出战");
             await WaitAsync(() => ProjectServices.Session.CurrentRun?.IsRunning == true &&
@@ -91,6 +100,67 @@ namespace MiniGame.Tests
             Assert.That(run.IsRunning, Is.True);
         });
 
+        /// <summary>
+        /// 验证真实窗口主操作在屏幕范围内，滚动视口有面积且 Home 三段互不重叠。
+        /// </summary>
+        /// <param name="window">已经打开并完成布局的窗口。</param>
+        private static void AssertWindowLayout(GameWindow window)
+        {
+            Canvas.ForceUpdateCanvases();
+            RectTransform root = window.RootTransform;
+            foreach (ScrollRect scroll in root.GetComponentsInChildren<ScrollRect>(false))
+            {
+                Assert.That(scroll.viewport, Is.Not.Null, scroll.name + " 缺少视口。");
+                Assert.That(scroll.viewport.rect.width, Is.GreaterThan(1f), scroll.name + " 视口宽度为零。");
+                Assert.That(scroll.viewport.rect.height, Is.GreaterThan(1f), scroll.name + " 视口高度为零。");
+            }
+            foreach (Button button in root.GetComponentsInChildren<Button>(false))
+                AssertInside(root, (RectTransform)button.transform, button.name);
+            if (window is not HomeWindow) return;
+            RectTransform surface = root.Find("HomeContent") as RectTransform;
+            Assert.That(surface, Is.Not.Null);
+            RectTransform layout = surface.Find("Layout") as RectTransform;
+            Assert.That(layout, Is.Not.Null);
+            RectTransform header = layout.Find("Header") as RectTransform;
+            RectTransform body = layout.Find("Main") as RectTransform;
+            RectTransform footer = layout.Find("Footer") as RectTransform;
+            Assert.That(header, Is.Not.Null);
+            Assert.That(body, Is.Not.Null);
+            Assert.That(footer, Is.Not.Null);
+            AssertInside(surface, header, "Home 顶栏");
+            AssertInside(surface, body, "Home 正文");
+            AssertInside(surface, footer, "Home 底栏");
+            Assert.That(Bounds(header).bottom, Is.GreaterThanOrEqualTo(Bounds(body).top - 1f), "Home 顶栏与正文重叠。");
+            Assert.That(Bounds(body).bottom, Is.GreaterThanOrEqualTo(Bounds(footer).top - 1f), "Home 正文与底栏重叠。");
+        }
+
+        /// <summary>
+        /// 验证子矩形位于窗口范围内。
+        /// </summary>
+        /// <param name="parent">允许范围。</param>
+        /// <param name="child">待检查节点。</param>
+        /// <param name="name">断言名称。</param>
+        private static void AssertInside(RectTransform parent, RectTransform child, string name)
+        {
+            var outer = Bounds(parent);
+            var inner = Bounds(child);
+            Assert.That(inner.left, Is.GreaterThanOrEqualTo(outer.left - 1f), name + " 左侧越界。");
+            Assert.That(inner.right, Is.LessThanOrEqualTo(outer.right + 1f), name + " 右侧越界。");
+            Assert.That(inner.bottom, Is.GreaterThanOrEqualTo(outer.bottom - 1f), name + " 底部越界。");
+            Assert.That(inner.top, Is.LessThanOrEqualTo(outer.top + 1f), name + " 顶部越界。");
+        }
+
+        /// <summary>
+        /// 读取屏幕空间的矩形边界。
+        /// </summary>
+        /// <param name="rect">待检查矩形。</param>
+        /// <returns>左、右、下、上边界。</returns>
+        private static (float left, float right, float bottom, float top) Bounds(RectTransform rect)
+        {
+            var corners = new Vector3[4];
+            rect.GetWorldCorners(corners);
+            return (corners[0].x, corners[2].x, corners[0].y, corners[2].y);
+        }
         /// <summary>
         /// 调用实际窗口按钮绑定的业务回调，不替换导航方法。
         /// </summary>

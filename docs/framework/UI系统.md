@@ -49,3 +49,7 @@ Toast 按请求顺序展示，确认框和提示框串行展示并使用全屏�
 使用 Unity 2022.3.62f2 打开 `DevProject`，执行 **Tools → Unity Mini Game Framework → Set Up Game UI**，可重建样例 Prefab 并清理旧 `Loading` 场景的独立事件系统。新增业务窗口时，将 Prefab 放入 `Assets/GameResources/UI`，保留 `.meta`，在热更程序中显式注册窗口配置与类型。执行 **Prepare GamePackage** 后再构建离线或远端 GamePackage；具体发布步骤见 [热更启动流程](热更启动流程.md)。
 
 `tools/verify.ps1` 执行 Unity 编译与 PlayMode 测试。UI 测试覆盖控件、安全区、世界目标跟随、确认框和等待层的输入阻断、双层模态遮罩恢复；启动测试验证热更后的样例 Prefab 实际打开。
+
+## 配置 Canvas 参考尺寸
+
+UI 模块初始化后，项目可调用 `IUIModule.TryConfigureCanvas(Vector2 referenceResolution, float matchWidthOrHeight = 0.5f)` 同时配置业务窗口根和反馈层，建议在注册、打开项目窗口前执行。两层使用 `ScaleWithScreenSize` 和 `MatchWidthOrHeight`；配置对后续窗口继续有效。宽高必须为有限正数，匹配权重须为有限的 `[0,1]` 数值；参数非法或模块未就绪时返回 `false`，不覆盖已有配置。框架默认参考尺寸保持 1920×1080，具体项目按自己的方向和设计尺寸显式配置。

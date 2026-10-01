@@ -1,6 +1,6 @@
 # ProjectExtraction
 
-3D 搜打撤 + Roguelike 小游戏项目。目标平台为 Mobile、微信小游戏和 PC，优先设计与验证 Mobile、微信小游戏体验，同时适配 PC 输入与屏幕。默认竖屏，兼容横屏；界面采用主 UI 与模态弹窗结构。平台目标仍须单独验收。
+3D 搜打撤 + Roguelike 小游戏项目。目标平台为 Mobile、微信小游戏和 PC，优先设计与验证 Mobile、微信小游戏体验，同时适配 PC 输入与屏幕。默认竖屏 1080×1920，兼容横屏；界面采用主 UI 与模态弹窗结构。平台目标仍须单独验收。
 
 当前工程由 `UnityMiniGameFramework` 的 `Minimal` 模板创建，已接入主界面、仓库/技能、随机地图、ECS 自动近战和出入场保存的首版代码。使用运行时生成的占位界面与场景内容，原始能力和原型参数见[首版代码实现与验证](docs/project/首版代码实现与验证.md)；新增的出战、结算、结果页与返场流程见[场景流程首版实现与验证](docs/project/场景流程首版实现与验证.md)。项目公司名 `MiniGameStudio`、应用标识 `com.minigamestudio.projectextraction` 是可修改的开发占位。当前不接入广告、付费、联网服务或微信 SDK。
 

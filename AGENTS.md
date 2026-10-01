@@ -14,6 +14,7 @@
 - [玩家主要属性与货币设计](docs/project/玩家主要属性与货币设计.md)：等级、经验、体力、金币、钻石；M07 管成长和钱包，M09 管体力，买卖与物品变更统一保存。建议与待定项不能当作已批准规则。
 - [角色属性与装备词条](docs/project/角色属性与装备词条.md)：HP、攻击、防御、暴击值/暴击伤害、闪避、增伤/减伤，武器/护甲和六档品质；公式与词条数量为首版可调数值。
 - [Roguelike 三选一设计与实现](docs/project/Roguelike三选一设计与实现.md)：局内选择暂停、临时强化与物品奖励、默认关闭的刷新和第四项授权。
+- [战斗摇杆与界面适配](docs/project/战斗摇杆与界面适配.md)：1080×1920 默认竖屏、触屏摇杆控制、安全区和不同尺寸布局。
 - [技能成长设计](docs/project/技能成长设计.md)、[主界面设计](docs/project/主界面设计.md)：角色技能点的局外提升、Home 顶部五项属性与底部仓库/技能入口。
 - [关卡与地图设计](docs/project/关卡与地图设计.md)：随机连通地图、未清图自由往返、回访状态与撤离建议。
 - [ECS 战斗框架设计](docs/project/战斗框架设计.md)：统一效果执行、技能时间轴、飞弹和 Buff，包含固定时序与跨图状态；首版实现与验证范围见[首版代码实现与验证](docs/project/首版代码实现与验证.md)。
@@ -45,7 +46,7 @@
 - 只记录本项目实际执行过的结果与限制；源框架文档和旧验收属于来源资料，不能替代本项目验证。
 ## 显示与平台约束
 
-- 项目以竖屏起步：PlayerSettings 为 Portrait；GameMain 在原生移动端启动完成后开放自动旋转，允许正竖屏和左右横屏。PC 为可调整的 720×1280 窗口。微信/WebGL 的宿主方向另行接入和验收。
-- Canvas 保留 ScaleWithScreenSize、1920×1080 参考尺寸和 0.5 宽高匹配；Home 前景与虚拟控件通过 GameSafeAreaFitter 适配安全区。新增 UI 使用锚点和布局组件，主 UI 使用 Page，模态弹窗使用 Modal；检查窄屏边界，不以固定像素坐标绑定布局。
+- 项目以竖屏起步：PlayerSettings 为 Portrait；GameMain 在原生移动端启动完成后开放自动旋转，允许正竖屏和左右横屏。PC/Web 默认可调整窗口为 1080×1920。微信/WebGL 的宿主方向另行接入和验收。
+- 项目 Canvas 使用 ScaleWithScreenSize、1080×1920 参考尺寸和 0.5 宽高匹配，通过 IUIModule.TryConfigureCanvas 配置业务与反馈层；Home 前景与虚拟控件通过 GameSafeAreaFitter 适配安全区。新增 UI 使用锚点和布局组件，主 UI 使用 Page，模态弹窗使用 Modal；检查窄屏边界，不以固定像素坐标绑定布局。
 - 本机已安装 Windows、Android（SDK/NDK/JDK）与 WebGL 模块，缺 iOS 模块和微信 SDK。当前仅通过 Editor 验收，发布平台均需独立构建与设备验证。
 - 显示默认值入口为 `Tools/ProjectExtraction/Apply Display Defaults`；首次 Git 检出须 `npm ci --prefix tool` 并等待 Unity 编译，再 Prepare GamePackage。生成的 DLL.bytes 被忽略，不沿用历史平台程序集。

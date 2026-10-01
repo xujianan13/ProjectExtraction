@@ -50,10 +50,12 @@ namespace GameLogic.UI.Home
         {
             if (legacyPanel != null) legacyPanel.gameObject.SetActive(false);
             RectTransform surface = ProjectUiFactory.Fill(RootTransform, "HomeContent", new Color(0.04f, 0.08f, 0.12f, 1f));
-            RectTransform header = ProjectUiFactory.Vertical(surface, "Header", 12f);
-            SetArea(header, new Vector2(0f, 0.77f), Vector2.one, new Vector2(24f, -16f), new Vector2(-24f, -10f));
+            RectTransform layout = ProjectUiFactory.Vertical(surface, "Layout", 12f);
+            ProjectUiFactory.Stretch(layout, 22f);
+            RectTransform header = ProjectUiFactory.Vertical(layout, "Header", 8f);
+            ProjectUiFactory.Height(header, 208f);
             progression = ProjectUiFactory.Label(header, string.Empty, 31, TextAnchor.MiddleLeft, Color.white);
-            ProjectUiFactory.Height(progression.rectTransform, 62f);
+            ProjectUiFactory.Height(progression.rectTransform, 50f);
             RectTransform experienceBar = ProjectUiFactory.Panel(header, "ExperienceBar", new Color(0.14f, 0.25f, 0.3f, 1f));
             ProjectUiFactory.Height(experienceBar, 14f);
             experienceFill = ProjectUiFactory.Panel(experienceBar, "Fill", new Color(0.42f, 0.78f, 0.84f, 1f));
@@ -62,12 +64,12 @@ namespace GameLogic.UI.Home
             experienceFill.offsetMin = Vector2.zero;
             experienceFill.offsetMax = Vector2.zero;
             resources = ProjectUiFactory.Label(header, string.Empty, 23, TextAnchor.MiddleLeft, new Color(0.76f, 0.9f, 0.95f));
-            ProjectUiFactory.Height(resources.rectTransform, 70f);
+            ProjectUiFactory.Height(resources.rectTransform, 56f);
             supplyButton = ProjectUiFactory.ActionButton(header, "领取补给", () => ClaimSupplyAsync().Forget());
-            ProjectUiFactory.Height(supplyButton.GetComponent<RectTransform>(), 48f);
+            ProjectUiFactory.Height(supplyButton.GetComponent<RectTransform>(), 60f);
 
-            RectTransform body = ProjectUiFactory.Vertical(surface, "Main", 14f);
-            SetArea(body, new Vector2(0f, 0.2f), new Vector2(1f, 0.75f), new Vector2(24f, 0f), new Vector2(-24f, 0f));
+            RectTransform body = ProjectUiFactory.Vertical(layout, "Main", 12f);
+            body.gameObject.AddComponent<UnityEngine.UI.LayoutElement>().flexibleHeight = 1f;
             RectTransform headingRow = ProjectUiFactory.Horizontal(body, "LevelHeading", 12f);
             ProjectUiFactory.Height(headingRow, 56f);
             UnityEngine.UI.Text heading = ProjectUiFactory.Label(headingRow, "选择关卡", 32, TextAnchor.MiddleLeft, Color.white);
@@ -77,19 +79,20 @@ namespace GameLogic.UI.Home
             UnityEngine.UI.ScrollRect scroll = ProjectUiFactory.Scroll(body, "Levels", out levelList);
             UnityEngine.UI.LayoutElement scrollSize = scroll.gameObject.AddComponent<UnityEngine.UI.LayoutElement>();
             scrollSize.flexibleHeight = 1f;
-            scrollSize.minHeight = 120f;
-            levelDetails = ProjectUiFactory.Label(body, string.Empty, 23, TextAnchor.MiddleLeft, Color.white);
-            ProjectUiFactory.Height(levelDetails.rectTransform, 94f);
+            scrollSize.minHeight = 80f;
+            UnityEngine.UI.ScrollRect detailsScroll = ProjectUiFactory.Scroll(body, "LevelDetails", out RectTransform detailsContent);
+            ProjectUiFactory.Height((RectTransform)detailsScroll.transform, 94f);
+            levelDetails = ProjectUiFactory.Label(detailsContent, string.Empty, 23, TextAnchor.UpperLeft, Color.white);
             startButton = ProjectUiFactory.ActionButton(body, "出战", () => StartRunAsync().Forget());
-            ProjectUiFactory.Height(startButton.GetComponent<RectTransform>(), 72f);
+            ProjectUiFactory.Height(startButton.GetComponent<RectTransform>(), 90f);
             retryButton = ProjectUiFactory.ActionButton(body, "重试保存", () => RetrySaveAsync().Forget());
-            ProjectUiFactory.Height(retryButton.GetComponent<RectTransform>(), 64f);
+            ProjectUiFactory.Height(retryButton.GetComponent<RectTransform>(), 80f);
             retryButton.gameObject.SetActive(false);
             feedback = ProjectUiFactory.Label(body, string.Empty, 21, TextAnchor.MiddleLeft, new Color(1f, 0.8f, 0.5f));
             ProjectUiFactory.Height(feedback.rectTransform, 50f);
 
-            RectTransform footer = ProjectUiFactory.Horizontal(surface, "Footer", 16f);
-            SetArea(footer, Vector2.zero, new Vector2(1f, 0.18f), new Vector2(24f, 18f), new Vector2(-24f, -12f));
+            RectTransform footer = ProjectUiFactory.Horizontal(layout, "Footer", 16f);
+            ProjectUiFactory.Height(footer, 90f);
             warehouseButton = ProjectUiFactory.ActionButton(footer, "仓库", () => GameEntry.Get<IUIModule>().OpenWindowAsync(2101).Forget());
             skillsButton = ProjectUiFactory.ActionButton(footer, "技能", () => GameEntry.Get<IUIModule>().OpenWindowAsync(2102).Forget());
         }
@@ -232,20 +235,5 @@ namespace GameLogic.UI.Home
             Refresh();
         }
 
-        /// <summary>
-        /// 设置矩形的相对安全区边界。
-        /// </summary>
-        /// <param name="rect">待设置节点。</param>
-        /// <param name="minimum">左下锚点。</param>
-        /// <param name="maximum">右上锚点。</param>
-        /// <param name="minimumOffset">左下边距。</param>
-        /// <param name="maximumOffset">右上边距。</param>
-        private static void SetArea(RectTransform rect, Vector2 minimum, Vector2 maximum, Vector2 minimumOffset, Vector2 maximumOffset)
-        {
-            rect.anchorMin = minimum;
-            rect.anchorMax = maximum;
-            rect.offsetMin = minimumOffset;
-            rect.offsetMax = maximumOffset;
-        }
     }
 }

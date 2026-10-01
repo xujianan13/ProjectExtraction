@@ -36,10 +36,10 @@ namespace MiniGame.Editor
             PlayerSettings.allowedAutorotateToLandscapeLeft = true;
             PlayerSettings.allowedAutorotateToLandscapeRight = true;
             PlayerSettings.defaultIsNativeResolution = false;
-            PlayerSettings.defaultScreenWidth = 720;
-            PlayerSettings.defaultScreenHeight = 1280;
-            PlayerSettings.defaultWebScreenWidth = 720;
-            PlayerSettings.defaultWebScreenHeight = 1280;
+            PlayerSettings.defaultScreenWidth = 1080;
+            PlayerSettings.defaultScreenHeight = 1920;
+            PlayerSettings.defaultWebScreenWidth = 1080;
+            PlayerSettings.defaultWebScreenHeight = 1920;
             PlayerSettings.fullScreenMode = FullScreenMode.Windowed;
             PlayerSettings.resizableWindow = true;
 
@@ -59,6 +59,12 @@ namespace MiniGame.Editor
             PrefabUtility.UnloadPrefabContents(home);
 
             GameObject controls = PrefabUtility.LoadPrefabContents(ControlsPath);
+            UnityEngine.UI.CanvasScaler scaler = controls.GetComponent<UnityEngine.UI.CanvasScaler>();
+            if (scaler == null) scaler = controls.AddComponent<UnityEngine.UI.CanvasScaler>();
+            scaler.uiScaleMode = UnityEngine.UI.CanvasScaler.ScaleMode.ScaleWithScreenSize;
+            scaler.referenceResolution = new Vector2(1080f, 1920f);
+            scaler.screenMatchMode = UnityEngine.UI.CanvasScaler.ScreenMatchMode.MatchWidthOrHeight;
+            scaler.matchWidthOrHeight = 0.5f;
             Transform safeArea = controls.transform.Find("SafeArea");
             if (safeArea == null)
             {
@@ -108,7 +114,7 @@ namespace MiniGame.Editor
                 renderPipeline = UnityEngine.Rendering.GraphicsSettings.currentRenderPipeline == null ? "Built-in" : "Custom"
             };
             File.WriteAllText(Path.Combine(directory, "project-display.json"), JsonUtility.ToJson(report, true));
-            Debug.Log("ProjectExtraction 显示配置已保存：竖屏启动、启动完成后移动端自动旋转、PC 窗口可调整、安全区已接入。");
+            Debug.Log("ProjectExtraction 显示配置已保存：1080×1920 竖屏启动、启动完成后移动端自动旋转、PC 窗口可调整、安全区已接入。");
         }
 
         /// <summary>

@@ -18,6 +18,7 @@ namespace GameLogic.UI.Roguelike
         private UnityEngine.UI.Text message;
         private RectTransform cards;
         private RectTransform actions;
+        private UnityEngine.UI.LayoutElement actionsSize;
         private bool busy;
 
         /// <summary>
@@ -28,18 +29,23 @@ namespace GameLogic.UI.Roguelike
             RectTransform safeArea = ProjectUiFactory.Fill(RootTransform, "RogueChoiceSafeArea", Color.clear);
             RectTransform panel = ProjectUiFactory.Panel(safeArea, "RogueChoicePanel", new Color(0.055f, 0.11f, 0.16f, 0.98f));
             Place(panel, new Vector2(0.05f, 0.08f), new Vector2(0.95f, 0.92f));
-            title = ProjectUiFactory.Label(panel, "选择本局强化", 38, TextAnchor.MiddleCenter, Color.white);
-            Place(title.rectTransform, new Vector2(0.04f, 0.86f), new Vector2(0.96f, 0.97f));
-            UnityEngine.UI.Text guidance = ProjectUiFactory.Label(panel,
+            RectTransform layout = ProjectUiFactory.Vertical(panel, "ChoiceLayout", 10f);
+            ProjectUiFactory.Stretch(layout, 16f);
+            title = ProjectUiFactory.Label(layout, "选择本局强化", 38, TextAnchor.MiddleCenter, Color.white);
+            ProjectUiFactory.Height(title.rectTransform, 72f);
+            UnityEngine.UI.Text guidance = ProjectUiFactory.Label(layout,
                 "战斗已暂停。属性强化仅在本局生效；战利品遵循原有撤离与死亡规则。点击一项立即生效。",
                 23, TextAnchor.MiddleLeft, new Color(0.82f, 0.91f, 0.95f));
-            Place(guidance.rectTransform, new Vector2(0.06f, 0.74f), new Vector2(0.94f, 0.86f));
-            UnityEngine.UI.ScrollRect scroll = ProjectUiFactory.Scroll(panel, "ChoiceCards", out cards);
-            Place((RectTransform)scroll.transform, new Vector2(0.05f, 0.24f), new Vector2(0.95f, 0.73f));
-            actions = ProjectUiFactory.Vertical(panel, "ChoiceActions", 8f);
-            Place(actions, new Vector2(0.05f, 0.09f), new Vector2(0.95f, 0.24f));
-            message = ProjectUiFactory.Label(panel, string.Empty, 20, TextAnchor.MiddleCenter, new Color(1f, 0.85f, 0.58f));
-            Place(message.rectTransform, new Vector2(0.05f, 0.015f), new Vector2(0.95f, 0.09f));
+            ProjectUiFactory.Height(guidance.rectTransform, 80f);
+            UnityEngine.UI.ScrollRect scroll = ProjectUiFactory.Scroll(layout, "ChoiceCards", out cards);
+            UnityEngine.UI.LayoutElement scrollSize = scroll.gameObject.AddComponent<UnityEngine.UI.LayoutElement>();
+            scrollSize.flexibleHeight = 1f;
+            scrollSize.minHeight = 120f;
+            actions = ProjectUiFactory.Vertical(layout, "ChoiceActions", 8f);
+            actionsSize = actions.gameObject.AddComponent<UnityEngine.UI.LayoutElement>();
+            actions.gameObject.SetActive(false);
+            message = ProjectUiFactory.Label(layout, string.Empty, 20, TextAnchor.MiddleCenter, new Color(1f, 0.85f, 0.58f));
+            ProjectUiFactory.Height(message.rectTransform, 50f);
         }
 
         /// <summary>
@@ -95,19 +101,24 @@ namespace GameLogic.UI.Roguelike
                 ProjectUiFactory.Height((RectTransform)button.transform, 130f);
                 button.interactable = !busy && !locked;
             }
-            if (!choice.ExtraUnlocked && run.CanRequestExtraRogueChoice)
+            bool canUnlock = !choice.ExtraUnlocked && run.CanRequestExtraRogueChoice;
+            if (canUnlock)
             {
                 UnityEngine.UI.Button unlock = ProjectUiFactory.ActionButton(actions, "第 4 项 · 未解锁（请求授权）",
                     () => RequestExtraAsync(offerId, revision).Forget());
-                ProjectUiFactory.Height((RectTransform)unlock.transform, 60f);
+                ProjectUiFactory.Height((RectTransform)unlock.transform, 70f);
                 unlock.interactable = !busy;
             }
-            if (choice.CanRefresh)
+            bool canRefresh = choice.CanRefresh;
+            if (canRefresh)
             {
                 UnityEngine.UI.Button refresh = ProjectUiFactory.ActionButton(actions, "刷新选项", () => RefreshChoice(offerId, revision));
-                ProjectUiFactory.Height((RectTransform)refresh.transform, 60f);
+                ProjectUiFactory.Height((RectTransform)refresh.transform, 70f);
                 refresh.interactable = !busy;
             }
+            int actionCount = (canUnlock ? 1 : 0) + (canRefresh ? 1 : 0);
+            actions.gameObject.SetActive(actionCount > 0);
+            actionsSize.minHeight = actionsSize.preferredHeight = actionCount * 70f + Mathf.Max(0, actionCount - 1) * 8f;
         }
 
         /// <summary>

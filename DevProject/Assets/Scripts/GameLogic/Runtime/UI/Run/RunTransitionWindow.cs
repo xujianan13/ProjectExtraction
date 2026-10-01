@@ -34,15 +34,18 @@ namespace GameLogic.UI.Run
             panel.offsetMin = Vector2.zero;
             panel.offsetMax = Vector2.zero;
             title = ProjectUiFactory.Label(panel, string.Empty, 40, TextAnchor.MiddleCenter, Color.white);
-            ProjectUiFactory.Height(title.rectTransform, 96f);
-            message = ProjectUiFactory.Label(panel, string.Empty, 25, TextAnchor.MiddleCenter, new Color(0.8f, 0.9f, 0.96f));
-            ProjectUiFactory.Height(message.rectTransform, 150f);
+            ProjectUiFactory.Height(title.rectTransform, 72f);
+            UnityEngine.UI.ScrollRect messageScroll = ProjectUiFactory.Scroll(panel, "StageMessage", out RectTransform messageContent);
+            UnityEngine.UI.LayoutElement messageSize = messageScroll.gameObject.AddComponent<UnityEngine.UI.LayoutElement>();
+            messageSize.flexibleHeight = 1f;
+            messageSize.minHeight = 80f;
+            message = ProjectUiFactory.Label(messageContent, string.Empty, 25, TextAnchor.MiddleCenter, new Color(0.8f, 0.9f, 0.96f));
             retryButton = ProjectUiFactory.ActionButton(panel, "重试当前操作", () => RetryAsync().Forget());
-            ProjectUiFactory.Height((RectTransform)retryButton.transform, 72f);
+            ProjectUiFactory.Height((RectTransform)retryButton.transform, 90f);
             cancelButton = ProjectUiFactory.ActionButton(panel, "取消出战", CancelLoading);
-            ProjectUiFactory.Height((RectTransform)cancelButton.transform, 72f);
+            ProjectUiFactory.Height((RectTransform)cancelButton.transform, 90f);
             returnButton = ProjectUiFactory.ActionButton(panel, "返回主界面", () => ReturnHomeAsync().Forget());
-            ProjectUiFactory.Height((RectTransform)returnButton.transform, 72f);
+            ProjectUiFactory.Height((RectTransform)returnButton.transform, 90f);
         }
 
         /// <summary>

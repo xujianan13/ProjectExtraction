@@ -433,6 +433,7 @@ UniTask<bool> CloseWindowAsync(int id, GameWindowCloseReason reason = GameWindow
 UniTask<bool> ConfirmAsync(string title, string message, string confirmText = "确定", string cancelText = "取消", CancellationToken ct = default);
 bool BlocksGameplayInput { get; }
 bool IsReady { get; }
+bool TryConfigureCanvas(Vector2 referenceResolution, float matchWidthOrHeight = 0.5f);
 void ConfigureWindows(IEnumerable<GameWindowConfig> configs, Action<GameWindowRegistry> register);
 void ShowToast(string message, float durationSeconds = 2.5f);
 ```

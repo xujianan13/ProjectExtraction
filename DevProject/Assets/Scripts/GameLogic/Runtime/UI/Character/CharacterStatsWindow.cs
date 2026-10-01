@@ -24,7 +24,7 @@ namespace GameLogic.UI.Character
             RectTransform layout = ProjectUiFactory.Vertical(surface, "Layout", 14f);
             ProjectUiFactory.Stretch(layout, 24f);
             RectTransform header = ProjectUiFactory.Horizontal(layout, "Header", 12f);
-            ProjectUiFactory.Height(header, 68f);
+            ProjectUiFactory.Height(header, 72f);
             UnityEngine.UI.Text title = ProjectUiFactory.Label(header, "角色属性", 32, TextAnchor.MiddleLeft, Color.white);
             title.gameObject.AddComponent<UnityEngine.UI.LayoutElement>().flexibleWidth = 1f;
             UnityEngine.UI.Button close = ProjectUiFactory.ActionButton(header, "关闭", () => CloseSelfAsync().Forget());
@@ -32,9 +32,9 @@ namespace GameLogic.UI.Character
             UnityEngine.UI.ScrollRect scroll = ProjectUiFactory.Scroll(layout, "Attributes", out list);
             UnityEngine.UI.LayoutElement size = scroll.gameObject.AddComponent<UnityEngine.UI.LayoutElement>();
             size.flexibleHeight = 1f;
-            size.minHeight = 220f;
+            size.minHeight = 100f;
             feedback = ProjectUiFactory.Label(layout, string.Empty, 21, TextAnchor.MiddleLeft, new Color(0.8f, 0.9f, 0.96f));
-            ProjectUiFactory.Height(feedback.rectTransform, 58f);
+            ProjectUiFactory.Height(feedback.rectTransform, 50f);
         }
 
         /// <summary>

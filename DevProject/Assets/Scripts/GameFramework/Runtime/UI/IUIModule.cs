@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Threading;
 using Cysharp.Threading.Tasks;
+using UnityEngine;
 
 namespace GameFramework
 {
@@ -24,6 +25,14 @@ namespace GameFramework
         /// 当前已打开的业务窗口。
         /// </summary>
         IReadOnlyList<GameWindow> OpenedWindows { get; }
+
+        /// <summary>
+        /// 配置反馈层及所有业务窗口共用的屏幕缩放参考尺寸。
+        /// </summary>
+        /// <param name="referenceResolution">参考分辨率，宽高必须为有限正数。</param>
+        /// <param name="matchWidthOrHeight">宽高匹配权重，范围为零到一。</param>
+        /// <returns>两个 Canvas 均已更新时为真；未初始化或参数无效时为假。</returns>
+        bool TryConfigureCanvas(Vector2 referenceResolution, float matchWidthOrHeight = 0.5f);
 
         /// <summary>
         /// 配置业务窗口；由热更程序在内容包激活后调用一次。
