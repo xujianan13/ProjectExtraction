@@ -1,0 +1,23 @@
+{
+  "schemaHash": "a9d14bddd318a06f8bd454156ceb7048b59579bd62186fd145e556644ada3818",
+  "rows": [
+    {
+      "ID": 1,
+      "IsAttack": true,
+      "StateName": "Attack",
+      "StatePath": "Base Layer.Attack"
+    },
+    {
+      "ID": 20,
+      "IsAttack": true,
+      "StateName": "Attack",
+      "StatePath": "Base Layer.Attack"
+    },
+    {
+      "ID": 30,
+      "IsAttack": true,
+      "StateName": "Attack",
+      "StatePath": "Base Layer.Attack"
+    }
+  ]
+}

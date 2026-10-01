@@ -1,0 +1,15 @@
+{
+  "schemaHash": "a8d066416861faf8ac7c5fb6451011f60e958ada65196b243ee1ec166b498215",
+  "rows": [
+    {
+      "ID": 1,
+      "Radius": 0.45,
+      "SkillID": 1,
+      "SpawnX": 0,
+      "SpawnZ": -8,
+      "ScaleX": 0.9,
+      "ScaleY": 1,
+      "ScaleZ": 0.9
+    }
+  ]
+}

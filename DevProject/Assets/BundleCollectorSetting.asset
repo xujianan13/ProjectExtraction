@@ -38,6 +38,19 @@ MonoBehaviour:
         FilterRuleName: CollectAll
         AssetTags:
         UserData:
+    - GroupName: GameContent/Audio
+      GroupDesc: Managed by GamePackageBuildPipeline
+      AssetTags: Audio;Optional
+      ActiveRuleName: EnableGroup
+      Collectors:
+      - CollectPath: Assets/GameResources/Audio
+        CollectorGUID: 764e357547c3a5d4aa1703a81fe7ef83
+        CollectorType: 0
+        AddressRuleName: AddressByFileName
+        PackRuleName: PackSeparately
+        FilterRuleName: CollectAll
+        AssetTags:
+        UserData:
     - GroupName: GameContent/Code
       GroupDesc: Managed by GamePackageBuildPipeline
       AssetTags: Startup

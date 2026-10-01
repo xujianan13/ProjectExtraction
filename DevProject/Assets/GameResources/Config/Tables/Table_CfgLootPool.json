@@ -1,0 +1,29 @@
+{
+  "schemaHash": "2d57e733abc81d4a4d67b9d82e991dbd7de53a1e5b5ef2d9d59db700f4bdcfb5",
+  "rows": [
+    {
+      "ID": "weapon",
+      "PoolID": "default",
+      "DefinitionId": "ruin_weapon",
+      "Weight": 1,
+      "MinLevel": 1,
+      "MaxLevel": 1000
+    },
+    {
+      "ID": "armor",
+      "PoolID": "default",
+      "DefinitionId": "ruin_armor",
+      "Weight": 1,
+      "MinLevel": 1,
+      "MaxLevel": 1000
+    },
+    {
+      "ID": "item",
+      "PoolID": "default",
+      "DefinitionId": "relic_part",
+      "Weight": 1,
+      "MinLevel": 1,
+      "MaxLevel": 1000
+    }
+  ]
+}

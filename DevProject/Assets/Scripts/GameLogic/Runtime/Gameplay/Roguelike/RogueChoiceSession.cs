@@ -4,6 +4,7 @@ using System.Collections.ObjectModel;
 using System.Threading;
 using Cysharp.Threading.Tasks;
 using GameLogic.Project;
+using GameLogic.Tables;
 
 namespace GameLogic.Gameplay.Roguelike
 {
@@ -17,9 +18,20 @@ namespace GameLogic.Gameplay.Roguelike
     /// </summary>
     public sealed class RogueChoicePolicy
     {
-        public bool RefreshEnabled = false;
-        public bool ExtraChoiceEnabled = false;
-        public int MaxRefreshes = 1;
+        public bool RefreshEnabled;
+        public bool ExtraChoiceEnabled;
+        public int MaxRefreshes;
+
+        /// <summary>
+        /// 从当前内容配置复制默认策略。
+        /// </summary>
+        public RogueChoicePolicy()
+        {
+            CfgRoguePolicyRow row = ProjectRulesConfig.RoguePolicy;
+            RefreshEnabled = row.RefreshEnabled;
+            ExtraChoiceEnabled = row.ExtraChoiceEnabled;
+            MaxRefreshes = row.MaxRefreshes;
+        }
 
         /// <summary>
         /// 创建互不共享配置字段的副本。
@@ -216,21 +228,6 @@ namespace GameLogic.Gameplay.Roguelike
         private bool applying;
         private RogueChoiceAccessRequest pendingRequest;
 
-        private static readonly RogueRewardDefinition[] Pool =
-        {
-            new("hp", "生命强化", "本局生命上限和当前生命均 +20", RogueRewardKind.AttributeBonus, ProjectAttributeType.MaxHealth, 20),
-            new("attack", "攻击强化", "本局攻击 +4", RogueRewardKind.AttributeBonus, ProjectAttributeType.Attack, 4),
-            new("defense", "防御强化", "本局防御 +8", RogueRewardKind.AttributeBonus, ProjectAttributeType.Defense, 8),
-            new("critical", "暴击强化", "本局暴击值 +12", RogueRewardKind.AttributeBonus, ProjectAttributeType.CriticalRating, 12),
-            new("critical_damage", "暴伤强化", "本局暴击伤害 +20 个百分点", RogueRewardKind.AttributeBonus, ProjectAttributeType.CriticalDamage, 0.2f),
-            new("dodge", "闪避强化", "本局闪避率 +5%", RogueRewardKind.AttributeBonus, ProjectAttributeType.DodgeChance, 0.05f),
-            new("increase", "增伤强化", "本局增伤 +10%", RogueRewardKind.AttributeBonus, ProjectAttributeType.DamageIncrease, 0.1f),
-            new("reduction", "减伤强化", "本局减伤 +5%", RogueRewardKind.AttributeBonus, ProjectAttributeType.DamageReduction, 0.05f),
-            new("weapon", "随机武器", "本局获得随机武器", RogueRewardKind.RandomLoot, lootType: ProjectItemType.Weapon),
-            new("armor", "随机护甲", "本局获得随机护甲", RogueRewardKind.RandomLoot, lootType: ProjectItemType.Armor),
-            new("item", "随机物品", "本局获得随机物品", RogueRewardKind.RandomLoot, lootType: ProjectItemType.Item)
-        };
-
         /// <summary>
         /// 创建与其他玩法随机流独立的选择会话。
         /// </summary>
@@ -393,13 +390,22 @@ namespace GameLogic.Gameplay.Roguelike
         private void Deal()
         {
             options.Clear();
-            var indices = new List<int>();
-            for (int index = 0; index < Pool.Length; index++) indices.Add(index);
+            var pool = new List<CfgRogueRewardsRow>(GameTables.CfgRogueRewards.GetAll());
             for (int index = 0; index < 4; index++)
             {
-                int chosen = random.Next(indices.Count);
-                RogueRewardDefinition reward = Pool[indices[chosen]];
-                indices.RemoveAt(chosen);
+                int total = 0;
+                foreach (CfgRogueRewardsRow candidate in pool) total += candidate.Weight;
+                int roll = random.Next(total);
+                int chosen = 0;
+                for (; chosen < pool.Count - 1; chosen++)
+                {
+                    if (roll < pool[chosen].Weight) break;
+                    roll -= pool[chosen].Weight;
+                }
+                CfgRogueRewardsRow row = pool[chosen];
+                pool.RemoveAt(chosen);
+                var reward = new RogueRewardDefinition(row.ID, row.Title, row.Description, (RogueRewardKind)row.Kind,
+                    (ProjectAttributeType)row.Attribute, (float)row.Amount, (ProjectItemType)row.LootType);
                 if (index < 3) options.Add(new RogueChoiceOption(index, false, reward));
                 else if (policy.ExtraChoiceEnabled) options.Add(new RogueChoiceOption(3, true, reward));
             }

@@ -1,0 +1,104 @@
+using System;
+using System.Threading;
+using Cysharp.Threading.Tasks;
+using GameFramework;
+using GameLogic.Gameplay.Combat;
+using GameLogic.Gameplay.Level;
+using GameLogic.Tables;
+using UnityEngine;
+
+namespace GameLogic.Project
+{
+    /// <summary>
+    /// 项目内容的统一装载和启动门禁；只在创建局外会话之前切换整套配置。
+    /// </summary>
+    public static class ProjectContentConfig
+    {
+        private static readonly string[] assetRoles = { "Scene", "Room", "Wall", "Obstacle", "Player", "Enemy", "Boss", "Npc",
+            "Chest", "Exit", "Extraction", "Loot", "Projectile", "MeleeCue", "HealthBar", "DamageText", "Hit", "Telegraph",
+            "SwingSound", "HitSound", "CriticalSound" };
+        private static int generation;
+        public static bool IsReady { get; private set; }
+        public static CfgPlayerCombatRow Player => GameTables.CfgPlayerCombat.GetById(1);
+
+        /// <summary>
+        /// 装载内容包内的全部表，再执行跨表业务校验，失败时禁止创建玩家会话。
+        /// </summary>
+        /// <param name="ct">应用初始化取消令牌。</param>
+        /// <returns>整套项目内容是否通过校验。</returns>
+        public static async UniTask<bool> LoadAsync(CancellationToken ct)
+        {
+            IsReady = false;
+            int current = ++generation;
+            await GameTables.LoadAsync(GameEntry.Get<IResourceModule>(), ct);
+            ct.ThrowIfCancellationRequested();
+            if (!Validate(out string error))
+            {
+                GameEntry.Get<ILogModule>()?.Error("ProjectConfig", error);
+                return false;
+            }
+            IsReady = true;
+            GameEntry.ApplicationScope.Defer(() => { if (current == generation) IsReady = false; });
+            return true;
+        }
+
+        /// <summary>
+        /// 校验完整表集和运行所需的引用、固定角色与出生位置。
+        /// </summary>
+        /// <param name="error">首个配置错误说明。</param>
+        /// <returns>配置可用于创建玩法时为真。</returns>
+        public static bool Validate(out string error)
+        {
+            if (!CombatContentConfig.Validate(out error) || !ProjectRulesConfig.Validate(out error) ||
+                !LevelContentConfig.Validate(out error)) return false;
+            error = "项目资源绑定或玩家战斗表缺失。";
+            if (GameTables.CfgAssets == null || GameTables.CfgPlayerCombat == null || Player == null ||
+                GameTables.CfgPlayerCombat.GetAll().Count != 1) return false;
+            foreach (string role in assetRoles)
+                if (string.IsNullOrWhiteSpace(GameTables.CfgAssets.GetById(role)?.Address))
+                { error = "缺少项目资源绑定：" + role; return false; }
+            var player = Player;
+            if (!Positive(player.Radius) || !Positive(player.ScaleX) || !Positive(player.ScaleY) || !Positive(player.ScaleZ) ||
+                double.IsNaN(player.SpawnX) || double.IsInfinity(player.SpawnX) || double.IsNaN(player.SpawnZ) ||
+                double.IsInfinity(player.SpawnZ) || GameTables.CfgCombatSkills.GetById(player.SkillID) == null)
+            { error = "玩家战斗属性或基础技能引用无效。"; return false; }
+            foreach (CfgLevelsRow row in GameTables.CfgLevels.GetAll())
+            {
+                LevelContentConfig.TryGetLevel(row.ID, out LevelDefinition level);
+                var layout = new LevelRoomLayout(level);
+                Vector3 spawn = new Vector3((float)player.SpawnX, 0, (float)player.SpawnZ);
+                if (layout.IsBlocked(spawn, (float)player.Radius))
+                { error = "玩家出生位置被阻挡，关卡：" + row.ID; return false; }
+                foreach (SpawnDefinition group in LevelContentConfig.GetSpawns(level, LevelRoomType.Mob, true))
+                {
+                    LevelContentConfig.TryGetEnemy(group.EnemyID, out EnemyDefinition enemy);
+                    float separation = (float)(player.Radius + enemy.Row.Radius);
+                    for (int i = 0; i < group.Count; i++)
+                        if ((group.PositionAt(i) - spawn).sqrMagnitude < separation * separation)
+                        { error = "起始房玩家与敌人出生位置重叠，关卡：" + row.ID; return false; }
+                }
+                float entry = layout.HalfExtent - (float)level.Layout.SpawnInset;
+                foreach (Vector3 position in new[] { new Vector3(entry, 0, 0), new Vector3(-entry, 0, 0),
+                    new Vector3(0, 0, entry), new Vector3(0, 0, -entry) })
+                    if (layout.IsBlocked(position, (float)player.Radius) || player.Radius >= level.Layout.ExitHalfWidth)
+                    { error = "玩家半径或房间入口不可通行，关卡：" + row.ID; return false; }
+            }
+            error = null;
+            return true;
+        }
+
+        /// <summary>
+        /// 取得已经在启动门禁中验证的资源角色地址。
+        /// </summary>
+        /// <param name="role">固定表现资源角色。</param>
+        /// <returns>资源逻辑地址；配置未装载或角色缺席时为空。</returns>
+        public static string Asset(string role) => GameTables.CfgAssets?.GetById(role)?.Address;
+
+        /// <summary>
+        /// 判断配置数值是否为有限正数。
+        /// </summary>
+        /// <param name="value">待检查数值。</param>
+        /// <returns>数值可用时为真。</returns>
+        private static bool Positive(double value) => value > 0 && value <= float.MaxValue && !double.IsInfinity(value);
+    }
+}

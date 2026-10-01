@@ -10,50 +10,6 @@ namespace GameLogic.Gameplay.Combat
     public sealed partial class CombatWorld
     {
         /// <summary>
-        /// 判断地图内的角色圆形占位是否可通行。
-        /// </summary>
-        /// <param name="roomId">地图编号。</param>
-        /// <param name="position">待检查位置。</param>
-        /// <param name="radius">占位半径。</param>
-        /// <returns>边界和障碍均允许占位则为真。</returns>
-        private bool CanOccupy(int roomId, Vector3 position, float radius)
-        {
-            if (roomBounds.TryGetValue(roomId, out var bounds) &&
-                (position.x - radius < bounds.xMin || position.x + radius > bounds.xMax ||
-                 position.z - radius < bounds.yMin || position.z + radius > bounds.yMax)) return false;
-            if (!obstacles.TryGetValue(roomId, out var walls)) return true;
-            foreach (var wall in walls)
-                if (position.x + radius > wall.xMin && position.x - radius < wall.xMax &&
-                    position.z + radius > wall.yMin && position.z - radius < wall.yMax) return false;
-            return true;
-        }
-
-        /// <summary>
-        /// 沿线段移动角色，并在障碍前停下。
-        /// </summary>
-        /// <param name="actor">待移动角色。</param>
-        /// <param name="delta">期望位移。</param>
-        private void MoveActor(ActorComponent actor, Vector3 delta)
-        {
-            if (delta.sqrMagnitude < 0.0000001f) return;
-            var start = actor.Position;
-            var end = start + delta;
-            if (roomBounds.TryGetValue(actor.Spec.RoomId, out var bounds))
-            {
-                end.x = Mathf.Clamp(end.x, bounds.xMin + actor.Spec.Radius, bounds.xMax - actor.Spec.Radius);
-                end.z = Mathf.Clamp(end.z, bounds.yMin + actor.Spec.Radius, bounds.yMax - actor.Spec.Radius);
-            }
-            var hitT = 1f;
-            if (obstacles.TryGetValue(actor.Spec.RoomId, out var walls))
-                foreach (var wall in walls)
-                    if (SweepAabb(start, end, wall, actor.Spec.Radius, out var t, out _) && t < hitT) hitT = t;
-            actor.Position = Vector3.Lerp(start, end, Mathf.Max(0f, hitT - 0.001f));
-            actor.Velocity += (actor.Position - start) / TickSeconds;
-            var horizontal = new Vector3(delta.x, 0f, delta.z);
-            if (horizontal.sqrMagnitude > 0.0001f) actor.Forward = horizontal.normalized;
-        }
-
-        /// <summary>
         /// 推进活跃地图中角色的普通移动和战斗位移。
         /// </summary>
         private void MoveActorsAndDisplacements()
@@ -68,7 +24,7 @@ namespace GameLogic.Gameplay.Combat
                 var motion = new Vector3(actor.Move.x, 0f, actor.Move.y) *
                     Mathf.Max(0f, actor.Spec.MoveSpeed + actor.MoveBonus) * TickSeconds;
                 if (FindDisplacement(id, out _)) motion = Vector3.zero;
-                MoveActor(actor, motion);
+                MoveActor(id, actor, motion);
             }
             var moveIds = new List<int>(displacements.Keys);
             moveIds.Sort();
@@ -77,7 +33,7 @@ namespace GameLogic.Gameplay.Combat
                 var move = displacements[id];
                 if (move.CreatedTick >= TickIndex || !actors.TryGetValue(move.Owner, out var actor) ||
                     actor.Spec.RoomId != activeRoomId) continue;
-                if (!actor.DeadPending) MoveActor(actor, move.Direction * move.DistancePerTick);
+                if (!actor.DeadPending) MoveActor(move.Owner, actor, move.Direction * move.DistancePerTick);
                 move.RemainingTicks--;
                 if (move.RemainingTicks > 0 && !actor.DeadPending) continue;
                 displacements.Remove(id);
@@ -276,13 +232,14 @@ namespace GameLogic.Gameplay.Combat
                 var target = actors[targetId];
                 var delta = target.Position - source.Position;
                 delta.y = 0f;
+                var inRange = delta.magnitude <= source.Spec.AttackRange + source.RangeBonus;
+                var hasLineOfSight = !HasWallBetween(source.Spec.RoomId, source.Position, target.Position);
+                var casting = HasCast(id);
                 if (!source.Spec.IsPlayer)
-                {
-                    source.Move = delta.sqrMagnitude > 0.0001f ? new Vector2(delta.x, delta.z).normalized : Vector2.zero;
-                    if (delta.magnitude <= source.Spec.AttackRange + source.RangeBonus) source.Move = Vector2.zero;
-                }
-                if (delta.sqrMagnitude > 0.0001f) source.Forward = delta.normalized;
-                if (delta.magnitude <= source.Spec.AttackRange + source.RangeBonus)
+                    source.Move = casting || (inRange && hasLineOfSight) ? Vector2.zero :
+                        FindPursuitDirection(source.Spec.RoomId, source.Position, target.Position, source.Spec.Radius);
+                if (!casting && delta.sqrMagnitude > 0.0001f) source.Forward = delta.normalized;
+                if (inRange && hasLineOfSight && !casting)
                     TryStartSkill(Ref(id), source.Spec.BasicSkillId, Ref(targetId));
             }
         }
@@ -603,7 +560,7 @@ namespace GameLogic.Gameplay.Combat
                 var b = (rect.xMax + radius - start.x) / dx;
                 var enter = Mathf.Min(a, b);
                 var leave = Mathf.Max(a, b);
-                if (enter > near) { near = enter; normal = new Vector3(dx > 0f ? -1f : 1f, 0f, 0f); }
+                if (enter >= near) { near = enter; normal = new Vector3(dx > 0f ? -1f : 1f, 0f, 0f); }
                 far = Mathf.Min(far, leave);
                 if (near > far) return false;
             }
@@ -617,7 +574,7 @@ namespace GameLogic.Gameplay.Combat
                 var b = (rect.yMax + radius - start.z) / dz;
                 var enter = Mathf.Min(a, b);
                 var leave = Mathf.Max(a, b);
-                if (enter > near) { near = enter; normal = new Vector3(0f, 0f, dz > 0f ? -1f : 1f); }
+                if (enter >= near) { near = enter; normal = new Vector3(0f, 0f, dz > 0f ? -1f : 1f); }
                 far = Mathf.Min(far, leave);
                 if (near > far) return false;
             }

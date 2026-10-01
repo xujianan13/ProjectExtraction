@@ -30,7 +30,7 @@ namespace MiniGame.Tests
         private InputSettings testInputSettings;
 
         /// <summary>
-        /// 加载实际启动场景并通过主界面进入可移动、可自动造成伤害的战斗。
+        /// 加载实际启动场景，通过主界面出战，并验证真实输入、自动攻击和死亡返场。
         /// </summary>
         /// <returns>完整启动链的逐帧验证。</returns>
         [UnityTest]
@@ -98,6 +98,23 @@ namespace MiniGame.Tests
                 "正常玩法更新未触发范围内自动攻击伤害。", 5f);
             Assert.That(run.World.TickIndex, Is.GreaterThan(0));
             Assert.That(run.IsRunning, Is.True);
+            Assert.That(run.World.TryGetActor(run.Player, out player), Is.True);
+            CombatEntityRef killer = run.World.CreateActor(new CombatActorSpec
+            {
+                ActorId = 900002, RoomId = run.CurrentRoom.RoomId, Team = 2, Position = player.Position + Vector3.back * 1.1f,
+                MaxHealth = 100000, Attack = 10000, Radius = 0.3f, MoveSpeed = 0, AttackRange = 2, AggroRange = 10, BasicSkillId = 2
+            });
+            Assert.That(killer.Id, Is.Not.Zero);
+            await WaitAsync(() => run.IsPresentingDeath, "真实宿主未启动死亡收尾。", 5f);
+            long finalTick = run.World.TickIndex;
+            Assert.That(run.IsRunning, Is.False);
+            Assert.That(GameEntry.Get<ISceneModule>().CurrentScene, Is.Not.Null);
+            await WaitAsync(() => ProjectServices.Coordinator.CanReturn,
+                "真实宿主未在倒下动画结束后显示可返回的结果页。", 5f);
+            Assert.That(run.World.TickIndex, Is.EqualTo(finalTick));
+            Assert.That(run.DeathPresentationElapsed, Is.EqualTo(GameLogic.Gameplay.Expedition.ExpeditionRun.DeathPresentationDuration));
+            Assert.That(await ProjectServices.Coordinator.ReturnHomeAsync(), Is.True);
+            Assert.That(ProjectServices.Coordinator.CanStart, Is.True);
         });
 
         /// <summary>

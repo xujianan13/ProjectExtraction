@@ -1,0 +1,89 @@
+{
+  "schemaHash": "1028b31c68ae3a866c8a1920fa514c4e8943aec3c5e94864dbda5b1baad9b63d",
+  "rows": [
+    {
+      "ID": "Scene",
+      "Address": "SC_Expedition"
+    },
+    {
+      "ID": "Room",
+      "Address": "RM_Prototype"
+    },
+    {
+      "ID": "Wall",
+      "Address": "PF_TestWall"
+    },
+    {
+      "ID": "Obstacle",
+      "Address": "PF_TestObstacle"
+    },
+    {
+      "ID": "Player",
+      "Address": "PF_TestPlayer"
+    },
+    {
+      "ID": "Enemy",
+      "Address": "PF_TestEnemy"
+    },
+    {
+      "ID": "Boss",
+      "Address": "PF_TestBoss"
+    },
+    {
+      "ID": "Npc",
+      "Address": "PF_TestNpc"
+    },
+    {
+      "ID": "Chest",
+      "Address": "PF_TestChest"
+    },
+    {
+      "ID": "Exit",
+      "Address": "PF_TestExit"
+    },
+    {
+      "ID": "Extraction",
+      "Address": "PF_TestExtraction"
+    },
+    {
+      "ID": "Loot",
+      "Address": "PF_TestLoot"
+    },
+    {
+      "ID": "Projectile",
+      "Address": "PF_TestProjectile"
+    },
+    {
+      "ID": "MeleeCue",
+      "Address": "PF_TestMeleeCue"
+    },
+    {
+      "ID": "HealthBar",
+      "Address": "PF_CombatHealthBar"
+    },
+    {
+      "ID": "DamageText",
+      "Address": "PF_CombatDamageText"
+    },
+    {
+      "ID": "Hit",
+      "Address": "PF_CombatHit"
+    },
+    {
+      "ID": "Telegraph",
+      "Address": "PF_CombatTelegraph"
+    },
+    {
+      "ID": "SwingSound",
+      "Address": "SFX_CombatSwing"
+    },
+    {
+      "ID": "HitSound",
+      "Address": "SFX_CombatHit"
+    },
+    {
+      "ID": "CriticalSound",
+      "Address": "SFX_CombatCritical"
+    }
+  ]
+}

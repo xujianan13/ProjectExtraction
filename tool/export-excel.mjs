@@ -1,4 +1,5 @@
 import ExcelJS from 'exceljs';
+import JSZip from 'jszip';
 import { createHash, randomUUID } from 'node:crypto';
 import { readFile, writeFile, readdir, mkdir, unlink, lstat, rm } from 'node:fs/promises';
 import path from 'node:path';
@@ -147,6 +148,32 @@ function identifier(value, file, sheet, row, column) {
     fail(`名称 ${JSON.stringify(value)} 不是可用的 C# 标识符`, file, sheet, row, column);
   }
 }
+// ExcelJS 只识别主工作表命名空间的无前缀标签；规范化合法的带前缀 OOXML 后再解析。
+export async function normalizeSpreadsheetXml(bytes) {
+  const zip = await JSZip.loadAsync(bytes);
+  let changed = false;
+  for (const entry of Object.values(zip.files)) {
+    if (entry.dir || !entry.name.endsWith('.xml')) continue;
+    let xml = await entry.async('string');
+    const declarations = [...xml.matchAll(/xmlns:([A-Za-z_][\w.-]*)=["']http:\/\/schemas\.openxmlformats\.org\/spreadsheetml\/2006\/main["']/g)];
+    if (!declarations.length) continue;
+    for (const match of declarations) {
+      const prefix = match[1].replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      xml = xml.replace(new RegExp(`(<\\/?)(?:${prefix}):`, 'g'), '$1');
+      const declarationIndex = xml.indexOf(match[0]);
+      const tag = xml.slice(xml.lastIndexOf('<', declarationIndex), xml.indexOf('>', declarationIndex) + 1);
+      const defaultNamespace = tag.match(/\bxmlns=(["'])(.*?)\1/);
+      const mainNamespace = 'http://schemas.openxmlformats.org/spreadsheetml/2006/main';
+      if (defaultNamespace && defaultNamespace[2] !== mainNamespace)
+        throw new Error('无法规范化不同的默认工作表命名空间：' + entry.name);
+      xml = xml.replace(match[0], defaultNamespace ? '' : 'xmlns="' + mainNamespace + '"');
+    }
+    zip.file(entry.name, xml);
+    changed = true;
+  }
+  return changed ? zip.generateAsync({ type: 'nodebuffer', compression: 'DEFLATE' }) : bytes;
+}
+
 export async function collect(directory = sourceRoot) {
   const schema = await readSchema(directory);
   const sources = schema.source ? [schema.source] : [];
@@ -156,7 +183,7 @@ export async function collect(directory = sourceRoot) {
     const bytes = await readFile(file);
     sources.push({ path: relative(file), sha256: hash(bytes) });
     const book = new ExcelJS.Workbook();
-    await book.xlsx.load(bytes);
+    await book.xlsx.load(await normalizeSpreadsheetXml(bytes));
     const sheet = book.worksheets[0];
     if (!sheet || comment(sheet.name)) continue;
     const name = sheet.name;

@@ -58,6 +58,8 @@ namespace GameLogic.Project
         public int ExperienceAfter;
         public int SkillPointsBefore;
         public int SkillPointsAfter;
+        public bool HasSkillPointsRuleSnapshot;
+        public int SkillPointsPerLevelApplied;
         public int GoldBefore;
         public int GoldAfter;
         public bool Viewed;
@@ -190,7 +192,7 @@ namespace GameLogic.Project
             if (!active && (data.ActiveLevelId != 0 || data.ActiveSeed != 0 || data.ActiveRulesVersion != 0 || data.Outcome != null)) return false;
             if (active && data.ActiveRulesVersion != RulesVersion && data.ActiveRulesVersion != 0) return false;
             if (active && data.ActiveRulesVersion == RulesVersion && (data.ActiveLevelId < 1 ||
-                data.ActiveRunEntryCost != PrototypeRules.EntryCost)) return false;
+                data.ActiveRunEntryCost <= 0)) return false;
             if (data.Stage == ProjectRunStage.OutcomeRecorded)
             {
                 if (!ValidOutcome(data.Outcome, data, out error)) return false;
@@ -221,7 +223,7 @@ namespace GameLogic.Project
             {
                 error = "重复入场参数与已保存记录不同。";
                 if (data.ActiveLevelId != levelId || data.ActiveSeed != seed || data.ActiveRulesVersion != RulesVersion ||
-                    data.ActiveRunEntryCost != PrototypeRules.EntryCost || data.EntryItems.Count != entryItems.Count) return false;
+                    data.ActiveRunEntryCost <= 0 || data.EntryItems.Count != entryItems.Count) return false;
                 var savedItems = new Dictionary<string, ProjectItem>();
                 foreach (ProjectItem saved in data.EntryItems)
                     if (saved == null || string.IsNullOrEmpty(saved.Id) || savedItems.ContainsKey(saved.Id)) return false;
@@ -322,8 +324,9 @@ namespace GameLogic.Project
             error = "本局金币支出或经验超过可表示范围。";
             if (outcome.AwardedKillExperience > int.MaxValue - outcome.ExtractionExperience) return false;
             int awarded = outcome.AwardedKillExperience + outcome.ExtractionExperience;
+            int possibleLevels = Math.Max(0, ProjectRulesConfig.Profile.MaxLevel - data.Level);
             if (data.Gold < outcome.GoldSpent || data.Experience > int.MaxValue - awarded ||
-                data.SkillPoints > int.MaxValue - (1000 - data.Level) * PrototypeRules.SkillPointsPerLevel) return false;
+                (long)data.SkillPoints + (long)possibleLevels * PrototypeRules.SkillPointsPerLevel > int.MaxValue) return false;
             var warehouseIds = new HashSet<string>();
             foreach (ProjectItem item in data.Warehouse) warehouseIds.Add(item.Id);
             foreach (ProjectItem item in outcome.Items)
@@ -343,7 +346,8 @@ namespace GameLogic.Project
             var receipt = new ProjectRunResult
             {
                 Outcome = outcome.Copy(), RetainedItems = retained.ConvertAll(item => item.Copy()), LostItems = lost.ConvertAll(item => item.Copy()),
-                LevelBefore = data.Level, ExperienceBefore = data.Experience, SkillPointsBefore = data.SkillPoints, GoldBefore = data.Gold
+                LevelBefore = data.Level, ExperienceBefore = data.Experience, SkillPointsBefore = data.SkillPoints,
+                HasSkillPointsRuleSnapshot = true, SkillPointsPerLevelApplied = PrototypeRules.SkillPointsPerLevel, GoldBefore = data.Gold
             };
             data.Warehouse.AddRange(retained);
             data.Gold -= outcome.GoldSpent;
@@ -398,8 +402,14 @@ namespace GameLogic.Project
                 result.ExperienceAfter < 0 || result.SkillPointsBefore < 0 || result.SkillPointsAfter < result.SkillPointsBefore ||
                 result.GoldBefore < 0 || result.GoldAfter < 0 || result.GoldBefore < outcome.GoldSpent ||
                 result.GoldAfter != result.GoldBefore - outcome.GoldSpent ||
-                result.SkillPointsAfter - result.SkillPointsBefore !=
-                (result.LevelAfter - result.LevelBefore) * PrototypeRules.SkillPointsPerLevel) return false;
+                result.SkillPointsPerLevelApplied < 0) return false;
+            int gainedLevels = result.LevelAfter - result.LevelBefore;
+            int gainedPoints = result.SkillPointsAfter - result.SkillPointsBefore;
+            if (result.HasSkillPointsRuleSnapshot)
+            {
+                if ((long)gainedLevels * result.SkillPointsPerLevelApplied != gainedPoints) return false;
+            }
+            else if (gainedLevels == 0 ? gainedPoints != 0 : gainedPoints % gainedLevels != 0) return false;
             var identity = new ProjectSaveData
             {
                 ActiveRunId = outcome.RunId, ActiveLevelId = outcome.LevelId, ActiveSeed = outcome.Seed,

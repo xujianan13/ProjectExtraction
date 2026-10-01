@@ -1,0 +1,61 @@
+{
+  "schemaHash": "5c5f446a6d388583e7a4ff1bc7a68badfbf000538ae7cb359af8ac83c4465d42",
+  "rows": [
+    {
+      "ID": 1,
+      "SkillID": 1,
+      "Tick": 0,
+      "EffectIDs": [
+        1
+      ]
+    },
+    {
+      "ID": 2,
+      "SkillID": 1,
+      "Tick": 5,
+      "EffectIDs": [
+        2
+      ]
+    },
+    {
+      "ID": 3,
+      "SkillID": 1,
+      "Tick": 10,
+      "EffectIDs": [
+        3
+      ]
+    },
+    {
+      "ID": 4,
+      "SkillID": 2,
+      "Tick": 0,
+      "EffectIDs": [
+        4
+      ]
+    },
+    {
+      "ID": 5,
+      "SkillID": 2,
+      "Tick": 25,
+      "EffectIDs": [
+        5
+      ]
+    },
+    {
+      "ID": 6,
+      "SkillID": 3,
+      "Tick": 0,
+      "EffectIDs": [
+        7
+      ]
+    },
+    {
+      "ID": 7,
+      "SkillID": 3,
+      "Tick": 30,
+      "EffectIDs": [
+        6
+      ]
+    }
+  ]
+}

@@ -1,7 +1,7 @@
 {
   "name": "ProjectExtraction.Editor.Tests",
   "rootNamespace": "ProjectExtraction.Tests",
-  "references": ["GameLogic", "GameFramework", "UniTask"],
+  "references": ["GameLogic", "GameFramework", "UniTask", "ProjectExtraction.Tests.Shared"],
   "includePlatforms": ["Editor"],
   "excludePlatforms": [],
   "allowUnsafeCode": false,

@@ -179,7 +179,7 @@ namespace GameLogic.Gameplay.Combat
         /// <param name="randomSeed">本局确定性战斗随机种子。</param>
         public CombatWorld(CombatCatalog catalog, int randomSeed = 0)
         {
-            this.catalog = catalog ?? CombatCatalog.CreatePrototype();
+            this.catalog = catalog ?? throw new ArgumentNullException(nameof(catalog));
             random = new System.Random(randomSeed);
             worldId = Interlocked.Increment(ref nextWorldId);
         }
@@ -234,7 +234,7 @@ namespace GameLogic.Gameplay.Combat
                 spec.Attack < 0f || spec.Defense < 0f || spec.CriticalRating < 0f || spec.CriticalDamage < 0f ||
                 spec.DodgeChance < 0f || spec.DamageIncrease < 0f || spec.DamageReduction < 0f ||
                 spec.MoveSpeed < 0f || spec.Radius <= 0f || spec.AttackRange < 0f || !IsFinite(spec.Position) ||
-                !CanOccupy(spec.RoomId, spec.Position, spec.Radius)) return default;
+                !CanOccupy(spec.RoomId, spec.Position, spec.Radius, 0)) return default;
             spec.CriticalDamage = spec.CriticalDamage == 0f ? 1.5f : Mathf.Max(1f, spec.CriticalDamage);
             spec.DodgeChance = Mathf.Min(0.75f, spec.DodgeChance);
             spec.DamageReduction = Mathf.Min(0.75f, spec.DamageReduction);
@@ -270,7 +270,7 @@ namespace GameLogic.Gameplay.Combat
         public bool TrySetPosition(CombatEntityRef actor, Vector3 position)
         {
             if (!IsValid(actor) || !actors.TryGetValue(actor.Id, out var state) || !IsFinite(position) ||
-                !CanOccupy(state.Spec.RoomId, position, state.Spec.Radius)) return false;
+                !CanOccupy(state.Spec.RoomId, position, state.Spec.Radius, actor.Id)) return false;
             state.Position = position;
             state.Velocity = Vector3.zero;
             return true;
@@ -296,6 +296,24 @@ namespace GameLogic.Gameplay.Combat
             activeRoomId = roomId;
             playerId = player.Id;
             if (!roomTicks.ContainsKey(roomId)) roomTicks.Add(roomId, 0);
+            return true;
+        }
+
+        /// <summary>
+        /// 原子校验并将玩家转移至目标地图的合法入口。
+        /// </summary>
+        /// <param name="player">玩家实体引用。</param>
+        /// <param name="roomId">目标地图编号。</param>
+        /// <param name="position">目标入口坐标。</param>
+        /// <returns>目标位置可占用且成功切图则为真。</returns>
+        public bool TryTransferActor(CombatEntityRef player, int roomId, Vector3 position)
+        {
+            if (roomId <= 0 || !IsValid(player) || !actors.TryGetValue(player.Id, out var state) ||
+                !state.Spec.IsPlayer || state.DeadPending || !IsFinite(position) ||
+                !CanOccupy(roomId, position, state.Spec.Radius, player.Id)) return false;
+            if (!SetActiveRoom(roomId, player)) return false;
+            state.Position = position;
+            state.Velocity = Vector3.zero;
             return true;
         }
 

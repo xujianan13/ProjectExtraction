@@ -1,0 +1,71 @@
+{
+  "schemaHash": "a0f6212d8b20dd7786cb2b21ffc662b5bedf403000438b20b490333f200b3723",
+  "rows": [
+    {
+      "ID": 0,
+      "Name": "普通",
+      "ColorR": 1,
+      "ColorG": 1,
+      "ColorB": 1,
+      "Weight": 60,
+      "AffixCount": 0,
+      "ScaleMin": 0,
+      "ScaleMax": 0
+    },
+    {
+      "ID": 1,
+      "Name": "精良",
+      "ColorR": 0.28,
+      "ColorG": 0.82,
+      "ColorB": 0.35,
+      "Weight": 22,
+      "AffixCount": 1,
+      "ScaleMin": 0.7,
+      "ScaleMax": 1.1
+    },
+    {
+      "ID": 2,
+      "Name": "优秀",
+      "ColorR": 0.3,
+      "ColorG": 0.56,
+      "ColorB": 1,
+      "Weight": 10,
+      "AffixCount": 2,
+      "ScaleMin": 1,
+      "ScaleMax": 1.5
+    },
+    {
+      "ID": 3,
+      "Name": "史诗",
+      "ColorR": 0.68,
+      "ColorG": 0.36,
+      "ColorB": 0.92,
+      "Weight": 5,
+      "AffixCount": 3,
+      "ScaleMin": 1.3,
+      "ScaleMax": 1.9
+    },
+    {
+      "ID": 4,
+      "Name": "传说",
+      "ColorR": 1,
+      "ColorG": 0.62,
+      "ColorB": 0.2,
+      "Weight": 2,
+      "AffixCount": 4,
+      "ScaleMin": 1.7,
+      "ScaleMax": 2.4
+    },
+    {
+      "ID": 5,
+      "Name": "神器",
+      "ColorR": 0.96,
+      "ColorG": 0.22,
+      "ColorB": 0.24,
+      "Weight": 1,
+      "AffixCount": 5,
+      "ScaleMin": 2.2,
+      "ScaleMax": 3
+    }
+  ]
+}

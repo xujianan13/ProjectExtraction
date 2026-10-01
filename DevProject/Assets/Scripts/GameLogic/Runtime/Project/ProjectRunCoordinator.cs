@@ -203,7 +203,8 @@ namespace GameLogic.Project
             frozenOutcome = outcome;
             busy = true;
             SetPhase(ProjectRunPhase.FreezingOutcome, extracted ? "已进入撤离点，正在记录本局结果。" : "角色死亡，正在记录本局结果。");
-            RecordAndCompleteAsync(outcome).Forget();
+            if (!extracted) run.BeginDeathPresentation();
+            RecordAndCompleteAsync(outcome, run).Forget();
             return true;
         }
 
@@ -211,18 +212,23 @@ namespace GameLogic.Project
         /// 保存不可变终局后向框架提交，并检查它确实接受了结果。
         /// </summary>
         /// <param name="outcome">已经冻结的本局结果。</param>
+        /// <param name="run">仍持有终局表现的原单局。</param>
         /// <returns>记录和结算任务。</returns>
-        private async UniTask RecordAndCompleteAsync(ProjectRunOutcome outcome)
+        private async UniTask RecordAndCompleteAsync(ProjectRunOutcome outcome, ExpeditionRun run)
         {
             try
             {
                 await UniTask.Yield(PlayerLoopTiming.Update, lifetime.Token);
+                if (!await SaveBarrierAsync(() => session.RecordOutcomeAsync(outcome), ProjectRunPhase.FreezingOutcome)) return;
+                if (!outcome.Extracted)
+                    await UniTask.WaitUntil(() => disposed || closing || !ReferenceEquals(session.CurrentRun, run) || !run.IsPresentingDeath,
+                        cancellationToken: lifetime.Token);
+                if (disposed || closing) return;
                 if (!await ShowTransitionAsync())
                 {
                     Fail("无法打开结算界面，请重试。", ResumeRecordedOutcomeAsync);
                     return;
                 }
-                if (!await SaveBarrierAsync(() => session.RecordOutcomeAsync(outcome), ProjectRunPhase.FreezingOutcome)) return;
                 await CompleteRecordedOutcomeCoreAsync();
             }
             catch (Exception error) { HandleError(error, ResumeRecordedOutcomeAsync); }

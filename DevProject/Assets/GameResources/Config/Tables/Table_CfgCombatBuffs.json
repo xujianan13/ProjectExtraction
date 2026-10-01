@@ -1,0 +1,35 @@
+{
+  "schemaHash": "48877cc242c2c8f852e554f4682e12eb576de15ee58d5d2f0bef3da7c166dc97",
+  "rows": [
+    {
+      "ID": 1,
+      "DurationTicks": 180,
+      "IntervalTicks": 60,
+      "MaxStacks": 3,
+      "Merge": 0,
+      "MoveSpeedAddPerStack": 0,
+      "AttackRangeAddPerStack": 0,
+      "PeriodicDamagePerStack": 0,
+      "OnApplyEffectIDs": [],
+      "OnTickEffectIDs": [
+        10
+      ],
+      "OnExpireEffectIDs": []
+    },
+    {
+      "ID": 2,
+      "DurationTicks": 120,
+      "IntervalTicks": 30,
+      "MaxStacks": 1,
+      "Merge": 0,
+      "MoveSpeedAddPerStack": 0.5,
+      "AttackRangeAddPerStack": 0,
+      "PeriodicDamagePerStack": 0,
+      "OnApplyEffectIDs": [
+        11
+      ],
+      "OnTickEffectIDs": [],
+      "OnExpireEffectIDs": []
+    }
+  ]
+}

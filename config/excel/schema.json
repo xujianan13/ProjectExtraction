@@ -1,0 +1,388 @@
+{
+  "tables": {
+    "CfgCombatSkills": {
+      "fields": {
+        "ID": {
+          "min": 1
+        },
+        "DurationTicks": {
+          "min": 1
+        },
+        "CooldownTicks": {
+          "min": 0
+        },
+        "StartRange": {
+          "min": 0
+        },
+        "StartRangeSource": {
+          "min": 0,
+          "max": 1
+        }
+      }
+    },
+    "CfgCombatTimelineNodes": {
+      "fields": {
+        "ID": {
+          "min": 1
+        },
+        "SkillID": {
+          "ref": "CfgCombatSkills"
+        },
+        "Tick": {
+          "min": 0
+        },
+        "EffectIDs": {
+          "ref": "CfgCombatEffects",
+          "required": true
+        }
+      }
+    },
+    "CfgCombatEffects": {
+      "fields": {
+        "ID": {
+          "min": 1
+        },
+        "Kind": {
+          "min": 0,
+          "max": 5
+        },
+        "Attribute": {
+          "min": 0,
+          "max": 7
+        },
+        "DefinitionID": {
+          "min": 1
+        },
+        "AttackCoefficient": {
+          "min": 0
+        },
+        "DurationTicks": {
+          "min": 0
+        },
+        "LinkedID": {
+          "min": 0
+        },
+        "Shape": {
+          "min": 0,
+          "max": 3
+        },
+        "Radius": {
+          "min": 0
+        },
+        "RadiusSource": {
+          "min": 0,
+          "max": 1
+        },
+        "Angle": {
+          "min": 0,
+          "max": 360
+        },
+        "Width": {
+          "min": 0
+        },
+        "Height": {
+          "min": 0
+        }
+      }
+    },
+    "CfgCombatProjectiles": {
+      "fields": {
+        "ID": {
+          "min": 1
+        },
+        "Motion": {
+          "min": 0,
+          "max": 3
+        },
+        "Target": {
+          "min": 0,
+          "max": 3
+        },
+        "SpawnAnchor": {
+          "min": 0,
+          "max": 2
+        },
+        "LostTarget": {
+          "min": 0,
+          "max": 2
+        },
+        "FlightTicks": {
+          "min": 0
+        },
+        "LifetimeTicks": {
+          "min": 0
+        },
+        "MaxDistance": {
+          "min": 0
+        },
+        "Radius": {
+          "min": 0
+        },
+        "MaxDistinctTargets": {
+          "min": 1
+        },
+        "MaxBounces": {
+          "min": 0
+        },
+        "SameTargetIntervalTicks": {
+          "min": 0
+        },
+        "MaxHitsPerTarget": {
+          "min": 1
+        },
+        "OnHitEffectIDs": {
+          "ref": "CfgCombatEffects"
+        },
+        "OnArriveEffectIDs": {
+          "ref": "CfgCombatEffects"
+        },
+        "OnExpireEffectIDs": {
+          "ref": "CfgCombatEffects"
+        }
+      }
+    },
+    "CfgCombatBuffs": {
+      "fields": {
+        "ID": {
+          "min": 1
+        },
+        "DurationTicks": {
+          "min": 1
+        },
+        "IntervalTicks": {
+          "min": 1
+        },
+        "MaxStacks": {
+          "min": 1
+        },
+        "Merge": {
+          "min": 0,
+          "max": 2
+        },
+        "PeriodicDamagePerStack": {
+          "min": 0
+        },
+        "OnApplyEffectIDs": {
+          "ref": "CfgCombatEffects"
+        },
+        "OnTickEffectIDs": {
+          "ref": "CfgCombatEffects"
+        },
+        "OnExpireEffectIDs": {
+          "ref": "CfgCombatEffects"
+        }
+      }
+    },
+    "CfgCombatAnimationCues": {
+      "fields": {
+        "ID": {
+          "min": 1
+        },
+        "StateName": {
+          "required": true
+        },
+        "StatePath": {
+          "required": true
+        }
+      }
+    },
+    "CfgCombatAnimationSettings": {
+      "fields": {
+        "ID": {
+          "min": 1,
+          "max": 1
+        },
+        "IdleState": {
+          "required": true
+        },
+        "MoveState": {
+          "required": true
+        },
+        "HitState": {
+          "required": true
+        },
+        "DeathState": {
+          "required": true
+        },
+        "IdleSeconds": {
+          "min": 0.0001
+        },
+        "MoveSeconds": {
+          "min": 0.0001
+        },
+        "HitTicks": {
+          "min": 1
+        },
+        "DeathTicks": {
+          "min": 1
+        },
+        "DeathHoldSeconds": {
+          "min": 0
+        }
+      }
+    },
+    "CfgLevels": {
+      "fields": {
+        "ID": {
+          "min": 1,
+          "max": 1000
+        },
+        "RequiredLevel": {
+          "min": 1
+        },
+        "GridWidth": {
+          "min": 1,
+          "max": 500
+        },
+        "GridHeight": {
+          "min": 1,
+          "max": 500
+        },
+        "LayoutID": {
+          "ref": "CfgRoomLayouts"
+        }
+      }
+    },
+    "CfgRoomLayouts": {
+      "fields": {
+        "ID": {
+          "min": 1
+        }
+      }
+    },
+    "CfgObstacles": {
+      "fields": {
+        "ID": {
+          "min": 1
+        },
+        "LayoutID": {
+          "ref": "CfgRoomLayouts"
+        }
+      }
+    },
+    "CfgSpawns": {
+      "fields": {
+        "ID": {
+          "min": 1
+        },
+        "LayoutID": {
+          "ref": "CfgRoomLayouts"
+        },
+        "EnemyID": {
+          "ref": "CfgEnemies"
+        },
+        "Count": {
+          "min": 1,
+          "max": 999
+        }
+      }
+    },
+    "CfgEnemies": {
+      "fields": {
+        "ID": {
+          "min": 1
+        },
+        "SkillID": {
+          "ref": "CfgCombatSkills"
+        },
+        "PrefabAddress": {
+          "required": true,
+          "asset": true
+        }
+      }
+    },
+    "CfgProfile": {
+      "fields": {
+        "ID": {
+          "min": 1
+        }
+      }
+    },
+    "CfgSkills": {
+      "fields": {}
+    },
+    "CfgItemDefinitions": {
+      "fields": {
+        "Type": {
+          "min": 0,
+          "max": 3
+        }
+      }
+    },
+    "CfgQualities": {
+      "fields": {
+        "ID": {
+          "min": 0,
+          "max": 5
+        }
+      }
+    },
+    "CfgAffixes": {
+      "fields": {
+        "Attribute": {
+          "min": 0,
+          "max": 7
+        }
+      }
+    },
+    "CfgLootPool": {
+      "fields": {}
+    },
+    "CfgRoguePolicy": {
+      "fields": {
+        "ID": {
+          "min": 1
+        }
+      }
+    },
+    "CfgRogueRewards": {
+      "fields": {
+        "Kind": {
+          "min": 0,
+          "max": 1
+        },
+        "Attribute": {
+          "min": 0,
+          "max": 7
+        },
+        "LootType": {
+          "min": 0,
+          "max": 3
+        }
+      }
+    },
+    "CfgAssets": {
+      "fields": {
+        "ID": {
+          "required": true
+        },
+        "Address": {
+          "required": true,
+          "asset": true
+        }
+      }
+    },
+    "CfgPlayerCombat": {
+      "fields": {
+        "ID": {
+          "min": 1
+        },
+        "Radius": {
+          "min": 0.01
+        },
+        "SkillID": {
+          "ref": "CfgCombatSkills"
+        },
+        "ScaleX": {
+          "min": 0.01
+        },
+        "ScaleY": {
+          "min": 0.01
+        },
+        "ScaleZ": {
+          "min": 0.01
+        }
+      }
+    }
+  }
+}

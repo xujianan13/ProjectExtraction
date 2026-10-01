@@ -16,7 +16,7 @@ namespace ProjectExtraction.Tests.Editor.Combat
         [Test]
         public void Timeline_ZeroFiveTen_UsesFixedTicks()
         {
-            var world = new CombatWorld(CombatCatalog.CreatePrototype());
+            var world = new CombatWorld(ProjectExtraction.Tests.Shared.TestCombatCatalog.CreatePrototype());
             world.SetRoomBounds(1, new Rect(-20f, -20f, 40f, 40f));
             var player = world.CreateActor(new CombatActorSpec
             {
@@ -48,7 +48,7 @@ namespace ProjectExtraction.Tests.Editor.Combat
         [Test]
         public void EnemyCast_UsesRoomClock()
         {
-            var catalog = CombatCatalog.CreatePrototype();
+            var catalog = ProjectExtraction.Tests.Shared.TestCombatCatalog.CreatePrototype();
             var world = new CombatWorld(catalog);
             world.SetRoomBounds(1, new Rect(-20f, -20f, 40f, 40f));
             world.SetRoomBounds(2, new Rect(-20f, -20f, 40f, 40f));
@@ -83,7 +83,7 @@ namespace ProjectExtraction.Tests.Editor.Combat
         [Test]
         public void InstantProjectile_HitsTargetPointWithoutFlight()
         {
-            var catalog = CombatCatalog.CreatePrototype();
+            var catalog = ProjectExtraction.Tests.Shared.TestCombatCatalog.CreatePrototype();
             var instant = new CombatProjectileDefinition
             {
                 ProjectileId = 9, Motion = ProjectileMotionKind.Instant,
@@ -115,7 +115,7 @@ namespace ProjectExtraction.Tests.Editor.Combat
         [Test]
         public void Death_PublishedOnceWithInstigator()
         {
-            var catalog = CombatCatalog.CreatePrototype();
+            var catalog = ProjectExtraction.Tests.Shared.TestCombatCatalog.CreatePrototype();
             catalog.Skills[1].Nodes[2].Effects[0].Value = 120f;
             catalog.Skills[1].Nodes[1].Effects[0].Value = 0f;
             var world = new CombatWorld(catalog);

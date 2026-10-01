@@ -123,7 +123,7 @@ namespace ProjectExtraction.Tests.Editor.Combat
         [Test]
         public void Projectile_KeepsOffenseAfterSourceDeath()
         {
-            var catalog = CombatCatalog.CreatePrototype();
+            var catalog = ProjectExtraction.Tests.Shared.TestCombatCatalog.CreatePrototype();
             var projectile = new CombatProjectileDefinition
             {
                 ProjectileId = 9, Motion = ProjectileMotionKind.Straight, Speed = 600f, MaxSpeed = 600f,
@@ -161,7 +161,7 @@ namespace ProjectExtraction.Tests.Editor.Combat
         [Test]
         public void Buff_KeepsOffenseAfterSourceDeath()
         {
-            var catalog = CombatCatalog.CreatePrototype();
+            var catalog = ProjectExtraction.Tests.Shared.TestCombatCatalog.CreatePrototype();
             var periodic = new CombatBuffDefinition { BuffId = 8, DurationTicks = 4, IntervalTicks = 2 };
             periodic.OnTick.Add(new CombatEffectDefinition
             {
@@ -193,7 +193,7 @@ namespace ProjectExtraction.Tests.Editor.Combat
         [Test]
         public void ActorAttributes_RejectInvalidAndClampBounds()
         {
-            var world = new CombatWorld(CombatCatalog.CreatePrototype());
+            var world = new CombatWorld(ProjectExtraction.Tests.Shared.TestCombatCatalog.CreatePrototype());
             world.SetRoomBounds(1, new Rect(-10f, -10f, 20f, 20f));
             var invalid = SourceSpec();
             invalid.Attack = float.NaN;

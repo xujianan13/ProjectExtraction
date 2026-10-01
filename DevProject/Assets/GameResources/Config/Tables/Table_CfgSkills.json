@@ -1,0 +1,41 @@
+{
+  "schemaHash": "09aa56f902ed566af9da4661b03e691f435fde10a10e78a6d9af16c1c18cfe91",
+  "rows": [
+    {
+      "ID": "power",
+      "Name": "锋刃研习",
+      "Description": "每级提高 10% 近战伤害",
+      "MaxRank": 5,
+      "CostBase": 1,
+      "CostPerRank": 1,
+      "EffectPerRank": 0.1,
+      "DisplayMultiplier": 100,
+      "DisplayPrefix": "伤害 +",
+      "DisplaySuffix": "%"
+    },
+    {
+      "ID": "vitality",
+      "Name": "生存训练",
+      "Description": "每级提高 15 点生命上限",
+      "MaxRank": 5,
+      "CostBase": 1,
+      "CostPerRank": 1,
+      "EffectPerRank": 15,
+      "DisplayMultiplier": 1,
+      "DisplayPrefix": "生命上限 +",
+      "DisplaySuffix": ""
+    },
+    {
+      "ID": "agility",
+      "Name": "轻装步法",
+      "Description": "每级提高 5% 移动速度",
+      "MaxRank": 5,
+      "CostBase": 1,
+      "CostPerRank": 1,
+      "EffectPerRank": 0.05,
+      "DisplayMultiplier": 100,
+      "DisplayPrefix": "移动速度 +",
+      "DisplaySuffix": "%"
+    }
+  ]
+}

@@ -5,6 +5,7 @@
     "GameFramework",
     "GameLogic",
     "UniTask",
+    "ProjectExtraction.Tests.Shared",
     "Unity.InputSystem",
     "YooAsset"
   ],

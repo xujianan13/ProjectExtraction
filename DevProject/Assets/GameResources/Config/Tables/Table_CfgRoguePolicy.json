@@ -1,0 +1,11 @@
+{
+  "schemaHash": "6f5eb09269de083774ea46eb07796be38cbfe31743f184cdda71f04c232db8ed",
+  "rows": [
+    {
+      "ID": 1,
+      "RefreshEnabled": false,
+      "ExtraChoiceEnabled": false,
+      "MaxRefreshes": 1
+    }
+  ]
+}

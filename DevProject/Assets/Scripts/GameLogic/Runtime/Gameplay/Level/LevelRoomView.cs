@@ -13,7 +13,8 @@ namespace GameLogic.Gameplay.Level
         private readonly GameObject root;
         private readonly GameObject extractionMarker;
         private readonly GameObject chestMarker;
-        private readonly LevelRoomLayout layout = new LevelRoomLayout();
+        private readonly LevelRoomLayout layout;
+        private readonly LevelDefinition level;
         private readonly ExpeditionVisualAssets assets;
         private bool disposed;
 
@@ -25,13 +26,19 @@ namespace GameLogic.Gameplay.Level
         /// </summary>
         /// <param name="state">待显示的单局地图状态。</param>
         /// <param name="visualAssets">已加载的关卡预制件。</param>
+        /// <param name="level">关卡定义。</param>
         /// <param name="parent">可选的场景父节点。</param>
-        private LevelRoomView(LevelRoomState state, ExpeditionVisualAssets visualAssets, Transform parent)
+        private LevelRoomView(LevelRoomState state, ExpeditionVisualAssets visualAssets, LevelDefinition level, Transform parent)
         {
             room = state;
+            this.level = level;
+            layout = new LevelRoomLayout(level);
             assets = visualAssets;
             root = UnityEngine.Object.Instantiate(assets.Room, parent, false);
             root.name = "LevelRoom_" + state.RoomId;
+            Transform floor = root.transform.Find("Floor");
+            Vector3 meshSize = floor.GetComponent<MeshFilter>().sharedMesh.bounds.size;
+            floor.localScale = new Vector3(layout.HalfExtent * 2f / meshSize.x, floor.localScale.y, layout.HalfExtent * 2f / meshSize.z);
             BuildWalls();
             BuildObstacles();
             BuildExits();
@@ -45,9 +52,9 @@ namespace GameLogic.Gameplay.Level
             Refresh();
         }
 
-        private static Vector3 ChestPosition => new Vector3(-4f, 0f, -1f);
-        private static Vector3 NpcPosition => Vector3.zero;
-        private static Vector3 ExtractionPosition => new Vector3(4f, 0f, -1f);
+        private Vector3 ChestPosition => new Vector3((float)level.Layout.ChestX, 0f, (float)level.Layout.ChestZ);
+        private Vector3 NpcPosition => new Vector3((float)level.Layout.NpcX, 0f, (float)level.Layout.NpcZ);
+        private Vector3 ExtractionPosition => new Vector3((float)level.Layout.ExtractionX, 0f, (float)level.Layout.ExtractionZ);
 
         /// <summary>
         /// 创建一张地图的预制件视图。
@@ -58,7 +65,20 @@ namespace GameLogic.Gameplay.Level
         /// <returns>需要由持有者释放的地图视图。</returns>
         public static LevelRoomView Create(LevelRoomState room, ExpeditionVisualAssets assets, Transform parent = null)
         {
-            return room == null || assets == null ? null : new LevelRoomView(room, assets, parent);
+            return Create(room, assets, PrototypeLevelConfig.DefaultLevel, parent);
+        }
+
+        /// <summary>
+        /// 使用指定关卡配置创建房间视图。
+        /// </summary>
+        /// <param name="room">单局地图状态。</param>
+        /// <param name="assets">已加载的关卡预制件。</param>
+        /// <param name="level">关卡定义。</param>
+        /// <param name="parent">可选的场景父节点。</param>
+        /// <returns>需要由持有者释放的地图视图。</returns>
+        public static LevelRoomView Create(LevelRoomState room, ExpeditionVisualAssets assets, LevelDefinition level, Transform parent = null)
+        {
+            return room == null || assets == null || level == null ? null : new LevelRoomView(room, assets, level, parent);
         }
 
         /// <summary>
@@ -77,7 +97,7 @@ namespace GameLogic.Gameplay.Level
         /// <returns>地图根节点下的局部出生位置。</returns>
         public Vector3 GetSpawnPosition(RoomDirection entrySide)
         {
-            float offset = PrototypeLevelConfig.RoomHalfExtent - PrototypeLevelConfig.SpawnInset;
+            float offset = (float)level.Layout.HalfExtent - (float)level.Layout.SpawnInset;
             switch (entrySide)
             {
                 case RoomDirection.North: return new Vector3(0f, 0f, offset);
@@ -95,8 +115,8 @@ namespace GameLogic.Gameplay.Level
         /// <returns>附近存在可通行出口时为真。</returns>
         public bool TryGetExitNear(Vector3 localPosition, out RoomDirection direction)
         {
-            float center = PrototypeLevelConfig.RoomHalfExtent - 1f;
-            float radiusSquared = PrototypeLevelConfig.ExitInteractionRadius * PrototypeLevelConfig.ExitInteractionRadius;
+            float center = (float)level.Layout.HalfExtent - (float)level.Layout.ExitCenterInset;
+            float radiusSquared = (float)level.Layout.ExitInteractionRadius * (float)level.Layout.ExitInteractionRadius;
             foreach (RoomDirection candidate in room.Exits.Keys)
             {
                 Vector3 position = ExitCenter(candidate, center);
@@ -118,7 +138,7 @@ namespace GameLogic.Gameplay.Level
         /// <returns>附近存在可用交互时为真。</returns>
         public bool TryGetInteractionNear(Vector3 localPosition, out LevelInteractionKind kind)
         {
-            float radiusSquared = PrototypeLevelConfig.ObjectInteractionRadius * PrototypeLevelConfig.ObjectInteractionRadius;
+            float radiusSquared = (float)level.Layout.ObjectInteractionRadius * (float)level.Layout.ObjectInteractionRadius;
             if (room.IsExtractionVisible && IsNear(localPosition, ExtractionPosition, radiusSquared))
             {
                 kind = LevelInteractionKind.Extraction;
@@ -175,9 +195,9 @@ namespace GameLogic.Gameplay.Level
             foreach (RoomDirection direction in Enum.GetValues(typeof(RoomDirection)))
             {
                 bool hasExit = room.Exits.ContainsKey(direction);
-                if (!hasExit) { CreateWallSegment(direction, 0f, PrototypeLevelConfig.RoomHalfExtent * 2f); continue; }
-                float length = PrototypeLevelConfig.RoomHalfExtent - PrototypeLevelConfig.ExitHalfWidth;
-                float offset = (PrototypeLevelConfig.RoomHalfExtent + PrototypeLevelConfig.ExitHalfWidth) * 0.5f;
+                if (!hasExit) { CreateWallSegment(direction, 0f, (float)level.Layout.HalfExtent * 2f); continue; }
+                float length = (float)level.Layout.HalfExtent - (float)level.Layout.ExitHalfWidth;
+                float offset = ((float)level.Layout.HalfExtent + (float)level.Layout.ExitHalfWidth) * 0.5f;
                 CreateWallSegment(direction, -offset, length);
                 CreateWallSegment(direction, offset, length);
             }
@@ -191,9 +211,9 @@ namespace GameLogic.Gameplay.Level
         /// <param name="length">墙段长度。</param>
         private void CreateWallSegment(RoomDirection direction, float offset, float length)
         {
-            float extent = PrototypeLevelConfig.RoomHalfExtent;
-            float thickness = PrototypeLevelConfig.WallThickness;
-            float height = PrototypeLevelConfig.WallHeight;
+            float extent = (float)level.Layout.HalfExtent;
+            float thickness = (float)level.Layout.WallThickness;
+            float height = (float)level.Layout.WallHeight;
             bool horizontal = direction == RoomDirection.North || direction == RoomDirection.South;
             Vector3 position = horizontal
                 ? new Vector3(offset, height * 0.5f, direction == RoomDirection.North ? extent : -extent)
@@ -211,7 +231,8 @@ namespace GameLogic.Gameplay.Level
             {
                 Vector2 size = obstacle.Max - obstacle.Min;
                 Vector2 center = (obstacle.Min + obstacle.Max) * 0.5f;
-                CreatePart("Obstacle", assets.Obstacle, new Vector3(center.x, 0.8f, center.y), new Vector3(size.x, 1.6f, size.y));
+                CreatePart("Obstacle", assets.Obstacle, new Vector3(center.x, (float)level.Layout.ObstacleHeight * 0.5f, center.y),
+                    new Vector3(size.x, (float)level.Layout.ObstacleHeight, size.y));
             }
         }
 
@@ -222,7 +243,7 @@ namespace GameLogic.Gameplay.Level
         {
             foreach (RoomDirection direction in room.Exits.Keys)
             {
-                Vector3 position = ExitCenter(direction, PrototypeLevelConfig.RoomHalfExtent - 1f);
+                Vector3 position = ExitCenter(direction, (float)level.Layout.HalfExtent - (float)level.Layout.ExitCenterInset);
                 CreatePart("Exit_" + direction, assets.Exit, position + Vector3.up * 0.1f, new Vector3(1.7f, 0.2f, 1.7f));
             }
         }

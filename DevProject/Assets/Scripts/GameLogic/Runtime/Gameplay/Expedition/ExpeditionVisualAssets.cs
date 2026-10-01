@@ -4,6 +4,8 @@ using System.Threading;
 using Cysharp.Threading.Tasks;
 using GameFramework;
 using UnityEngine;
+using GameLogic.Project;
+using GameLogic.Tables;
 
 namespace GameLogic.Gameplay.Expedition
 {
@@ -12,13 +14,9 @@ namespace GameLogic.Gameplay.Expedition
     /// </summary>
     public sealed class ExpeditionVisualAssets
     {
-        private static readonly string[] LocationNames =
-        {
-            "SC_Expedition", "RM_Prototype", "PF_TestWall", "PF_TestObstacle", "PF_TestPlayer", "PF_TestEnemy", "PF_TestBoss",
-            "PF_TestNpc", "PF_TestChest", "PF_TestExit", "PF_TestExtraction", "PF_TestLoot", "PF_TestProjectile", "PF_TestMeleeCue"
-        };
-        private static readonly IReadOnlyList<string> ReadOnlyLocations = Array.AsReadOnly(LocationNames);
-        private static readonly ResourceGroupDefinition Definition = CreateDefinition();
+        private static readonly string[] roles = { "Scene", "Room", "Wall", "Obstacle", "Player", "Enemy", "Boss", "Npc", "Chest",
+            "Exit", "Extraction", "Loot", "Projectile", "MeleeCue" };
+        private readonly Dictionary<int, GameObject> enemies = new();
 
         /// <summary>
         /// 读取完整资源组中的关卡预制件。
@@ -26,23 +24,40 @@ namespace GameLogic.Gameplay.Expedition
         /// <param name="group">已加载的关卡资源组。</param>
         private ExpeditionVisualAssets(ResourceGroupLease group)
         {
-            Scene = Get(group, LocationNames[0]);
-            Room = Get(group, LocationNames[1]);
-            Wall = Get(group, LocationNames[2]);
-            Obstacle = Get(group, LocationNames[3]);
-            Player = Get(group, LocationNames[4]);
-            Enemy = Get(group, LocationNames[5]);
-            Boss = Get(group, LocationNames[6]);
-            Npc = Get(group, LocationNames[7]);
-            Chest = Get(group, LocationNames[8]);
-            Exit = Get(group, LocationNames[9]);
-            Extraction = Get(group, LocationNames[10]);
-            Loot = Get(group, LocationNames[11]);
-            Projectile = Get(group, LocationNames[12]);
-            MeleeCue = Get(group, LocationNames[13]);
+            var locations = Locations;
+            Scene = Get(group, locations[0]);
+            Room = Get(group, locations[1]);
+            Wall = Get(group, locations[2]);
+            Obstacle = Get(group, locations[3]);
+            Player = Get(group, locations[4]);
+            Enemy = Get(group, locations[5]);
+            Boss = Get(group, locations[6]);
+            Npc = Get(group, locations[7]);
+            Chest = Get(group, locations[8]);
+            Exit = Get(group, locations[9]);
+            Extraction = Get(group, locations[10]);
+            Loot = Get(group, locations[11]);
+            Projectile = Get(group, locations[12]);
+            MeleeCue = Get(group, locations[13]);
+            foreach (CfgEnemiesRow row in GameTables.CfgEnemies.GetAll()) enemies.Add(row.ID, Get(group, row.PrefabAddress));
         }
 
-        public static IReadOnlyList<string> Locations => ReadOnlyLocations;
+        public static IReadOnlyList<string> Locations
+        {
+            get
+            {
+                var locations = new string[roles.Length];
+                for (int i = 0; i < roles.Length; i++) locations[i] = ProjectContentConfig.Asset(roles[i]);
+                return Array.AsReadOnly(locations);
+            }
+        }
+
+        /// <summary>
+        /// 取得指定敌人配置加载的模型。
+        /// </summary>
+        /// <param name="definitionId">敌人配置编号。</param>
+        /// <returns>对应模型，未加载时为空。</returns>
+        public GameObject GetEnemy(int definitionId) => enemies.TryGetValue(definitionId, out GameObject prefab) ? prefab : null;
         public GameObject Scene { get; }
         public GameObject Room { get; }
         public GameObject Wall { get; }
@@ -57,6 +72,7 @@ namespace GameLogic.Gameplay.Expedition
         public GameObject Loot { get; }
         public GameObject Projectile { get; }
         public GameObject MeleeCue { get; }
+        public CombatFeedbackAssets Feedback { get; private set; }
 
         /// <summary>
         /// 完整加载关卡预制件，并交由场景作用域持有资源组租约。
@@ -78,7 +94,7 @@ namespace GameLogic.Gameplay.Expedition
             using var linked = CancellationTokenSource.CreateLinkedTokenSource(scope.Token, ct);
             try
             {
-                group = await resources.AcquireGroupAsync(Definition, ct: linked.Token);
+                group = await resources.AcquireGroupAsync(CreateDefinition(), ct: linked.Token);
                 if (!PlayerLoopHelper.IsMainThread) await UniTask.SwitchToMainThread();
                 linked.Token.ThrowIfCancellationRequested();
                 if (!scope.IsActive) throw new OperationCanceledException(scope.Token);
@@ -95,18 +111,27 @@ namespace GameLogic.Gameplay.Expedition
                         return null;
                     }
                 var assets = new ExpeditionVisualAssets(group);
+                Mesh floor = assets.Room.transform.Find("Floor")?.GetComponent<MeshFilter>()?.sharedMesh;
+                if (floor == null || floor.bounds.size.x <= 0f || floor.bounds.size.z <= 0f)
+                {
+                    LogFailure("房间预制件缺少有效 Floor 网格，无法按配置生成房间地板。");
+                    return null;
+                }
                 if (!HasActiveCamera(assets.Scene))
                 {
                     LogFailure("SC_Expedition 缺少 Camera，拒绝进入关卡。");
                     return null;
                 }
-                foreach (GameObject character in new[] { assets.Player, assets.Enemy, assets.Boss, assets.Npc })
+                var characters = new List<GameObject>(assets.enemies.Values) { assets.Player, assets.Npc };
+                foreach (GameObject character in characters)
                 {
-                    Animator animator = character.GetComponent<Animator>();
+                    Animator animator = character != null ? character.GetComponent<Animator>() : null;
                     if (animator != null && animator.runtimeAnimatorController != null) continue;
-                    LogFailure("角色预制件缺少 Animator 或动画控制器：" + character.name);
+                    LogFailure("角色预制件缺少 Animator 或动画控制器：" + (character != null ? character.name : "未加载"));
                     return null;
                 }
+                assets.Feedback = await CombatFeedbackAssets.LoadAsync(scope, resources, linked.Token);
+                if (assets.Feedback == null) return null;
                 if (!scope.TryOwn(group)) throw new OperationCanceledException(scope.Token);
                 group = null;
                 return assets;
@@ -151,10 +176,12 @@ namespace GameLogic.Gameplay.Expedition
         /// <returns>全部条目都必须成功的资源组。</returns>
         private static ResourceGroupDefinition CreateDefinition()
         {
-            var items = new ResourceGroupDefinition.Item[LocationNames.Length];
-            for (int index = 0; index < items.Length; index++)
-                items[index] = new ResourceGroupDefinition.Item(LocationNames[index], LocationNames[index], ResourceGroupDefinition.AssetKind.GameObject);
-            return new ResourceGroupDefinition("ExpeditionVisuals", items);
+            var addresses = new HashSet<string>(Locations);
+            foreach (CfgEnemiesRow row in GameTables.CfgEnemies.GetAll()) addresses.Add(row.PrefabAddress);
+            var items = new List<ResourceGroupDefinition.Item>();
+            foreach (string address in addresses)
+                items.Add(new ResourceGroupDefinition.Item(address, address, ResourceGroupDefinition.AssetKind.GameObject));
+            return new ResourceGroupDefinition("ExpeditionVisuals", items.ToArray());
         }
 
         /// <summary>

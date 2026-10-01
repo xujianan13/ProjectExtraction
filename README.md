@@ -10,7 +10,7 @@
 
 用 Unity **2022.3.62f2** 打开 [DevProject](DevProject/)，等待首次导入、依赖解析和编译。打开 [Assets/Scenes/Main.unity](DevProject/Assets/Scenes/Main.unity) 后点击 Play，检查固定启动、Loading、`GamePackage` 和 `Home` 入口。首次导入与本项目实测结果记录在[项目基础接入验收](docs/project/项目基础接入验收.md)；源框架文档中的历史验收数字不代表本项目结果。
 
-首次 Git 检出先运行 `npm ci --prefix tool`；等待 Unity 编译完成后，或以后修改源码、内容后，在 Unity 菜单运行 **Tools → Unity Mini Game Framework → Prepare GamePackage**，使当前编译的 `GameLogic` 进入热更包，再运行场景。修改 `config/excel/*.xlsx` 时，先在仓库根目录导出并校验，等待 Unity 导入生成的 JSON 与 C#，然后执行 Prepare GamePackage；当前源表为空，导出与校验也应保持可运行。
+首次 Git 检出先运行 `npm ci --prefix tool`；等待 Unity 编译完成后，或以后修改源码、内容后，在 Unity 菜单运行 **Tools → Unity Mini Game Framework → Prepare GamePackage**，使当前编译的 `GameLogic` 进入热更包，再运行场景。修改 `config/excel/*.xlsx` 时，先在仓库根目录导出并校验，等待 Unity 导入生成的 JSON 与 C#，然后执行 Prepare GamePackage；当前已有 22 张项目内容表，新增内容统一走配置；表清单、操作与存档兼容见[内容配置化](docs/project/内容配置化.md)。
 
 ```powershell
 node tool/export-excel.mjs export

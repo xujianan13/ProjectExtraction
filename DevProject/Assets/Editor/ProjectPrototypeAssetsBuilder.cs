@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.Reflection;
 using UnityEditor;
 using UnityEngine;
 
@@ -14,6 +13,7 @@ namespace MiniGame.Editor
         private const string Scenes = "Assets/GameResources/Scenes/Expedition";
         private const string Gameplay = "Assets/GameResources/Gameplay/Expedition";
         private const string Materials = "Assets/GameResources/Art/Prototype/Materials";
+        private const float TestRoomHalfExtent = 12f;
         private static readonly List<string> Created = new List<string>();
         private static readonly List<string> Skipped = new List<string>();
         private static readonly List<string> Failed = new List<string>();
@@ -27,7 +27,7 @@ namespace MiniGame.Editor
             Created.Clear();
             Skipped.Clear();
             Failed.Clear();
-            if (!TryGetRoomHalfExtent(out float roomHalfExtent)) return;
+            float roomHalfExtent = TestRoomHalfExtent;
 
             EnsureFolder(Scenes + "/Rooms");
             EnsureFolder(Gameplay + "/Environment");
@@ -68,31 +68,13 @@ namespace MiniGame.Editor
             EnsurePrimitivePrefab(Gameplay + "/Effects/PF_TestMeleeCue.prefab", PrimitiveType.Cube, meleeCue);
 
             if (!ProjectCharacterAnimationBuilder.EnsureMissing()) Failed.Add("角色动画资源");
+            if (!ProjectCombatFeedbackAssetsBuilder.EnsureMissing()) Failed.Add("战斗反馈资源");
 
             AssetDatabase.SaveAssets();
             AssetDatabase.Refresh();
             string report = $"新增 {Created.Count}，已存在 {Skipped.Count}，失败 {Failed.Count}。\n新增：{string.Join(", ", Created)}\n已存在：{string.Join(", ", Skipped)}\n失败：{string.Join(", ", Failed)}";
             if (Failed.Count > 0) Debug.LogError("测试资源生成未完成：" + report);
             else Debug.Log("测试资源生成完成：" + report);
-        }
-
-        /// <summary>
-        /// 从热更程序集的编译后常量读取原型房间半边长。
-        /// </summary>
-        /// <param name="halfExtent">读取成功后的房间半边长。</param>
-        /// <returns>常量存在且有效时为真。</returns>
-        private static bool TryGetRoomHalfExtent(out float halfExtent)
-        {
-            Type config = Type.GetType("GameLogic.Gameplay.Level.PrototypeLevelConfig, GameLogic");
-            FieldInfo field = config?.GetField("RoomHalfExtent", BindingFlags.Public | BindingFlags.Static);
-            if (field != null && field.IsLiteral && field.GetRawConstantValue() is float value && value > 0f)
-            {
-                halfExtent = value;
-                return true;
-            }
-            halfExtent = 0f;
-            Debug.LogError("测试资源生成失败：无法读取 GameLogic.Gameplay.Level.PrototypeLevelConfig.RoomHalfExtent，请先完成 GameLogic 编译。");
-            return false;
         }
 
         /// <summary>

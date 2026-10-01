@@ -1,0 +1,26 @@
+{
+  "schemaHash": "6ce1e0c000af0279944f2952b23b04b7876bf0fdb117be6cb77ecd010b442260",
+  "rows": [
+    {
+      "ID": 1,
+      "DurationTicks": 16,
+      "CooldownTicks": 24,
+      "StartRange": 0.6,
+      "StartRangeSource": 1
+    },
+    {
+      "ID": 2,
+      "DurationTicks": 38,
+      "CooldownTicks": 65,
+      "StartRange": 2.1,
+      "StartRangeSource": 0
+    },
+    {
+      "ID": 3,
+      "DurationTicks": 48,
+      "CooldownTicks": 90,
+      "StartRange": 8,
+      "StartRangeSource": 0
+    }
+  ]
+}

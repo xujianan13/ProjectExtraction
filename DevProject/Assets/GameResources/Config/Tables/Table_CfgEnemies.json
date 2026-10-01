@@ -1,0 +1,45 @@
+{
+  "schemaHash": "b73905762056cbe2e95bca99a63483286fbac1aeb83f3e7578406589b5689ca7",
+  "rows": [
+    {
+      "ID": 1,
+      "Name": "遗迹敌人",
+      "PrefabAddress": "PF_TestEnemy",
+      "ModelScaleX": 0.9,
+      "ModelScaleY": 1,
+      "ModelScaleZ": 0.9,
+      "BaseHealth": 35,
+      "HealthPerLevel": 10,
+      "Attack": 8,
+      "MoveSpeed": 2.2,
+      "Radius": 0.45,
+      "AttackRange": 1.6,
+      "AggroRange": 10,
+      "SkillID": 2,
+      "ExperienceBase": 10,
+      "ExperiencePerLevel": 3,
+      "DropChance": 0.4,
+      "DropPoolID": "default"
+    },
+    {
+      "ID": 2,
+      "Name": "遗迹首领",
+      "PrefabAddress": "PF_TestBoss",
+      "ModelScaleX": 1.8,
+      "ModelScaleY": 1.5,
+      "ModelScaleZ": 1.8,
+      "BaseHealth": 180,
+      "HealthPerLevel": 30,
+      "Attack": 12,
+      "MoveSpeed": 1.5,
+      "Radius": 0.9,
+      "AttackRange": 7,
+      "AggroRange": 10,
+      "SkillID": 3,
+      "ExperienceBase": 10,
+      "ExperiencePerLevel": 3,
+      "DropChance": 0.4,
+      "DropPoolID": "default"
+    }
+  ]
+}

@@ -1,0 +1,72 @@
+{
+  "schemaHash": "d3ca45d7f89b7a93baf7e4e0dbe3389cb36dac3d6c7bd16d67bb323232903c2b",
+  "rows": [
+    {
+      "ID": 1,
+      "Motion": 0,
+      "Target": 0,
+      "SpawnAnchor": 0,
+      "LostTarget": 0,
+      "SpawnOffsetX": 0,
+      "SpawnOffsetY": 0,
+      "SpawnOffsetZ": 0,
+      "Speed": 10,
+      "Acceleration": 0,
+      "MaxSpeed": 10,
+      "TurnDegreesPerSecond": 0,
+      "GravityX": 0,
+      "GravityY": -9.81,
+      "GravityZ": 0,
+      "ArcHeight": 0,
+      "FlightTicks": 0,
+      "LifetimeTicks": 90,
+      "MaxDistance": 15,
+      "Radius": 0.18,
+      "MaxDistinctTargets": 1,
+      "MaxBounces": 0,
+      "SameTargetIntervalTicks": 0,
+      "MaxHitsPerTarget": 1,
+      "OnlyLockedTarget": false,
+      "RemoveOnSourceDeath": false,
+      "OnHitEffectIDs": [
+        8,
+        9
+      ],
+      "OnArriveEffectIDs": [],
+      "OnExpireEffectIDs": []
+    },
+    {
+      "ID": 2,
+      "Motion": 1,
+      "Target": 0,
+      "SpawnAnchor": 0,
+      "LostTarget": 0,
+      "SpawnOffsetX": 0,
+      "SpawnOffsetY": 0,
+      "SpawnOffsetZ": 0,
+      "Speed": 8,
+      "Acceleration": 0,
+      "MaxSpeed": 8,
+      "TurnDegreesPerSecond": 0,
+      "GravityX": 0,
+      "GravityY": -12,
+      "GravityZ": 0,
+      "ArcHeight": 0,
+      "FlightTicks": 0,
+      "LifetimeTicks": 75,
+      "MaxDistance": 12,
+      "Radius": 0.18,
+      "MaxDistinctTargets": 1,
+      "MaxBounces": 0,
+      "SameTargetIntervalTicks": 0,
+      "MaxHitsPerTarget": 1,
+      "OnlyLockedTarget": false,
+      "RemoveOnSourceDeath": false,
+      "OnHitEffectIDs": [
+        8
+      ],
+      "OnArriveEffectIDs": [],
+      "OnExpireEffectIDs": []
+    }
+  ]
+}

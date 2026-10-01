@@ -37,25 +37,37 @@ namespace GameLogic.Gameplay.Level
         /// <returns>生成结果满足连通、出口与内容约束时为真。</returns>
         public static bool TryGenerate(int seed, out LevelRunState run)
         {
+            return TryGenerate(seed, PrototypeLevelConfig.DefaultLevel, out run);
+        }
+
+        /// <summary>
+        /// 使用指定关卡配置和固定种子生成一局地图。
+        /// </summary>
+        /// <param name="seed">生成种子。</param>
+        /// <param name="level">关卡定义。</param>
+        /// <param name="run">成功时的单局地图状态。</param>
+        /// <returns>生成结果满足连通、出口与内容约束时为真。</returns>
+        public static bool TryGenerate(int seed, LevelDefinition level, out LevelRunState run)
+        {
             run = null;
-            int count = PrototypeLevelConfig.RoomCount;
+            int count = level == null ? 0 : level.Row.GridWidth * level.Row.GridHeight;
             if (count < 6) return false;
             var random = new Random(seed);
             var allEdges = new List<GraphEdge>();
-            for (int y = 0; y < PrototypeLevelConfig.GridHeight; y++)
+            for (int y = 0; y < level.Row.GridHeight; y++)
             {
-                for (int x = 0; x < PrototypeLevelConfig.GridWidth; x++)
+                for (int x = 0; x < level.Row.GridWidth; x++)
                 {
-                    int id = y * PrototypeLevelConfig.GridWidth + x + 1;
-                    if (x + 1 < PrototypeLevelConfig.GridWidth) allEdges.Add(new GraphEdge(id, id + 1, RoomDirection.East));
-                    if (y + 1 < PrototypeLevelConfig.GridHeight)
-                        allEdges.Add(new GraphEdge(id, id + PrototypeLevelConfig.GridWidth, RoomDirection.North));
+                    int id = y * level.Row.GridWidth + x + 1;
+                    if (x + 1 < level.Row.GridWidth) allEdges.Add(new GraphEdge(id, id + 1, RoomDirection.East));
+                    if (y + 1 < level.Row.GridHeight)
+                        allEdges.Add(new GraphEdge(id, id + level.Row.GridWidth, RoomDirection.North));
                 }
             }
 
             int startId = random.Next(1, count + 1);
             var connected = new HashSet<int> { startId };
-            var chosen = new List<GraphEdge>(count + PrototypeLevelConfig.ExtraConnectionMax);
+            var chosen = new List<GraphEdge>(count + level.Row.ExtraConnectionMax);
             while (connected.Count < count)
             {
                 var frontier = new List<GraphEdge>();
@@ -82,7 +94,7 @@ namespace GameLogic.Gameplay.Level
                 if (!used) extra.Add(edge);
             }
 
-            int requestedExtra = random.Next(PrototypeLevelConfig.ExtraConnectionMin, PrototypeLevelConfig.ExtraConnectionMax + 1);
+            int requestedExtra = random.Next(level.Row.ExtraConnectionMin, level.Row.ExtraConnectionMax + 1);
             if (extra.Count < requestedExtra) return false;
             for (int i = 0; i < requestedExtra; i++)
             {
@@ -92,6 +104,7 @@ namespace GameLogic.Gameplay.Level
             }
 
             int bossId = FindFarthestRoom(startId, count, chosen, random);
+            if (bossId <= 0) return false;
             var candidates = new List<int>();
             for (int id = 1; id <= count; id++)
             {
@@ -99,7 +112,7 @@ namespace GameLogic.Gameplay.Level
             }
             int npcId = TakeRandom(candidates, random);
             var lootIds = new HashSet<int>();
-            for (int i = 0; i < PrototypeLevelConfig.LootRoomCount; i++) lootIds.Add(TakeRandom(candidates, random));
+            for (int i = 0; i < level.Row.LootRoomCount; i++) lootIds.Add(TakeRandom(candidates, random));
 
             var rooms = new List<LevelRoomState>(count);
             for (int id = 1; id <= count; id++)
@@ -107,7 +120,7 @@ namespace GameLogic.Gameplay.Level
                 LevelRoomType type = id == bossId ? LevelRoomType.Boss
                     : id == npcId ? LevelRoomType.Npc
                     : lootIds.Contains(id) ? LevelRoomType.Loot : LevelRoomType.Mob;
-                var coordinate = new Vector2Int((id - 1) % PrototypeLevelConfig.GridWidth, (id - 1) / PrototypeLevelConfig.GridWidth);
+                var coordinate = new Vector2Int((id - 1) % level.Row.GridWidth, (id - 1) / level.Row.GridWidth);
                 rooms.Add(new LevelRoomState(id, coordinate, type, id == startId));
             }
 
@@ -126,7 +139,7 @@ namespace GameLogic.Gameplay.Level
             extractionCandidates[random.Next(extractionCandidates.Count)].SetExtractionCandidate(true);
             foreach (LevelRoomState room in rooms)
             {
-                if (room.IsStart || room.HasExtractionCandidate || random.NextDouble() >= PrototypeLevelConfig.ExtraExtractionChance) continue;
+                if (room.IsStart || room.HasExtractionCandidate || random.NextDouble() >= level.Row.ExtraExtractionChance) continue;
                 room.SetExtractionCandidate(room.Type == LevelRoomType.Mob || room.Type == LevelRoomType.Boss);
             }
             run = new LevelRunState(seed, rooms, startId);

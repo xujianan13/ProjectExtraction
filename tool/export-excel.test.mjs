@@ -6,7 +6,8 @@ import path from 'node:path';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import ExcelJS from 'exceljs';
-import { collect } from './export-excel.mjs';
+import JSZip from 'jszip';
+import { collect, normalizeSpreadsheetXml } from './export-excel.mjs';
 
 test('工作表名不能与 GameTables.LoadAsync 入口冲突', async t => {
   const directory = await mkdtemp(path.join(tmpdir(), 'umgf-excel-test-'));
@@ -162,4 +163,37 @@ test('真实 XLSX：枚举名不得遮蔽生成代码所用类型', async t => {
   f.schema.enums.Array = { Zero: 0 };
   await writeFile(f.schemaFile, JSON.stringify(f.schema));
   await assert.rejects(f.invoke('export'), /枚举名无效或冲突：Array/);
+});
+
+test('带前缀工作表命名空间可正常导出，普通 XLSX 保持原始字节', async t => {
+  const f = await fixture(t);
+  const file = path.join(f.source, 'Books.xlsx');
+  const ordinary = await readFile(file);
+  assert.strictEqual(await normalizeSpreadsheetXml(ordinary), ordinary);
+  await f.invoke('export');
+  const jsonFile = path.join(f.assets, 'Config/Tables/Table_Books.json');
+  const original = JSON.parse(await readFile(jsonFile, 'utf8')).rows;
+  const zip = await JSZip.loadAsync(ordinary);
+  const entry = zip.file('xl/worksheets/sheet1.xml');
+  assert.ok(entry);
+  const xml = await entry.async('string');
+  const mainNamespace = 'http://schemas.openxmlformats.org/spreadsheetml/2006/main';
+  assert.match(xml, new RegExp('xmlns="' + mainNamespace + '"'));
+  const prefixed = xml.replace('xmlns="' + mainNamespace + '"', 'xmlns:s="' + mainNamespace + '"')
+    .replace(/<(\/?)([A-Za-z][\w.-]*)(?=[\s/>])/g, '<$1s:$2');
+  assert.match(prefixed, /<s:worksheet\b/);
+  zip.file(entry.name, prefixed);
+  await writeFile(file, await zip.generateAsync({ type: 'nodebuffer', compression: 'DEFLATE' }));
+  await f.invoke('export');
+  const after = JSON.parse(await readFile(jsonFile, 'utf8')).rows;
+  assert.deepEqual(after, original);
+  await f.invoke('verify');
+
+  const mixed = xml.replace('xmlns="' + mainNamespace + '"',
+    'xmlns="' + mainNamespace + '" xmlns:s="' + mainNamespace + '"')
+    .replace(/<(\/?)([A-Za-z][\w.-]*)(?=[\s/>])/g, '<$1s:$2');
+  zip.file(entry.name, mixed);
+  await writeFile(file, await zip.generateAsync({ type: 'nodebuffer', compression: 'DEFLATE' }));
+  await f.invoke('export');
+  assert.deepEqual(JSON.parse(await readFile(jsonFile, 'utf8')).rows, original);
 });

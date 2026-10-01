@@ -30,6 +30,8 @@ namespace GameLogic.Project
             if (lifecycleObserver != null) UnityEngine.Object.Destroy(lifecycleObserver);
             lifecycleObserver = null;
             Session?.Dispose();
+            Session = null;
+            if (!await ProjectContentConfig.LoadAsync(ct)) return false;
             ProjectSession created = await ProjectSession.OpenAsync(ct);
             if (created == null) return false;
             Session = created;

@@ -27,6 +27,8 @@ namespace GameLogic.Gameplay.Expedition
     public sealed partial class ExpeditionRun : IDisposable
     {
         private readonly ProjectSession session;
+        private readonly LevelDefinition level;
+        private readonly Dictionary<int, EnemyDefinition> enemyDefinitions = new();
         private readonly System.Random random;
         private readonly List<CombatEvent> events = new();
         private readonly HashSet<int> rewardedDeaths = new();
@@ -50,7 +52,7 @@ namespace GameLogic.Gameplay.Expedition
         public CombatWorld World { get; }
         public CombatEntityRef Player { get; }
         public LevelRoomView RoomView { get; private set; }
-        public LevelRoomLayout Layout { get; } = new();
+        public LevelRoomLayout Layout { get; }
         public bool IsReady { get; private set; }
         public bool IsRunning { get; private set; }
         public int KillExperience { get; private set; }
@@ -73,17 +75,19 @@ namespace GameLogic.Gameplay.Expedition
         /// </summary>
         /// <param name="session">局外唯一会话。</param>
         /// <param name="runId">稳定单局身份。</param>
-        /// <param name="levelId">关卡等级配置。</param>
+        /// <param name="level">已经校验的关卡配置。</param>
         /// <param name="maps">已经验证的连通地图。</param>
         /// <param name="items">本局入场装备。</param>
         /// <param name="roguePolicy">三选一扩展功能开关。</param>
         /// <param name="rogueAccess">第四选项的外部授权提供器。</param>
-        private ExpeditionRun(ProjectSession session, string runId, int levelId, LevelRunState maps, List<ProjectItem> items,
+        private ExpeditionRun(ProjectSession session, string runId, LevelDefinition level, LevelRunState maps, List<ProjectItem> items,
             RogueChoicePolicy roguePolicy, IRogueChoiceAccessProvider rogueAccess)
         {
             this.session = session;
             RunId = runId;
-            LevelId = levelId;
+            this.level = level;
+            LevelId = level.ID;
+            Layout = new LevelRoomLayout(level);
             Maps = maps;
             rogueChoices = new RogueChoiceSession(runId, maps.Seed ^ 0x5247, roguePolicy);
             rogueAccessProvider = rogueAccess;
@@ -91,22 +95,22 @@ namespace GameLogic.Gameplay.Expedition
             random = new System.Random(maps.Seed ^ 0x5162);
             inventory.AddRange(items.ConvertAll(item => item.Copy()));
             ProjectCharacterStats attributes = ProjectEquipmentRules.Calculate(items, session.PowerRank, session.VitalityRank, session.AgilityRank);
-            CombatCatalog catalog = CreateCatalog(attributes.AttackRange);
+            CombatCatalog catalog = CombatContentConfig.CreateCatalog(attributes.AttackRange);
             World = new CombatWorld(catalog, randomSeed: maps.Seed) { ErrorLogger = reason => GameEntry.Get<ILogModule>()?.Error("Combat", reason) };
             foreach (LevelRoomState room in maps.Rooms)
             {
-                float extent = Layout.HalfExtent - PrototypeLevelConfig.WallThickness * 0.5f;
+                float extent = Layout.HalfExtent - Layout.WallThickness * 0.5f;
                 World.SetRoomBounds(room.RoomId, new Rect(-extent, -extent, extent * 2, extent * 2));
                 foreach (LevelObstacle obstacle in Layout.Obstacles)
                     World.AddObstacle(room.RoomId, Rect.MinMaxRect(obstacle.Min.x, obstacle.Min.y, obstacle.Max.x, obstacle.Max.y));
             }
             Player = World.CreateActor(new CombatActorSpec
             {
-                ActorId = 1, RoomId = maps.StartRoomId, Team = 1, IsPlayer = true, Position = new Vector3(0, 0, -8),
+                ActorId = 1, RoomId = maps.StartRoomId, Team = 1, IsPlayer = true, Position = new Vector3((float)ProjectContentConfig.Player.SpawnX, 0, (float)ProjectContentConfig.Player.SpawnZ),
                 MaxHealth = attributes.MaxHealth, Attack = attributes.Attack, Defense = attributes.Defense,
                 CriticalRating = attributes.CriticalRating, CriticalDamage = attributes.CriticalDamage, DodgeChance = attributes.DodgeChance,
                 DamageIncrease = attributes.DamageIncrease, DamageReduction = attributes.DamageReduction, MoveSpeed = attributes.MoveSpeed,
-                Radius = 0.45f, AttackRange = attributes.AttackRange, BasicSkillId = 1, AggroRange = 0
+                Radius = (float)ProjectContentConfig.Player.Radius, AttackRange = attributes.AttackRange, BasicSkillId = ProjectContentConfig.Player.SkillID, AggroRange = 0
             });
             World.SetActiveRoom(maps.StartRoomId, Player);
         }
@@ -139,8 +143,10 @@ namespace GameLogic.Gameplay.Expedition
             RogueChoicePolicy roguePolicy = null, IRogueChoiceAccessProvider rogueAccess = null)
         {
             run = null;
-            if (!LevelGenerator.TryGenerate(seed, out LevelRunState maps)) return false;
-            var created = new ExpeditionRun(session, runId, levelId, maps, items, roguePolicy, rogueAccess);
+            if (session == null || items == null || string.IsNullOrWhiteSpace(runId) ||
+                !LevelContentConfig.TryGetLevel(levelId, out LevelDefinition definition) ||
+                !LevelGenerator.TryGenerate(seed, definition, out LevelRunState maps)) return false;
+            var created = new ExpeditionRun(session, runId, definition, maps, items, roguePolicy, rogueAccess);
             if (created.Player.Id == 0)
             {
                 created.Dispose();
@@ -160,7 +166,7 @@ namespace GameLogic.Gameplay.Expedition
             if (disposed || stopped || RoomView != null || assets == null) return;
             visualAssets = assets;
             sceneParent = parent;
-            RoomView = LevelRoomView.Create(CurrentRoom, assets, parent);
+            RoomView = LevelRoomView.Create(CurrentRoom, assets, level, parent);
             if (RoomView == null) return;
             SpawnRoomEnemies(CurrentRoom);
             Changed?.Invoke();
@@ -228,10 +234,11 @@ namespace GameLogic.Gameplay.Expedition
         /// <param name="deltaTime">本帧模拟秒数。</param>
         public void Advance(float deltaTime)
         {
+            AdvanceDeathPresentation(deltaTime);
             if (!IsRunning || !IsReady || paused || IsChoosingRogue || disposed || RoomView == null || session.HasPendingSave || GameEntry.IsInBackground)
             {
                 World.ClearPendingTime();
-                if (GameEntry.IsInBackground) SetPaused(true);
+                if (IsRunning && GameEntry.IsInBackground) SetPaused(true);
                 return;
             }
             IInputModule input = GameEntry.Get<IInputModule>();
@@ -265,13 +272,12 @@ namespace GameLogic.Gameplay.Expedition
                 if (fact.Kind == CombatEventKind.Death)
                 {
                     if (fact.TargetActorId == 1) playerDied = true;
-                    else if (rewardedDeaths.Add(fact.TargetActorId))
+                    else if (rewardedDeaths.Add(fact.TargetActorId) && enemyDefinitions.TryGetValue(fact.TargetActorId, out EnemyDefinition enemy))
                     {
-                        KillExperience += 10 + LevelId * 3;
-                        Maps.TryGetRoom(fact.RoomId, out LevelRoomState room);
-                        if (room.Type == LevelRoomType.Boss || random.NextDouble() < 0.55)
+                        KillExperience = (int)Math.Min(int.MaxValue, (long)KillExperience + enemy.ExperienceAt(LevelId));
+                        if (random.NextDouble() < enemy.DropChance)
                             drops.Add(new ExpeditionDrop { RoomId = fact.RoomId, Position = fact.Position,
-                                Item = PrototypeRules.CreateLoot(random, LevelId) });
+                                Item = ProjectEquipmentRules.CreateLootFromPool(random, LevelId, enemy.DropPoolID) });
                     }
                 }
                 else if (fact.Kind == CombatEventKind.RoomCleared && Maps.TryGetRoom(fact.RoomId, out LevelRoomState room))
@@ -452,7 +458,7 @@ namespace GameLogic.Gameplay.Expedition
             InteractionLabel = "交互 / E";
             if (RoomView.TryGetExitNear(position, out _)) { InteractionLabel = "进入相邻地图 / E"; return; }
             foreach (ExpeditionDrop drop in drops)
-                if (!drop.Collected && drop.RoomId == Maps.CurrentRoomId && (drop.Position - position).sqrMagnitude <= 4f)
+                if (!drop.Collected && drop.RoomId == Maps.CurrentRoomId && (drop.Position - position).sqrMagnitude <= Layout.ObjectInteractionRadius * Layout.ObjectInteractionRadius)
                 { InteractionLabel = "拾取战利品 / E"; return; }
             if (!RoomView.TryGetInteractionNear(position, out LevelInteractionKind kind)) return;
             if (kind == LevelInteractionKind.Chest) InteractionLabel = "打开箱子 / E";
@@ -473,7 +479,7 @@ namespace GameLogic.Gameplay.Expedition
             if (RoomView.TryGetExitNear(position, out RoomDirection direction)) { ChangeRoom(direction); return; }
             foreach (ExpeditionDrop drop in drops)
             {
-                if (drop.Collected || drop.RoomId != Maps.CurrentRoomId || (drop.Position - position).sqrMagnitude > 4f) continue;
+                if (drop.Collected || drop.RoomId != Maps.CurrentRoomId || (drop.Position - position).sqrMagnitude > Layout.ObjectInteractionRadius * Layout.ObjectInteractionRadius) continue;
                 drop.Collected = true;
                 inventory.Add(drop.Item);
                 Message = "拾取：" + drop.Item.Name;
@@ -483,7 +489,7 @@ namespace GameLogic.Gameplay.Expedition
             if (kind == LevelInteractionKind.Chest && !CurrentRoom.ChestOpened)
             {
                 CurrentRoom.MarkChestOpened();
-                inventory.Add(PrototypeRules.CreateLoot(random, LevelId));
+                inventory.Add(ProjectEquipmentRules.CreateLootFromPool(random, LevelId, level.LootPoolID));
                 Message = "已打开箱子，获得一件战利品。";
                 TryBeginRogueChoice("chest:" + CurrentRoom.RoomId);
             }
@@ -494,7 +500,7 @@ namespace GameLogic.Gameplay.Expedition
                 if (AvailableGold < PrototypeRules.NpcItemPrice) { Message = "金币不足。"; return; }
                 GoldSpent += PrototypeRules.NpcItemPrice;
                 CurrentRoom.TrySetNpcStock("relic", count - 1);
-                inventory.Add(PrototypeRules.CreateLoot(random, LevelId));
+                inventory.Add(ProjectEquipmentRules.CreateLootFromPool(random, LevelId, level.LootPoolID));
                 Message = "购买成功，金币 -" + PrototypeRules.NpcItemPrice;
             }
             RoomView.Refresh();
@@ -508,13 +514,18 @@ namespace GameLogic.Gameplay.Expedition
         {
             if (!CanInteract) return;
             if (!Maps.TryGetDestination(direction, out int destination) || !Maps.TryGetRoom(destination, out LevelRoomState room)) return;
-            LevelRoomView prepared = LevelRoomView.Create(room, visualAssets, sceneParent);
+            LevelRoomView prepared = LevelRoomView.Create(room, visualAssets, level, sceneParent);
             if (prepared == null) { Message = "目标地图准备失败。"; return; }
             RoomDirection entrySide = LevelGenerator.Opposite(direction);
             Vector3 spawn = prepared.GetSpawnPosition(entrySide);
-            if (Layout.IsBlocked(spawn, 0.45f)) { prepared.Dispose(); Message = "目标入口不可用。"; return; }
-            if (!World.SetActiveRoom(destination, Player)) { prepared.Dispose(); return; }
-            if (!World.TrySetPosition(Player, spawn) || !Maps.TryCommitTransition(destination))
+            if (Layout.IsBlocked(spawn, (float)ProjectContentConfig.Player.Radius)) { prepared.Dispose(); Message = "目标入口不可用。"; return; }
+            if (!World.TryTransferActor(Player, destination, spawn))
+            {
+                prepared.Dispose();
+                Message = "目标入口被占用，请稍后重试。";
+                return;
+            }
+            if (!Maps.TryCommitTransition(destination))
             {
                 prepared.Dispose();
                 Stop();
@@ -535,60 +546,32 @@ namespace GameLogic.Gameplay.Expedition
         private void SpawnRoomEnemies(LevelRoomState room)
         {
             if (room.EnemiesSpawned || (room.Type != LevelRoomType.Mob && room.Type != LevelRoomType.Boss)) return;
-            bool boss = room.Type == LevelRoomType.Boss;
-            int count = boss ? 1 : room.IsStart ? 2 : 3;
-            for (int index = 0; index < count; index++)
+            int sequence = 0;
+            foreach (SpawnDefinition spawn in LevelContentConfig.GetSpawns(level, room.Type, room.IsStart))
             {
-                Vector3 position = new Vector3((index - (count - 1) * 0.5f) * 3, 0, 3 + index % 2 * 2);
-                World.CreateActor(new CombatActorSpec
+                if (!LevelContentConfig.TryGetEnemy(spawn.EnemyID, out EnemyDefinition enemy)) continue;
+                for (int index = 0; index < spawn.Count; index++)
                 {
-                    ActorId = room.RoomId * 100 + index + 1, RoomId = room.RoomId, Team = 2,
-                    Position = position, MaxHealth = boss ? 180 + LevelId * 30 : 35 + LevelId * 10, Attack = boss ? 12 : 8,
-                    MoveSpeed = boss ? 1.5f : 2.2f, Radius = boss ? 0.9f : 0.45f,
-                    AttackRange = boss ? 7f : 1.6f, AggroRange = 10, BasicSkillId = boss ? 3 : 2
-                });
+                    int actorId = room.RoomId * 1000 + ++sequence;
+                    var entity = World.CreateActor(new CombatActorSpec
+                    {
+                        ActorId = actorId, RoomId = room.RoomId, Team = 2, Position = spawn.PositionAt(index),
+                        MaxHealth = enemy.HealthAt(LevelId), Attack = (float)enemy.Row.Attack, MoveSpeed = (float)enemy.Row.MoveSpeed,
+                        Radius = (float)enemy.Row.Radius, AttackRange = (float)enemy.Row.AttackRange,
+                        AggroRange = (float)enemy.Row.AggroRange, BasicSkillId = enemy.SkillID
+                    });
+                    if (entity.Id != 0) enemyDefinitions.Add(actorId, enemy);
+                }
             }
             room.MarkEnemiesSpawned();
         }
 
         /// <summary>
-        /// 组合首版普攻、敌人攻击和飞弹附带 Buff 的验证内容。
+        /// 根据实体身份取得本局敌人的内容定义，表现和奖励共用同一来源。
         /// </summary>
-        /// <param name="attackRange">装备属性计算后的近战范围。</param>
-        /// <returns>仅本局持有的战斗配置。</returns>
-        private static CombatCatalog CreateCatalog(float attackRange)
-        {
-            CombatCatalog catalog = CombatCatalog.CreatePrototype();
-            CombatSkillDefinition player = catalog.Skills[1];
-            player.StartRange = attackRange + 0.6f;
-            player.Nodes[0].Effects[0].DurationTicks = 16;
-            player.Nodes[1].Effects[0].Value = 0.35f;
-            CombatEffectDefinition hit = player.Nodes[2].Effects[0];
-            hit.Value = 0;
-            hit.AttackCoefficient = 1;
-            hit.Radius = attackRange;
-            hit.Shape = CombatHitShape.Circle;
-            var enemy = new CombatSkillDefinition { CombatSkillId = 2, DurationTicks = 38, CooldownTicks = 65, StartRange = 2.1f };
-            var cue = new CombatTimelineNode { Tick = 0 };
-            cue.Effects.Add(new CombatEffectDefinition { Kind = CombatEffectKind.Cue, DefinitionId = 20, DurationTicks = 38 });
-            var strike = new CombatTimelineNode { Tick = 25 };
-            strike.Effects.Add(new CombatEffectDefinition { Kind = CombatEffectKind.Damage, DefinitionId = 21, AttackCoefficient = 1,
-                Radius = 1.7f, Shape = CombatHitShape.Sector, Angle = 100, Height = 2, RequireLineOfSight = true });
-            enemy.Nodes.Add(cue);
-            enemy.Nodes.Add(strike);
-            catalog.Skills.Add(2, enemy);
-            var boss = new CombatSkillDefinition { CombatSkillId = 3, DurationTicks = 48, CooldownTicks = 90, StartRange = 8 };
-            var launch = new CombatTimelineNode { Tick = 30 };
-            launch.Effects.Add(new CombatEffectDefinition { Kind = CombatEffectKind.SpawnProjectile, DefinitionId = 30, LinkedId = 1 });
-            var bossCue = new CombatTimelineNode { Tick = 0 };
-            bossCue.Effects.Add(new CombatEffectDefinition { Kind = CombatEffectKind.Cue, DefinitionId = 30, DurationTicks = 48 });
-            boss.Nodes.Add(bossCue);
-            boss.Nodes.Add(launch);
-            catalog.Skills.Add(3, boss);
-            catalog.Projectiles[1].OnHit[0].Value = 0;
-            catalog.Projectiles[1].OnHit[0].AttackCoefficient = 1;
-            catalog.Projectiles[1].OnHit.Add(new CombatEffectDefinition { Kind = CombatEffectKind.ApplyBuff, DefinitionId = 31, LinkedId = 1 });
-            return catalog;
-        }
+        /// <param name="actorId">战斗角色身份。</param>
+        /// <param name="definition">对应敌人定义。</param>
+        /// <returns>角色由配置刷怪创建时为真。</returns>
+        public bool TryGetEnemyDefinition(int actorId, out EnemyDefinition definition) => enemyDefinitions.TryGetValue(actorId, out definition);
     }
 }

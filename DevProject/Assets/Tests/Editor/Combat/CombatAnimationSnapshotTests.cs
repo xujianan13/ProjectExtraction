@@ -28,7 +28,7 @@ namespace ProjectExtraction.Tests.Editor.Combat
         [Test]
         public void EnemyCue_FollowsRoomClock()
         {
-            var catalog = CombatCatalog.CreatePrototype();
+            var catalog = ProjectExtraction.Tests.Shared.TestCombatCatalog.CreatePrototype();
             catalog.Skills[1].Nodes[0].Tick = 1;
             var world = CreateWorld(catalog);
             var player = CreateActor(world, 1, 1, true, Vector3.zero, 0f);
@@ -60,7 +60,7 @@ namespace ProjectExtraction.Tests.Editor.Combat
         [Test]
         public void Velocity_UsesActualMovementAndClearsOnTeleport()
         {
-            var world = CreateWorld(CombatCatalog.CreatePrototype());
+            var world = CreateWorld(ProjectExtraction.Tests.Shared.TestCombatCatalog.CreatePrototype());
             world.SetRoomBounds(1, new Rect(-2f, -2f, 4f, 4f));
             var player = CreateActor(world, 1, 1, true, new Vector3(1.75f, 0f, 0f), 4f, radius: 0.25f);
             Assert.That(world.SetMove(player, Vector2.right), Is.True);

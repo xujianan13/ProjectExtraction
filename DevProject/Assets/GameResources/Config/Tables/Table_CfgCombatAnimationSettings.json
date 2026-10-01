@@ -1,0 +1,17 @@
+{
+  "schemaHash": "b8cc2729ded81896847d46fbd241f48e369c13aa728a07df44930e5ae1936b54",
+  "rows": [
+    {
+      "ID": 1,
+      "IdleState": "Base Layer.Idle",
+      "MoveState": "Base Layer.Move",
+      "HitState": "Base Layer.Hit",
+      "DeathState": "Base Layer.Death",
+      "IdleSeconds": 1,
+      "MoveSeconds": 0.6,
+      "HitTicks": 11,
+      "DeathTicks": 36,
+      "DeathHoldSeconds": 0.15
+    }
+  ]
+}

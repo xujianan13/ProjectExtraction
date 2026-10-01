@@ -1,0 +1,23 @@
+{
+  "schemaHash": "c6fe154bc1ae8ef8c12f623f06e119469937251667532e7fa93a3f896a8b260b",
+  "rows": [
+    {
+      "ID": 1,
+      "HalfExtent": 12,
+      "WallHeight": 2.5,
+      "WallThickness": 0.6,
+      "ExitHalfWidth": 2,
+      "SpawnInset": 4,
+      "ExitCenterInset": 1,
+      "ExitInteractionRadius": 2.4,
+      "ObjectInteractionRadius": 2.2,
+      "ChestX": -4,
+      "ChestZ": -1,
+      "NpcX": 0,
+      "NpcZ": 0,
+      "ExtractionX": 4,
+      "ExtractionZ": -1,
+      "ObstacleHeight": 1.6
+    }
+  ]
+}

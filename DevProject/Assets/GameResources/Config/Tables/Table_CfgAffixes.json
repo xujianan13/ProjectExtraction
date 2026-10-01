@@ -1,0 +1,45 @@
+{
+  "schemaHash": "1ed0be92cbb3c1a09d035bd12fe0e4c7b2f31e76f4e3abb0789a5bfb19ae96e1",
+  "rows": [
+    {
+      "ID": "stat.MaxHealth",
+      "Attribute": 0,
+      "Scale": 5
+    },
+    {
+      "ID": "stat.Attack",
+      "Attribute": 1,
+      "Scale": 2
+    },
+    {
+      "ID": "stat.Defense",
+      "Attribute": 2,
+      "Scale": 1.5
+    },
+    {
+      "ID": "stat.CriticalRating",
+      "Attribute": 3,
+      "Scale": 3
+    },
+    {
+      "ID": "stat.CriticalDamage",
+      "Attribute": 4,
+      "Scale": 0.04
+    },
+    {
+      "ID": "stat.DodgeChance",
+      "Attribute": 5,
+      "Scale": 0.015
+    },
+    {
+      "ID": "stat.DamageIncrease",
+      "Attribute": 6,
+      "Scale": 0.025
+    },
+    {
+      "ID": "stat.DamageReduction",
+      "Attribute": 7,
+      "Scale": 0.02
+    }
+  ]
+}

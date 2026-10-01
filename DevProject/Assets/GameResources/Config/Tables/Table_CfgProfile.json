@@ -1,0 +1,43 @@
+{
+  "schemaHash": "e3c79fe306b475ae0fa4704f5495e5332d5b8755298b033f025252bea52b610f",
+  "rows": [
+    {
+      "ID": 1,
+      "StaminaCap": 100,
+      "EntryCost": 10,
+      "RecoverySeconds": 360,
+      "SupplyAmount": 40,
+      "GameUtcOffsetHours": 8,
+      "DailyResetHour": 5,
+      "SafeSlots": 2,
+      "SkillPointsPerLevel": 1,
+      "ExtractionExperience": 40,
+      "KeepKillExperienceOnDeath": true,
+      "NpcItemPrice": 20,
+      "ExperienceBase": 100,
+      "ExperiencePerLevel": 50,
+      "StartingLevel": 1,
+      "StartingExperience": 0,
+      "StartingGold": 50,
+      "StartingDiamonds": 0,
+      "StartingSkillPoints": 0,
+      "BaseMaxHealth": 100,
+      "BaseCriticalDamage": 1.5,
+      "BaseAttackRange": 1.5,
+      "BaseMoveSpeed": 5,
+      "UnarmedAttack": 10,
+      "MaxAttributeValue": 1000000,
+      "MaxAttackRange": 100,
+      "MaxDodgeChance": 0.75,
+      "MaxDamageReduction": 0.75,
+      "MaxLevel": 1000,
+      "StarterDefinitionId": "starter_weapon",
+      "DefaultLootPoolID": "default",
+      "AffixLevelScale": 0.12,
+      "SupplyHourFirst": 0,
+      "SupplyHourSecond": 12,
+      "SupplyHourThird": 18,
+      "StarterQuality": 0
+    }
+  ]
+}

@@ -4,6 +4,7 @@ using System.Threading;
 using Cysharp.Threading.Tasks;
 using GameFramework;
 using GameLogic.Gameplay.Expedition;
+using GameLogic.Tables;
 
 namespace GameLogic.Project
 {
@@ -72,9 +73,9 @@ namespace GameLogic.Project
         public IReadOnlyList<ProjectItem> Warehouse => profile.Warehouse.ConvertAll(item => item.Copy());
         public IReadOnlyList<ProjectSkill> Skills => new[]
         {
-            CreateSkill("power", "锋刃研习", "每级提高 10% 近战伤害", profile.PowerRank),
-            CreateSkill("vitality", "生存训练", "每级提高 15 点生命上限", profile.VitalityRank),
-            CreateSkill("agility", "轻装步法", "每级提高 5% 移动速度", profile.AgilityRank)
+            CreateSkill("power", profile.PowerRank),
+            CreateSkill("vitality", profile.VitalityRank),
+            CreateSkill("agility", profile.AgilityRank)
         };
 
         /// <summary>
@@ -179,8 +180,9 @@ namespace GameLogic.Project
             ProjectSaveData candidate = Candidate();
             int rank = skillId == "power" ? candidate.PowerRank : skillId == "vitality" ? candidate.VitalityRank :
                 skillId == "agility" ? candidate.AgilityRank : -1;
-            if (rank < 0 || rank >= PrototypeRules.SkillMaxRank) return Rejected("技能不存在或已经满级。");
-            int cost = rank + 1;
+            CfgSkillsRow skill = ProjectRulesConfig.Skill(skillId);
+            if (rank < 0 || skill == null || rank >= skill.MaxRank) return Rejected("技能不存在或已经满级。");
+            int cost = skill.CostBase + rank * skill.CostPerRank;
             if (candidate.SkillPoints < cost) return Rejected("技能点不足。");
             candidate.SkillPoints -= cost;
             if (skillId == "power") candidate.PowerRank++;
@@ -202,7 +204,7 @@ namespace GameLogic.Project
             if (candidate.Stamina > int.MaxValue - PrototypeRules.SupplyAmount) return Rejected("体力数值已达到上限。");
             candidate.LastSupplyKey = key;
             candidate.Stamina += PrototypeRules.SupplyAmount;
-            return CommitAsync(candidate, "补给领取成功，体力 +40。");
+            return CommitAsync(candidate, "补给领取成功，体力 +" + PrototypeRules.SupplyAmount + "。");
         }
 
         /// <summary>
@@ -238,7 +240,7 @@ namespace GameLogic.Project
             ProjectLevelOption level = Array.Find(levels, value => value.Id == levelId);
             error = "关卡未解锁。";
             if (level == null || candidate.Level < level.RequiredLevel) return false;
-            error = "体力不足，需要 10 点体力。";
+            error = "体力不足，需要 " + PrototypeRules.EntryCost + " 点体力。";
             if (candidate.Stamina < PrototypeRules.EntryCost) return false;
             var items = candidate.Warehouse.FindAll(item => item.Equipped);
             error = "携入装备等级不符合要求。";
@@ -467,24 +469,28 @@ namespace GameLogic.Project
         /// 创建技能显示快照。
         /// </summary>
         /// <param name="id">成长技能身份。</param>
-        /// <param name="name">显示名称。</param>
-        /// <param name="description">升级效果。</param>
         /// <param name="rank">已保存等级。</param>
         /// <returns>技能快照。</returns>
-        private static ProjectSkill CreateSkill(string id, string name, string description, int rank) => new()
+        private static ProjectSkill CreateSkill(string id, int rank)
         {
-            Id = id, Name = name, Description = description, Rank = rank, MaxRank = PrototypeRules.SkillMaxRank, NextCost = rank + 1,
-            CurrentEffect = SkillEffect(id, rank), NextEffect = rank < PrototypeRules.SkillMaxRank ? SkillEffect(id, rank + 1) : "已满级"
-        };
+            CfgSkillsRow skill = ProjectRulesConfig.Skill(id);
+            return new ProjectSkill
+            {
+                Id = id, Name = skill.Name, Description = skill.Description, Rank = rank,
+                MaxRank = skill.MaxRank, NextCost = skill.CostBase + rank * skill.CostPerRank,
+                CurrentEffect = SkillEffect(skill, rank),
+                NextEffect = rank < skill.MaxRank ? SkillEffect(skill, rank + 1) : "已满级"
+            };
+        }
 
         /// <summary>
         /// 生成当前等级对应的精确效果文字。
         /// </summary>
-        /// <param name="id">成长技能身份。</param>
+        /// <param name="skill">成长技能配置。</param>
         /// <param name="rank">技能等级。</param>
         /// <returns>效果文字。</returns>
-        private static string SkillEffect(string id, int rank) => id == "power" ? "伤害 +" + rank * 10 + "%" :
-            id == "vitality" ? "生命上限 +" + rank * 15 : "移动速度 +" + rank * 5 + "%";
+        private static string SkillEffect(CfgSkillsRow skill, int rank) =>
+            skill.DisplayPrefix + (rank * skill.EffectPerRank * skill.DisplayMultiplier).ToString("0.###") + skill.DisplaySuffix;
 
         /// <summary>
         /// 返回未发生持久化变化的拒绝结果。

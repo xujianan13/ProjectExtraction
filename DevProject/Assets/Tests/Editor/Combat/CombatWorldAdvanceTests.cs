@@ -53,7 +53,7 @@ namespace ProjectExtraction.Tests.Editor.Combat
         /// <returns>已设置活动地图的战斗世界。</returns>
         private static CombatWorld CreateWorld()
         {
-            var world = new CombatWorld(CombatCatalog.CreatePrototype());
+            var world = new CombatWorld(ProjectExtraction.Tests.Shared.TestCombatCatalog.CreatePrototype());
             world.SetRoomBounds(1, new Rect(-10f, -10f, 20f, 20f));
             var player = world.CreateActor(new CombatActorSpec
             {

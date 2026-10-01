@@ -1,0 +1,50 @@
+{
+  "schemaHash": "dd62edbbbfa6232c02384edf403824523b791184c28945638817161f6ed6d682",
+  "rows": [
+    {
+      "ID": 1,
+      "Name": "荒野遗迹",
+      "Description": "探索相连区域，寻找战利品与撤离点",
+      "RequiredLevel": 1,
+      "GridWidth": 5,
+      "GridHeight": 2,
+      "ExtraConnectionMin": 1,
+      "ExtraConnectionMax": 2,
+      "LootRoomCount": 2,
+      "ExtraExtractionChance": 0.2,
+      "LayoutID": 1,
+      "IsDefault": true,
+      "LootPoolID": "default"
+    },
+    {
+      "ID": 2,
+      "Name": "深层遗迹",
+      "Description": "更强的敌人与更高等级的装备",
+      "RequiredLevel": 3,
+      "GridWidth": 5,
+      "GridHeight": 2,
+      "ExtraConnectionMin": 1,
+      "ExtraConnectionMax": 2,
+      "LootRoomCount": 2,
+      "ExtraExtractionChance": 0.2,
+      "LayoutID": 1,
+      "IsDefault": false,
+      "LootPoolID": "default"
+    },
+    {
+      "ID": 3,
+      "Name": "禁地",
+      "Description": "高风险区域",
+      "RequiredLevel": 6,
+      "GridWidth": 5,
+      "GridHeight": 2,
+      "ExtraConnectionMin": 1,
+      "ExtraConnectionMax": 2,
+      "LootRoomCount": 2,
+      "ExtraExtractionChance": 0.2,
+      "LayoutID": 1,
+      "IsDefault": false,
+      "LootPoolID": "default"
+    }
+  ]
+}

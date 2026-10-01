@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using GameFramework;
+using GameLogic.Tables;
 using UnityEngine;
 
 namespace GameLogic.Project
@@ -76,28 +77,6 @@ namespace GameLogic.Project
         public const int EquipmentVersion = 1;
         public const float MaxAttributeValue = 1000000f;
         public const float MaxAttackRange = 100f;
-        private static readonly ProjectAttributeType[] AffixPool =
-        {
-            ProjectAttributeType.MaxHealth, ProjectAttributeType.Attack, ProjectAttributeType.Defense,
-            ProjectAttributeType.CriticalRating, ProjectAttributeType.CriticalDamage, ProjectAttributeType.DodgeChance,
-            ProjectAttributeType.DamageIncrease, ProjectAttributeType.DamageReduction
-        };
-        private static readonly int[] QualityWeights = { 60, 22, 10, 5, 2, 1 };
-        private static readonly int[] QualityAffixCounts = { 0, 1, 2, 3, 4, 5 };
-        private const int WeaponAttackRandomExclusive = 6;
-        private const int ArmorHealthRandomExclusive = 6;
-        private const int ArmorDefenseRandomMin = 1;
-        private const int ArmorDefenseRandomMaxExclusive = 4;
-        private static readonly float[] QualityScaleMin = { 0, 0.7f, 1f, 1.3f, 1.7f, 2.2f };
-        private static readonly float[] QualityScaleMax = { 0, 1.1f, 1.5f, 1.9f, 2.4f, 3f };
-        private static readonly Dictionary<ProjectAttributeType, float> AttributeScale = new()
-        {
-            [ProjectAttributeType.MaxHealth] = 5f, [ProjectAttributeType.Attack] = 2f,
-            [ProjectAttributeType.Defense] = 1.5f, [ProjectAttributeType.CriticalRating] = 3f,
-            [ProjectAttributeType.CriticalDamage] = 0.04f, [ProjectAttributeType.DodgeChance] = 0.015f,
-            [ProjectAttributeType.DamageIncrease] = 0.025f, [ProjectAttributeType.DamageReduction] = 0.02f
-        };
-
         /// <summary>
         /// 创建版本二到版本三的装备迁移步骤。
         /// </summary>
@@ -152,28 +131,18 @@ namespace GameLogic.Project
         /// </summary>
         /// <param name="quality">物品品质。</param>
         /// <returns>品质名称。</returns>
-        public static string QualityName(ProjectItemQuality quality) => quality switch
-        {
-            ProjectItemQuality.Common => "普通", ProjectItemQuality.Uncommon => "精良", ProjectItemQuality.Rare => "优秀",
-            ProjectItemQuality.Epic => "史诗", ProjectItemQuality.Legendary => "传说", ProjectItemQuality.Artifact => "神器",
-            _ => "未知"
-        };
+        public static string QualityName(ProjectItemQuality quality) => ProjectRulesConfig.Quality(quality)?.Name ?? "未知";
 
         /// <summary>
         /// 获取品质的界面显示颜色。
         /// </summary>
         /// <param name="quality">物品品质。</param>
         /// <returns>品质显示色。</returns>
-        public static Color QualityColor(ProjectItemQuality quality) => quality switch
+        public static Color QualityColor(ProjectItemQuality quality)
         {
-            ProjectItemQuality.Common => Color.white,
-            ProjectItemQuality.Uncommon => new Color(0.28f, 0.82f, 0.35f),
-            ProjectItemQuality.Rare => new Color(0.30f, 0.56f, 1f),
-            ProjectItemQuality.Epic => new Color(0.68f, 0.36f, 0.92f),
-            ProjectItemQuality.Legendary => new Color(1f, 0.62f, 0.20f),
-            ProjectItemQuality.Artifact => new Color(0.96f, 0.22f, 0.24f),
-            _ => Color.white
-        };
+            CfgQualitiesRow row = ProjectRulesConfig.Quality(quality);
+            return row == null ? Color.white : new Color((float)row.ColorR, (float)row.ColorG, (float)row.ColorB);
+        }
 
         /// <summary>
         /// 按三类原型掉落权重和六品质权重生成物品。
@@ -181,88 +150,198 @@ namespace GameLogic.Project
         /// <param name="random">本局独立随机源。</param>
         /// <param name="level">掉落等级。</param>
         /// <returns>已冻结属性的物品实例。</returns>
-        public static ProjectItem CreateLoot(System.Random random, int level)
+        public static ProjectItem CreateLoot(System.Random random, int level) =>
+            CreateLootFromPool(random, level, ProjectRulesConfig.Profile.DefaultLootPoolID);
+
+        /// <summary>
+        /// 从指定掉落池按权重生成冻结物品。
+        /// </summary>
+        /// <param name="random">本局独立随机源。</param>
+        /// <param name="level">掉落等级。</param>
+        /// <param name="poolId">掉落池身份。</param>
+        /// <returns>生成的物品；没有可用条目时为空。</returns>
+        public static ProjectItem CreateLootFromPool(System.Random random, int level, string poolId)
         {
-            if (random == null) return null;
-            int typeRoll = random.Next(3);
-            ProjectItemType type = typeRoll == 0 ? ProjectItemType.Weapon : typeRoll == 1 ? ProjectItemType.Armor : ProjectItemType.Item;
-            return CreateLoot(random, level, type);
+            if (random == null || level < 1 || level > PrototypeRules.LegacySkillRankLimit || string.IsNullOrWhiteSpace(poolId)) return null;
+            var eligible = new List<CfgLootPoolRow>();
+            int total = 0;
+            foreach (CfgLootPoolRow row in GameTables.CfgLootPool.GetAll())
+                if (row.PoolID == poolId && level >= row.MinLevel && level <= row.MaxLevel && row.Weight > 0)
+                {
+                    eligible.Add(row);
+                    total += row.Weight;
+                }
+            if (total <= 0) return null;
+            int roll = random.Next(total);
+            foreach (CfgLootPoolRow row in eligible)
+            {
+                if (roll < row.Weight) return CreateGenerated(random, level, RollQuality(random), ProjectRulesConfig.Item(row.DefinitionId));
+                roll -= row.Weight;
+            }
+            return null;
         }
 
         /// <summary>
-        /// 按指定分类和现有品质权重生成一件冻结属性的奖励。
+        /// 检查指定等级与可选类型在掉落池中有可用模板。
+        /// </summary>
+        /// <param name="poolId">掉落池身份。</param>
+        /// <param name="level">掉落等级。</param>
+        /// <param name="type">可选物品类型。</param>
+        /// <returns>是否有正权重的可用条目。</returns>
+        public static bool HasLoot(string poolId, int level, ProjectItemType? type = null)
+        {
+            if (GameTables.CfgLootPool == null || string.IsNullOrWhiteSpace(poolId) || level < 1) return false;
+            foreach (CfgLootPoolRow row in GameTables.CfgLootPool.GetAll())
+            {
+                if (row.PoolID != poolId || row.Weight <= 0 || level < row.MinLevel || level > row.MaxLevel) continue;
+                CfgItemDefinitionsRow definition = ProjectRulesConfig.Item(row.DefinitionId);
+                if (definition != null && (!type.HasValue || definition.Type == (int)type.Value)) return true;
+            }
+            return false;
+        }
+
+        /// <summary>
+        /// 按指定分类从默认掉落池生成一件冻结属性的奖励。
         /// </summary>
         /// <param name="random">奖励独立随机源。</param>
         /// <param name="level">掉落等级。</param>
         /// <param name="type">武器、护甲或普通物品分类。</param>
-        /// <returns>已冻结的奖励物品，输入无效时为空。</returns>
+        /// <returns>生成的物品；没有可用条目时为空。</returns>
         public static ProjectItem CreateLoot(System.Random random, int level, ProjectItemType type)
         {
-            if (random == null || level < 1 || level > 1000 ||
-                type != ProjectItemType.Weapon && type != ProjectItemType.Armor && type != ProjectItemType.Item) return null;
-            int qualityRoll = random.Next(100);
-            int qualityIndex = 0;
-            while (qualityIndex < QualityWeights.Length - 1 && qualityRoll >= QualityWeights[qualityIndex])
+            if (random == null || level < 1 || level > PrototypeRules.LegacySkillRankLimit) return null;
+            var eligible = new List<CfgLootPoolRow>();
+            int total = 0;
+            foreach (CfgLootPoolRow row in GameTables.CfgLootPool.GetAll())
             {
-                qualityRoll -= QualityWeights[qualityIndex];
-                qualityIndex++;
+                CfgItemDefinitionsRow definition = ProjectRulesConfig.Item(row.DefinitionId);
+                if (row.PoolID != ProjectRulesConfig.Profile.DefaultLootPoolID || definition == null ||
+                    definition.Type != (int)type || level < row.MinLevel || level > row.MaxLevel || row.Weight <= 0) continue;
+                eligible.Add(row);
+                total += row.Weight;
             }
-            ProjectItemQuality quality = (ProjectItemQuality)qualityIndex;
-            if (type != ProjectItemType.Item) return CreateEquipment(random, type, level, quality);
-            return new ProjectItem
+            if (total <= 0) return null;
+            int roll = random.Next(total);
+            foreach (CfgLootPoolRow row in eligible)
             {
-                Id = Guid.NewGuid().ToString("N"), Name = "遗迹零件", Type = ProjectItemType.Item,
-                Quality = quality, EquipmentVersion = EquipmentVersion, RequiredLevel = Math.Max(1, level),
-                SellGold = 8 + Math.Max(1, level) * 4 + random.Next(8) + qualityIndex * 6
-            };
+                if (roll < row.Weight) return CreateGenerated(random, level, RollQuality(random), ProjectRulesConfig.Item(row.DefinitionId));
+                roll -= row.Weight;
+            }
+            return null;
         }
 
         /// <summary>
-        /// 创建只含已注册基础属性词条的武器或护甲。
+        /// 按品质和默认掉落池的模板生成装备。
         /// </summary>
         /// <param name="random">本局独立随机源。</param>
-        /// <param name="type">武器或护甲分类。</param>
+        /// <param name="type">装备分类。</param>
         /// <param name="level">物品等级。</param>
-        /// <param name="quality">物品品质。</param>
-        /// <returns>已冻结的装备；输入无效时为空。</returns>
+        /// <param name="quality">指定品质。</param>
+        /// <returns>冻结属性的装备；没有对应模板时为空。</returns>
         public static ProjectItem CreateEquipment(System.Random random, ProjectItemType type, int level, ProjectItemQuality quality)
         {
-            if (random == null || type != ProjectItemType.Weapon && !IsArmor(type) || level < 1 ||
-                !Enum.IsDefined(typeof(ProjectItemQuality), quality) || level > 1000) return null;
-            bool weapon = type == ProjectItemType.Weapon;
+            if (random == null || level < 1 || level > PrototypeRules.LegacySkillRankLimit ||
+                !Enum.IsDefined(typeof(ProjectItemQuality), quality) || type != ProjectItemType.Weapon && !IsArmor(type)) return null;
+            ProjectItemType normalizedType = IsArmor(type) ? ProjectItemType.Armor : ProjectItemType.Weapon;
+            var eligible = new List<CfgLootPoolRow>();
+            int total = 0;
+            foreach (CfgLootPoolRow row in GameTables.CfgLootPool.GetAll())
+            {
+                CfgItemDefinitionsRow definition = ProjectRulesConfig.Item(row.DefinitionId);
+                if (row.PoolID != ProjectRulesConfig.Profile.DefaultLootPoolID || definition == null ||
+                    definition.Type != (int)normalizedType || level < row.MinLevel || level > row.MaxLevel || row.Weight <= 0) continue;
+                eligible.Add(row);
+                total += row.Weight;
+            }
+            if (total <= 0) return null;
+            int roll = random.Next(total);
+            foreach (CfgLootPoolRow row in eligible)
+            {
+                if (roll < row.Weight) return CreateGenerated(random, level, quality, ProjectRulesConfig.Item(row.DefinitionId));
+                roll -= row.Weight;
+            }
+            return null;
+        }
+
+        /// <summary>
+        /// 从初始模板生成新档装备。
+        /// </summary>
+        /// <returns>已经冻结数值的新手装备。</returns>
+        public static ProjectItem CreateStarterItem() =>
+            CreateGenerated(new System.Random(), ProjectRulesConfig.Profile.StartingLevel, (ProjectItemQuality)ProjectRulesConfig.Profile.StarterQuality,
+                ProjectRulesConfig.Item(ProjectRulesConfig.Profile.StarterDefinitionId));
+
+        /// <summary>
+        /// 按表中品质权重抽取品质。
+        /// </summary>
+        /// <param name="random">随机源。</param>
+        /// <returns>抽取的品质。</returns>
+        private static ProjectItemQuality RollQuality(System.Random random)
+        {
+            int total = 0;
+            foreach (CfgQualitiesRow row in GameTables.CfgQualities.GetAll()) total += row.Weight;
+            int roll = random.Next(total);
+            foreach (CfgQualitiesRow row in GameTables.CfgQualities.GetAll())
+            {
+                if (roll < row.Weight) return (ProjectItemQuality)row.ID;
+                roll -= row.Weight;
+            }
+            return ProjectItemQuality.Common;
+        }
+
+        /// <summary>
+        /// 按模板创建带稳定来源和冻结数值的物品。
+        /// </summary>
+        /// <param name="random">随机源。</param>
+        /// <param name="level">物品等级。</param>
+        /// <param name="quality">物品品质。</param>
+        /// <param name="definition">物品模板。</param>
+        /// <returns>新物品实例；无模板时为空。</returns>
+        private static ProjectItem CreateGenerated(System.Random random, int level, ProjectItemQuality quality, CfgItemDefinitionsRow definition)
+        {
+            if (definition == null || random == null) return null;
+            int qualityIndex = (int)quality;
             var item = new ProjectItem
             {
-                Id = Guid.NewGuid().ToString("N"), Name = weapon ? "遗迹短刃" : "旧制护甲",
-                Type = weapon ? ProjectItemType.Weapon : ProjectItemType.Armor, Quality = quality,
-                EquipmentVersion = EquipmentVersion, RequiredLevel = level,
-                SellGold = 8 + level * 4 + random.Next(8) + (int)quality * 6
+                Id = Guid.NewGuid().ToString("N"), DefinitionId = definition.ID, Name = definition.Name,
+                Type = (ProjectItemType)definition.Type, Quality = quality, EquipmentVersion = EquipmentVersion,
+                RequiredLevel = level, Equipped = definition.StarterEquipped,
+                SellGold = definition.SellBase + level * definition.SellPerLevel +
+                    (definition.SellRandomExclusive > 0 ? random.Next(definition.SellRandomExclusive) : 0) +
+                    qualityIndex * definition.SellPerQuality
             };
-            if (weapon)
+            if (item.Type == ProjectItemType.Weapon)
             {
-                float attack = 12 + level * 2 + random.Next(WeaponAttackRandomExclusive);
+                float attack = (float)(definition.AttackBase + level * definition.AttackPerLevel +
+                    (definition.AttackRandomExclusive > 0 ? random.Next(definition.AttackRandomExclusive) : 0));
                 item.BaseAttributes.Add(new ProjectAttributeValue { Attribute = ProjectAttributeType.Attack, Value = attack });
-                item.Range = 1.6f + (float)random.NextDouble() * 0.5f;
+                item.Range = (float)(definition.RangeBase + random.NextDouble() * definition.RangeRandom);
                 item.Damage = attack;
             }
-            else
+            else if (IsArmor(item.Type))
             {
-                float health = 5 + level * 3 + random.Next(ArmorHealthRandomExclusive);
+                float health = (float)(definition.HealthBase + level * definition.HealthPerLevel +
+                    (definition.HealthRandomExclusive > 0 ? random.Next(definition.HealthRandomExclusive) : 0));
                 item.BaseAttributes.Add(new ProjectAttributeValue { Attribute = ProjectAttributeType.MaxHealth, Value = health });
-                item.BaseAttributes.Add(new ProjectAttributeValue { Attribute = ProjectAttributeType.Defense, Value = level + random.Next(ArmorDefenseRandomMin, ArmorDefenseRandomMaxExclusive) });
+                float defense = (float)(definition.DefenseBase + level * definition.DefensePerLevel +
+                    (definition.DefenseRandomExclusive > definition.DefenseRandomMin ?
+                        random.Next(definition.DefenseRandomMin, definition.DefenseRandomExclusive) : definition.DefenseRandomMin));
+                item.BaseAttributes.Add(new ProjectAttributeValue { Attribute = ProjectAttributeType.Defense, Value = defense });
                 item.BonusHealth = (int)health;
             }
-            var pool = new List<ProjectAttributeType>(AffixPool);
-            for (int index = 0; index < QualityAffixCounts[(int)quality]; index++)
+            if (item.Type == ProjectItemType.Item) return item;
+            CfgQualitiesRow qualityRow = ProjectRulesConfig.Quality(quality);
+            var pool = new List<CfgAffixesRow>(GameTables.CfgAffixes.GetAll());
+            for (int index = 0; index < qualityRow.AffixCount; index++)
             {
                 int chosen = random.Next(pool.Count);
-                ProjectAttributeType attribute = pool[chosen];
+                CfgAffixesRow affix = pool[chosen];
                 pool.RemoveAt(chosen);
-                float scale = QualityScaleMin[(int)quality] +
-                    (float)random.NextDouble() * (QualityScaleMax[(int)quality] - QualityScaleMin[(int)quality]);
-                float value = AttributeScale[attribute] * scale * (1 + (level - 1) * 0.12f);
+                float scale = (float)(qualityRow.ScaleMin + random.NextDouble() * (qualityRow.ScaleMax - qualityRow.ScaleMin));
+                float value = (float)(affix.Scale * scale * (1 + (level - 1) * ProjectRulesConfig.Profile.AffixLevelScale));
                 item.Affixes.Add(new ProjectEquipmentAffix
                 {
-                    DefinitionId = DefinitionId(attribute), Attribute = attribute, Value = (float)Math.Round(value, 3)
+                    DefinitionId = affix.ID, Attribute = (ProjectAttributeType)affix.Attribute, Value = (float)Math.Round(value, 3)
                 });
             }
             return item;
@@ -289,7 +368,7 @@ namespace GameLogic.Project
                         if (attribute != null) Add(values, attribute.Attribute, attribute.Value);
                 if (item.Affixes != null)
                     foreach (ProjectEquipmentAffix affix in item.Affixes)
-                        if (affix != null && affix.DefinitionId == DefinitionId(affix.Attribute))
+                        if (affix != null && KnownFrozenAffix(affix))
                             Add(values, affix.Attribute, affix.Value);
             }
             var result = new List<ProjectAttributeValue>();
@@ -310,7 +389,8 @@ namespace GameLogic.Project
         {
             var stats = new ProjectCharacterStats
             {
-                MaxHealth = 100, CriticalDamage = 1.5f, AttackRange = 1.5f, MoveSpeed = 5
+                MaxHealth = (float)ProjectRulesConfig.Profile.BaseMaxHealth, CriticalDamage = (float)ProjectRulesConfig.Profile.BaseCriticalDamage,
+                AttackRange = (float)ProjectRulesConfig.Profile.BaseAttackRange, MoveSpeed = (float)ProjectRulesConfig.Profile.BaseMoveSpeed
             };
             bool weaponEquipped = false;
             if (items != null)
@@ -320,23 +400,23 @@ namespace GameLogic.Project
                     if (item.Type == ProjectItemType.Weapon)
                     {
                         weaponEquipped = true;
-                        stats.AttackRange = item.Range > 0 ? item.Range : 1.5f;
+                        stats.AttackRange = item.Range > 0 ? item.Range : (float)ProjectRulesConfig.Profile.BaseAttackRange;
                     }
                     foreach (ProjectAttributeValue attribute in GetItemAttributes(item)) Apply(stats, attribute);
                 }
-            if (!weaponEquipped) stats.Attack += 10;
-            stats.Attack *= 1 + Math.Min(PrototypeRules.SkillMaxRank, Math.Max(0, powerRank)) * 0.1f;
-            stats.MaxHealth += Math.Min(PrototypeRules.SkillMaxRank, Math.Max(0, vitalityRank)) * 15;
-            stats.MoveSpeed *= 1 + Math.Min(PrototypeRules.SkillMaxRank, Math.Max(0, agilityRank)) * 0.05f;
-            stats.MaxHealth = Math.Min(MaxAttributeValue, Math.Max(1, stats.MaxHealth));
-            stats.Attack = Math.Min(MaxAttributeValue, Math.Max(0, stats.Attack));
-            stats.Defense = Math.Min(MaxAttributeValue, Math.Max(0, stats.Defense));
-            stats.CriticalRating = Math.Min(MaxAttributeValue, Math.Max(0, stats.CriticalRating));
-            stats.CriticalDamage = Math.Min(MaxAttributeValue, Math.Max(1, stats.CriticalDamage));
-            stats.DodgeChance = Math.Min(0.75f, Math.Max(0, stats.DodgeChance));
-            stats.DamageIncrease = Math.Min(MaxAttributeValue, Math.Max(0, stats.DamageIncrease));
-            stats.DamageReduction = Math.Min(0.75f, Math.Max(0, stats.DamageReduction));
-            stats.AttackRange = Math.Min(MaxAttackRange, Math.Max(0, stats.AttackRange));
+            if (!weaponEquipped) stats.Attack += (float)ProjectRulesConfig.Profile.UnarmedAttack;
+            stats.Attack *= 1 + Math.Min(ProjectRulesConfig.Skill("power").MaxRank, Math.Max(0, powerRank)) * (float)ProjectRulesConfig.Skill("power").EffectPerRank;
+            stats.MaxHealth += Math.Min(ProjectRulesConfig.Skill("vitality").MaxRank, Math.Max(0, vitalityRank)) * (float)ProjectRulesConfig.Skill("vitality").EffectPerRank;
+            stats.MoveSpeed *= 1 + Math.Min(ProjectRulesConfig.Skill("agility").MaxRank, Math.Max(0, agilityRank)) * (float)ProjectRulesConfig.Skill("agility").EffectPerRank;
+            stats.MaxHealth = Math.Min((float)ProjectRulesConfig.Profile.MaxAttributeValue, Math.Max(1, stats.MaxHealth));
+            stats.Attack = Math.Min((float)ProjectRulesConfig.Profile.MaxAttributeValue, Math.Max(0, stats.Attack));
+            stats.Defense = Math.Min((float)ProjectRulesConfig.Profile.MaxAttributeValue, Math.Max(0, stats.Defense));
+            stats.CriticalRating = Math.Min((float)ProjectRulesConfig.Profile.MaxAttributeValue, Math.Max(0, stats.CriticalRating));
+            stats.CriticalDamage = Math.Min((float)ProjectRulesConfig.Profile.MaxAttributeValue, Math.Max(1, stats.CriticalDamage));
+            stats.DodgeChance = Math.Min((float)ProjectRulesConfig.Profile.MaxDodgeChance, Math.Max(0, stats.DodgeChance));
+            stats.DamageIncrease = Math.Min((float)ProjectRulesConfig.Profile.MaxAttributeValue, Math.Max(0, stats.DamageIncrease));
+            stats.DamageReduction = Math.Min((float)ProjectRulesConfig.Profile.MaxDamageReduction, Math.Max(0, stats.DamageReduction));
+            stats.AttackRange = Math.Min((float)ProjectRulesConfig.Profile.MaxAttackRange, Math.Max(0, stats.AttackRange));
             return stats;
         }
 
@@ -370,9 +450,9 @@ namespace GameLogic.Project
             var affixes = new HashSet<ProjectAttributeType>();
             foreach (ProjectEquipmentAffix affix in item.Affixes)
                 if (affix == null || !Enum.IsDefined(typeof(ProjectAttributeType), affix.Attribute) ||
-                    affix.DefinitionId != DefinitionId(affix.Attribute) || !FiniteNonNegative(affix.Value) ||
+                    !KnownFrozenAffix(affix) || !FiniteNonNegative(affix.Value) ||
                     affix.Value > MaxAttributeValue || !affixes.Add(affix.Attribute)) return "装备词条重复或未注册。";
-            if (item.Affixes.Count > QualityAffixCounts[(int)item.Quality]) return "装备词条超过品质上限。";
+            if (item.Affixes.Count > Enum.GetValues(typeof(ProjectAttributeType)).Length) return "装备词条超过品质上限。";
             return null;
         }
 
@@ -431,11 +511,12 @@ namespace GameLogic.Project
         }
 
         /// <summary>
-        /// 获取当前已注册基础属性词条定义身份。
+        /// 识别已冻结且带来源身份的词条，不依赖当前词条表。
         /// </summary>
-        /// <param name="attribute">属性种类。</param>
-        /// <returns>稳定定义身份。</returns>
-        private static string DefinitionId(ProjectAttributeType attribute) => "stat." + attribute.ToString();
+        /// <param name="affix">已保存词条。</param>
+        /// <returns>词条身份与属性种类是否具备稳定结构。</returns>
+        private static bool KnownFrozenAffix(ProjectEquipmentAffix affix) =>
+            !string.IsNullOrWhiteSpace(affix.DefinitionId) && Enum.IsDefined(typeof(ProjectAttributeType), affix.Attribute);
 
         /// <summary>
         /// 判断随机和存档数值有限且非负。

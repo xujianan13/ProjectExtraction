@@ -1,0 +1,115 @@
+{
+  "schemaHash": "546e80ede78ec3064035ebe298b618082ff8ffa2c2a357aacf762f2ff3d8532e",
+  "rows": [
+    {
+      "ID": "hp",
+      "Title": "生命强化",
+      "Description": "本局生命上限和当前生命均 +20",
+      "Kind": 0,
+      "Attribute": 0,
+      "Amount": 20,
+      "LootType": 0,
+      "Weight": 1
+    },
+    {
+      "ID": "attack",
+      "Title": "攻击强化",
+      "Description": "本局攻击 +4",
+      "Kind": 0,
+      "Attribute": 1,
+      "Amount": 4,
+      "LootType": 0,
+      "Weight": 1
+    },
+    {
+      "ID": "defense",
+      "Title": "防御强化",
+      "Description": "本局防御 +8",
+      "Kind": 0,
+      "Attribute": 2,
+      "Amount": 8,
+      "LootType": 0,
+      "Weight": 1
+    },
+    {
+      "ID": "critical",
+      "Title": "暴击强化",
+      "Description": "本局暴击值 +12",
+      "Kind": 0,
+      "Attribute": 3,
+      "Amount": 12,
+      "LootType": 0,
+      "Weight": 1
+    },
+    {
+      "ID": "critical_damage",
+      "Title": "暴伤强化",
+      "Description": "本局暴击伤害 +20 个百分点",
+      "Kind": 0,
+      "Attribute": 4,
+      "Amount": 0.2,
+      "LootType": 0,
+      "Weight": 1
+    },
+    {
+      "ID": "dodge",
+      "Title": "闪避强化",
+      "Description": "本局闪避率 +5%",
+      "Kind": 0,
+      "Attribute": 5,
+      "Amount": 0.05,
+      "LootType": 0,
+      "Weight": 1
+    },
+    {
+      "ID": "increase",
+      "Title": "增伤强化",
+      "Description": "本局增伤 +10%",
+      "Kind": 0,
+      "Attribute": 6,
+      "Amount": 0.1,
+      "LootType": 0,
+      "Weight": 1
+    },
+    {
+      "ID": "reduction",
+      "Title": "减伤强化",
+      "Description": "本局减伤 +5%",
+      "Kind": 0,
+      "Attribute": 7,
+      "Amount": 0.05,
+      "LootType": 0,
+      "Weight": 1
+    },
+    {
+      "ID": "weapon",
+      "Title": "随机武器",
+      "Description": "本局获得随机武器",
+      "Kind": 1,
+      "Attribute": 0,
+      "Amount": 0,
+      "LootType": 0,
+      "Weight": 1
+    },
+    {
+      "ID": "armor",
+      "Title": "随机护甲",
+      "Description": "本局获得随机护甲",
+      "Kind": 1,
+      "Attribute": 0,
+      "Amount": 0,
+      "LootType": 3,
+      "Weight": 1
+    },
+    {
+      "ID": "item",
+      "Title": "随机物品",
+      "Description": "本局获得随机物品",
+      "Kind": 1,
+      "Attribute": 0,
+      "Amount": 0,
+      "LootType": 2,
+      "Weight": 1
+    }
+  ]
+}

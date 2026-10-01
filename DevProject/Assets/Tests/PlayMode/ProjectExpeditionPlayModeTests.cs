@@ -481,13 +481,13 @@ namespace MiniGame.Tests
         private static void TriggerDeath(ExpeditionRun run)
         {
             Assert.That(run.World.TrySetPosition(run.Player, new Vector3(0, 0, -8)), Is.True);
-            for (int index = 0; index < 16; index++)
-                run.World.CreateActor(new CombatActorSpec
-                {
-                    ActorId = 90000 + index, RoomId = run.CurrentRoom.RoomId, Team = 2,
-                    Position = new Vector3(0, 0, -9), MaxHealth = 100000, Attack = 8, Radius = 0.3f,
-                    AttackRange = 2, AggroRange = 10, MoveSpeed = 0, BasicSkillId = 2
-                });
+            CombatEntityRef killer = run.World.CreateActor(new CombatActorSpec
+            {
+                ActorId = 90000, RoomId = run.CurrentRoom.RoomId, Team = 2,
+                Position = new Vector3(0, 0, -9), MaxHealth = 100000, Attack = 10000, Radius = 0.3f,
+                AttackRange = 2, AggroRange = 10, MoveSpeed = 0, BasicSkillId = 2
+            });
+            Assert.That(run.World.TryGetActor(killer, out _), Is.True, "致死敌人必须出生在未重叠位置。");
             for (int tick = 0; tick < 200 && run.IsRunning; tick++) run.Advance(CombatWorld.TickSeconds);
             Assert.That(run.IsRunning, Is.False, "真实敌方伤害应触发死亡。");
         }
@@ -500,7 +500,16 @@ namespace MiniGame.Tests
         private static async UniTask WaitForPhaseAsync(ProjectRunPhase phase)
         {
             float until = Time.realtimeSinceStartup + 15;
-            while (ProjectServices.Coordinator.Phase != phase && Time.realtimeSinceStartup < until) await UniTask.Yield();
+            while (ProjectServices.Coordinator.Phase != phase && Time.realtimeSinceStartup < until)
+            {
+                if (!GameEntry.HasHost && ProjectServices.Session.CurrentRun?.IsPresentingDeath == true)
+                {
+                    var gameplay = (GameplayModule)GameEntry.Get<IGameplayModule>();
+                    gameplay.OnUpdate(CombatWorld.TickSeconds);
+                    gameplay.OnLateUpdate(CombatWorld.TickSeconds);
+                }
+                await UniTask.Yield();
+            }
             Assert.That(ProjectServices.Coordinator.Phase, Is.EqualTo(phase), ProjectServices.Coordinator.Message);
             await UniTask.Yield();
         }

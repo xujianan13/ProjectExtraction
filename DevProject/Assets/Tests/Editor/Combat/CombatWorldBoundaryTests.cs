@@ -16,7 +16,7 @@ namespace ProjectExtraction.Tests.Editor.Combat
         [Test]
         public void Buff_StackResetAndExpiry_AreDeterministic()
         {
-            var catalog = CombatCatalog.CreatePrototype();
+            var catalog = ProjectExtraction.Tests.Shared.TestCombatCatalog.CreatePrototype();
             var stack = new CombatBuffDefinition
             {
                 BuffId = 21, DurationTicks = 4, IntervalTicks = 1, MaxStacks = 2,
@@ -56,7 +56,7 @@ namespace ProjectExtraction.Tests.Editor.Combat
         [Test]
         public void ProjectileSweep_HitsNearTargetBeforeWall()
         {
-            var catalog = CombatCatalog.CreatePrototype();
+            var catalog = ProjectExtraction.Tests.Shared.TestCombatCatalog.CreatePrototype();
             var fast = new CombatProjectileDefinition
             {
                 ProjectileId = 31, Motion = ProjectileMotionKind.Straight, Speed = 600f, MaxSpeed = 600f,
@@ -96,7 +96,7 @@ namespace ProjectExtraction.Tests.Editor.Combat
         [Test]
         public void RecursiveProjectileEffects_EnterFault()
         {
-            var catalog = CombatCatalog.CreatePrototype();
+            var catalog = ProjectExtraction.Tests.Shared.TestCombatCatalog.CreatePrototype();
             var loop = new CombatProjectileDefinition
             {
                 ProjectileId = 41, Motion = ProjectileMotionKind.Instant, Radius = 1f, MaxDistinctTargets = 1
@@ -112,7 +112,7 @@ namespace ProjectExtraction.Tests.Editor.Combat
             });
             world.CreateActor(new CombatActorSpec
             {
-                ActorId = 2, RoomId = 1, Team = 2, Position = new Vector3(0.5f, 0f, 0f),
+                ActorId = 2, RoomId = 1, Team = 2, Position = new Vector3(0.8f, 0f, 0f),
                 MaxHealth = 100f, MoveSpeed = 0f, Radius = 0.3f
             });
             Assert.That(world.TrySpawnProjectile(player, 41, default, Vector3.zero, Vector3.right), Is.True);

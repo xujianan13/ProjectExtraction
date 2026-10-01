@@ -1,12 +1,1499 @@
 {
   "version": 1,
-  "sources": [],
-  "resources": [],
-  "tables": [],
+  "sources": [
+    {
+      "path": "config/excel/schema.json",
+      "sha256": "ba185edae5a2c46ce53810700b11d24833a6199d1daf76c2b6f651cff51a9b7f"
+    },
+    {
+      "path": "config/excel/CfgAffixes.xlsx",
+      "sha256": "05f021a88efa09140ef28ca84f0a195f2d44d896a542655e7dd031814db581fe"
+    },
+    {
+      "path": "config/excel/CfgAssets.xlsx",
+      "sha256": "a3fb153c132dd6ee147f1f91956dc10b9435e25e5ce1ef104b7577cbf8c2abad"
+    },
+    {
+      "path": "config/excel/CfgCombatAnimationCues.xlsx",
+      "sha256": "25c18afcbaf87ff49043c5b0d5bb71d44556d9465da75465821cb7e66c1729c3"
+    },
+    {
+      "path": "config/excel/CfgCombatAnimationSettings.xlsx",
+      "sha256": "2211f1b7a75205fe4f76f748190e7dffb19bd660edc0bdf46e0f65b4d052df38"
+    },
+    {
+      "path": "config/excel/CfgCombatBuffs.xlsx",
+      "sha256": "c77436527e945ce304a866b8d5618ca626ae9c327f8e6fbbf245cb58270c7adb"
+    },
+    {
+      "path": "config/excel/CfgCombatEffects.xlsx",
+      "sha256": "6c3e7fac465505ed2d3df2496a613515daf706acd3e5ef31e1277b0537974da6"
+    },
+    {
+      "path": "config/excel/CfgCombatProjectiles.xlsx",
+      "sha256": "ff5da3f8e8e4f9dc95bcebe2f8c147db9475b2027e031dca2162eb9e4b57cb2e"
+    },
+    {
+      "path": "config/excel/CfgCombatSkills.xlsx",
+      "sha256": "42b2b6be2b37d876bb59686b9d7b555183f210e954b506b73e6a4237bea0ee36"
+    },
+    {
+      "path": "config/excel/CfgCombatTimelineNodes.xlsx",
+      "sha256": "05aefd1ab0dc149bd3f68965ce6dac07ff5ca48aefc72fc027b04192ae913bdc"
+    },
+    {
+      "path": "config/excel/CfgEnemies.xlsx",
+      "sha256": "e918297754060d59c964055849d73fc5e059bbcca9feca813b7a808016d28499"
+    },
+    {
+      "path": "config/excel/CfgItemDefinitions.xlsx",
+      "sha256": "415828555ac470312486740a958cd177083692aa2d08f115f9e7d7ea5d28507f"
+    },
+    {
+      "path": "config/excel/CfgLevels.xlsx",
+      "sha256": "60bf1440c6dd994bfcb5fd6a294f50edeeb8ceef0a7b8798c4506919ba72f135"
+    },
+    {
+      "path": "config/excel/CfgLootPool.xlsx",
+      "sha256": "44ff6b36399f25485606c8790dd9fbd921ee3b33f66de505066c41eb0953b78b"
+    },
+    {
+      "path": "config/excel/CfgObstacles.xlsx",
+      "sha256": "f9513390619f321779ce1939316877ba77853ab74877e0725def810de6dbc4c5"
+    },
+    {
+      "path": "config/excel/CfgPlayerCombat.xlsx",
+      "sha256": "76079def9a80cba896661dcd7eeacdd2cd0dcc734104245e7f237ebea0a7e4a7"
+    },
+    {
+      "path": "config/excel/CfgProfile.xlsx",
+      "sha256": "d0ae22440758ee0538f831e06f6fc992758ab14d98d8d91ad8573ec0633b8e8c"
+    },
+    {
+      "path": "config/excel/CfgQualities.xlsx",
+      "sha256": "18f8a4c140f9b3b949943e10449ddfbcc405b5ae30507092c876eeff020bdd9c"
+    },
+    {
+      "path": "config/excel/CfgRoguePolicy.xlsx",
+      "sha256": "47279f9cf1bc27a06e49bf2b979d9dae1dab9fcf120bc3bf4a34dbe19f66a2e2"
+    },
+    {
+      "path": "config/excel/CfgRogueRewards.xlsx",
+      "sha256": "e8b3cbda9505bfbb40df44220392cb4a05e74f57dab2c7804c4a3fd893a1f394"
+    },
+    {
+      "path": "config/excel/CfgRoomLayouts.xlsx",
+      "sha256": "163dcb41862a97d2d1f4b82e211a72e65f3113f364271bcd05879160d0572d97"
+    },
+    {
+      "path": "config/excel/CfgSkills.xlsx",
+      "sha256": "9cc9cbeec655d3945a1afcd4337110ca079319e16676798220ea3293d6d07cbe"
+    },
+    {
+      "path": "config/excel/CfgSpawns.xlsx",
+      "sha256": "bacf4b90a1f487ccc43e7ab155972a8c925d0d6ed64bf44ed3aeb8d732392c49"
+    }
+  ],
+  "resources": [
+    {
+      "path": "DevProject/Assets/GameResources/Gameplay/Expedition/Feedback/PF_CombatDamageText.prefab",
+      "sha256": "4ba196ff2a647afc1620c1f67565da363b3d3b8497e20678f5ce175d48623f99"
+    },
+    {
+      "path": "DevProject/Assets/GameResources/Gameplay/Expedition/Feedback/PF_CombatHealthBar.prefab",
+      "sha256": "d8ad7865795304d2ac4384e0b8ebec95fdb06d5f619afea05cb23a6a4b1ad787"
+    },
+    {
+      "path": "DevProject/Assets/GameResources/Gameplay/Expedition/Feedback/PF_CombatHit.prefab",
+      "sha256": "5eaedde1fcbd094696491c76d95a13f23f3622451a68e1dc9f767034c709b1e9"
+    },
+    {
+      "path": "DevProject/Assets/GameResources/Gameplay/Expedition/Feedback/PF_CombatTelegraph.prefab",
+      "sha256": "1d3a76d9916fe5f15ff313690b332c886a8c4de836a0e1978cabc33e9f6ead50"
+    },
+    {
+      "path": "DevProject/Assets/GameResources/Gameplay/Expedition/Characters/PF_TestBoss.prefab",
+      "sha256": "1502e3dd7967a50d79ada16d4e9c19ba29263398e9ffd97074418f2e0c305584"
+    },
+    {
+      "path": "DevProject/Assets/GameResources/Gameplay/Expedition/Interactables/PF_TestChest.prefab",
+      "sha256": "4d9d645721d3e151264b23918a9dd1cea675ce9ea48dcd852a588140e5b332af"
+    },
+    {
+      "path": "DevProject/Assets/GameResources/Gameplay/Expedition/Characters/PF_TestEnemy.prefab",
+      "sha256": "945d3555543551fb1cb608acfe08ff69ace0431116ee2da06963e0476376d8ad"
+    },
+    {
+      "path": "DevProject/Assets/GameResources/Gameplay/Expedition/Markers/PF_TestExit.prefab",
+      "sha256": "3950b7f7bb8d36452cb00c2e03db5cf492f869bc622a9a9632bf84266220391a"
+    },
+    {
+      "path": "DevProject/Assets/GameResources/Gameplay/Expedition/Markers/PF_TestExtraction.prefab",
+      "sha256": "60c00e5ac2bfd6a1e0a548e9a11ff5fafce28b04f7a1716a7e1a723f8b07ee20"
+    },
+    {
+      "path": "DevProject/Assets/GameResources/Gameplay/Expedition/Loot/PF_TestLoot.prefab",
+      "sha256": "6124455b4bda3d42f8b539b6a07ec4f7a73f8db03468904061ba815431d0ec49"
+    },
+    {
+      "path": "DevProject/Assets/GameResources/Gameplay/Expedition/Effects/PF_TestMeleeCue.prefab",
+      "sha256": "1c2fe375002f7ddb7627a36cc7e5fa79c8fe149713a89d199fa6ec41d5257f2f"
+    },
+    {
+      "path": "DevProject/Assets/GameResources/Gameplay/Expedition/Characters/PF_TestNpc.prefab",
+      "sha256": "7386003d98dae3583caf0c4cbb21d259b67dcb262c9acff304a247f555d614cf"
+    },
+    {
+      "path": "DevProject/Assets/GameResources/Gameplay/Expedition/Environment/PF_TestObstacle.prefab",
+      "sha256": "2318d31e25bde77d5eb22b97e3e176c428ca052410496c6d97f256ca11e94515"
+    },
+    {
+      "path": "DevProject/Assets/GameResources/Gameplay/Expedition/Characters/PF_TestPlayer.prefab",
+      "sha256": "25b21d850a4bd19bf6fc54829432748b567ca2cb54438965de44165a81abf6c5"
+    },
+    {
+      "path": "DevProject/Assets/GameResources/Gameplay/Expedition/Effects/PF_TestProjectile.prefab",
+      "sha256": "1c95f68842e8423ed6062d36547f16c68ed388c3fdf3fcc67ccc975b6f1b3620"
+    },
+    {
+      "path": "DevProject/Assets/GameResources/Gameplay/Expedition/Environment/PF_TestWall.prefab",
+      "sha256": "7e921f6abfa82dfc7b60f925330fa4df137e048d81eba637fd42e2055725992b"
+    },
+    {
+      "path": "DevProject/Assets/GameResources/Scenes/Expedition/Rooms/RM_Prototype.prefab",
+      "sha256": "daa6636a85a07dc360a10a216b0d5d2bc3a92df4c1c0366ed7215ab5fe78d836"
+    },
+    {
+      "path": "DevProject/Assets/GameResources/Scenes/Expedition/SC_Expedition.prefab",
+      "sha256": "c33bc525d5e11539312c30a5e3ecf9f7d265097be70532c2080622a18b3b8e58"
+    },
+    {
+      "path": "DevProject/Assets/GameResources/Audio/Combat/SFX_CombatCritical.wav",
+      "sha256": "3c0c6f4ff8ccca5356160bb8eeec7456c8d00a05303981ac5c7326fc038e4a79"
+    },
+    {
+      "path": "DevProject/Assets/GameResources/Audio/Combat/SFX_CombatHit.wav",
+      "sha256": "054c13a9f5175723315fab5ba55255d0c2749cc532f6634ff1e0dd4770251c0d"
+    },
+    {
+      "path": "DevProject/Assets/GameResources/Audio/Combat/SFX_CombatSwing.wav",
+      "sha256": "2f22250d55970193f24d64999cfbd8d1a5cae1b5f2c1a600408bd30b23270947"
+    }
+  ],
+  "tables": [
+    {
+      "name": "CfgAffixes",
+      "source": "config/excel/CfgAffixes.xlsx",
+      "fields": [
+        {
+          "name": "ID",
+          "type": "string"
+        },
+        {
+          "name": "Attribute",
+          "type": "int"
+        },
+        {
+          "name": "Scale",
+          "type": "number"
+        }
+      ]
+    },
+    {
+      "name": "CfgAssets",
+      "source": "config/excel/CfgAssets.xlsx",
+      "fields": [
+        {
+          "name": "ID",
+          "type": "string"
+        },
+        {
+          "name": "Address",
+          "type": "string"
+        }
+      ]
+    },
+    {
+      "name": "CfgCombatAnimationCues",
+      "source": "config/excel/CfgCombatAnimationCues.xlsx",
+      "fields": [
+        {
+          "name": "ID",
+          "type": "int"
+        },
+        {
+          "name": "IsAttack",
+          "type": "bool"
+        },
+        {
+          "name": "StateName",
+          "type": "string"
+        },
+        {
+          "name": "StatePath",
+          "type": "string"
+        }
+      ]
+    },
+    {
+      "name": "CfgCombatAnimationSettings",
+      "source": "config/excel/CfgCombatAnimationSettings.xlsx",
+      "fields": [
+        {
+          "name": "ID",
+          "type": "int"
+        },
+        {
+          "name": "IdleState",
+          "type": "string"
+        },
+        {
+          "name": "MoveState",
+          "type": "string"
+        },
+        {
+          "name": "HitState",
+          "type": "string"
+        },
+        {
+          "name": "DeathState",
+          "type": "string"
+        },
+        {
+          "name": "IdleSeconds",
+          "type": "number"
+        },
+        {
+          "name": "MoveSeconds",
+          "type": "number"
+        },
+        {
+          "name": "HitTicks",
+          "type": "int"
+        },
+        {
+          "name": "DeathTicks",
+          "type": "int"
+        },
+        {
+          "name": "DeathHoldSeconds",
+          "type": "number"
+        }
+      ]
+    },
+    {
+      "name": "CfgCombatBuffs",
+      "source": "config/excel/CfgCombatBuffs.xlsx",
+      "fields": [
+        {
+          "name": "ID",
+          "type": "int"
+        },
+        {
+          "name": "DurationTicks",
+          "type": "int"
+        },
+        {
+          "name": "IntervalTicks",
+          "type": "int"
+        },
+        {
+          "name": "MaxStacks",
+          "type": "int"
+        },
+        {
+          "name": "Merge",
+          "type": "int"
+        },
+        {
+          "name": "MoveSpeedAddPerStack",
+          "type": "number"
+        },
+        {
+          "name": "AttackRangeAddPerStack",
+          "type": "number"
+        },
+        {
+          "name": "PeriodicDamagePerStack",
+          "type": "number"
+        },
+        {
+          "name": "OnApplyEffectIDs",
+          "type": "int[]"
+        },
+        {
+          "name": "OnTickEffectIDs",
+          "type": "int[]"
+        },
+        {
+          "name": "OnExpireEffectIDs",
+          "type": "int[]"
+        }
+      ]
+    },
+    {
+      "name": "CfgCombatEffects",
+      "source": "config/excel/CfgCombatEffects.xlsx",
+      "fields": [
+        {
+          "name": "ID",
+          "type": "int"
+        },
+        {
+          "name": "Kind",
+          "type": "int"
+        },
+        {
+          "name": "Attribute",
+          "type": "int"
+        },
+        {
+          "name": "DefinitionID",
+          "type": "int"
+        },
+        {
+          "name": "Value",
+          "type": "number"
+        },
+        {
+          "name": "AttackCoefficient",
+          "type": "number"
+        },
+        {
+          "name": "CanCritical",
+          "type": "bool"
+        },
+        {
+          "name": "CanDodge",
+          "type": "bool"
+        },
+        {
+          "name": "DurationTicks",
+          "type": "int"
+        },
+        {
+          "name": "LinkedID",
+          "type": "int"
+        },
+        {
+          "name": "Shape",
+          "type": "int"
+        },
+        {
+          "name": "Radius",
+          "type": "number"
+        },
+        {
+          "name": "RadiusSource",
+          "type": "int"
+        },
+        {
+          "name": "Angle",
+          "type": "number"
+        },
+        {
+          "name": "Width",
+          "type": "number"
+        },
+        {
+          "name": "Height",
+          "type": "number"
+        },
+        {
+          "name": "RequireLineOfSight",
+          "type": "bool"
+        }
+      ]
+    },
+    {
+      "name": "CfgCombatProjectiles",
+      "source": "config/excel/CfgCombatProjectiles.xlsx",
+      "fields": [
+        {
+          "name": "ID",
+          "type": "int"
+        },
+        {
+          "name": "Motion",
+          "type": "int"
+        },
+        {
+          "name": "Target",
+          "type": "int"
+        },
+        {
+          "name": "SpawnAnchor",
+          "type": "int"
+        },
+        {
+          "name": "LostTarget",
+          "type": "int"
+        },
+        {
+          "name": "SpawnOffsetX",
+          "type": "number"
+        },
+        {
+          "name": "SpawnOffsetY",
+          "type": "number"
+        },
+        {
+          "name": "SpawnOffsetZ",
+          "type": "number"
+        },
+        {
+          "name": "Speed",
+          "type": "number"
+        },
+        {
+          "name": "Acceleration",
+          "type": "number"
+        },
+        {
+          "name": "MaxSpeed",
+          "type": "number"
+        },
+        {
+          "name": "TurnDegreesPerSecond",
+          "type": "number"
+        },
+        {
+          "name": "GravityX",
+          "type": "number"
+        },
+        {
+          "name": "GravityY",
+          "type": "number"
+        },
+        {
+          "name": "GravityZ",
+          "type": "number"
+        },
+        {
+          "name": "ArcHeight",
+          "type": "number"
+        },
+        {
+          "name": "FlightTicks",
+          "type": "int"
+        },
+        {
+          "name": "LifetimeTicks",
+          "type": "int"
+        },
+        {
+          "name": "MaxDistance",
+          "type": "number"
+        },
+        {
+          "name": "Radius",
+          "type": "number"
+        },
+        {
+          "name": "MaxDistinctTargets",
+          "type": "int"
+        },
+        {
+          "name": "MaxBounces",
+          "type": "int"
+        },
+        {
+          "name": "SameTargetIntervalTicks",
+          "type": "int"
+        },
+        {
+          "name": "MaxHitsPerTarget",
+          "type": "int"
+        },
+        {
+          "name": "OnlyLockedTarget",
+          "type": "bool"
+        },
+        {
+          "name": "RemoveOnSourceDeath",
+          "type": "bool"
+        },
+        {
+          "name": "OnHitEffectIDs",
+          "type": "int[]"
+        },
+        {
+          "name": "OnArriveEffectIDs",
+          "type": "int[]"
+        },
+        {
+          "name": "OnExpireEffectIDs",
+          "type": "int[]"
+        }
+      ]
+    },
+    {
+      "name": "CfgCombatSkills",
+      "source": "config/excel/CfgCombatSkills.xlsx",
+      "fields": [
+        {
+          "name": "ID",
+          "type": "int"
+        },
+        {
+          "name": "DurationTicks",
+          "type": "int"
+        },
+        {
+          "name": "CooldownTicks",
+          "type": "int"
+        },
+        {
+          "name": "StartRange",
+          "type": "number"
+        },
+        {
+          "name": "StartRangeSource",
+          "type": "int"
+        }
+      ]
+    },
+    {
+      "name": "CfgCombatTimelineNodes",
+      "source": "config/excel/CfgCombatTimelineNodes.xlsx",
+      "fields": [
+        {
+          "name": "ID",
+          "type": "int"
+        },
+        {
+          "name": "SkillID",
+          "type": "int"
+        },
+        {
+          "name": "Tick",
+          "type": "int"
+        },
+        {
+          "name": "EffectIDs",
+          "type": "int[]"
+        }
+      ]
+    },
+    {
+      "name": "CfgEnemies",
+      "source": "config/excel/CfgEnemies.xlsx",
+      "fields": [
+        {
+          "name": "ID",
+          "type": "int"
+        },
+        {
+          "name": "Name",
+          "type": "string"
+        },
+        {
+          "name": "PrefabAddress",
+          "type": "string"
+        },
+        {
+          "name": "ModelScaleX",
+          "type": "number"
+        },
+        {
+          "name": "ModelScaleY",
+          "type": "number"
+        },
+        {
+          "name": "ModelScaleZ",
+          "type": "number"
+        },
+        {
+          "name": "BaseHealth",
+          "type": "number"
+        },
+        {
+          "name": "HealthPerLevel",
+          "type": "number"
+        },
+        {
+          "name": "Attack",
+          "type": "number"
+        },
+        {
+          "name": "MoveSpeed",
+          "type": "number"
+        },
+        {
+          "name": "Radius",
+          "type": "number"
+        },
+        {
+          "name": "AttackRange",
+          "type": "number"
+        },
+        {
+          "name": "AggroRange",
+          "type": "number"
+        },
+        {
+          "name": "SkillID",
+          "type": "int"
+        },
+        {
+          "name": "ExperienceBase",
+          "type": "int"
+        },
+        {
+          "name": "ExperiencePerLevel",
+          "type": "int"
+        },
+        {
+          "name": "DropChance",
+          "type": "number"
+        },
+        {
+          "name": "DropPoolID",
+          "type": "string"
+        }
+      ]
+    },
+    {
+      "name": "CfgItemDefinitions",
+      "source": "config/excel/CfgItemDefinitions.xlsx",
+      "fields": [
+        {
+          "name": "ID",
+          "type": "string"
+        },
+        {
+          "name": "Name",
+          "type": "string"
+        },
+        {
+          "name": "Type",
+          "type": "int"
+        },
+        {
+          "name": "StarterEquipped",
+          "type": "bool"
+        },
+        {
+          "name": "SellBase",
+          "type": "int"
+        },
+        {
+          "name": "SellPerLevel",
+          "type": "int"
+        },
+        {
+          "name": "SellRandomExclusive",
+          "type": "int"
+        },
+        {
+          "name": "SellPerQuality",
+          "type": "int"
+        },
+        {
+          "name": "AttackBase",
+          "type": "number"
+        },
+        {
+          "name": "AttackPerLevel",
+          "type": "number"
+        },
+        {
+          "name": "AttackRandomExclusive",
+          "type": "int"
+        },
+        {
+          "name": "HealthBase",
+          "type": "number"
+        },
+        {
+          "name": "HealthPerLevel",
+          "type": "number"
+        },
+        {
+          "name": "HealthRandomExclusive",
+          "type": "int"
+        },
+        {
+          "name": "DefenseBase",
+          "type": "number"
+        },
+        {
+          "name": "DefensePerLevel",
+          "type": "number"
+        },
+        {
+          "name": "DefenseRandomMin",
+          "type": "int"
+        },
+        {
+          "name": "DefenseRandomExclusive",
+          "type": "int"
+        },
+        {
+          "name": "RangeBase",
+          "type": "number"
+        },
+        {
+          "name": "RangeRandom",
+          "type": "number"
+        }
+      ]
+    },
+    {
+      "name": "CfgLevels",
+      "source": "config/excel/CfgLevels.xlsx",
+      "fields": [
+        {
+          "name": "ID",
+          "type": "int"
+        },
+        {
+          "name": "Name",
+          "type": "string"
+        },
+        {
+          "name": "Description",
+          "type": "string"
+        },
+        {
+          "name": "RequiredLevel",
+          "type": "int"
+        },
+        {
+          "name": "GridWidth",
+          "type": "int"
+        },
+        {
+          "name": "GridHeight",
+          "type": "int"
+        },
+        {
+          "name": "ExtraConnectionMin",
+          "type": "int"
+        },
+        {
+          "name": "ExtraConnectionMax",
+          "type": "int"
+        },
+        {
+          "name": "LootRoomCount",
+          "type": "int"
+        },
+        {
+          "name": "ExtraExtractionChance",
+          "type": "number"
+        },
+        {
+          "name": "LayoutID",
+          "type": "int"
+        },
+        {
+          "name": "IsDefault",
+          "type": "bool"
+        },
+        {
+          "name": "LootPoolID",
+          "type": "string"
+        }
+      ]
+    },
+    {
+      "name": "CfgLootPool",
+      "source": "config/excel/CfgLootPool.xlsx",
+      "fields": [
+        {
+          "name": "ID",
+          "type": "string"
+        },
+        {
+          "name": "PoolID",
+          "type": "string"
+        },
+        {
+          "name": "DefinitionId",
+          "type": "string"
+        },
+        {
+          "name": "Weight",
+          "type": "int"
+        },
+        {
+          "name": "MinLevel",
+          "type": "int"
+        },
+        {
+          "name": "MaxLevel",
+          "type": "int"
+        }
+      ]
+    },
+    {
+      "name": "CfgObstacles",
+      "source": "config/excel/CfgObstacles.xlsx",
+      "fields": [
+        {
+          "name": "ID",
+          "type": "int"
+        },
+        {
+          "name": "LayoutID",
+          "type": "int"
+        },
+        {
+          "name": "MinX",
+          "type": "number"
+        },
+        {
+          "name": "MinZ",
+          "type": "number"
+        },
+        {
+          "name": "MaxX",
+          "type": "number"
+        },
+        {
+          "name": "MaxZ",
+          "type": "number"
+        }
+      ]
+    },
+    {
+      "name": "CfgPlayerCombat",
+      "source": "config/excel/CfgPlayerCombat.xlsx",
+      "fields": [
+        {
+          "name": "ID",
+          "type": "int"
+        },
+        {
+          "name": "Radius",
+          "type": "number"
+        },
+        {
+          "name": "SkillID",
+          "type": "int"
+        },
+        {
+          "name": "SpawnX",
+          "type": "number"
+        },
+        {
+          "name": "SpawnZ",
+          "type": "number"
+        },
+        {
+          "name": "ScaleX",
+          "type": "number"
+        },
+        {
+          "name": "ScaleY",
+          "type": "number"
+        },
+        {
+          "name": "ScaleZ",
+          "type": "number"
+        }
+      ]
+    },
+    {
+      "name": "CfgProfile",
+      "source": "config/excel/CfgProfile.xlsx",
+      "fields": [
+        {
+          "name": "ID",
+          "type": "int"
+        },
+        {
+          "name": "StaminaCap",
+          "type": "int"
+        },
+        {
+          "name": "EntryCost",
+          "type": "int"
+        },
+        {
+          "name": "RecoverySeconds",
+          "type": "int"
+        },
+        {
+          "name": "SupplyAmount",
+          "type": "int"
+        },
+        {
+          "name": "GameUtcOffsetHours",
+          "type": "int"
+        },
+        {
+          "name": "DailyResetHour",
+          "type": "int"
+        },
+        {
+          "name": "SafeSlots",
+          "type": "int"
+        },
+        {
+          "name": "SkillPointsPerLevel",
+          "type": "int"
+        },
+        {
+          "name": "ExtractionExperience",
+          "type": "int"
+        },
+        {
+          "name": "KeepKillExperienceOnDeath",
+          "type": "bool"
+        },
+        {
+          "name": "NpcItemPrice",
+          "type": "int"
+        },
+        {
+          "name": "ExperienceBase",
+          "type": "int"
+        },
+        {
+          "name": "ExperiencePerLevel",
+          "type": "int"
+        },
+        {
+          "name": "StartingLevel",
+          "type": "int"
+        },
+        {
+          "name": "StartingExperience",
+          "type": "int"
+        },
+        {
+          "name": "StartingGold",
+          "type": "int"
+        },
+        {
+          "name": "StartingDiamonds",
+          "type": "int"
+        },
+        {
+          "name": "StartingSkillPoints",
+          "type": "int"
+        },
+        {
+          "name": "BaseMaxHealth",
+          "type": "number"
+        },
+        {
+          "name": "BaseCriticalDamage",
+          "type": "number"
+        },
+        {
+          "name": "BaseAttackRange",
+          "type": "number"
+        },
+        {
+          "name": "BaseMoveSpeed",
+          "type": "number"
+        },
+        {
+          "name": "UnarmedAttack",
+          "type": "number"
+        },
+        {
+          "name": "MaxAttributeValue",
+          "type": "number"
+        },
+        {
+          "name": "MaxAttackRange",
+          "type": "number"
+        },
+        {
+          "name": "MaxDodgeChance",
+          "type": "number"
+        },
+        {
+          "name": "MaxDamageReduction",
+          "type": "number"
+        },
+        {
+          "name": "MaxLevel",
+          "type": "int"
+        },
+        {
+          "name": "StarterDefinitionId",
+          "type": "string"
+        },
+        {
+          "name": "DefaultLootPoolID",
+          "type": "string"
+        },
+        {
+          "name": "AffixLevelScale",
+          "type": "number"
+        },
+        {
+          "name": "SupplyHourFirst",
+          "type": "int"
+        },
+        {
+          "name": "SupplyHourSecond",
+          "type": "int"
+        },
+        {
+          "name": "SupplyHourThird",
+          "type": "int"
+        },
+        {
+          "name": "StarterQuality",
+          "type": "int"
+        }
+      ]
+    },
+    {
+      "name": "CfgQualities",
+      "source": "config/excel/CfgQualities.xlsx",
+      "fields": [
+        {
+          "name": "ID",
+          "type": "int"
+        },
+        {
+          "name": "Name",
+          "type": "string"
+        },
+        {
+          "name": "ColorR",
+          "type": "number"
+        },
+        {
+          "name": "ColorG",
+          "type": "number"
+        },
+        {
+          "name": "ColorB",
+          "type": "number"
+        },
+        {
+          "name": "Weight",
+          "type": "int"
+        },
+        {
+          "name": "AffixCount",
+          "type": "int"
+        },
+        {
+          "name": "ScaleMin",
+          "type": "number"
+        },
+        {
+          "name": "ScaleMax",
+          "type": "number"
+        }
+      ]
+    },
+    {
+      "name": "CfgRoguePolicy",
+      "source": "config/excel/CfgRoguePolicy.xlsx",
+      "fields": [
+        {
+          "name": "ID",
+          "type": "int"
+        },
+        {
+          "name": "RefreshEnabled",
+          "type": "bool"
+        },
+        {
+          "name": "ExtraChoiceEnabled",
+          "type": "bool"
+        },
+        {
+          "name": "MaxRefreshes",
+          "type": "int"
+        }
+      ]
+    },
+    {
+      "name": "CfgRogueRewards",
+      "source": "config/excel/CfgRogueRewards.xlsx",
+      "fields": [
+        {
+          "name": "ID",
+          "type": "string"
+        },
+        {
+          "name": "Title",
+          "type": "string"
+        },
+        {
+          "name": "Description",
+          "type": "string"
+        },
+        {
+          "name": "Kind",
+          "type": "int"
+        },
+        {
+          "name": "Attribute",
+          "type": "int"
+        },
+        {
+          "name": "Amount",
+          "type": "number"
+        },
+        {
+          "name": "LootType",
+          "type": "int"
+        },
+        {
+          "name": "Weight",
+          "type": "int"
+        }
+      ]
+    },
+    {
+      "name": "CfgRoomLayouts",
+      "source": "config/excel/CfgRoomLayouts.xlsx",
+      "fields": [
+        {
+          "name": "ID",
+          "type": "int"
+        },
+        {
+          "name": "HalfExtent",
+          "type": "number"
+        },
+        {
+          "name": "WallHeight",
+          "type": "number"
+        },
+        {
+          "name": "WallThickness",
+          "type": "number"
+        },
+        {
+          "name": "ExitHalfWidth",
+          "type": "number"
+        },
+        {
+          "name": "SpawnInset",
+          "type": "number"
+        },
+        {
+          "name": "ExitCenterInset",
+          "type": "number"
+        },
+        {
+          "name": "ExitInteractionRadius",
+          "type": "number"
+        },
+        {
+          "name": "ObjectInteractionRadius",
+          "type": "number"
+        },
+        {
+          "name": "ChestX",
+          "type": "number"
+        },
+        {
+          "name": "ChestZ",
+          "type": "number"
+        },
+        {
+          "name": "NpcX",
+          "type": "number"
+        },
+        {
+          "name": "NpcZ",
+          "type": "number"
+        },
+        {
+          "name": "ExtractionX",
+          "type": "number"
+        },
+        {
+          "name": "ExtractionZ",
+          "type": "number"
+        },
+        {
+          "name": "ObstacleHeight",
+          "type": "number"
+        }
+      ]
+    },
+    {
+      "name": "CfgSkills",
+      "source": "config/excel/CfgSkills.xlsx",
+      "fields": [
+        {
+          "name": "ID",
+          "type": "string"
+        },
+        {
+          "name": "Name",
+          "type": "string"
+        },
+        {
+          "name": "Description",
+          "type": "string"
+        },
+        {
+          "name": "MaxRank",
+          "type": "int"
+        },
+        {
+          "name": "CostBase",
+          "type": "int"
+        },
+        {
+          "name": "CostPerRank",
+          "type": "int"
+        },
+        {
+          "name": "EffectPerRank",
+          "type": "number"
+        },
+        {
+          "name": "DisplayMultiplier",
+          "type": "number"
+        },
+        {
+          "name": "DisplayPrefix",
+          "type": "string"
+        },
+        {
+          "name": "DisplaySuffix",
+          "type": "string"
+        }
+      ]
+    },
+    {
+      "name": "CfgSpawns",
+      "source": "config/excel/CfgSpawns.xlsx",
+      "fields": [
+        {
+          "name": "ID",
+          "type": "int"
+        },
+        {
+          "name": "LayoutID",
+          "type": "int"
+        },
+        {
+          "name": "RoomType",
+          "type": "string"
+        },
+        {
+          "name": "IsStart",
+          "type": "bool"
+        },
+        {
+          "name": "EnemyID",
+          "type": "int"
+        },
+        {
+          "name": "Count",
+          "type": "int"
+        },
+        {
+          "name": "StartX",
+          "type": "number"
+        },
+        {
+          "name": "StartZ",
+          "type": "number"
+        },
+        {
+          "name": "StepX",
+          "type": "number"
+        },
+        {
+          "name": "StepZ",
+          "type": "number"
+        },
+        {
+          "name": "AlternateZ",
+          "type": "number"
+        }
+      ]
+    }
+  ],
   "outputs": [
     {
+      "path": "DevProject/Assets/GameResources/Config/Tables/Table_CfgAffixes.json",
+      "sha256": "d0ef3553e74ce72bb057591859a550136dc9843c2ec124788a835d3fd000743a"
+    },
+    {
+      "path": "DevProject/Assets/Scripts/GameLogic/Runtime/Gen/CfgAffixes.Gen.cs",
+      "sha256": "efcad0704c0cf4fd08bf162bafdb8b15db1267c6f773281be11a94273ed5365a"
+    },
+    {
+      "path": "DevProject/Assets/GameResources/Config/Tables/Table_CfgAssets.json",
+      "sha256": "4d586a6d85ca4a6fa6d32e99fcc924f982aecfc5b5e9882d6141cea229e9eb76"
+    },
+    {
+      "path": "DevProject/Assets/Scripts/GameLogic/Runtime/Gen/CfgAssets.Gen.cs",
+      "sha256": "805463748a418b9edcb398fad8e45a9d79fd208a220317113779a4aae662229d"
+    },
+    {
+      "path": "DevProject/Assets/GameResources/Config/Tables/Table_CfgCombatAnimationCues.json",
+      "sha256": "fe3345bb15d03b39cbf24396ef0f7922aaa23b347965596014359615eaaaa833"
+    },
+    {
+      "path": "DevProject/Assets/Scripts/GameLogic/Runtime/Gen/CfgCombatAnimationCues.Gen.cs",
+      "sha256": "04c8939d977ca9491c92239a94ab7e3cb663c2281ae041aac8537d4b9a2f87fc"
+    },
+    {
+      "path": "DevProject/Assets/GameResources/Config/Tables/Table_CfgCombatAnimationSettings.json",
+      "sha256": "74e7a30cb432f1d03eddeb904a6ff3adf2d0b9e269fa158ed927e96162a0f3a2"
+    },
+    {
+      "path": "DevProject/Assets/Scripts/GameLogic/Runtime/Gen/CfgCombatAnimationSettings.Gen.cs",
+      "sha256": "d9567c66b82b433a06d9df7e36a4ce76198a15224e045ca0810e868f54f0816f"
+    },
+    {
+      "path": "DevProject/Assets/GameResources/Config/Tables/Table_CfgCombatBuffs.json",
+      "sha256": "855a58c17d653e959a6cb7a20499890e026da8cf0446872af36bff1507a4972e"
+    },
+    {
+      "path": "DevProject/Assets/Scripts/GameLogic/Runtime/Gen/CfgCombatBuffs.Gen.cs",
+      "sha256": "0f8f854c57d386ac3217484bfbb41a0d0471eae57ba109bf3e5041b568308091"
+    },
+    {
+      "path": "DevProject/Assets/GameResources/Config/Tables/Table_CfgCombatEffects.json",
+      "sha256": "6bced1306e033dbf07162bd7ca94b53df08594f8482391f19ad94b7eefd519c0"
+    },
+    {
+      "path": "DevProject/Assets/Scripts/GameLogic/Runtime/Gen/CfgCombatEffects.Gen.cs",
+      "sha256": "0989e5547c6abc8ae176e00d3543028b028f65b45d78ae18069d0c56dbe13aff"
+    },
+    {
+      "path": "DevProject/Assets/GameResources/Config/Tables/Table_CfgCombatProjectiles.json",
+      "sha256": "cc3dbb460ecef9190d0bb21482e11468f33dd8d47f329b0307d45d81005bb5c2"
+    },
+    {
+      "path": "DevProject/Assets/Scripts/GameLogic/Runtime/Gen/CfgCombatProjectiles.Gen.cs",
+      "sha256": "77aec8483d4cafc071bafa4fcda977bb9992b453aed34a9daac3a59211fddab2"
+    },
+    {
+      "path": "DevProject/Assets/GameResources/Config/Tables/Table_CfgCombatSkills.json",
+      "sha256": "ec521fc71e7201f5118d022ef126f6a70f2f7f9ee0849bf74e68886f818419ef"
+    },
+    {
+      "path": "DevProject/Assets/Scripts/GameLogic/Runtime/Gen/CfgCombatSkills.Gen.cs",
+      "sha256": "2e583ff12f2532bd43554a4826733e45105d54814d0a1b1acf82a7139b77785c"
+    },
+    {
+      "path": "DevProject/Assets/GameResources/Config/Tables/Table_CfgCombatTimelineNodes.json",
+      "sha256": "678de897cce93d6d3ac37bd49f3d71d01fc7e6da131f19783555c32f6d970883"
+    },
+    {
+      "path": "DevProject/Assets/Scripts/GameLogic/Runtime/Gen/CfgCombatTimelineNodes.Gen.cs",
+      "sha256": "306873ed19f48d261b8d45d08866ebd99218387b52ced18f646121b3a8c8040c"
+    },
+    {
+      "path": "DevProject/Assets/GameResources/Config/Tables/Table_CfgEnemies.json",
+      "sha256": "09d01cf00e04ddacdfcf7056a828982f7118145836cb59f37c4357b66ac04d02"
+    },
+    {
+      "path": "DevProject/Assets/Scripts/GameLogic/Runtime/Gen/CfgEnemies.Gen.cs",
+      "sha256": "2d8830b8b798068eaf3057c71055d075fd087bd1319b76ab0ad0be0bbf21017a"
+    },
+    {
+      "path": "DevProject/Assets/GameResources/Config/Tables/Table_CfgItemDefinitions.json",
+      "sha256": "6a3c470de991af48653e2aed85a435c548022247fd34f44350804e91c47a46ed"
+    },
+    {
+      "path": "DevProject/Assets/Scripts/GameLogic/Runtime/Gen/CfgItemDefinitions.Gen.cs",
+      "sha256": "37681e92bb560d4795803e473b91ddb2c4a9219ce991d0431b37f20ac19f0ce7"
+    },
+    {
+      "path": "DevProject/Assets/GameResources/Config/Tables/Table_CfgLevels.json",
+      "sha256": "8c3c1cf19aabf1a9d54b4867ddff6244c6b1f1ac7412e2b0a7d78ceee6932464"
+    },
+    {
+      "path": "DevProject/Assets/Scripts/GameLogic/Runtime/Gen/CfgLevels.Gen.cs",
+      "sha256": "34b9119917fe59f856dd300a54539a1fb5c867a24efa3522c529a4253bf13882"
+    },
+    {
+      "path": "DevProject/Assets/GameResources/Config/Tables/Table_CfgLootPool.json",
+      "sha256": "290b78f62f1d4fc3221d05a2f41777d71fef0c24d8629e729b4e918ccfc79d05"
+    },
+    {
+      "path": "DevProject/Assets/Scripts/GameLogic/Runtime/Gen/CfgLootPool.Gen.cs",
+      "sha256": "b82ca62ae112fb7c8d466a9d15ae73f068bd18bee62cc57ca5f6bf75c9b57d6b"
+    },
+    {
+      "path": "DevProject/Assets/GameResources/Config/Tables/Table_CfgObstacles.json",
+      "sha256": "86e768e4dbc682c513bca1821c0621dce297931c76b870c000d97eb36e96b6f3"
+    },
+    {
+      "path": "DevProject/Assets/Scripts/GameLogic/Runtime/Gen/CfgObstacles.Gen.cs",
+      "sha256": "7209a161c2e1c5c9443f9abbde5d24c4016ac936619331510c55956fd753054f"
+    },
+    {
+      "path": "DevProject/Assets/GameResources/Config/Tables/Table_CfgPlayerCombat.json",
+      "sha256": "5df8b26b85010d1cb36565f9f72b637dac11c48c94432487b7d20cc79fdc7a6b"
+    },
+    {
+      "path": "DevProject/Assets/Scripts/GameLogic/Runtime/Gen/CfgPlayerCombat.Gen.cs",
+      "sha256": "cd2a3f15be857231740669cfa9f90c6e069a97d3f6e38063086a26994d5138fe"
+    },
+    {
+      "path": "DevProject/Assets/GameResources/Config/Tables/Table_CfgProfile.json",
+      "sha256": "9fb814053069c57fe0cf7f3665162cacf593c5c18ee797e371610b4bf75c2b7d"
+    },
+    {
+      "path": "DevProject/Assets/Scripts/GameLogic/Runtime/Gen/CfgProfile.Gen.cs",
+      "sha256": "a3f88d4ec035134931d58845299303c713e9396024d422b0da07474d7f63e43a"
+    },
+    {
+      "path": "DevProject/Assets/GameResources/Config/Tables/Table_CfgQualities.json",
+      "sha256": "edeb11c8ddf29f3aaeaf8ef83f7d0035e3ed2a8f78135bad674037bc0f8240de"
+    },
+    {
+      "path": "DevProject/Assets/Scripts/GameLogic/Runtime/Gen/CfgQualities.Gen.cs",
+      "sha256": "9fb94471c19bf22e6206265be4d9a0c13e5d406d94fb8432518f79c80272c871"
+    },
+    {
+      "path": "DevProject/Assets/GameResources/Config/Tables/Table_CfgRoguePolicy.json",
+      "sha256": "e5b3b1bac2310b7f788444b7f5d33db776473f0f4776ff817aa35a7393f5e146"
+    },
+    {
+      "path": "DevProject/Assets/Scripts/GameLogic/Runtime/Gen/CfgRoguePolicy.Gen.cs",
+      "sha256": "8f12095b05565cd9d952ab9eefd1065f45637cac84f11ea05818aba3c9febf74"
+    },
+    {
+      "path": "DevProject/Assets/GameResources/Config/Tables/Table_CfgRogueRewards.json",
+      "sha256": "a8be62272f4ba85462bc28c88a13adb16baf587f060b03b7b939232f895f4c65"
+    },
+    {
+      "path": "DevProject/Assets/Scripts/GameLogic/Runtime/Gen/CfgRogueRewards.Gen.cs",
+      "sha256": "91e17ea41a183561c09956b8f33b639ea4f64257ae90337c35ce1d2af3726e46"
+    },
+    {
+      "path": "DevProject/Assets/GameResources/Config/Tables/Table_CfgRoomLayouts.json",
+      "sha256": "27b83a625f5a3f7239101a67df0dd5705a4fe3a3c017cb79c42a23945f9895d0"
+    },
+    {
+      "path": "DevProject/Assets/Scripts/GameLogic/Runtime/Gen/CfgRoomLayouts.Gen.cs",
+      "sha256": "0916d711ce4bc83cadb887ea35e287c9f22b9f419cbdd19d0dd19e8b2a8cab89"
+    },
+    {
+      "path": "DevProject/Assets/GameResources/Config/Tables/Table_CfgSkills.json",
+      "sha256": "63c0de5f816792797db9fdc947f48fedf602c9f89a2088acbb6e6edbeda1f5b5"
+    },
+    {
+      "path": "DevProject/Assets/Scripts/GameLogic/Runtime/Gen/CfgSkills.Gen.cs",
+      "sha256": "5a4bb15c4f2e5f3fca7741c889739d9b8abc6180e19774cb99f55c8d473ade03"
+    },
+    {
+      "path": "DevProject/Assets/GameResources/Config/Tables/Table_CfgSpawns.json",
+      "sha256": "f7a7f9389515469d498130b0b47ad73827ff2f4f19ec7301def73877a88ba3df"
+    },
+    {
+      "path": "DevProject/Assets/Scripts/GameLogic/Runtime/Gen/CfgSpawns.Gen.cs",
+      "sha256": "08394fa8b7f5d772a0d805755166ae68e5d9ccd63174dea7616c9d45f6a46870"
+    },
+    {
       "path": "DevProject/Assets/Scripts/GameLogic/Runtime/Gen/GameTables.Gen.cs",
-      "sha256": "34b86c45c015564f381d39d207c4e7f7849b86748010dc6fcfce492cc86d8b5e"
+      "sha256": "a431b6725cf87e392e518a78c9c9374e256889d02cb4d7e46c0df24c38e3d735"
     }
   ]
 }

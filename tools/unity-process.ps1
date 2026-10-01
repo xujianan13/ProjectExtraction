@@ -25,12 +25,12 @@ function ConvertTo-UnityArgument {
 
 function Invoke-FrameworkUnity {
     param([string]$EditorPath, [string]$Project, [string]$Log, [string]$Method, [string]$TestResults,
-        [string]$TestFilter, [int]$TimeoutSeconds = 1800)
+        [string]$TestFilter, [int]$TimeoutSeconds = 1800, [ValidateSet("EditMode", "PlayMode")][string]$TestPlatform = "PlayMode")
     Assert-UnityProjectAvailable -Project $Project
     $arguments = @('-batchmode','-nographics','-projectPath',(ConvertTo-UnityArgument $Project),'-logFile',(ConvertTo-UnityArgument $Log))
     if ($TestResults) {
         if (Test-Path -LiteralPath $TestResults) { Remove-Item -LiteralPath $TestResults }
-        $arguments += @('-runTests','-testPlatform','PlayMode','-testResults',(ConvertTo-UnityArgument $TestResults))
+        $arguments += @('-runTests','-testPlatform',$TestPlatform,'-testResults',(ConvertTo-UnityArgument $TestResults))
         if ($TestFilter) { $arguments += @('-testFilter',(ConvertTo-UnityArgument $TestFilter)) }
     } else {
         $arguments += '-quit'

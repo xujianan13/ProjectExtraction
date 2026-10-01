@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using UnityEngine;
+using GameLogic.Gameplay.Level;
 
 namespace GameLogic.Project
 {
@@ -16,6 +17,7 @@ namespace GameLogic.Project
     public sealed class ProjectItem
     {
         public string Id;
+        public string DefinitionId;
         public string Name;
         public ProjectItemType Type;
         public int RequiredLevel;
@@ -93,35 +95,34 @@ namespace GameLogic.Project
     /// </summary>
     public static class PrototypeRules
     {
-        public const int StaminaCap = 100;
-        public const int EntryCost = 10;
-        public const int RecoverySeconds = 360;
-        public const int SupplyAmount = 40;
-        public const int GameUtcOffsetHours = 8;
-        public const int SafeSlots = 2;
-        public const int SkillMaxRank = 5;
-        public const int SkillPointsPerLevel = 1;
-        public const int ExtractionExperience = 40;
-        public const bool KeepKillExperienceOnDeath = true;
-        public const int NpcItemPrice = 20;
+        public static int StaminaCap => ProjectRulesConfig.Profile.StaminaCap;
+        public static int EntryCost => ProjectRulesConfig.Profile.EntryCost;
+        public static int RecoverySeconds => ProjectRulesConfig.Profile.RecoverySeconds;
+        public static int SupplyAmount => ProjectRulesConfig.Profile.SupplyAmount;
+        public static int GameUtcOffsetHours => ProjectRulesConfig.Profile.GameUtcOffsetHours;
+        public static int SafeSlots => ProjectRulesConfig.Profile.SafeSlots;
+        public const int LegacySkillRankLimit = 1000;
+        public const int LegacyEntryCost = 10;
+        public static int SkillMaxRank => Math.Max(ProjectRulesConfig.Skill("power").MaxRank,
+            Math.Max(ProjectRulesConfig.Skill("vitality").MaxRank, ProjectRulesConfig.Skill("agility").MaxRank));
+        public static int SkillPointsPerLevel => ProjectRulesConfig.Profile.SkillPointsPerLevel;
+        public static int ExtractionExperience => ProjectRulesConfig.Profile.ExtractionExperience;
+        public static bool KeepKillExperienceOnDeath => ProjectRulesConfig.Profile.KeepKillExperienceOnDeath;
+        public static int NpcItemPrice => ProjectRulesConfig.Profile.NpcItemPrice;
 
         /// <summary>
         /// 计算当前等级升到下级所需经验。
         /// </summary>
         /// <param name="level">当前角色等级。</param>
         /// <returns>本级经验门槛。</returns>
-        public static int ExperienceRequired(int level) => 100 + (Math.Max(1, level) - 1) * 50;
+        public static int ExperienceRequired(int level) => (int)Math.Min(int.MaxValue, (long)ProjectRulesConfig.Profile.ExperienceBase +
+            (long)(Math.Max(1, level) - 1) * ProjectRulesConfig.Profile.ExperiencePerLevel);
 
         /// <summary>
         /// 取得首批关卡配置。
         /// </summary>
         /// <returns>独立关卡条目。</returns>
-        public static ProjectLevelOption[] CreateLevels() => new[]
-        {
-            new ProjectLevelOption { Id = 1, RequiredLevel = 1, Name = "荒野遗迹", Description = "探索相连区域，寻找战利品与撤离点" },
-            new ProjectLevelOption { Id = 2, RequiredLevel = 3, Name = "深层遗迹", Description = "更强的敌人与更高等级的装备" },
-            new ProjectLevelOption { Id = 3, RequiredLevel = 6, Name = "禁地", Description = "高风险区域" }
-        };
+        public static ProjectLevelOption[] CreateLevels() => LevelContentConfig.CreateLevels();
 
         /// <summary>
         /// 按给定随机源生成稳定物品实例。
@@ -138,10 +139,10 @@ namespace GameLogic.Project
     [Serializable]
     public sealed class ProjectSaveData
     {
-        public int Level = 1;
+        public int Level;
         public int Experience;
-        public int Stamina = PrototypeRules.StaminaCap;
-        public int Gold = 50;
+        public int Stamina;
+        public int Gold;
         public int Diamonds;
         public int SkillPoints;
         public int PowerRank;
@@ -170,17 +171,15 @@ namespace GameLogic.Project
         public static ProjectSaveData CreateDefault()
         {
             long now = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
-            var result = new ProjectSaveData { ClockUtc = now, RecoveryUtc = now };
-            result.Warehouse.Add(new ProjectItem
+            var rules = ProjectRulesConfig.Profile;
+            var result = new ProjectSaveData
             {
-                Id = Guid.NewGuid().ToString("N"), Name = "练习短刃", Type = ProjectItemType.Weapon,
-                RequiredLevel = 1, Damage = 16, Range = 1.9f, SellGold = 8, Equipped = true,
-                Quality = ProjectItemQuality.Common, EquipmentVersion = ProjectEquipmentRules.EquipmentVersion,
-                BaseAttributes = new List<ProjectAttributeValue>
-                {
-                    new ProjectAttributeValue { Attribute = ProjectAttributeType.Attack, Value = 16 }
-                }
-            });
+                ClockUtc = now, RecoveryUtc = now, Level = rules.StartingLevel, Experience = rules.StartingExperience,
+                Stamina = rules.StaminaCap, Gold = rules.StartingGold, Diamonds = rules.StartingDiamonds,
+                SkillPoints = rules.StartingSkillPoints
+            };
+            ProjectItem starter = ProjectEquipmentRules.CreateStarterItem();
+            if (starter != null) result.Warehouse.Add(starter);
             return result;
         }
 
@@ -208,8 +207,8 @@ namespace GameLogic.Project
             if (data == null || data.Level < 1 || data.Level > 1000 || data.Experience < 0 || data.Stamina < 0 || data.Gold < 0 ||
                 data.Diamonds < 0 || data.SkillPoints < 0 || data.Warehouse == null || data.EntryItems == null)
                 return "玩家数据字段无效。";
-            if (data.PowerRank < 0 || data.PowerRank > PrototypeRules.SkillMaxRank || data.VitalityRank < 0 ||
-                data.VitalityRank > PrototypeRules.SkillMaxRank || data.AgilityRank < 0 || data.AgilityRank > PrototypeRules.SkillMaxRank)
+            if (data.PowerRank < 0 || data.PowerRank > PrototypeRules.LegacySkillRankLimit || data.VitalityRank < 0 ||
+                data.VitalityRank > PrototypeRules.LegacySkillRankLimit || data.AgilityRank < 0 || data.AgilityRank > PrototypeRules.LegacySkillRankLimit)
                 return "技能等级无效。";
             var ids = new HashSet<string>();
             var equippedSlots = new HashSet<ProjectItemType>();
@@ -266,7 +265,7 @@ namespace GameLogic.Project
         {
             if (candidate == null || string.IsNullOrEmpty(candidate.ActiveRunId) || candidate.Outcome != null ||
                 candidate.Stage == ProjectRunStage.OutcomeRecorded) return false;
-            int cost = candidate.ActiveRunEntryCost > 0 ? candidate.ActiveRunEntryCost : PrototypeRules.EntryCost;
+            int cost = candidate.ActiveRunEntryCost > 0 ? candidate.ActiveRunEntryCost : PrototypeRules.LegacyEntryCost;
             if (candidate.Stamina > int.MaxValue - cost) return false;
             foreach (ProjectItem item in candidate.EntryItems) candidate.Warehouse.Add(item.Copy());
             candidate.EntryItems.Clear();
@@ -295,7 +294,7 @@ namespace GameLogic.Project
             if (utc <= data.ClockUtc) return;
             var offset = TimeSpan.FromHours(PrototypeRules.GameUtcOffsetHours);
             DateTimeOffset local = DateTimeOffset.FromUnixTimeSeconds(utc).ToOffset(offset);
-            var reset = new DateTimeOffset(local.Year, local.Month, local.Day, 5, 0, 0, offset);
+            var reset = new DateTimeOffset(local.Year, local.Month, local.Day, ProjectRulesConfig.Profile.DailyResetHour, 0, 0, offset);
             if (local < reset) reset = reset.AddDays(-1);
             long resetUtc = reset.ToUnixTimeSeconds();
             if (data.ClockUtc < resetUtc)
@@ -323,7 +322,15 @@ namespace GameLogic.Project
         public static string SupplyKey(long utc)
         {
             DateTimeOffset local = DateTimeOffset.FromUnixTimeSeconds(utc).ToOffset(TimeSpan.FromHours(PrototypeRules.GameUtcOffsetHours));
-            int hour = local.Hour >= 18 ? 18 : local.Hour >= 12 ? 12 : 0;
+            var rules = ProjectRulesConfig.Profile;
+            int hour;
+            if (local.Hour < rules.SupplyHourFirst)
+            {
+                local = local.AddDays(-1);
+                hour = rules.SupplyHourThird;
+            }
+            else hour = local.Hour >= rules.SupplyHourThird ? rules.SupplyHourThird :
+                local.Hour >= rules.SupplyHourSecond ? rules.SupplyHourSecond : rules.SupplyHourFirst;
             return local.ToString("yyyyMMdd") + "-" + hour;
         }
 
@@ -335,7 +342,7 @@ namespace GameLogic.Project
         public static void AddExperience(ProjectSaveData data, int experience)
         {
             data.Experience += Math.Max(0, experience);
-            while (data.Level < 1000 && data.Experience >= PrototypeRules.ExperienceRequired(data.Level))
+            while (data.Level < ProjectRulesConfig.Profile.MaxLevel && data.Experience >= PrototypeRules.ExperienceRequired(data.Level))
             {
                 data.Experience -= PrototypeRules.ExperienceRequired(data.Level);
                 data.Level++;

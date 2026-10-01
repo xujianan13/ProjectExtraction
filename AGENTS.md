@@ -15,6 +15,7 @@
 - [角色属性与装备词条](docs/project/角色属性与装备词条.md)：HP、攻击、防御、暴击值/暴击伤害、闪避、增伤/减伤，武器/护甲和六档品质；公式与词条数量为首版可调数值。
 - [Roguelike 三选一设计与实现](docs/project/Roguelike三选一设计与实现.md)：局内选择暂停、临时强化与物品奖励、默认关闭的刷新和第四项授权。
 - [角色动画与战斗接入](docs/project/角色动画与战斗接入.md)：项目通用动画播放器、战斗适配与热更控制器；通用调用见[通用动画播放](docs/framework/通用动画播放.md)。
+- [战斗反馈与角色碰撞](docs/project/战斗反馈与角色碰撞.md)：血条、伤害反馈、地面预警、音效、ECS 占位和死亡结果页时序；本轮验证状态以该文档为准。
 - [测试资源与热更目录](docs/project/测试资源与热更目录.md)：关卡、胶囊体角色和障碍的热更 Prefab、生命周期与生成入口。
 - [战斗摇杆与界面适配](docs/project/战斗摇杆与界面适配.md)：1080×1920 默认竖屏、触屏摇杆控制、安全区和不同尺寸布局。
 - [技能成长设计](docs/project/技能成长设计.md)、[主界面设计](docs/project/主界面设计.md)：角色技能点的局外提升、Home 顶部五项属性与底部仓库/技能入口。
@@ -38,13 +39,15 @@
 - Roguelike 三选一首版以战利品房开箱为原型入口：暂停 ECS 模拟，选择一项临时属性或随机战利品后恢复。刷新和第四项授权逻辑具备但默认关闭，尚无广告提供器。临时属性不写入局外技能或装备，物品沿用已有携出规则；中途选择不提供断点存档。
 - `DevProject/Assets/Scripts/GameFramework` 是框架唯一源码，当前不是已安装的 UPM 包；`DevProject/Packages` 保留 UniTask **2.5.11**、YooAsset **3.0.1-beta**、HybridCLR **8.12.0** 等模板依赖，渲染管线沿用模板。`GameFramework/package.json` 仅作未来包元数据。
 - `Assets/Resources/Framework.prefab`、`Assets/Scenes/Main.unity` 和 `Loading.unity` 属于固定宿主资产。`Assets/Scripts/Boot` 为固定启动层；`Assets/Scripts/GameLogic` 为热更游戏代码；`Assets/GameResources` 是 YooAsset `GamePackage` 的热更内容源。通用框架不得依赖项目玩法。
-- 关卡测试表现已使用 14 个热更 Prefab：场景/房间位于 `GameResources/Scenes/Expedition`，角色、障碍和交互物位于 `GameResources/Gameplay/Expedition`，13 个材质位于 `GameResources/Art/Prototype/Materials`。由 `ExpeditionVisualAssets` 加载并随场景释放租约；角色为胶囊体，碰撞仍由 ECS 管理。资源生成入口为 `Tools/ProjectExtraction/Create Test Prefabs`，只补齐缺失资产；目录和验证见[测试资源与热更目录](docs/project/测试资源与热更目录.md)。
+- 关卡基础测试表现保留 14 个热更 Prefab：场景/房间位于 `GameResources/Scenes/Expedition`，角色、障碍和交互物位于 `GameResources/Gameplay/Expedition`，13 个材质位于 `GameResources/Art/Prototype/Materials`。由 `ExpeditionVisualAssets` 加载并随场景释放租约；角色为胶囊体，碰撞仍由 ECS 管理。资源生成入口为 `Tools/ProjectExtraction/Create Test Prefabs`，只补齐缺失资产；另增 4 个反馈 Prefab、3 个合成测试 WAV 和 2 个材质，由 `Create Combat Feedback` 补齐。目录和本轮验证状态见[测试资源与热更目录](docs/project/测试资源与热更目录.md)、[战斗反馈与角色碰撞](docs/project/战斗反馈与角色碰撞.md)。
+- 战斗反馈从 ECS 快照与事件驱动血条、伤害/暴击/闪避文字、命中闪光、下一伤害节点地面预警和短音效；预警飞弹只提示发射方向或出生目标范围，不表示完整弹道。角色 XZ 圆形占位、墙体扩半径保守矩形及移动扫掠由 ECS 负责；敌人使用障碍角点追击并在施法时停步，死者不阻挡。玩家死亡立即冻结并持久化结果，完成 0.6 秒倒下与 0.15 秒停留后进入结果页。本轮不含 NavMesh、动态拥挤避让或按墙裁剪预警；尚无真机与人工可视化验收。
 - `GameFramework.AnimatorPlayback` 是不依赖 GameLogic 的通用动画播放器，支持本地时间播放与外部进度采样；项目通过 `CombatCharacterAnimation` 读取 ECS 快照控制 Idle/Move/Attack/Hit/Death。四个测试角色使用原生 Animator，5 个动画片段和控制器位于 `GameResources/Art/Prototype/Animations`。动画不参与战斗伤害判定或 ECS 位移。
-- Excel 源表在 `config/excel`，当前为空；工具在 `tool`。生成 JSON 位于 `GameResources/Config/Tables`，可重生 C# 位于 `GameLogic/Runtime/Gen`，扩展 partial 位于 `GameLogic/Runtime/Ext`。
+- Excel 源表在 `config/excel`，当前包含 22 张项目内容表；工具在 `tool`。生成 JSON 位于 `GameResources/Config/Tables`，可重生 C# 位于 `GameLogic/Runtime/Gen`，扩展 partial 位于 `GameLogic/Runtime/Ext`。
 
 ## 修改与验收
 
 - 日常用 Unity 打开 `DevProject/Assets/Scenes/Main.unity` 并点击 Play。修改源码或内容后执行 **Tools → Unity Mini Game Framework → Prepare GamePackage**，再检查启动与对应行为。
+- 新增正式业务内容、可调数值与资源引用统一配置化，沿用 `config/excel` 为唯一源。运行时缺配置须明确失败，不得回退硬编码原型。临时测试配置只放测试程序集；代码保留算法与结构契约。配置装载和兼容边界见[内容配置化](docs/project/内容配置化.md)。
 - 修改 Excel 源表后先执行 `node tool/export-excel.mjs export` 与 `node tool/export-excel.mjs verify`，等待 Unity 导入生成物，再执行 Prepare GamePackage。
 - 修改公开 API 时检查调用方、[API 索引](docs/framework/api/README.md)和相称的测试。代码改动后验证 Unity 编译、当前场景及受影响的 PlayMode 测试；同一工程的 Editor 关闭后可运行默认 Quick 的 [verify.ps1](tools/verify.ps1)。日常不运行 Full 或递归创建新工程。
 - 只记录本项目实际执行过的结果与限制；源框架文档和旧验收属于来源资料，不能替代本项目验证。

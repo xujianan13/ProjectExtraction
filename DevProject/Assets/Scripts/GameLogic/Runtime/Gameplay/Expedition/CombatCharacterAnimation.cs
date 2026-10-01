@@ -1,6 +1,7 @@
 using System;
 using GameFramework;
 using GameLogic.Gameplay.Combat;
+using GameLogic.Tables;
 using UnityEngine;
 
 namespace GameLogic.Gameplay.Expedition
@@ -10,8 +11,21 @@ namespace GameLogic.Gameplay.Expedition
     /// </summary>
     public sealed class CombatCharacterAnimation : IDisposable
     {
-        public const int HitDurationTicks = 11;
-        public const int DeathDurationTicks = 36;
+        /// <summary>
+        /// 受击表现持续的逻辑帧数。
+        /// </summary>
+        public static int HitDurationTicks => GameTables.CfgCombatAnimationSettings.GetById(1).HitTicks;
+
+        /// <summary>
+        /// 死亡动作持续的逻辑帧数。
+        /// </summary>
+        public static int DeathDurationTicks => GameTables.CfgCombatAnimationSettings.GetById(1).DeathTicks;
+
+        /// <summary>
+        /// 死亡动作后的停留秒数。
+        /// </summary>
+        public static float DeathHoldSeconds => (float)GameTables.CfgCombatAnimationSettings.GetById(1).DeathHoldSeconds;
+
         private readonly Transform root;
         private readonly AnimatorPlayback playback;
         private string failedState;
@@ -37,41 +51,45 @@ namespace GameLogic.Gameplay.Expedition
         /// 根据角色时钟和战斗事实采样动作，相同快照重复采样不会推进时间。
         /// </summary>
         /// <param name="snapshot">由 ECS 导出的角色表现快照。</param>
-        public void Sample(in CombatAnimationSnapshot snapshot)
+        /// <param name="deathTailSeconds">模拟结束后仅推进倒下动作的额外秒数。</param>
+        public void Sample(in CombatAnimationSnapshot snapshot, float deathTailSeconds = 0f)
         {
+            CfgCombatAnimationSettingsRow settings = GameTables.CfgCombatAnimationSettings.GetById(1);
+            CfgCombatAnimationCuesRow cue = GameTables.CfgCombatAnimationCues.GetById(snapshot.CueId);
             string state;
             string path;
             float phase;
-            bool attack = IsAttackCue(snapshot.CueId) && snapshot.CueElapsedTicks < snapshot.CueDurationTicks;
+            bool attack = cue != null && cue.IsAttack && snapshot.CueElapsedTicks < snapshot.CueDurationTicks;
             if (snapshot.Dead)
             {
                 state = "Death";
-                path = "Base Layer.Death";
-                phase = Mathf.Clamp01(snapshot.DeathElapsedTicks / (float)DeathDurationTicks);
+                path = settings.DeathState;
+                phase = Mathf.Clamp01((snapshot.DeathElapsedTicks * CombatWorld.TickSeconds + deathTailSeconds) /
+                    (settings.DeathTicks * CombatWorld.TickSeconds));
             }
-            else if (snapshot.HitElapsedTicks >= 0 && snapshot.HitElapsedTicks < HitDurationTicks)
+            else if (snapshot.HitElapsedTicks >= 0 && snapshot.HitElapsedTicks < settings.HitTicks)
             {
                 state = "Hit";
-                path = "Base Layer.Hit";
-                phase = snapshot.HitElapsedTicks / (float)HitDurationTicks;
+                path = settings.HitState;
+                phase = snapshot.HitElapsedTicks / (float)settings.HitTicks;
             }
             else if (attack)
             {
-                state = "Attack";
-                path = "Base Layer.Attack";
+                state = cue.StateName;
+                path = cue.StatePath;
                 phase = snapshot.CueElapsedTicks / (float)snapshot.CueDurationTicks;
             }
             else if (snapshot.Velocity.sqrMagnitude > 0.0001f)
             {
                 state = "Move";
-                path = "Base Layer.Move";
-                phase = Mathf.Repeat((float)(snapshot.ClockTick * CombatWorld.TickSeconds / 0.6), 1f);
+                path = settings.MoveState;
+                phase = Mathf.Repeat((float)(snapshot.ClockTick * CombatWorld.TickSeconds / settings.MoveSeconds), 1f);
             }
             else
             {
                 state = "Idle";
-                path = "Base Layer.Idle";
-                phase = Mathf.Repeat((float)(snapshot.ClockTick * CombatWorld.TickSeconds), 1f);
+                path = settings.IdleState;
+                phase = Mathf.Repeat((float)(snapshot.ClockTick * CombatWorld.TickSeconds / settings.IdleSeconds), 1f);
             }
             Vector3 facing = attack && !snapshot.Dead ? snapshot.CueDirection : snapshot.Forward;
             facing.y = 0f;
@@ -89,12 +107,5 @@ namespace GameLogic.Gameplay.Expedition
         /// 释放动画控制权，模型和资源仍由场景负责销毁。
         /// </summary>
         public void Dispose() => playback.Dispose();
-
-        /// <summary>
-        /// 匹配原型技能配置中的动作提示，其余 Cue 可留给其他表现适配器。
-        /// </summary>
-        /// <param name="cueId">战斗表现提示编号。</param>
-        /// <returns>对应当前攻击动作时为真。</returns>
-        private static bool IsAttackCue(int cueId) => cueId == 1 || cueId == 20 || cueId == 30;
     }
 }

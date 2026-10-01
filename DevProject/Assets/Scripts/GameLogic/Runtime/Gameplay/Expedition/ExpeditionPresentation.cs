@@ -1,4 +1,5 @@
 using GameLogic.Project;
+using GameLogic.Tables;
 using GameFramework;
 using System;
 using System.Collections.Generic;
@@ -32,6 +33,8 @@ namespace GameLogic.Gameplay.Expedition
         private static readonly int ColorId = Shader.PropertyToID("_Color");
         private readonly List<CombatCueView> cues = new();
         private bool disposed;
+        private readonly CombatFeedbackView feedback;
+        private readonly CombatFeedbackAudio feedbackAudio;
 
         /// <summary>
         /// 本局场景与模型实例的共同父节点。
@@ -68,6 +71,8 @@ namespace GameLogic.Gameplay.Expedition
                 camera = candidate;
                 break;
             }
+            feedback = new CombatFeedbackView(root.transform, camera, assets.Feedback);
+            feedbackAudio = new CombatFeedbackAudio();
             run.CombatEventPublished += PresentEvent;
             Refresh();
         }
@@ -83,20 +88,24 @@ namespace GameLogic.Gameplay.Expedition
             foreach (CombatActorSnapshot snapshot in snapshots)
             {
                 if (snapshot.RoomId != run.Maps.CurrentRoomId || !run.World.TryGetAnimationSnapshot(snapshot.Entity, out var motion)) continue;
-                if (snapshot.Dead && motion.DeathElapsedTicks >= CombatCharacterAnimation.DeathDurationTicks) continue;
+                if (snapshot.Dead && snapshot.ActorId != 1 && motion.DeathElapsedTicks * CombatWorld.TickSeconds +
+                    run.DeathPresentationElapsed >= CombatCharacterAnimation.DeathDurationTicks * CombatWorld.TickSeconds) continue;
                 if (!actors.TryGetValue(snapshot.ActorId, out GameObject actor))
                 {
                     bool isPlayer = snapshot.ActorId == 1;
-                    bool isBoss = !isPlayer && run.Maps.TryGetRoom(snapshot.RoomId, out LevelRoomState room) && room.Type == LevelRoomType.Boss;
-                    actor = CreateModel("Actor_" + snapshot.ActorId, isPlayer ? assets.Player : isBoss ? assets.Boss : assets.Enemy);
-                    actor.transform.localScale = isBoss ? new Vector3(1.8f, 1.5f, 1.8f) : new Vector3(0.9f, 1f, 0.9f);
+                    run.TryGetEnemyDefinition(snapshot.ActorId, out EnemyDefinition enemy);
+                    GameObject prefab = isPlayer ? assets.Player : enemy != null ? assets.GetEnemy(enemy.ID) : assets.Enemy;
+                    actor = CreateModel("Actor_" + snapshot.ActorId, prefab);
+                    var player = ProjectContentConfig.Player;
+                    actor.transform.localScale = isPlayer ? new Vector3((float)player.ScaleX, (float)player.ScaleY, (float)player.ScaleZ) :
+                        enemy != null ? enemy.ModelScale : Vector3.one;
                     actors.Add(snapshot.ActorId, actor);
                     animations.Add(snapshot.ActorId, new CombatCharacterAnimation(actor));
                 }
                 visibleActors.Add(snapshot.ActorId);
                 if (!actor.activeSelf) actor.SetActive(true);
                 actor.transform.position = snapshot.Position + Vector3.up * actor.transform.localScale.y;
-                animations[snapshot.ActorId].Sample(motion);
+                animations[snapshot.ActorId].Sample(motion, run.DeathPresentationElapsed);
                 if (snapshot.ActorId == 1)
                 {
                     camera.transform.position = snapshot.Position + new Vector3(0, 18, -11.25f);
@@ -122,6 +131,8 @@ namespace GameLogic.Gameplay.Expedition
             }
             RefreshProjectiles();
             RefreshCues();
+            feedback.Refresh(run.World, run.Maps.CurrentRoomId, actors, run.PresentationSeconds);
+            feedbackAudio.Refresh(run.FeedbackPaused, run.Maps.CurrentRoomId);
         }
 
         /// <summary>
@@ -132,6 +143,8 @@ namespace GameLogic.Gameplay.Expedition
             if (disposed) return;
             disposed = true;
             run.CombatEventPublished -= PresentEvent;
+            feedback.Dispose();
+            feedbackAudio.Dispose();
             foreach (CombatCharacterAnimation animation in animations.Values) animation.Dispose();
             animations.Clear();
             ambientAnimation?.Dispose();
@@ -158,7 +171,9 @@ namespace GameLogic.Gameplay.Expedition
                 Animator npc = room != null ? room.GetComponentInChildren<Animator>() : null;
                 if (npc != null) ambientAnimation = new AnimatorPlayback(npc);
             }
-            ambientAnimation?.TrySample("Base Layer.Idle", Mathf.Repeat((float)(run.World.TickIndex * CombatWorld.TickSeconds), 1f));
+            var settings = GameTables.CfgCombatAnimationSettings.GetById(1);
+            ambientAnimation?.TrySample(settings.IdleState, Mathf.Repeat((float)(run.World.TickIndex * CombatWorld.TickSeconds) /
+                (float)settings.IdleSeconds, 1f));
         }
 
         /// <summary>
@@ -197,6 +212,12 @@ namespace GameLogic.Gameplay.Expedition
         private void PresentEvent(CombatEvent fact)
         {
             if (disposed) return;
+            if (fact.RoomId == run.Maps.CurrentRoomId)
+            {
+                feedback.Present(fact);
+                feedbackAudio.Refresh(run.FeedbackPaused, run.Maps.CurrentRoomId);
+                feedbackAudio.Present(fact);
+            }
             if (fact.Kind == CombatEventKind.Death || fact.Kind == CombatEventKind.CastCancelled)
             {
                 int owner = fact.Kind == CombatEventKind.Death ? fact.TargetActorId : fact.ActorId;
@@ -209,9 +230,9 @@ namespace GameLogic.Gameplay.Expedition
                 return;
             }
             if (fact.RoomId != run.Maps.CurrentRoomId || fact.Kind != CombatEventKind.Cue) return;
-            if (fact.DefinitionId != 1 && fact.DefinitionId != 20 && fact.DefinitionId != 30) return;
+            if (GameTables.CfgCombatAnimationCues.GetById(fact.DefinitionId)?.IsAttack != true) return;
             Vector3 direction = Vector3.forward;
-            int duration = 18;
+            int duration = 0;
             run.World.GetActorsSnapshot(snapshots);
             foreach (CombatActorSnapshot actor in snapshots)
             {
@@ -221,6 +242,7 @@ namespace GameLogic.Gameplay.Expedition
                 duration = Mathf.Max(1, motion.CueDurationTicks);
                 break;
             }
+            if (duration <= 0) return;
             GameObject model = CreateModel("SkillCue", assets.MeleeCue);
             ApplyTint(model, fact.ActorId == 1 ? new Color(0.7f, 1, 1) : new Color(1, 0.55f, 0.2f));
             model.transform.localScale = new Vector3(0.14f, 0.14f, 1.7f);
