@@ -12,7 +12,8 @@ namespace GameLogic.UI.Warehouse
     public sealed class WarehouseWindow : GameWindow
     {
         private RectTransform list;
-        private UnityEngine.UI.Text details;
+        private RectTransform detailsContent;
+        private UnityEngine.UI.ScrollRect detailsScroll;
         private UnityEngine.UI.Text feedback;
         private UnityEngine.UI.Button equipButton;
         private UnityEngine.UI.Button sellButton;
@@ -38,7 +39,7 @@ namespace GameLogic.UI.Warehouse
 
             RectTransform filters = ProjectUiFactory.Horizontal(layout, "Filters", 8f);
             ProjectUiFactory.Height(filters, 56f);
-            string[] names = { "全部", "武器", "装备", "道具" };
+            string[] names = { "全部", "武器", "装备", "物品" };
             for (int index = 0; index < names.Length; index++)
             {
                 int chosen = index;
@@ -48,9 +49,11 @@ namespace GameLogic.UI.Warehouse
             UnityEngine.UI.ScrollRect scroll = ProjectUiFactory.Scroll(layout, "Items", out list);
             UnityEngine.UI.LayoutElement scrollSize = scroll.gameObject.AddComponent<UnityEngine.UI.LayoutElement>();
             scrollSize.flexibleHeight = 1f;
-            scrollSize.minHeight = 160f;
-            details = ProjectUiFactory.Label(layout, "选择物品查看详情", 23, TextAnchor.MiddleLeft, Color.white);
-            ProjectUiFactory.Height(details.rectTransform, 115f);
+            scrollSize.minHeight = 120f;
+            detailsScroll = ProjectUiFactory.Scroll(layout, "ItemDetails", out detailsContent);
+            UnityEngine.UI.LayoutElement detailsSize = detailsScroll.gameObject.AddComponent<UnityEngine.UI.LayoutElement>();
+            detailsSize.flexibleHeight = 1.1f;
+            detailsSize.minHeight = 180f;
             RectTransform actions = ProjectUiFactory.Horizontal(layout, "Actions", 12f);
             ProjectUiFactory.Height(actions, 66f);
             equipButton = ProjectUiFactory.ActionButton(actions, "装备", () => EquipAsync().Forget());
@@ -95,17 +98,19 @@ namespace GameLogic.UI.Warehouse
             bool selectedStillExists = false;
             foreach (ProjectItem item in session.Warehouse)
             {
-                if (item.Id == selectedItemId) selectedStillExists = true;
                 if (!Matches(item)) continue;
+                if (item.Id == selectedItemId) selectedStillExists = true;
                 if (count % 2 == 0)
                 {
                     row = ProjectUiFactory.Horizontal(list, "Row", 8f);
                     ProjectUiFactory.Height(row, 74f);
                 }
                 string id = item.Id;
-                string caption = item.Name + (item.Equipped ? "  已装备" : string.Empty);
+                string caption = ProjectEquipmentText.Title(item) + (item.Equipped ? "  已装备" : string.Empty);
                 UnityEngine.UI.Button card = ProjectUiFactory.ActionButton(row, caption, () => SelectItem(id));
-                card.GetComponentInChildren<UnityEngine.UI.Text>().fontSize = 21;
+                UnityEngine.UI.Text cardText = card.GetComponentInChildren<UnityEngine.UI.Text>();
+                cardText.fontSize = 21;
+                cardText.color = ProjectEquipmentText.QualityColor(item);
                 count++;
             }
             if (count % 2 != 0)
@@ -120,10 +125,7 @@ namespace GameLogic.UI.Warehouse
                 ProjectUiFactory.Height(empty.rectTransform, 88f);
             }
             ProjectItem selected = FindSelected();
-            string attributes = selected?.Type == ProjectItemType.Weapon ? $"伤害 {selected.Damage:0.#}  范围 {selected.Range:0.#}  需求等级 {selected.RequiredLevel}" :
-                selected?.Type == ProjectItemType.Equipment ? $"生命 +{selected.BonusHealth}  需求等级 {selected.RequiredLevel}" : "普通物品";
-            details.text = selected == null ? "选择物品查看详情" :
-                $"{selected.Name}  ·  {TypeName(selected.Type)}\n{attributes}\n出售可获 {selected.SellGold} 金币";
+            RefreshDetails(selected);
             equipButton.GetComponentInChildren<UnityEngine.UI.Text>().text = selected?.Equipped == true ? "卸下" : "装备";
             equipButton.interactable = selected != null && selected.Type != ProjectItemType.Item &&
                 (selected.Equipped || session.Level >= selected.RequiredLevel) && !session.IsBusy && !operating;
@@ -168,15 +170,32 @@ namespace GameLogic.UI.Warehouse
         /// <param name="item">待筛选物品。</param>
         /// <returns>是否显示。</returns>
         private bool Matches(ProjectItem item) => filter == 0 || filter == 1 && item.Type == ProjectItemType.Weapon ||
-            filter == 2 && item.Type == ProjectItemType.Equipment || filter == 3 && item.Type == ProjectItemType.Item;
+            filter == 2 && ProjectEquipmentRules.IsArmor(item.Type) || filter == 3 && item.Type == ProjectItemType.Item;
 
         /// <summary>
-        /// 返回物品类别名称。
+        /// 在可滚动区域显示选中物品的品质、基础属性和额外词条。
         /// </summary>
-        /// <param name="type">物品类别。</param>
-        /// <returns>显示名称。</returns>
-        private static string TypeName(ProjectItemType type) => type == ProjectItemType.Weapon ? "武器" :
-            type == ProjectItemType.Equipment ? "装备" : "道具";
+        /// <param name="item">当前选中的物品。</param>
+        private void RefreshDetails(ProjectItem item)
+        {
+            ProjectUiFactory.Clear(detailsContent);
+            if (item == null)
+            {
+                UnityEngine.UI.Text prompt = ProjectUiFactory.Label(detailsContent, "选择物品查看详情", 23, TextAnchor.MiddleLeft, Color.white);
+                ProjectUiFactory.Height(prompt.rectTransform, 64f);
+                return;
+            }
+            UnityEngine.UI.Text heading = ProjectUiFactory.Label(detailsContent, ProjectEquipmentText.Title(item), 27,
+                TextAnchor.MiddleLeft, ProjectEquipmentText.QualityColor(item));
+            ProjectUiFactory.Height(heading.rectTransform, 62f);
+            string value = ProjectEquipmentText.Details(item);
+            UnityEngine.UI.Text attributes = ProjectUiFactory.Label(detailsContent, value, 22, TextAnchor.UpperLeft, Color.white);
+            ProjectUiFactory.Height(attributes.rectTransform, ProjectEquipmentText.PreferredHeight(value));
+            UnityEngine.UI.Text sale = ProjectUiFactory.Label(detailsContent, $"出售可获 {item.SellGold} 金币", 21,
+                TextAnchor.MiddleLeft, new Color(0.8f, 0.9f, 0.96f));
+            ProjectUiFactory.Height(sale.rectTransform, 48f);
+            detailsScroll.verticalNormalizedPosition = 1f;
+        }
 
         /// <summary>
         /// 提交装备事务并展示保存结果。

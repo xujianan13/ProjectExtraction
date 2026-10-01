@@ -79,7 +79,7 @@ namespace GameLogic.Gameplay.Combat
     /// <summary>
     /// 战斗事件类型。
     /// </summary>
-    public enum CombatEventKind { Cue, Damage, Death, RoomCleared, ProjectileHit, ProjectileEnded, BuffApplied, BuffExpired, CastCancelled }
+    public enum CombatEventKind { Cue, Damage, Death, RoomCleared, ProjectileHit, ProjectileEnded, BuffApplied, BuffExpired, CastCancelled, Dodged }
 
     /// <summary>
     /// 一条已确认的战斗事件。
@@ -94,6 +94,7 @@ namespace GameLogic.Gameplay.Combat
         public readonly int DefinitionId;
         public readonly float Value;
         public readonly Vector3 Position;
+        public readonly bool IsCritical;
 
         /// <summary>
         /// 创建战斗事件。
@@ -106,7 +107,9 @@ namespace GameLogic.Gameplay.Combat
         /// <param name="definitionId">配置编号。</param>
         /// <param name="value">事件数值。</param>
         /// <param name="position">事件位置。</param>
-        public CombatEvent(CombatEventKind kind, long tick, int roomId, int actorId, int targetActorId, int definitionId, float value, Vector3 position)
+        /// <param name="isCritical">伤害是否为暴击。</param>
+        public CombatEvent(CombatEventKind kind, long tick, int roomId, int actorId, int targetActorId,
+            int definitionId, float value, Vector3 position, bool isCritical = false)
         {
             Kind = kind;
             Tick = tick;
@@ -116,6 +119,7 @@ namespace GameLogic.Gameplay.Combat
             DefinitionId = definitionId;
             Value = value;
             Position = position;
+            IsCritical = isCritical;
         }
     }
 
@@ -130,6 +134,13 @@ namespace GameLogic.Gameplay.Combat
         public bool IsPlayer;
         public Vector3 Position;
         public float MaxHealth;
+        public float Attack;
+        public float Defense;
+        public float CriticalRating;
+        public float CriticalDamage;
+        public float DodgeChance;
+        public float DamageIncrease;
+        public float DamageReduction;
         public float MoveSpeed;
         public float Radius;
         public float AttackRange;
@@ -148,6 +159,13 @@ namespace GameLogic.Gameplay.Combat
         public readonly Vector3 Position;
         public readonly float Health;
         public readonly float MaxHealth;
+        public readonly float Attack;
+        public readonly float Defense;
+        public readonly float CriticalRating;
+        public readonly float CriticalDamage;
+        public readonly float DodgeChance;
+        public readonly float DamageIncrease;
+        public readonly float DamageReduction;
         public readonly bool Dead;
 
         /// <summary>
@@ -160,7 +178,16 @@ namespace GameLogic.Gameplay.Combat
         /// <param name="health">当前生命值。</param>
         /// <param name="maxHealth">最大生命值。</param>
         /// <param name="dead">角色是否死亡。</param>
-        public CombatActorSnapshot(CombatEntityRef entity, int actorId, int roomId, Vector3 position, float health, float maxHealth, bool dead)
+        /// <param name="attack">最终攻击值。</param>
+        /// <param name="defense">最终防御值。</param>
+        /// <param name="criticalRating">最终暴击值。</param>
+        /// <param name="criticalDamage">最终暴击伤害倍率。</param>
+        /// <param name="dodgeChance">最终闪避概率。</param>
+        /// <param name="damageIncrease">最终增伤比例。</param>
+        /// <param name="damageReduction">最终减伤比例。</param>
+        public CombatActorSnapshot(CombatEntityRef entity, int actorId, int roomId, Vector3 position, float health,
+            float maxHealth, bool dead, float attack = 0f, float defense = 0f, float criticalRating = 0f,
+            float criticalDamage = 1.5f, float dodgeChance = 0f, float damageIncrease = 0f, float damageReduction = 0f)
         {
             Entity = entity;
             ActorId = actorId;
@@ -168,6 +195,13 @@ namespace GameLogic.Gameplay.Combat
             Position = position;
             Health = health;
             MaxHealth = maxHealth;
+            Attack = attack;
+            Defense = defense;
+            CriticalRating = criticalRating;
+            CriticalDamage = criticalDamage;
+            DodgeChance = dodgeChance;
+            DamageIncrease = damageIncrease;
+            DamageReduction = damageReduction;
             Dead = dead;
         }
     }

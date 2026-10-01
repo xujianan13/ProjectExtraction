@@ -317,11 +317,82 @@ namespace MiniGame.Tests
         });
 
         /// <summary>
+        /// 武器与护甲独占各自槽位，保存后的属性在入场和返场保持一致。
+        /// </summary>
+        /// <returns>穿戴、实际战斗快照及读档的逐帧测试。</returns>
+        [UnityTest]
+        public IEnumerator EquipmentStats_EquipEnterExtractAndReloadKeepFrozenRolls() => UniTask.ToCoroutine(async () =>
+        {
+            var backend = new FaultSaveBackend();
+            ProjectSaveData initial = ProjectSaveData.CreateDefault();
+            ProjectItem first = ProjectEquipmentRules.CreateEquipment(new System.Random(20), ProjectItemType.Armor, 1, ProjectItemQuality.Epic);
+            ProjectItem second = ProjectEquipmentRules.CreateEquipment(new System.Random(21), ProjectItemType.Armor, 1, ProjectItemQuality.Artifact);
+            first.Equipped = true;
+            initial.Warehouse.Add(first);
+            initial.Warehouse.Add(second);
+            await SetupAsync(backend, initial);
+            ProjectSession session = ProjectServices.Session;
+            Assert.That((await session.EquipAsync(second.Id)).Success, Is.True);
+            Assert.That(session.Warehouse.Count(item => item.Equipped && ProjectEquipmentRules.IsArmor(item.Type)), Is.EqualTo(1));
+            Assert.That(session.Warehouse.Single(item => item.Id == first.Id).Equipped, Is.False);
+            ProjectCharacterStats stats = session.CharacterStats;
+            string frozen = JsonUtility.ToJson(session.Warehouse.Single(item => item.Id == second.Id));
+            Assert.That(await ProjectServices.Coordinator.StartRunAsync(1).Timeout(TimeSpan.FromSeconds(20)), Is.True);
+            ExpeditionRun run = session.CurrentRun;
+            Assert.That(run.World.TryGetActor(run.Player, out CombatActorSnapshot actor), Is.True);
+            Assert.That(actor.MaxHealth, Is.EqualTo(stats.MaxHealth));
+            Assert.That(actor.Attack, Is.EqualTo(stats.Attack));
+            Assert.That(actor.Defense, Is.EqualTo(stats.Defense));
+            Assert.That(actor.CriticalRating, Is.EqualTo(stats.CriticalRating));
+            Assert.That(actor.CriticalDamage, Is.EqualTo(stats.CriticalDamage));
+            Assert.That(actor.DodgeChance, Is.EqualTo(stats.DodgeChance));
+            Assert.That(actor.DamageIncrease, Is.EqualTo(stats.DamageIncrease));
+            Assert.That(actor.DamageReduction, Is.EqualTo(stats.DamageReduction));
+            await TriggerExtractionAsync(run);
+            Assert.That(await ProjectServices.Coordinator.ReturnHomeAsync(), Is.True);
+            Assert.That(JsonUtility.ToJson(session.Warehouse.Single(item => item.Id == second.Id)), Is.EqualTo(frozen));
+            Assert.That(await ProjectServices.InitializeAsync(default), Is.True);
+            Assert.That(await ProjectServices.Coordinator.InitializeAsync(), Is.True);
+            session = ProjectServices.Session;
+            Assert.That(JsonUtility.ToJson(session.Warehouse.Single(item => item.Id == second.Id)), Is.EqualTo(frozen));
+            Assert.That(session.CharacterStats.MaxHealth, Is.EqualTo(stats.MaxHealth));
+            Assert.That((await session.EquipAsync(second.Id)).Success, Is.True);
+            Assert.That(session.CharacterStats.MaxHealth, Is.EqualTo(100));
+            Assert.That(session.Warehouse.Single(item => item.Type == ProjectItemType.Weapon).Equipped, Is.True);
+        });
+
+        /// <summary>
+        /// 真实版本二存档升级后保留护甲身份和生命随机值，不重抽属性。
+        /// </summary>
+        /// <returns>旧版保存和新版打开的逐帧测试。</returns>
+        [UnityTest]
+        public IEnumerator LegacyEquipment_OpensVersionTwoSaveWithoutReroll()
+            => UniTask.ToCoroutine(async () =>
+        {
+            ProjectSaveData initial = ProjectSaveData.CreateDefault();
+            initial.Warehouse.Add(new ProjectItem
+            {
+                Id = "legacy-armor", Name = "旧制护甲", Type = ProjectItemType.Equipment, RequiredLevel = 1,
+                BonusHealth = 25, SellGold = 9, Equipped = true
+            });
+            await SetupAsync(new FaultSaveBackend(), initial, 2);
+            ProjectItem armor = ProjectServices.Session.Warehouse.Single(item => item.Id == "legacy-armor");
+            Assert.That(armor.Type, Is.EqualTo(ProjectItemType.Armor));
+            Assert.That(armor.Quality, Is.EqualTo(ProjectItemQuality.Common));
+            Assert.That(armor.EquipmentVersion, Is.EqualTo(1));
+            Assert.That(armor.Affixes, Is.Empty);
+            Assert.That(ProjectServices.Session.CharacterStats.MaxHealth, Is.EqualTo(125));
+            Assert.That(armor.SellGold, Is.EqualTo(9));
+        });
+
+        /// <summary>
         /// 建立隔离存档、测试输入和逻辑主界面的项目运行环境。
         /// </summary>
         /// <param name="backend">可重复打开的测试存储。</param>
+        /// <param name="initial">可选的预置玩家数据。</param>
+        /// <param name="schemaVersion">预置记录的存档版本。</param>
         /// <returns>初始化任务。</returns>
-        private static async UniTask SetupAsync(ISaveBackend backend)
+        private static async UniTask SetupAsync(ISaveBackend backend, ProjectSaveData initial = null, int schemaVersion = 3)
         {
             GameEntry.StopFramework();
             var saves = new SaveModule();
@@ -330,6 +401,20 @@ namespace MiniGame.Tests
             GameEntry.Register<IInputModule>(new HeadlessInputModule());
             GameEntry.RegisterDefaults();
             GameEntry.StartFramework();
+            if (initial != null)
+            {
+                var definition = new SaveDefinition<ProjectSaveData>(schemaVersion, initial.Copy, ProjectSaveData.Validate, new ProjectSaveCodec());
+                var seeded = await saves.OpenAsync(new SaveIdentity("ProjectExtraction", "prototype", "local", "profile"), definition,
+                    new SavePolicy { AutoSave = false, FlushOnBackground = false });
+                Assert.That(seeded.Result.Success, Is.True, seeded.Result.Message);
+                seeded.Session.BindSnapshot(initial.Copy);
+                seeded.Session.AcceptRecovery();
+                Assert.That(seeded.Session.Activate().Success, Is.True);
+                Assert.That(seeded.Session.MarkDirty().Success, Is.True);
+                SaveFlushResult receipt = await seeded.Session.FlushAsync();
+                Assert.That(receipt.Result.Success, Is.True, receipt.Result.Message);
+                seeded.Session.Dispose();
+            }
             ISceneModule scenes = GameEntry.Get<ISceneModule>();
             ProjectContent.Register(scenes, GameEntry.Get<IUIModule>());
             scenes.UnregisterScene(ContentIds.HomeScene);
@@ -389,7 +474,7 @@ namespace MiniGame.Tests
                 run.World.CreateActor(new CombatActorSpec
                 {
                     ActorId = 90000 + index, RoomId = run.CurrentRoom.RoomId, Team = 2,
-                    Position = new Vector3(0, 0, -9), MaxHealth = 100000, Radius = 0.3f,
+                    Position = new Vector3(0, 0, -9), MaxHealth = 100000, Attack = 8, Radius = 0.3f,
                     AttackRange = 2, AggroRange = 10, MoveSpeed = 0, BasicSkillId = 2
                 });
             for (int tick = 0; tick < 200 && run.IsRunning; tick++) run.Advance(CombatWorld.TickSeconds);

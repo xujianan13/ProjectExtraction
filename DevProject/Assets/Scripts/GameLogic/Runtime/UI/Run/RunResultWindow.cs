@@ -104,11 +104,10 @@ namespace GameLogic.UI.Run
             foreach (ProjectItem item in source)
             {
                 if (item == null) continue;
-                string attributes = item.Type == ProjectItemType.Weapon ? $"伤害 {item.Damage:0.#} · 范围 {item.Range:0.#}" :
-                    $"生命加成 {item.BonusHealth}";
-                UnityEngine.UI.Text label = ProjectUiFactory.Label(items,
-                    $"{item.Name}  ·  等级 {item.RequiredLevel}  ·  {attributes}", 22, TextAnchor.MiddleLeft, Color.white);
-                ProjectUiFactory.Height(label.rectTransform, 60f);
+                string description = ProjectEquipmentText.ColoredTitle(item) + "\n" + ProjectEquipmentText.Details(item);
+                UnityEngine.UI.Text label = ProjectUiFactory.Label(items, description, 22, TextAnchor.UpperLeft, Color.white);
+                label.supportRichText = true;
+                ProjectUiFactory.Height(label.rectTransform, ProjectEquipmentText.PreferredHeight(description, 120f));
             }
         }
 

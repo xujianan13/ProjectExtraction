@@ -48,6 +48,7 @@ Quick 的检查范围和结果文件见[统一验收](docs/framework/统一验�
 - [关卡与地图设计](docs/project/关卡与地图设计.md)：随机连通地图、未清图自由往返、回访状态与撤离建议。
 - [ECS 战斗框架设计](docs/project/战斗框架设计.md)：统一效果执行、技能时间轴、飞弹和 Buff，包含固定时序与跨图状态；首版实现与验证范围见[首版代码实现与验证](docs/project/首版代码实现与验证.md)。
 - [主界面设计](docs/project/主界面设计.md)：顶部五项属性、底部仓库与技能入口。
+- [角色属性与装备词条](docs/project/角色属性与装备词条.md)：八项战斗属性、武器与护甲、六档品质、随机词条及迁移。
 - [主界面与关卡场景流程设计](docs/project/主界面与关卡场景流程设计.md)：Home → Expedition → 结算 → Home 的流程设计；首版实现范围及验证状态见[场景流程首版实现与验证](docs/project/场景流程首版实现与验证.md)。
 - [玩法模块与迭代计划](docs/project/玩法模块与迭代计划.md)：9 个玩法模块的设计入口、职责边界、验收条件和迭代顺序，当前按模块逐步实现。
 - [AI 开发入口](docs/framework/AI开发入口.md)、[脚手架使用指南](docs/framework/AI开发脚手架使用指南.md)与 [API 索引](docs/framework/api/README.md)：新增玩法、窗口和场景的入口；使用现有 API 时以实际源码和签名为准。

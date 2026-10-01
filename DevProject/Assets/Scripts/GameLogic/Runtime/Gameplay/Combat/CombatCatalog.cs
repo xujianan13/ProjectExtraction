@@ -16,6 +16,9 @@ namespace GameLogic.Gameplay.Combat
         public CombatEffectKind Kind;
         public int DefinitionId;
         public float Value;
+        public float AttackCoefficient;
+        public bool CanCritical = true;
+        public bool CanDodge = true;
         public int DurationTicks;
         public int LinkedId;
         public CombatHitShape Shape = CombatHitShape.Circle;
@@ -133,7 +136,10 @@ namespace GameLogic.Gameplay.Combat
                 BuffId = 1, DurationTicks = 180, IntervalTicks = 60, MaxStacks = 3,
                 Merge = CombatBuffMerge.AddStack
             };
-            periodic.OnTick.Add(new CombatEffectDefinition { Kind = CombatEffectKind.Damage, DefinitionId = 5, Value = 2f });
+            periodic.OnTick.Add(new CombatEffectDefinition
+            {
+                Kind = CombatEffectKind.Damage, DefinitionId = 5, Value = 2f, CanCritical = false, CanDodge = false
+            });
             catalog.Buffs.Add(periodic.BuffId, periodic);
             var projectile = new CombatProjectileDefinition
             {

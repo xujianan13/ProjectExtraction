@@ -86,13 +86,14 @@ namespace ProjectExtraction.Tests
             for (int i = 0; i < 20 && equipment == null; i++)
             {
                 ProjectItem item = PrototypeRules.CreateLoot(random, 2);
-                if (item.Type == ProjectItemType.Equipment) equipment = item;
+                if (ProjectEquipmentRules.IsArmor(item.Type)) equipment = item;
             }
             Assert.IsNotNull(equipment);
             Assert.That(equipment.BonusHealth, Is.InRange(11, 16));
             var data = ProjectSaveData.CreateDefault();
             data.Warehouse.Add(equipment);
             Assert.AreEqual(equipment.BonusHealth, data.Copy().Warehouse[1].BonusHealth);
+            Assert.AreEqual(equipment.BonusHealth, data.Copy().Warehouse[1].BaseAttributes[0].Value);
             equipment.BonusHealth = -1;
             Assert.IsNotNull(ProjectSaveData.Validate(data));
         }

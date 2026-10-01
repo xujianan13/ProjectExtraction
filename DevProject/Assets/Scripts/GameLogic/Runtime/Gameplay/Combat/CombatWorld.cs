@@ -31,6 +31,26 @@ namespace GameLogic.Gameplay.Combat
             public int LastInstigatorActorId;
         }
 
+        private readonly struct CombatOffense
+        {
+            public readonly float Attack;
+            public readonly float CriticalRating;
+            public readonly float CriticalDamage;
+            public readonly float DamageIncrease;
+
+            /// <summary>
+            /// 冻结一次效果来源的进攻属性。
+            /// </summary>
+            /// <param name="spec">已经校验的来源角色配置。</param>
+            public CombatOffense(CombatActorSpec spec)
+            {
+                Attack = spec.Attack;
+                CriticalRating = spec.CriticalRating;
+                CriticalDamage = spec.CriticalDamage;
+                DamageIncrease = spec.DamageIncrease;
+            }
+        }
+
         private sealed class CastComponent
         {
             public int Owner;
@@ -41,6 +61,7 @@ namespace GameLogic.Gameplay.Combat
             public Vector3 Forward;
             public int NextNode;
             public bool UsesWorldClock;
+            public CombatOffense Offense;
         }
 
         private sealed class DisplacementComponent
@@ -57,6 +78,7 @@ namespace GameLogic.Gameplay.Combat
             public int ProjectileId;
             public int RoomId;
             public int InstigatorActorId;
+            public CombatOffense Offense;
             public CombatEntityRef Source;
             public CombatEntityRef Target;
             public Vector3 LastTargetPoint;
@@ -87,6 +109,7 @@ namespace GameLogic.Gameplay.Combat
             public int Owner;
             public int BuffId;
             public int SourceActorId;
+            public CombatOffense Offense;
             public int Stacks;
             public long ExpireTick;
             public long NextTick;
@@ -101,6 +124,7 @@ namespace GameLogic.Gameplay.Combat
             public Vector3 Position;
             public Vector3 Direction;
             public int InstigatorActorId;
+            public CombatOffense Offense;
             public long RootId;
             public long TriggerId;
             public int Depth;
@@ -109,6 +133,7 @@ namespace GameLogic.Gameplay.Combat
         private static int nextWorldId;
         private readonly int worldId;
         private readonly CombatCatalog catalog;
+        private readonly System.Random random;
         private readonly List<EntitySlot> slots = new List<EntitySlot> { new EntitySlot() };
         private readonly Stack<int> freeIds = new Stack<int>();
         private readonly Dictionary<int, ActorComponent> actors = new Dictionary<int, ActorComponent>();
@@ -144,9 +169,11 @@ namespace GameLogic.Gameplay.Combat
         /// 创建单局战斗世界。
         /// </summary>
         /// <param name="catalog">战斗配置集合。</param>
-        public CombatWorld(CombatCatalog catalog)
+        /// <param name="randomSeed">本局确定性战斗随机种子。</param>
+        public CombatWorld(CombatCatalog catalog, int randomSeed = 0)
         {
             this.catalog = catalog ?? CombatCatalog.CreatePrototype();
+            random = new System.Random(randomSeed);
             worldId = Interlocked.Increment(ref nextWorldId);
         }
 
@@ -193,10 +220,17 @@ namespace GameLogic.Gameplay.Combat
         public CombatEntityRef CreateActor(CombatActorSpec spec)
         {
             if (spec.ActorId <= 0 || spec.RoomId <= 0 || spec.Team == 0 || !IsFinite(spec.MaxHealth) ||
-                !IsFinite(spec.MoveSpeed) || !IsFinite(spec.Radius) || !IsFinite(spec.AttackRange) ||
-                !IsFinite(spec.AggroRange) || spec.MaxHealth <= 0f || spec.MoveSpeed < 0f ||
-                spec.Radius <= 0f || spec.AttackRange < 0f || !IsFinite(spec.Position) ||
+                !IsFinite(spec.Attack) || !IsFinite(spec.Defense) || !IsFinite(spec.CriticalRating) ||
+                !IsFinite(spec.CriticalDamage) || !IsFinite(spec.DodgeChance) || !IsFinite(spec.DamageIncrease) ||
+                !IsFinite(spec.DamageReduction) || !IsFinite(spec.MoveSpeed) || !IsFinite(spec.Radius) ||
+                !IsFinite(spec.AttackRange) || !IsFinite(spec.AggroRange) || spec.MaxHealth <= 0f ||
+                spec.Attack < 0f || spec.Defense < 0f || spec.CriticalRating < 0f || spec.CriticalDamage < 0f ||
+                spec.DodgeChance < 0f || spec.DamageIncrease < 0f || spec.DamageReduction < 0f ||
+                spec.MoveSpeed < 0f || spec.Radius <= 0f || spec.AttackRange < 0f || !IsFinite(spec.Position) ||
                 !CanOccupy(spec.RoomId, spec.Position, spec.Radius)) return default;
+            spec.CriticalDamage = spec.CriticalDamage == 0f ? 1.5f : Mathf.Max(1f, spec.CriticalDamage);
+            spec.DodgeChance = Mathf.Min(0.75f, spec.DodgeChance);
+            spec.DamageReduction = Mathf.Min(0.75f, spec.DamageReduction);
             foreach (var actor in actors.Values)
                 if (actor.Spec.ActorId == spec.ActorId) return default;
             var entity = Allocate();
@@ -275,7 +309,7 @@ namespace GameLogic.Gameplay.Combat
             {
                 Owner = actor.Id, SkillId = skillId, StartTick = source.Spec.IsPlayer ? TickIndex : GetRoomTick(source.Spec.RoomId),
                 Target = target, TargetPoint = point, Forward = source.Forward, NextNode = 0,
-                UsesWorldClock = source.Spec.IsPlayer
+                UsesWorldClock = source.Spec.IsPlayer, Offense = new CombatOffense(source.Spec)
             });
             source.Cooldown = Mathf.Max(0, definition.CooldownTicks);
             return true;
@@ -421,7 +455,9 @@ namespace GameLogic.Gameplay.Combat
         /// <returns>角色当前状态快照。</returns>
         private CombatActorSnapshot MakeSnapshot(int id, ActorComponent actor) =>
             new CombatActorSnapshot(Ref(id), actor.Spec.ActorId, actor.Spec.RoomId, actor.Position,
-                actor.Health, actor.Spec.MaxHealth, actor.DeadPending);
+                actor.Health, actor.Spec.MaxHealth, actor.DeadPending, actor.Spec.Attack, actor.Spec.Defense,
+                actor.Spec.CriticalRating, actor.Spec.CriticalDamage, actor.Spec.DodgeChance,
+                actor.Spec.DamageIncrease, actor.Spec.DamageReduction);
 
         /// <summary>
         /// 获取地图已推进的战斗帧。

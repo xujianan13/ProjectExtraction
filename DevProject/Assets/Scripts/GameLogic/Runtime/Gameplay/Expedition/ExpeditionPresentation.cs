@@ -1,3 +1,4 @@
+using GameLogic.Project;
 using System;
 using System.Collections.Generic;
 using GameLogic.Gameplay.Combat;
@@ -96,7 +97,7 @@ namespace GameLogic.Gameplay.Expedition
                 if (drop.RoomId != run.Maps.CurrentRoomId || drop.Collected) continue;
                 if (!loot.TryGetValue(drop.Item.Id, out GameObject item))
                 {
-                    item = CreatePrimitive("Loot_" + drop.Item.Id, PrimitiveType.Cube, new Color(0.96f, 0.8f, 0.25f));
+                    item = CreatePrimitive("Loot_" + drop.Item.Id, PrimitiveType.Cube, ProjectEquipmentRules.QualityColor(drop.Item.Quality));
                     item.transform.localScale = Vector3.one * 0.55f;
                     loot.Add(drop.Item.Id, item);
                 }

@@ -7,7 +7,7 @@ namespace GameLogic.Project
     /// <summary>
     /// 仓库互斥展示分类。
     /// </summary>
-    public enum ProjectItemType { Weapon, Equipment, Item }
+    public enum ProjectItemType { Weapon = 0, Equipment = 1, Item = 2, Armor = 3 }
 
     /// <summary>
     /// 独立物品实例；随机数值只在生成时写入。
@@ -24,12 +24,22 @@ namespace GameLogic.Project
         public float Range;
         public int BonusHealth;
         public bool Equipped;
+        public ProjectItemQuality Quality;
+        public int EquipmentVersion;
+        public List<ProjectAttributeValue> BaseAttributes = new();
+        public List<ProjectEquipmentAffix> Affixes = new();
 
         /// <summary>
         /// 创建不共享可写字段的实例副本。
         /// </summary>
         /// <returns>独立物品副本。</returns>
-        public ProjectItem Copy() => (ProjectItem)MemberwiseClone();
+        public ProjectItem Copy()
+        {
+            var copy = (ProjectItem)MemberwiseClone();
+            copy.BaseAttributes = BaseAttributes?.ConvertAll(value => value?.Copy());
+            copy.Affixes = Affixes?.ConvertAll(value => value?.Copy());
+            return copy;
+        }
     }
 
     /// <summary>
@@ -119,19 +129,7 @@ namespace GameLogic.Project
         /// <param name="random">本局独立随机源。</param>
         /// <param name="level">物品等级。</param>
         /// <returns>已经固定随机属性的实例。</returns>
-        public static ProjectItem CreateLoot(System.Random random, int level)
-        {
-            var type = (ProjectItemType)random.Next(3);
-            return new ProjectItem
-            {
-                Id = Guid.NewGuid().ToString("N"), Type = type, RequiredLevel = Math.Max(1, level),
-                Name = type == ProjectItemType.Weapon ? "遗迹短刃" : type == ProjectItemType.Equipment ? "旧制护甲" : "遗迹零件",
-                Damage = type == ProjectItemType.Weapon ? 12 + level * 2 + random.Next(6) : 0,
-                Range = type == ProjectItemType.Weapon ? 1.6f + (float)random.NextDouble() * 0.5f : 0,
-                BonusHealth = type == ProjectItemType.Equipment ? 5 + level * 3 + random.Next(6) : 0,
-                SellGold = 8 + level * 4 + random.Next(8)
-            };
-        }
+        public static ProjectItem CreateLoot(System.Random random, int level) => ProjectEquipmentRules.CreateLoot(random, level);
     }
 
     /// <summary>
@@ -176,7 +174,12 @@ namespace GameLogic.Project
             result.Warehouse.Add(new ProjectItem
             {
                 Id = Guid.NewGuid().ToString("N"), Name = "练习短刃", Type = ProjectItemType.Weapon,
-                RequiredLevel = 1, Damage = 16, Range = 1.9f, SellGold = 8, Equipped = true
+                RequiredLevel = 1, Damage = 16, Range = 1.9f, SellGold = 8, Equipped = true,
+                Quality = ProjectItemQuality.Common, EquipmentVersion = ProjectEquipmentRules.EquipmentVersion,
+                BaseAttributes = new List<ProjectAttributeValue>
+                {
+                    new ProjectAttributeValue { Attribute = ProjectAttributeType.Attack, Value = 16 }
+                }
             });
             return result;
         }
@@ -209,10 +212,11 @@ namespace GameLogic.Project
                 data.VitalityRank > PrototypeRules.SkillMaxRank || data.AgilityRank < 0 || data.AgilityRank > PrototypeRules.SkillMaxRank)
                 return "技能等级无效。";
             var ids = new HashSet<string>();
+            var equippedSlots = new HashSet<ProjectItemType>();
             foreach (ProjectItem item in data.Warehouse)
-                if (!ValidItem(item, ids)) return "仓库物品无效或身份重复。";
+                if (!ValidItem(item, ids, equippedSlots)) return "仓库物品无效、身份重复或装备槽冲突。";
             foreach (ProjectItem item in data.EntryItems)
-                if (!ValidItem(item, ids)) return "入场物品无效或身份重复。";
+                if (!ValidItem(item, ids, equippedSlots)) return "入场物品无效、身份重复或装备槽冲突。";
             if (data.ActiveRunEntryCost < 0 || (string.IsNullOrEmpty(data.ActiveRunId) &&
                 (data.EntryItems.Count > 0 || data.ActiveRunEntryCost != 0))) return "入场托管状态无效。";
             if (!ProjectRunRecordRules.ValidateRecord(data, out string recordError)) return recordError;
@@ -220,16 +224,19 @@ namespace GameLogic.Project
         }
 
         /// <summary>
-        /// 检查物品字段和跨容器身份。
+        /// 检查物品字段、实例身份与跨容器装备槽。
         /// </summary>
         /// <param name="item">物品实例。</param>
         /// <param name="ids">已经出现的实例身份。</param>
+        /// <param name="equippedSlots">已经占用的装备槽。</param>
         /// <returns>物品是否合法。</returns>
-        private static bool ValidItem(ProjectItem item, HashSet<string> ids) => item != null && !string.IsNullOrEmpty(item.Id) &&
-            ids.Add(item.Id) && item.RequiredLevel >= 1 && item.SellGold >= 0 && item.BonusHealth >= 0 &&
-            Enum.IsDefined(typeof(ProjectItemType), item.Type) &&
-            !float.IsNaN(item.Damage) && !float.IsInfinity(item.Damage) && item.Damage >= 0 &&
-            !float.IsNaN(item.Range) && !float.IsInfinity(item.Range) && item.Range >= 0;
+        private static bool ValidItem(ProjectItem item, HashSet<string> ids, HashSet<ProjectItemType> equippedSlots)
+        {
+            if (ProjectEquipmentRules.ValidateItem(item) != null || !ids.Add(item.Id)) return false;
+            if (!item.Equipped || item.Type == ProjectItemType.Item) return true;
+            ProjectItemType slot = ProjectEquipmentRules.IsArmor(item.Type) ? ProjectItemType.Armor : ProjectItemType.Weapon;
+            return equippedSlots.Add(slot);
+        }
     }
 
     /// <summary>

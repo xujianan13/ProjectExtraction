@@ -23,6 +23,7 @@ namespace GameLogic.UI.Home
         private UnityEngine.UI.Button supplyButton;
         private UnityEngine.UI.Button warehouseButton;
         private UnityEngine.UI.Button skillsButton;
+        private UnityEngine.UI.Button characterButton;
         private ProjectSession session;
         private ProjectRunCoordinator coordinator;
         private bool launching;
@@ -67,8 +68,12 @@ namespace GameLogic.UI.Home
 
             RectTransform body = ProjectUiFactory.Vertical(surface, "Main", 14f);
             SetArea(body, new Vector2(0f, 0.2f), new Vector2(1f, 0.75f), new Vector2(24f, 0f), new Vector2(-24f, 0f));
-            UnityEngine.UI.Text heading = ProjectUiFactory.Label(body, "选择关卡", 32, TextAnchor.MiddleLeft, Color.white);
-            ProjectUiFactory.Height(heading.rectTransform, 56f);
+            RectTransform headingRow = ProjectUiFactory.Horizontal(body, "LevelHeading", 12f);
+            ProjectUiFactory.Height(headingRow, 56f);
+            UnityEngine.UI.Text heading = ProjectUiFactory.Label(headingRow, "选择关卡", 32, TextAnchor.MiddleLeft, Color.white);
+            heading.gameObject.AddComponent<UnityEngine.UI.LayoutElement>().flexibleWidth = 1f;
+            characterButton = ProjectUiFactory.ActionButton(headingRow, "角色属性", () => GameEntry.Get<IUIModule>().OpenWindowAsync(2400).Forget());
+            characterButton.gameObject.AddComponent<UnityEngine.UI.LayoutElement>().preferredWidth = 150f;
             UnityEngine.UI.ScrollRect scroll = ProjectUiFactory.Scroll(body, "Levels", out levelList);
             UnityEngine.UI.LayoutElement scrollSize = scroll.gameObject.AddComponent<UnityEngine.UI.LayoutElement>();
             scrollSize.flexibleHeight = 1f;
@@ -104,6 +109,7 @@ namespace GameLogic.UI.Home
                 supplyButton.interactable = false;
                 warehouseButton.interactable = false;
                 skillsButton.interactable = false;
+                characterButton.interactable = false;
                 return;
             }
             session.Changed += Refresh;
@@ -161,6 +167,7 @@ namespace GameLogic.UI.Home
             supplyButton.interactable = canEdit;
             warehouseButton.interactable = canEdit;
             skillsButton.interactable = canEdit;
+            characterButton.interactable = canEdit;
             retryButton.gameObject.SetActive(session.HasPendingSave);
             retryButton.interactable = session.HasPendingSave && coordinator.Phase == ProjectRunPhase.HomeReady && !retrying && !launching;
             if (!string.IsNullOrEmpty(session.LastRunSummary) && string.IsNullOrEmpty(feedback.text))

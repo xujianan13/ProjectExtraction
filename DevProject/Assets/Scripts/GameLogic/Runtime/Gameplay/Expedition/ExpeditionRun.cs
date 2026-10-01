@@ -77,8 +77,9 @@ namespace GameLogic.Gameplay.Expedition
             Maps = maps;
             random = new System.Random(maps.Seed ^ 0x5162);
             inventory.AddRange(items.ConvertAll(item => item.Copy()));
-            CombatCatalog catalog = CreateCatalog(items, session.PowerRank);
-            World = new CombatWorld(catalog) { ErrorLogger = reason => GameEntry.Get<ILogModule>()?.Error("Combat", reason) };
+            ProjectCharacterStats attributes = ProjectEquipmentRules.Calculate(items, session.PowerRank, session.VitalityRank, session.AgilityRank);
+            CombatCatalog catalog = CreateCatalog(attributes.AttackRange);
+            World = new CombatWorld(catalog, randomSeed: maps.Seed) { ErrorLogger = reason => GameEntry.Get<ILogModule>()?.Error("Combat", reason) };
             foreach (LevelRoomState room in maps.Rooms)
             {
                 float extent = Layout.HalfExtent - PrototypeLevelConfig.WallThickness * 0.5f;
@@ -86,13 +87,13 @@ namespace GameLogic.Gameplay.Expedition
                 foreach (LevelObstacle obstacle in Layout.Obstacles)
                     World.AddObstacle(room.RoomId, Rect.MinMaxRect(obstacle.Min.x, obstacle.Min.y, obstacle.Max.x, obstacle.Max.y));
             }
-            ProjectItem weapon = items.Find(item => item.Type == ProjectItemType.Weapon);
-            ProjectItem armor = items.Find(item => item.Type == ProjectItemType.Equipment);
             Player = World.CreateActor(new CombatActorSpec
             {
                 ActorId = 1, RoomId = maps.StartRoomId, Team = 1, IsPlayer = true, Position = new Vector3(0, 0, -8),
-                MaxHealth = 100 + session.VitalityRank * 15 + (armor?.BonusHealth ?? 0), MoveSpeed = 5 * (1 + session.AgilityRank * 0.05f),
-                Radius = 0.45f, AttackRange = weapon?.Range ?? 1.5f, BasicSkillId = 1, AggroRange = 0
+                MaxHealth = attributes.MaxHealth, Attack = attributes.Attack, Defense = attributes.Defense,
+                CriticalRating = attributes.CriticalRating, CriticalDamage = attributes.CriticalDamage, DodgeChance = attributes.DodgeChance,
+                DamageIncrease = attributes.DamageIncrease, DamageReduction = attributes.DamageReduction, MoveSpeed = attributes.MoveSpeed,
+                Radius = 0.45f, AttackRange = attributes.AttackRange, BasicSkillId = 1, AggroRange = 0
             });
             World.SetActiveRoom(maps.StartRoomId, Player);
         }
@@ -506,7 +507,7 @@ namespace GameLogic.Gameplay.Expedition
                 World.CreateActor(new CombatActorSpec
                 {
                     ActorId = room.RoomId * 100 + index + 1, RoomId = room.RoomId, Team = 2,
-                    Position = position, MaxHealth = boss ? 180 + LevelId * 30 : 35 + LevelId * 10,
+                    Position = position, MaxHealth = boss ? 180 + LevelId * 30 : 35 + LevelId * 10, Attack = boss ? 12 : 8,
                     MoveSpeed = boss ? 1.5f : 2.2f, Radius = boss ? 0.9f : 0.45f,
                     AttackRange = boss ? 7f : 1.6f, AggroRange = 10, BasicSkillId = boss ? 3 : 2
                 });
@@ -517,25 +518,24 @@ namespace GameLogic.Gameplay.Expedition
         /// <summary>
         /// 组合首版普攻、敌人攻击和飞弹附带 Buff 的验证内容。
         /// </summary>
-        /// <param name="items">入场装备。</param>
-        /// <param name="powerRank">局外伤害成长等级。</param>
+        /// <param name="attackRange">装备属性计算后的近战范围。</param>
         /// <returns>仅本局持有的战斗配置。</returns>
-        private static CombatCatalog CreateCatalog(List<ProjectItem> items, int powerRank)
+        private static CombatCatalog CreateCatalog(float attackRange)
         {
             CombatCatalog catalog = CombatCatalog.CreatePrototype();
-            ProjectItem weapon = items.Find(item => item.Type == ProjectItemType.Weapon);
             CombatSkillDefinition player = catalog.Skills[1];
-            player.StartRange = (weapon?.Range ?? 1.5f) + 0.6f;
+            player.StartRange = attackRange + 0.6f;
             player.Nodes[1].Effects[0].Value = 0.35f;
             CombatEffectDefinition hit = player.Nodes[2].Effects[0];
-            hit.Value = (weapon?.Damage ?? 10) * (1 + powerRank * 0.1f);
-            hit.Radius = weapon?.Range ?? 1.5f;
+            hit.Value = 0;
+            hit.AttackCoefficient = 1;
+            hit.Radius = attackRange;
             hit.Shape = CombatHitShape.Circle;
             var enemy = new CombatSkillDefinition { CombatSkillId = 2, DurationTicks = 38, CooldownTicks = 65, StartRange = 2.1f };
             var cue = new CombatTimelineNode { Tick = 0 };
             cue.Effects.Add(new CombatEffectDefinition { Kind = CombatEffectKind.Cue, DefinitionId = 20 });
             var strike = new CombatTimelineNode { Tick = 25 };
-            strike.Effects.Add(new CombatEffectDefinition { Kind = CombatEffectKind.Damage, DefinitionId = 21, Value = 8,
+            strike.Effects.Add(new CombatEffectDefinition { Kind = CombatEffectKind.Damage, DefinitionId = 21, AttackCoefficient = 1,
                 Radius = 1.7f, Shape = CombatHitShape.Sector, Angle = 100, Height = 2, RequireLineOfSight = true });
             enemy.Nodes.Add(cue);
             enemy.Nodes.Add(strike);
@@ -546,6 +546,8 @@ namespace GameLogic.Gameplay.Expedition
             boss.Nodes.Add(cue);
             boss.Nodes.Add(launch);
             catalog.Skills.Add(3, boss);
+            catalog.Projectiles[1].OnHit[0].Value = 0;
+            catalog.Projectiles[1].OnHit[0].AttackCoefficient = 1;
             catalog.Projectiles[1].OnHit.Add(new CombatEffectDefinition { Kind = CombatEffectKind.ApplyBuff, DefinitionId = 31, LinkedId = 1 });
             return catalog;
         }

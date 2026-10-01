@@ -2,6 +2,7 @@ using GameFramework;
 using GameLogic.Project;
 using GameLogic.Scenes.Expedition;
 using GameLogic.UI.Battle;
+using GameLogic.UI.Character;
 using GameLogic.UI.Run;
 using GameLogic.UI.Warehouse;
 using GameLogic.UI.Skills;
@@ -33,6 +34,7 @@ namespace GameLogic.Scaffold
             {
                 CreateProjectWindow<WarehouseWindow>(2101, "Warehouse", GameUILayers.Popup, true),
                 CreateProjectWindow<SkillsWindow>(2102, "Skills", GameUILayers.Popup, true),
+                CreateProjectWindow<CharacterStatsWindow>(2400, "CharacterStats", GameUILayers.Popup, true),
                 CreateProjectWindow<BattleHudWindow>(ProjectServices.BattleHudWindow, "BattleHud", GameUILayers.Hud, false),
                 CreateProjectWindow<RunTransitionWindow>(2300, "RunTransition", GameUILayers.Guide, false, GameWindowScope.Global),
                 CreateProjectWindow<RunResultWindow>(2301, "RunResult", GameUILayers.Popup, false, GameWindowScope.Global)
@@ -40,6 +42,7 @@ namespace GameLogic.Scaffold
             {
                 registry.Register<WarehouseWindow>(2101);
                 registry.Register<SkillsWindow>(2102);
+                registry.Register<CharacterStatsWindow>(2400);
                 registry.Register<BattleHudWindow>(ProjectServices.BattleHudWindow);
                 registry.Register<RunTransitionWindow>(2300);
                 registry.Register<RunResultWindow>(2301);

@@ -443,12 +443,15 @@ namespace GameLogic.Project
                 outcome.AwardedKillExperience > outcome.KillExperience || outcome.ExtractionExperience < 0 || outcome.GoldSpent < 0 ||
                 (!outcome.Extracted && outcome.ExtractionExperience != 0) || outcome.Items == null || outcome.SafeItemIds == null) return false;
             var ids = new HashSet<string>();
-            error = "终局物品身份重复或无效。";
+            var equippedSlots = new HashSet<ProjectItemType>();
+            error = "终局物品身份、词条或装备槽无效。";
             foreach (ProjectItem item in outcome.Items)
-                if (item == null || string.IsNullOrEmpty(item.Id) || !ids.Add(item.Id) || item.RequiredLevel < 1 ||
-                    item.SellGold < 0 || item.BonusHealth < 0 || !Enum.IsDefined(typeof(ProjectItemType), item.Type) ||
-                    float.IsNaN(item.Damage) || float.IsInfinity(item.Damage) || item.Damage < 0 ||
-                    float.IsNaN(item.Range) || float.IsInfinity(item.Range) || item.Range < 0) return false;
+            {
+                if (ProjectEquipmentRules.ValidateItem(item) != null || !ids.Add(item.Id)) return false;
+                if (!item.Equipped) continue;
+                ProjectItemType slot = ProjectEquipmentRules.IsArmor(item.Type) ? ProjectItemType.Armor : ProjectItemType.Weapon;
+                if (!equippedSlots.Add(slot)) return false;
+            }
             var safeIds = new HashSet<string>();
             foreach (string id in outcome.SafeItemIds)
                 if (string.IsNullOrEmpty(id) || !safeIds.Add(id) || !ids.Contains(id)) return false;

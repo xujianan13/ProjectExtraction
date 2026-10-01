@@ -165,10 +165,12 @@ namespace GameLogic.UI.Battle
             foreach (ProjectItem item in run.Inventory)
             {
                 string id = item.Id;
-                string label = (run.IsProtected(id) ? "[安全箱] " : "[背包] ") + item.Name + (item.Equipped ? " · 已穿戴" : "");
+                string label = (run.IsProtected(id) ? "[安全箱] " : "[背包] ") + ProjectEquipmentText.ColoredTitle(item) +
+                    (item.Equipped ? " · 已穿戴" : string.Empty) + "\n" + ProjectEquipmentText.Details(item);
                 var button = ProjectUiFactory.ActionButton(bagContent, label, () => { if (coordinator?.Phase != ProjectRunPhase.Playing) return; run.ToggleSafe(id); RefreshBag(); });
+                button.GetComponentInChildren<UnityEngine.UI.Text>().supportRichText = true;
                 button.interactable = coordinator != null && coordinator.Phase == ProjectRunPhase.Playing && run.IsRunning && !item.Equipped;
-                ProjectUiFactory.Height((RectTransform)button.transform, 65);
+                ProjectUiFactory.Height((RectTransform)button.transform, ProjectEquipmentText.PreferredHeight(label, 120f));
             }
         }
 

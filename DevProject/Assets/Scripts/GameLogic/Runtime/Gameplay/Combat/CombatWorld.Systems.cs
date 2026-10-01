@@ -189,20 +189,22 @@ namespace GameLogic.Gameplay.Combat
                         var scaled = new CombatEffectDefinition
                         {
                             Kind = effect.Kind, DefinitionId = effect.DefinitionId, Value = effect.Value * buff.Stacks,
+                            AttackCoefficient = effect.AttackCoefficient * buff.Stacks,
+                            CanCritical = effect.CanCritical, CanDodge = effect.CanDodge,
                             LinkedId = effect.LinkedId, Shape = effect.Shape, Radius = effect.Radius,
                             Angle = effect.Angle, Width = effect.Width, Height = effect.Height,
                             RequireLineOfSight = effect.RequireLineOfSight
                         };
-                        Enqueue(scaled, buff.Owner, Ref(buff.Owner), owner.Position, owner.Forward, buff.SourceActorId);
+                        Enqueue(scaled, buff.Owner, Ref(buff.Owner), owner.Position, owner.Forward, buff.SourceActorId, buff.Offense);
                     }
-                    else Enqueue(effect, buff.Owner, Ref(buff.Owner), owner.Position, owner.Forward, buff.SourceActorId);
+                    else Enqueue(effect, buff.Owner, Ref(buff.Owner), owner.Position, owner.Forward, buff.SourceActorId, buff.Offense);
                 }
                 if (definition.PeriodicDamagePerStack > 0f)
                     Enqueue(new CombatEffectDefinition
                     {
                         Kind = CombatEffectKind.Damage, DefinitionId = definition.BuffId,
-                        Value = definition.PeriodicDamagePerStack * buff.Stacks
-                    }, buff.Owner, Ref(buff.Owner), owner.Position, owner.Forward, buff.SourceActorId);
+                        Value = definition.PeriodicDamagePerStack * buff.Stacks, CanCritical = false, CanDodge = false
+                    }, buff.Owner, Ref(buff.Owner), owner.Position, owner.Forward, buff.SourceActorId, buff.Offense);
                 buff.NextTick += Mathf.Max(1, definition.IntervalTicks);
             }
         }
@@ -223,7 +225,7 @@ namespace GameLogic.Gameplay.Combat
             {
                 if (catalog.Buffs.TryGetValue(buff.BuffId, out var definition))
                     foreach (var effect in definition.OnExpire)
-                        Enqueue(effect, buff.Owner, Ref(buff.Owner), owner.Position, owner.Forward, buff.SourceActorId);
+                        Enqueue(effect, buff.Owner, Ref(buff.Owner), owner.Position, owner.Forward, buff.SourceActorId, buff.Offense);
                 events.Add(new CombatEvent(CombatEventKind.BuffExpired, TickIndex, owner.Spec.RoomId,
                     buff.SourceActorId, owner.Spec.ActorId, buff.BuffId, 0f, owner.Position));
             }
@@ -330,7 +332,7 @@ namespace GameLogic.Gameplay.Combat
                     {
                         var target = effect.Kind == CombatEffectKind.SpawnProjectile ||
                             effect.Kind == CombatEffectKind.ApplyBuff || effect.Kind == CombatEffectKind.Cue ? cast.Target : default;
-                        Enqueue(effect, cast.Owner, target, cast.TargetPoint, cast.Forward, owner.Spec.ActorId);
+                        Enqueue(effect, cast.Owner, target, cast.TargetPoint, cast.Forward, owner.Spec.ActorId, cast.Offense);
                     }
                 }
                 if (elapsed < definition.DurationTicks) continue;
@@ -348,14 +350,16 @@ namespace GameLogic.Gameplay.Combat
         /// <param name="position">效果中心或目标点。</param>
         /// <param name="direction">效果方向。</param>
         /// <param name="instigatorActorId">稳定的收益归因角色编号。</param>
+        /// <param name="offense">效果出生时冻结的来源进攻属性。</param>
         private void Enqueue(CombatEffectDefinition effect, int source, CombatEntityRef target, Vector3 position,
-            Vector3 direction, int instigatorActorId)
+            Vector3 direction, int instigatorActorId, CombatOffense offense)
         {
             if (!ValidEffect(effect)) { MarkFault("Invalid effect definition"); return; }
             effectQueue.Enqueue(new EffectCommand
             {
                 Definition = effect, Source = source, Target = target, Position = position, Direction = direction,
-                InstigatorActorId = instigatorActorId, RootId = activeRootId != 0 ? activeRootId : ++nextRootId,
+                InstigatorActorId = instigatorActorId, Offense = offense,
+                RootId = activeRootId != 0 ? activeRootId : ++nextRootId,
                 TriggerId = ++nextTriggerId, Depth = activeRootId != 0 ? activeDepth + 1 : 0
             });
         }
@@ -423,19 +427,19 @@ namespace GameLogic.Gameplay.Combat
                         !ValidProjectile(projectileDefinition))
                     { MarkFault("Invalid projectile definition"); break; }
                     if (actors.ContainsKey(command.Source))
-                        TrySpawnProjectile(Ref(command.Source), effect.LinkedId, command.Target, command.Position,
-                            command.Direction);
+                        TrySpawnProjectileInternal(Ref(command.Source), effect.LinkedId, command.Target,
+                            command.Position, command.Direction, null, false, command.Offense);
                     else if (projectiles.TryGetValue(command.Source, out var parentProjectile) &&
                              IsValid(parentProjectile.Source))
                         TrySpawnProjectileInternal(parentProjectile.Source, effect.LinkedId, command.Target,
-                            command.Position, command.Direction, command.Position, true);
+                            command.Position, command.Direction, command.Position, true, command.Offense);
                     break;
                 case CombatEffectKind.ApplyBuff:
                     if (!catalog.Buffs.TryGetValue(effect.LinkedId, out var buffDefinition) || !ValidBuff(buffDefinition))
                     { MarkFault("Invalid buff definition"); break; }
                     if (command.Target.Id != 0 || actors.ContainsKey(command.Source))
                         ApplyBuff(command.Target.Id != 0 ? command.Target : Ref(command.Source), effect.LinkedId,
-                            command.InstigatorActorId);
+                            command.InstigatorActorId, command.Offense);
                     break;
             }
         }
@@ -449,8 +453,7 @@ namespace GameLogic.Gameplay.Combat
             if (command.Target.Id != 0)
             {
                 if (IsValid(command.Target) && actors.TryGetValue(command.Target.Id, out var target))
-                    ApplyDamage(target, command.InstigatorActorId, command.Definition.Value,
-                        command.Definition.DefinitionId);
+                    ApplyDamage(target, command.InstigatorActorId, command.Definition, command.Offense);
                 return;
             }
             var hasActorSource = actors.TryGetValue(command.Source, out var source);
@@ -471,21 +474,33 @@ namespace GameLogic.Gameplay.Combat
                     (sourceTeam != 0 && target.Spec.Team == sourceTeam) ||
                     !InsideShape(origin, command.Direction, target.Position, effect)) continue;
                 if (effect.RequireLineOfSight && HasWallBetween(roomId, origin, target.Position)) continue;
-                ApplyDamage(target, command.InstigatorActorId, effect.Value, effect.DefinitionId);
+                ApplyDamage(target, command.InstigatorActorId, effect, command.Offense);
             }
         }
 
         /// <summary>
-        /// 将有效伤害写入角色生命与待死亡状态。
+        /// 结算闪避、暴击和防御后写入有效伤害。
         /// </summary>
         /// <param name="target">受击角色。</param>
         /// <param name="sourceActorId">归因角色编号。</param>
-        /// <param name="amount">基础伤害值。</param>
-        /// <param name="definitionId">效果或技能定义编号。</param>
-        private void ApplyDamage(ActorComponent target, int sourceActorId, float amount, int definitionId)
+        /// <param name="effect">伤害效果定义。</param>
+        /// <param name="offense">效果出生时冻结的来源属性。</param>
+        private void ApplyDamage(ActorComponent target, int sourceActorId, CombatEffectDefinition effect, CombatOffense offense)
         {
-            if (target.DeadPending || amount <= 0f) return;
-            var actual = Mathf.Min(target.Health, amount);
+            double raw = Math.Max(0d, (double)effect.Value + (double)offense.Attack * effect.AttackCoefficient);
+            if (target.DeadPending || raw <= 0d) return;
+            if (effect.CanDodge && target.Spec.DodgeChance > 0f && random.NextDouble() < target.Spec.DodgeChance)
+            {
+                events.Add(new CombatEvent(CombatEventKind.Dodged, TickIndex, target.Spec.RoomId, sourceActorId,
+                    target.Spec.ActorId, effect.DefinitionId, 0f, target.Position));
+                return;
+            }
+            double criticalChance = offense.CriticalRating / ((double)offense.CriticalRating + 100d);
+            bool critical = effect.CanCritical && criticalChance > 0d && random.NextDouble() < criticalChance;
+            double damage = raw * (1d + offense.DamageIncrease) * (critical ? offense.CriticalDamage : 1d);
+            damage *= 100d / (100d + target.Spec.Defense);
+            damage *= 1d - target.Spec.DamageReduction;
+            float actual = (float)Math.Min(target.Health, Math.Min(float.MaxValue, Math.Max(0d, damage)));
             target.Health -= actual;
             if (target.Health <= 0f)
             {
@@ -494,7 +509,7 @@ namespace GameLogic.Gameplay.Combat
                 target.LastInstigatorActorId = sourceActorId;
             }
             events.Add(new CombatEvent(CombatEventKind.Damage, TickIndex, target.Spec.RoomId, sourceActorId,
-                target.Spec.ActorId, definitionId, actual, target.Position));
+                target.Spec.ActorId, effect.DefinitionId, actual, target.Position, critical));
         }
 
         /// <summary>
@@ -590,13 +605,36 @@ namespace GameLogic.Gameplay.Combat
         }
 
         /// <summary>
+        /// 读取当前来源的进攻属性供公开效果入口冻结。
+        /// </summary>
+        /// <param name="actorId">稳定来源角色编号。</param>
+        /// <returns>来源存在时为当前属性，否则为不含加成的默认属性。</returns>
+        private CombatOffense CaptureOffense(int actorId)
+        {
+            foreach (ActorComponent actor in actors.Values)
+                if (actor.Spec.ActorId == actorId) return new CombatOffense(actor.Spec);
+            return new CombatOffense(new CombatActorSpec { CriticalDamage = 1.5f });
+        }
+
+        /// <summary>
         /// 为目标添加或合并一个周期 Buff。
         /// </summary>
         /// <param name="targetRef">目标角色引用。</param>
         /// <param name="buffId">Buff 定义编号。</param>
         /// <param name="sourceActorId">稳定来源角色编号。</param>
         /// <returns>配置与目标有效则为真。</returns>
-        public bool ApplyBuff(CombatEntityRef targetRef, int buffId, int sourceActorId)
+        public bool ApplyBuff(CombatEntityRef targetRef, int buffId, int sourceActorId) =>
+            ApplyBuff(targetRef, buffId, sourceActorId, CaptureOffense(sourceActorId));
+
+        /// <summary>
+        /// 使用已冻结的来源属性添加或合并周期 Buff。
+        /// </summary>
+        /// <param name="targetRef">目标角色引用。</param>
+        /// <param name="buffId">Buff 定义编号。</param>
+        /// <param name="sourceActorId">稳定来源角色编号。</param>
+        /// <param name="offense">施加时的来源进攻属性。</param>
+        /// <returns>配置与目标有效则为真。</returns>
+        private bool ApplyBuff(CombatEntityRef targetRef, int buffId, int sourceActorId, CombatOffense offense)
         {
             if (!IsValid(targetRef) || !actors.TryGetValue(targetRef.Id, out var target) || target.DeadPending ||
                 !catalog.Buffs.TryGetValue(buffId, out var definition) || !ValidBuff(definition)) return false;
@@ -608,6 +646,7 @@ namespace GameLogic.Gameplay.Combat
             if (existing != 0)
             {
                 var current = buffs[existing];
+                current.Offense = offense;
                 if (definition.Merge == CombatBuffMerge.AddStack)
                     current.Stacks = Mathf.Min(definition.MaxStacks, current.Stacks + 1);
                 else if (definition.Merge == CombatBuffMerge.ResetDuration)
@@ -622,12 +661,12 @@ namespace GameLogic.Gameplay.Combat
             var entity = Allocate();
             buffs.Add(entity.Id, new BuffComponent
             {
-                Owner = targetRef.Id, BuffId = buffId, SourceActorId = sourceActorId, Stacks = 1,
+                Owner = targetRef.Id, BuffId = buffId, SourceActorId = sourceActorId, Offense = offense, Stacks = 1,
                 ExpireTick = now + definition.DurationTicks, NextTick = now + definition.IntervalTicks
             });
             RecalculateBonuses(targetRef.Id);
             foreach (var effect in definition.OnApply)
-                Enqueue(effect, targetRef.Id, targetRef, target.Position, target.Forward, sourceActorId);
+                Enqueue(effect, targetRef.Id, targetRef, target.Position, target.Forward, sourceActorId, offense);
             events.Add(new CombatEvent(CombatEventKind.BuffApplied, TickIndex, target.Spec.RoomId,
                 sourceActorId, target.Spec.ActorId, buffId, 1f, target.Position));
             return true;

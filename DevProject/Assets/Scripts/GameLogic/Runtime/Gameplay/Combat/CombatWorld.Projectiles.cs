@@ -20,7 +20,9 @@ namespace GameLogic.Gameplay.Combat
         public bool TrySpawnProjectile(CombatEntityRef sourceRef, int projectileId, CombatEntityRef targetRef,
             Vector3 targetPoint, Vector3 forward)
         {
-            return TrySpawnProjectileInternal(sourceRef, projectileId, targetRef, targetPoint, forward, null, false);
+            CombatOffense offense = IsValid(sourceRef) && actors.TryGetValue(sourceRef.Id, out var source)
+                ? new CombatOffense(source.Spec) : CaptureOffense(0);
+            return TrySpawnProjectileInternal(sourceRef, projectileId, targetRef, targetPoint, forward, null, false, offense);
         }
 
         /// <summary>
@@ -33,9 +35,10 @@ namespace GameLogic.Gameplay.Combat
         /// <param name="forward">发射方向。</param>
         /// <param name="originOverride">来源锚点的事件中心覆盖位置。</param>
         /// <param name="allowDeadSource">是否允许已发射飞弹在来源死亡后继续生成子效果。</param>
+        /// <param name="offense">飞弹出生时冻结的进攻属性。</param>
         /// <returns>生成成功则为真。</returns>
         private bool TrySpawnProjectileInternal(CombatEntityRef sourceRef, int projectileId, CombatEntityRef targetRef,
-            Vector3 targetPoint, Vector3 forward, Vector3? originOverride, bool allowDeadSource)
+            Vector3 targetPoint, Vector3 forward, Vector3? originOverride, bool allowDeadSource, CombatOffense offense)
         {
             if (!IsValid(sourceRef) || !actors.TryGetValue(sourceRef.Id, out var source) ||
                 (!allowDeadSource && source.DeadPending) ||
@@ -76,7 +79,7 @@ namespace GameLogic.Gameplay.Combat
             var component = new ProjectileComponent
             {
                 ProjectileId = projectileId, RoomId = source.Spec.RoomId, InstigatorActorId = source.Spec.ActorId,
-                Source = sourceRef, Target = hasTarget ? targetRef : default, LastTargetPoint = targetPoint,
+                Offense = offense, Source = sourceRef, Target = hasTarget ? targetRef : default, LastTargetPoint = targetPoint,
                 Position = origin, Previous = origin, Origin = origin, EndPoint = targetPoint,
                 Direction = direction, Velocity = direction * definition.Speed, CreatedTick = TickIndex,
                 FlightTicks = definition.Motion == ProjectileMotionKind.Instant ? 0 :
@@ -429,7 +432,7 @@ namespace GameLogic.Gameplay.Combat
             CombatEntityRef target)
         {
             foreach (var effect in effects)
-                Enqueue(effect, id, target, projectile.Position, projectile.Direction, projectile.InstigatorActorId);
+                Enqueue(effect, id, target, projectile.Position, projectile.Direction, projectile.InstigatorActorId, projectile.Offense);
         }
 
         /// <summary>

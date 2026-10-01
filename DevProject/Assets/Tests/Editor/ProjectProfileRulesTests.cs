@@ -91,6 +91,7 @@ namespace ProjectExtraction.Tests
         {
             var profile = ProjectSaveData.CreateDefault();
             profile.ActiveRunId = "run";
+            profile.Stage = ProjectRunStage.Running;
             profile.EntryItems.Add(profile.Warehouse[0].Copy());
             Assert.IsNotNull(ProjectSaveData.Validate(profile));
         }

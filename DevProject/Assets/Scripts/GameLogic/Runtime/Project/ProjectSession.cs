@@ -38,6 +38,11 @@ namespace GameLogic.Project
         public int PowerRank => profile.PowerRank;
         public int VitalityRank => profile.VitalityRank;
         public int AgilityRank => profile.AgilityRank;
+
+        /// <summary>
+        /// 按已保存的穿戴与技能成长计算独立角色属性。
+        /// </summary>
+        public ProjectCharacterStats CharacterStats => ProjectEquipmentRules.Calculate(profile.Warehouse, profile.PowerRank, profile.VitalityRank, profile.AgilityRank);
         public string LastRunSummary => pending != null ? "保存未完成，请重试原操作。" : profile.LastRunSummary;
         public bool IsBusy => saving || pending != null || !homeEditable || disposed;
         public bool HasPendingSave => pending != null && !saving && !disposed;
@@ -91,8 +96,8 @@ namespace GameLogic.Project
         /// <returns>成功会话，失败时为空。</returns>
         public static async UniTask<ProjectSession> OpenAsync(CancellationToken ct)
         {
-            var definition = new SaveDefinition<ProjectSaveData>(2, ProjectSaveData.CreateDefault, ProjectSaveData.Validate,
-                codec: new ProjectSaveCodec(), migrations: new[] { ProjectRunRecordRules.CreateMigration() });
+            var definition = new SaveDefinition<ProjectSaveData>(3, ProjectSaveData.CreateDefault, ProjectSaveData.Validate,
+                codec: new ProjectSaveCodec(), migrations: new[] { ProjectRunRecordRules.CreateMigration(), ProjectEquipmentRules.CreateEquipmentMigration() });
             var policy = new SavePolicy { AutoSave = false, FlushOnBackground = false };
             SaveOpenResult<ProjectSaveData> opened = await GameEntry.Get<ISaveModule>().OpenAsync(
                 new SaveIdentity("ProjectExtraction", "prototype", "local", "profile"), definition, policy, ct);
@@ -141,7 +146,7 @@ namespace GameLogic.Project
             if (item.RequiredLevel > candidate.Level) return Rejected("角色等级不足，无法穿戴。");
             bool equip = !item.Equipped;
             foreach (ProjectItem other in candidate.Warehouse)
-                if (other.Type == item.Type) other.Equipped = false;
+                if (other.Type == item.Type || ProjectEquipmentRules.IsArmor(other.Type) && ProjectEquipmentRules.IsArmor(item.Type)) other.Equipped = false;
             item.Equipped = equip;
             return CommitAsync(candidate, equip ? "已穿戴。" : "已卸下。");
         }
