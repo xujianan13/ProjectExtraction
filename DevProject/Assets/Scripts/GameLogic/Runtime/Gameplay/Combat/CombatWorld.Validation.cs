@@ -58,6 +58,8 @@ namespace GameLogic.Gameplay.Combat
                 effect.Radius < 0f || effect.Width < 0f || effect.Height < 0f) return false;
             if (effect.Kind == CombatEffectKind.Damage && (effect.Value < 0f || effect.AttackCoefficient < 0f)) return false;
             if (effect.Kind == CombatEffectKind.Displace && effect.DurationTicks <= 0) return false;
+            if (effect.Kind == CombatEffectKind.ModifyAttribute &&
+                (effect.Value <= 0f || !ValidAttribute(effect.Attribute))) return false;
             if ((effect.Kind == CombatEffectKind.SpawnProjectile || effect.Kind == CombatEffectKind.ApplyBuff) &&
                 effect.LinkedId <= 0) return false;
             return true;

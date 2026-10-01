@@ -1,3 +1,4 @@
+using Cysharp.Threading.Tasks;
 using System.Collections.Generic;
 using GameFramework;
 using GameLogic.Gameplay.Combat;
@@ -21,6 +22,7 @@ namespace GameLogic.UI.Battle
         private UnityEngine.UI.Text hint;
         private RectTransform map;
         private RectTransform bag;
+        private UnityEngine.UI.Button resumeChoice;
         private RectTransform bagContent;
         private ExpeditionJoystick joystick;
         private int mapRoom = -1;
@@ -52,6 +54,9 @@ namespace GameLogic.UI.Battle
             Place((RectTransform)interact.transform, new Vector2(0.69f, 0.07f), new Vector2(0.95f, 0.17f));
             var bagButton = ProjectUiFactory.ActionButton(content, "背包 / 安全箱", ToggleBag);
             Place((RectTransform)bagButton.transform, new Vector2(0.64f, 0.2f), new Vector2(0.95f, 0.28f));
+            resumeChoice = ProjectUiFactory.ActionButton(content, "继续选择强化", OpenPendingChoice);
+            Place((RectTransform)resumeChoice.transform, new Vector2(0.64f, 0.3f), new Vector2(0.95f, 0.38f));
+            resumeChoice.gameObject.SetActive(false);
             bag = ProjectUiFactory.Panel(content, "RunInventory", new Color(0.055f, 0.1f, 0.15f, 0.98f));
             Place(bag, new Vector2(0.06f, 0.3f), new Vector2(0.94f, 0.76f));
             UnityEngine.UI.ScrollRect scroll = ProjectUiFactory.Scroll(bag, "Items", out bagContent);
@@ -90,6 +95,14 @@ namespace GameLogic.UI.Battle
             status.text = "生命 " + Mathf.CeilToInt(player.Health) + " / " + Mathf.CeilToInt(player.MaxHealth) +
                 "\n本局经验 " + run.KillExperience + " · 金币 " + run.AvailableGold;
             hint.text = run.Message;
+            bool choosing = run.IsChoosingRogue && run.PendingRogueChoice != null;
+            resumeChoice.gameObject.SetActive(choosing);
+            joystick.enabled = !choosing;
+            if (choosing)
+            {
+                bag.gameObject.SetActive(false);
+                run.SetTouchMove(Vector2.zero);
+            }
             interactionLabel.text = run.InteractionLabel;
             int cleared = 0;
             foreach (LevelRoomState room in run.Maps.Rooms) if (room.IsCleared) cleared++;
@@ -144,7 +157,7 @@ namespace GameLogic.UI.Battle
         /// </summary>
         private void ToggleBag()
         {
-            if (coordinator == null || coordinator.Phase != ProjectRunPhase.Playing) return;
+            if (coordinator == null || coordinator.Phase != ProjectRunPhase.Playing || run == null || run.IsChoosingRogue) return;
             bag.gameObject.SetActive(!bag.gameObject.activeSelf);
             run?.SetTouchMove(Vector2.zero);
             if (bag.gameObject.activeSelf) RefreshBag();
@@ -167,9 +180,14 @@ namespace GameLogic.UI.Battle
                 string id = item.Id;
                 string label = (run.IsProtected(id) ? "[安全箱] " : "[背包] ") + ProjectEquipmentText.ColoredTitle(item) +
                     (item.Equipped ? " · 已穿戴" : string.Empty) + "\n" + ProjectEquipmentText.Details(item);
-                var button = ProjectUiFactory.ActionButton(bagContent, label, () => { if (coordinator?.Phase != ProjectRunPhase.Playing) return; run.ToggleSafe(id); RefreshBag(); });
+                var button = ProjectUiFactory.ActionButton(bagContent, label, () =>
+                {
+                    if (coordinator?.Phase != ProjectRunPhase.Playing || run.IsChoosingRogue) return;
+                    run.ToggleSafe(id);
+                    RefreshBag();
+                });
                 button.GetComponentInChildren<UnityEngine.UI.Text>().supportRichText = true;
-                button.interactable = coordinator != null && coordinator.Phase == ProjectRunPhase.Playing && run.IsRunning && !item.Equipped;
+                button.interactable = coordinator != null && coordinator.Phase == ProjectRunPhase.Playing && run.IsRunning && !run.IsChoosingRogue && !item.Equipped;
                 ProjectUiFactory.Height((RectTransform)button.transform, ProjectEquipmentText.PreferredHeight(label, 120f));
             }
         }
@@ -179,7 +197,17 @@ namespace GameLogic.UI.Battle
         /// </summary>
         private void RequestInteraction()
         {
-            if (coordinator?.Phase == ProjectRunPhase.Playing) run?.RequestInteraction();
+            if (coordinator?.Phase == ProjectRunPhase.Playing && run?.IsChoosingRogue == false) run.RequestInteraction();
+        }
+
+        /// <summary>
+        /// 在选择窗口被系统关闭后重新打开当前待选奖励。
+        /// </summary>
+        private void OpenPendingChoice()
+        {
+            if (run == null || !run.IsChoosingRogue || run.PendingRogueChoice == null) return;
+            IUIModule ui = GameEntry.Get<IUIModule>();
+            if (ui != null) ui.OpenWindowAsync(ProjectServices.RogueChoiceWindow, new GameWindowOpenArgs(run)).Forget();
         }
 
         /// <summary>

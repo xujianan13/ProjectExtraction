@@ -49,7 +49,15 @@ namespace GameLogic.Gameplay.Combat
     /// <summary>
     /// 战斗效果类型。
     /// </summary>
-    public enum CombatEffectKind { Cue, Damage, Displace, SpawnProjectile, ApplyBuff }
+    public enum CombatEffectKind { Cue, Damage, Displace, SpawnProjectile, ApplyBuff, ModifyAttribute }
+
+    /// <summary>
+    /// 局内可强化的战斗属性。
+    /// </summary>
+    public enum CombatAttributeKind
+    {
+        MaxHealth, Attack, Defense, CriticalRating, CriticalDamage, DodgeChance, DamageIncrease, DamageReduction
+    }
 
     /// <summary>
     /// 飞弹运动类型。

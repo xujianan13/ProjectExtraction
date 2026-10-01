@@ -331,7 +331,8 @@ namespace GameLogic.Gameplay.Combat
                     foreach (var effect in node.Effects)
                     {
                         var target = effect.Kind == CombatEffectKind.SpawnProjectile ||
-                            effect.Kind == CombatEffectKind.ApplyBuff || effect.Kind == CombatEffectKind.Cue ? cast.Target : default;
+                            effect.Kind == CombatEffectKind.ApplyBuff || effect.Kind == CombatEffectKind.ModifyAttribute ||
+                            effect.Kind == CombatEffectKind.Cue ? cast.Target : default;
                         Enqueue(effect, cast.Owner, target, cast.TargetPoint, cast.Forward, owner.Spec.ActorId, cast.Offense);
                     }
                 }
@@ -440,6 +441,9 @@ namespace GameLogic.Gameplay.Combat
                     if (command.Target.Id != 0 || actors.ContainsKey(command.Source))
                         ApplyBuff(command.Target.Id != 0 ? command.Target : Ref(command.Source), effect.LinkedId,
                             command.InstigatorActorId, command.Offense);
+                    break;
+                case CombatEffectKind.ModifyAttribute:
+                    ApplyAttributeBonus(command.Target.Id != 0 ? command.Target : Ref(command.Source), effect.Attribute, effect.Value);
                     break;
             }
         }

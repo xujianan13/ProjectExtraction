@@ -4,6 +4,7 @@ using Cysharp.Threading.Tasks;
 using GameFramework;
 using GameLogic.Gameplay.Combat;
 using GameLogic.Gameplay.Level;
+using GameLogic.Gameplay.Roguelike;
 using GameLogic.Project;
 using UnityEngine;
 
@@ -23,7 +24,7 @@ namespace GameLogic.Gameplay.Expedition
     /// <summary>
     /// 一局的地图、战斗和物品协调器，不复制 ECS 角色状态。
     /// </summary>
-    public sealed class ExpeditionRun : IDisposable
+    public sealed partial class ExpeditionRun : IDisposable
     {
         private readonly ProjectSession session;
         private readonly System.Random random;
@@ -53,7 +54,7 @@ namespace GameLogic.Gameplay.Expedition
         public int KillExperience { get; private set; }
         public int GoldSpent { get; private set; }
         public int AvailableGold => session.Gold - GoldSpent;
-        private bool CanInteract => IsRunning && IsReady && !paused && !disposed && !stopped && !session.HasPendingSave && !GameEntry.IsInBackground;
+        private bool CanInteract => IsRunning && IsReady && !paused && !IsChoosingRogue && !disposed && !stopped && !session.HasPendingSave && !GameEntry.IsInBackground;
         public string Message { get; private set; } = "移动靠近敌人自动攻击；靠近出口或物品后交互。";
         public IReadOnlyList<ProjectItem> Inventory => inventory;
         public IReadOnlyList<ExpeditionDrop> Drops => drops;
@@ -69,12 +70,18 @@ namespace GameLogic.Gameplay.Expedition
         /// <param name="levelId">关卡等级配置。</param>
         /// <param name="maps">已经验证的连通地图。</param>
         /// <param name="items">本局入场装备。</param>
-        private ExpeditionRun(ProjectSession session, string runId, int levelId, LevelRunState maps, List<ProjectItem> items)
+        /// <param name="roguePolicy">三选一扩展功能开关。</param>
+        /// <param name="rogueAccess">第四选项的外部授权提供器。</param>
+        private ExpeditionRun(ProjectSession session, string runId, int levelId, LevelRunState maps, List<ProjectItem> items,
+            RogueChoicePolicy roguePolicy, IRogueChoiceAccessProvider rogueAccess)
         {
             this.session = session;
             RunId = runId;
             LevelId = levelId;
             Maps = maps;
+            rogueChoices = new RogueChoiceSession(runId, maps.Seed ^ 0x5247, roguePolicy);
+            rogueAccessProvider = rogueAccess;
+            rogueLootRandom = new System.Random(maps.Seed ^ 0x5291);
             random = new System.Random(maps.Seed ^ 0x5162);
             inventory.AddRange(items.ConvertAll(item => item.Copy()));
             ProjectCharacterStats attributes = ProjectEquipmentRules.Calculate(items, session.PowerRank, session.VitalityRank, session.AgilityRank);
@@ -119,12 +126,15 @@ namespace GameLogic.Gameplay.Expedition
         /// <param name="seed">本局随机种子。</param>
         /// <param name="items">入场装备快照。</param>
         /// <param name="run">创建成功的单局。</param>
+        /// <param name="roguePolicy">可选扩展配置，默认禁用刷新和第四选项。</param>
+        /// <param name="rogueAccess">可选的第四选项授权适配器。</param>
         /// <returns>图和战斗玩家均创建成功时为真。</returns>
-        public static bool TryCreate(ProjectSession session, string runId, int levelId, int seed, List<ProjectItem> items, out ExpeditionRun run)
+        public static bool TryCreate(ProjectSession session, string runId, int levelId, int seed, List<ProjectItem> items, out ExpeditionRun run,
+            RogueChoicePolicy roguePolicy = null, IRogueChoiceAccessProvider rogueAccess = null)
         {
             run = null;
             if (!LevelGenerator.TryGenerate(seed, out LevelRunState maps)) return false;
-            var created = new ExpeditionRun(session, runId, levelId, maps, items);
+            var created = new ExpeditionRun(session, runId, levelId, maps, items, roguePolicy, rogueAccess);
             if (created.Player.Id == 0)
             {
                 created.Dispose();
@@ -177,6 +187,7 @@ namespace GameLogic.Gameplay.Expedition
         public void SetPaused(bool value)
         {
             paused = value;
+            RogueChoiceChanged?.Invoke();
             if (!value) return;
             touchMove = Vector2.zero;
             interactionRequested = false;
@@ -201,7 +212,7 @@ namespace GameLogic.Gameplay.Expedition
         /// <param name="deltaTime">本帧模拟秒数。</param>
         public void Advance(float deltaTime)
         {
-            if (!IsRunning || !IsReady || paused || disposed || RoomView == null || session.HasPendingSave || GameEntry.IsInBackground)
+            if (!IsRunning || !IsReady || paused || IsChoosingRogue || disposed || RoomView == null || session.HasPendingSave || GameEntry.IsInBackground)
             {
                 World.ClearPendingTime();
                 if (GameEntry.IsInBackground) SetPaused(true);
@@ -261,7 +272,7 @@ namespace GameLogic.Gameplay.Expedition
                 if (interact) Interact(player.Position);
             }
             Changed?.Invoke();
-            return IsRunning;
+            return IsRunning && !IsChoosingRogue;
         }
 
         /// <summary>
@@ -389,6 +400,7 @@ namespace GameLogic.Gameplay.Expedition
         {
             stopped = true;
             IsRunning = false;
+            StopRogueChoices();
             World.ClearPendingTime();
             touchMove = Vector2.zero;
             interactionRequested = false;
@@ -406,6 +418,8 @@ namespace GameLogic.Gameplay.Expedition
             World.Dispose();
             Changed = null;
             CombatEventPublished = null;
+            RogueChoiceChanged = null;
+            rogueLifetime.Dispose();
         }
 
         /// <summary>
@@ -450,6 +464,7 @@ namespace GameLogic.Gameplay.Expedition
                 CurrentRoom.MarkChestOpened();
                 inventory.Add(PrototypeRules.CreateLoot(random, LevelId));
                 Message = "已打开箱子，获得一件战利品。";
+                TryBeginRogueChoice("chest:" + CurrentRoom.RoomId);
             }
             else if (kind == LevelInteractionKind.Npc)
             {

@@ -186,6 +186,20 @@ namespace GameLogic.Project
             if (random == null) return null;
             int typeRoll = random.Next(3);
             ProjectItemType type = typeRoll == 0 ? ProjectItemType.Weapon : typeRoll == 1 ? ProjectItemType.Armor : ProjectItemType.Item;
+            return CreateLoot(random, level, type);
+        }
+
+        /// <summary>
+        /// 按指定分类和现有品质权重生成一件冻结属性的奖励。
+        /// </summary>
+        /// <param name="random">奖励独立随机源。</param>
+        /// <param name="level">掉落等级。</param>
+        /// <param name="type">武器、护甲或普通物品分类。</param>
+        /// <returns>已冻结的奖励物品，输入无效时为空。</returns>
+        public static ProjectItem CreateLoot(System.Random random, int level, ProjectItemType type)
+        {
+            if (random == null || level < 1 || level > 1000 ||
+                type != ProjectItemType.Weapon && type != ProjectItemType.Armor && type != ProjectItemType.Item) return null;
             int qualityRoll = random.Next(100);
             int qualityIndex = 0;
             while (qualityIndex < QualityWeights.Length - 1 && qualityRoll >= QualityWeights[qualityIndex])

@@ -23,7 +23,7 @@ namespace MiniGame.Tests
     /// <summary>
     /// 使用内存存档和真实战斗场景验证完整单局往返。
     /// </summary>
-    public sealed class ProjectExpeditionPlayModeTests
+    public sealed partial class ProjectExpeditionPlayModeTests
     {
         /// <summary>
         /// 每项测试结束时关闭场景和框架宿主。

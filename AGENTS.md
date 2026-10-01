@@ -13,6 +13,7 @@
 - [核心玩法设计](docs/project/核心玩法设计.md)：当前已确认的玩法与结算规则；其中待定项不能当作已批准需求。
 - [玩家主要属性与货币设计](docs/project/玩家主要属性与货币设计.md)：等级、经验、体力、金币、钻石；M07 管成长和钱包，M09 管体力，买卖与物品变更统一保存。建议与待定项不能当作已批准规则。
 - [角色属性与装备词条](docs/project/角色属性与装备词条.md)：HP、攻击、防御、暴击值/暴击伤害、闪避、增伤/减伤，武器/护甲和六档品质；公式与词条数量为首版可调数值。
+- [Roguelike 三选一设计与实现](docs/project/Roguelike三选一设计与实现.md)：局内选择暂停、临时强化与物品奖励、默认关闭的刷新和第四项授权。
 - [技能成长设计](docs/project/技能成长设计.md)、[主界面设计](docs/project/主界面设计.md)：角色技能点的局外提升、Home 顶部五项属性与底部仓库/技能入口。
 - [关卡与地图设计](docs/project/关卡与地图设计.md)：随机连通地图、未清图自由往返、回访状态与撤离建议。
 - [ECS 战斗框架设计](docs/project/战斗框架设计.md)：统一效果执行、技能时间轴、飞弹和 Buff，包含固定时序与跨图状态；首版实现与验证范围见[首版代码实现与验证](docs/project/首版代码实现与验证.md)。
@@ -31,6 +32,7 @@
 - 主要属性确定为等级、经验、体力、金币、钻石。金币用于常规消费、购买物品，战利品可出售换金币；钻石为独立的高级货币，产出、价格与高级消费项目单独定义。消费使用固定币种，余额不足即交易失败。钻石来源/具体用途、出售细节和货币死亡政策仍待定。
 - 战斗属性包括 HP、攻击、防御、暴击值、暴击伤害、闪避、增伤、减伤；武器和护甲使用统一默认属性与随机词条。物品品质按普通/精良/优秀/史诗/传说/神器依次对应白/绿/蓝/紫/橙/红。公式、掉落权重与词条数为首版可调参数，高级条件词条及技能修改仍待后续接入。
 - 已新增 Home 五属性、仓库和技能界面、随机连通地图、Expedition 关卡场景及轻量 ECS 战斗首版；场景流程现由 ProjectRunCoordinator 接入 GameRoundFlow，包含入场/终局持久阶段、全局恢复与结果界面和返场确认。当前仍使用占位表现和原型数值，定向自动化验证已通过，完整设计及设备验收未完成。原始能力与历史验证见[首版代码实现与验证](docs/project/首版代码实现与验证.md)，新增流程边界见[场景流程首版实现与验证](docs/project/场景流程首版实现与验证.md)。尚未为本项目新增广告、付费、联网服务或微信 SDK。
+- Roguelike 三选一首版以战利品房开箱为原型入口：暂停 ECS 模拟，选择一项临时属性或随机战利品后恢复。刷新和第四项授权逻辑具备但默认关闭，尚无广告提供器。临时属性不写入局外技能或装备，物品沿用已有携出规则；中途选择不提供断点存档。
 - `DevProject/Assets/Scripts/GameFramework` 是框架唯一源码，当前不是已安装的 UPM 包；`DevProject/Packages` 保留 UniTask **2.5.11**、YooAsset **3.0.1-beta**、HybridCLR **8.12.0** 等模板依赖，渲染管线沿用模板。`GameFramework/package.json` 仅作未来包元数据。
 - `Assets/Resources/Framework.prefab`、`Assets/Scenes/Main.unity` 和 `Loading.unity` 属于固定宿主资产。`Assets/Scripts/Boot` 为固定启动层；`Assets/Scripts/GameLogic` 为热更游戏代码；`Assets/GameResources` 是 YooAsset `GamePackage` 的热更内容源。通用框架不得依赖项目玩法。
 - Excel 源表在 `config/excel`，当前为空；工具在 `tool`。生成 JSON 位于 `GameResources/Config/Tables`，可重生 C# 位于 `GameLogic/Runtime/Gen`，扩展 partial 位于 `GameLogic/Runtime/Ext`。

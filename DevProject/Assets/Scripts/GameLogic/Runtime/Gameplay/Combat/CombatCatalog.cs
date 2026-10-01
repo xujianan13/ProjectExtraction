@@ -14,6 +14,7 @@ namespace GameLogic.Gameplay.Combat
     public sealed class CombatEffectDefinition
     {
         public CombatEffectKind Kind;
+        public CombatAttributeKind Attribute;
         public int DefinitionId;
         public float Value;
         public float AttackCoefficient;

@@ -1,3 +1,4 @@
+using System;
 using System.Threading;
 using Cysharp.Threading.Tasks;
 using GameFramework;
@@ -14,6 +15,7 @@ namespace GameLogic.Scenes.Expedition
         private GameplayHandle gameplay;
         private ExpeditionPresentation presentation;
         private ExpeditionRun run;
+        private bool openingRogueChoice;
 
         /// <summary>
         /// 创建关卡逻辑场景。
@@ -35,6 +37,8 @@ namespace GameLogic.Scenes.Expedition
                 throw new System.InvalidOperationException("关卡场景入参与当前单局不匹配。");
             run = current;
             LifetimeScope scope = SceneScope;
+            current.RogueChoiceChanged += OnRogueChoiceChanged;
+            scope.Defer(() => current.RogueChoiceChanged -= OnRogueChoiceChanged);
             scope.Defer(() =>
             {
                 if (gameplay.IsValid) GameEntry.Get<IGameplayModule>().Stop(gameplay);
@@ -66,6 +70,7 @@ namespace GameLogic.Scenes.Expedition
         protected override async UniTask OnExitSceneAsync(CancellationToken ct)
         {
             run?.Stop();
+            await GameEntry.Get<IUIModule>().CloseWindowAsync(ProjectServices.RogueChoiceWindow, GameWindowCloseReason.ScopeExit);
             await GameEntry.Get<IUIModule>().CloseWindowAsync(ProjectServices.BattleHudWindow, GameWindowCloseReason.ScopeExit);
             if (gameplay.IsValid) await GameEntry.Get<IGameplayModule>().StopAsync(gameplay);
             Cleanup();
@@ -79,6 +84,40 @@ namespace GameLogic.Scenes.Expedition
             run?.Stop();
             if (gameplay.IsValid) GameEntry.Get<IGameplayModule>().Stop(gameplay);
             Cleanup();
+        }
+
+        /// <summary>
+        /// 在单局停在安全帧边界后安排弹出当前奖励。
+        /// </summary>
+        private void OnRogueChoiceChanged()
+        {
+            if (run?.IsRunning == true && run.IsChoosingRogue && SceneScope.IsActive && !openingRogueChoice)
+                OpenRogueChoiceAsync(run, SceneScope).Forget();
+        }
+
+        /// <summary>
+        /// 使用场景作用域打开三选一，失败时保留冻结状态与 HUD 重开入口。
+        /// </summary>
+        /// <param name="owner">发起选择的单局。</param>
+        /// <param name="scope">当前场景作用域。</param>
+        /// <returns>弹窗打开任务。</returns>
+        private async UniTask OpenRogueChoiceAsync(ExpeditionRun owner, LifetimeScope scope)
+        {
+            openingRogueChoice = true;
+            try
+            {
+                await UniTask.Yield(PlayerLoopTiming.Update, scope.Token);
+                if (!scope.IsActive || !ReferenceEquals(run, owner) || !owner.IsRunning || !owner.IsChoosingRogue) return;
+                GameWindow window = await GameEntry.Get<IUIModule>().OpenWindowAsync(ProjectServices.RogueChoiceWindow,
+                    new GameWindowOpenArgs(owner), scope.Token);
+                if (window == null) GameEntry.Get<ILogModule>()?.Error("Roguelike", "三选一窗口未打开，请从 HUD 继续选择。");
+            }
+            catch (OperationCanceledException) when (!scope.IsActive) { }
+            catch (Exception error)
+            {
+                if (scope.IsActive) GameEntry.Get<ILogModule>()?.Error("Roguelike", "三选一窗口打开失败：" + error.Message);
+            }
+            finally { openingRogueChoice = false; }
         }
 
         /// <summary>
