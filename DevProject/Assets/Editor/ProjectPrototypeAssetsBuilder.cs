@@ -67,6 +67,8 @@ namespace MiniGame.Editor
             EnsurePrimitivePrefab(Gameplay + "/Effects/PF_TestProjectile.prefab", PrimitiveType.Sphere, projectile);
             EnsurePrimitivePrefab(Gameplay + "/Effects/PF_TestMeleeCue.prefab", PrimitiveType.Cube, meleeCue);
 
+            if (!ProjectCharacterAnimationBuilder.EnsureMissing()) Failed.Add("角色动画资源");
+
             AssetDatabase.SaveAssets();
             AssetDatabase.Refresh();
             string report = $"新增 {Created.Count}，已存在 {Skipped.Count}，失败 {Failed.Count}。\n新增：{string.Join(", ", Created)}\n已存在：{string.Join(", ", Skipped)}\n失败：{string.Join(", ", Failed)}";

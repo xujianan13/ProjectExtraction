@@ -438,6 +438,47 @@ void ConfigureWindows(IEnumerable<GameWindowConfig> configs, Action<GameWindowRe
 void ShowToast(string message, float durationSeconds = 2.5f);
 ```
 
+## 播放、暂停和采样 Animator 状态 · AnimatorPlayback
+
+辅助类型，不经 `GameEntry.Get<T>()` 获取。命名空间：`GameFramework`
+
+源码：[AnimatorPlayback](../../../DevProject/Assets/Scripts/GameFramework/Runtime/Utilities/Animation/AnimatorPlayback.cs) · 指南：[使用约定](../../../docs/framework/通用动画播放.md) · [可编译示例](../../../DevProject/Assets/Tests/PlayMode/ApiRecipes.cs)
+
+所有者：调用方在模型回收前 Dispose；不销毁模型或资源；取消：Stop 停止播放；Dispose 恢复原 Animator 配置；失败：无效参数或缺失状态返回 false；线程：Unity 主线程；暂停：本地模式由 SetPaused 控制；外部采样由调用方时钟决定。
+
+```csharp
+bool IsPaused { get; }
+bool IsValid { get; }
+public AnimatorPlayback(Animator animator);
+public bool TryGetState(int layer, out AnimationPlaybackState state);
+public bool TryPlay(string stateName, bool loop = false, float speed = 1f, int layer = 0, float startNormalizedTime = 0f);
+public bool TrySample(string stateName, float normalizedTime, int layer = 0);
+public bool TrySetSpeed(float speed, int layer = 0);
+public void Advance(float deltaTime);
+public void Dispose();
+public void Reset();
+public void SetPaused(bool paused);
+public void Stop();
+```
+
+## 读取动画层播放进度 · AnimationPlaybackState
+
+辅助类型，不经 `GameEntry.Get<T>()` 获取。命名空间：`GameFramework`
+
+源码：[AnimationPlaybackState](../../../DevProject/Assets/Scripts/GameFramework/Runtime/Utilities/Animation/AnimatorPlayback.cs) · 指南：[使用约定](../../../docs/framework/通用动画播放.md) · [可编译示例](../../../DevProject/Assets/Tests/PlayMode/ApiRecipes.cs)
+
+所有者：不可变快照，无需释放；取消：同步读取无取消；失败：TryGetState 返回 false 时输出默认值；线程：Unity 主线程；暂停：按具体调用及模块文档。
+
+```csharp
+bool Completed { get; }
+bool ExternalClock { get; }
+bool Loop { get; }
+float NormalizedTime { get; }
+float Speed { get; }
+public AnimationPlaybackState(string stateName, float normalizedTime, float speed, bool loop, bool externalClock, bool completed);
+string StateName { get; }
+```
+
 ## 托管本轮生命周期 · LifetimeScope
 
 辅助类型，不经 `GameEntry.Get<T>()` 获取。命名空间：`GameFramework`

@@ -86,8 +86,21 @@ namespace ProjectExtraction.Tests
             Assert.That(AssetDatabase.LoadAssetAtPath<GameObject>(PathFor("SC_Expedition")).GetComponentInChildren<Camera>(true), Is.Not.Null);
             foreach (string location in new[] { "PF_TestPlayer", "PF_TestEnemy", "PF_TestBoss", "PF_TestNpc" })
             {
-                MeshFilter mesh = AssetDatabase.LoadAssetAtPath<GameObject>(PathFor(location)).GetComponentInChildren<MeshFilter>(true);
+                GameObject prefab = AssetDatabase.LoadAssetAtPath<GameObject>(PathFor(location));
+                MeshFilter mesh = prefab.GetComponentInChildren<MeshFilter>(true);
                 Assert.That(mesh.sharedMesh.name, Is.EqualTo("Capsule"), location);
+                Animator animator = prefab.GetComponent<Animator>();
+                Assert.That(animator, Is.Not.Null, location);
+                Assert.That(animator.applyRootMotion, Is.False, location);
+                Assert.That(AssetDatabase.GetAssetPath(animator.runtimeAnimatorController),
+                    Is.EqualTo(Root + "/Art/Prototype/Animations/Controllers/AC_TestCharacter.controller"), location);
+                Assert.That(animator.runtimeAnimatorController.animationClips.Length, Is.EqualTo(5));
+                foreach (AnimationClip clip in animator.runtimeAnimatorController.animationClips)
+                {
+                    Assert.That(clip.events, Is.Empty, clip.name);
+                    Assert.That(AssetDatabase.GetAssetPath(clip), Does.StartWith(Root + "/Art/Prototype/Animations/Clips/"));
+                    Assert.That(AnimationUtility.GetCurveBindings(clip).All(binding => binding.path == "Mesh"), Is.True);
+                }
             }
         }
 

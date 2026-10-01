@@ -119,7 +119,7 @@ namespace GameLogic.Gameplay.Combat
             var catalog = new CombatCatalog();
             var attack = new CombatSkillDefinition { CombatSkillId = 1, DurationTicks = 16, CooldownTicks = 24, StartRange = 2.2f };
             var cue = new CombatTimelineNode { Tick = 0 };
-            cue.Effects.Add(new CombatEffectDefinition { Kind = CombatEffectKind.Cue, DefinitionId = 1 });
+            cue.Effects.Add(new CombatEffectDefinition { Kind = CombatEffectKind.Cue, DefinitionId = 1, DurationTicks = 16 });
             var dash = new CombatTimelineNode { Tick = 5 };
             dash.Effects.Add(new CombatEffectDefinition { Kind = CombatEffectKind.Displace, DefinitionId = 2, Value = 2f, DurationTicks = 5 });
             var hit = new CombatTimelineNode { Tick = 10 };

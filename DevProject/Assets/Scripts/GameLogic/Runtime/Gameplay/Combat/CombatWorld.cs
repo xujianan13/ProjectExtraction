@@ -29,6 +29,13 @@ namespace GameLogic.Gameplay.Combat
             public bool DeadPending;
             public bool DeathPublished;
             public int LastInstigatorActorId;
+            public Vector3 Velocity;
+            public Vector3 CueDirection;
+            public int CueId;
+            public int CueDurationTicks;
+            public long CueClock = -1;
+            public long HitClock = -1;
+            public long DeathClock = -1;
         }
 
         private readonly struct CombatOffense
@@ -265,6 +272,7 @@ namespace GameLogic.Gameplay.Combat
             if (!IsValid(actor) || !actors.TryGetValue(actor.Id, out var state) || !IsFinite(position) ||
                 !CanOccupy(state.Spec.RoomId, position, state.Spec.Radius)) return false;
             state.Position = position;
+            state.Velocity = Vector3.zero;
             return true;
         }
 
@@ -282,6 +290,9 @@ namespace GameLogic.Gameplay.Combat
             RemoveOwnedDisplacement(player.Id);
             state.Spec.RoomId = roomId;
             state.Move = Vector2.zero;
+            foreach (var actor in actors.Values) actor.Velocity = Vector3.zero;
+            state.CueId = 0;
+            state.CueClock = -1;
             activeRoomId = roomId;
             playerId = player.Id;
             if (!roomTicks.ContainsKey(roomId)) roomTicks.Add(roomId, 0);
@@ -375,6 +386,27 @@ namespace GameLogic.Gameplay.Combat
             snapshot = default;
             if (!IsValid(actor) || !actors.TryGetValue(actor.Id, out var state)) return false;
             snapshot = MakeSnapshot(actor.Id, state);
+            return true;
+        }
+
+        /// <summary>
+        /// 查询角色动画所需的只读战斗状态。
+        /// </summary>
+        /// <param name="actor">角色实体引用。</param>
+        /// <param name="snapshot">查询成功时的动画状态快照。</param>
+        /// <returns>引用属于当前世界且角色仍存在则为真。</returns>
+        public bool TryGetAnimationSnapshot(CombatEntityRef actor, out CombatAnimationSnapshot snapshot)
+        {
+            snapshot = default;
+            if (!IsValid(actor) || !actors.TryGetValue(actor.Id, out var state)) return false;
+            var clock = state.Spec.IsPlayer ? TickIndex : GetRoomTick(state.Spec.RoomId);
+            var cueElapsed = state.CueClock >= 0 ? clock - state.CueClock : -1;
+            var cueActive = state.CueId != 0 && cueElapsed >= 0 && cueElapsed < state.CueDurationTicks;
+            snapshot = new CombatAnimationSnapshot(actor, state.Spec.ActorId, state.Spec.RoomId, clock, state.Forward,
+                state.Velocity, cueActive ? state.CueDirection : Vector3.zero, cueActive ? state.CueId : 0,
+                cueActive ? (int)cueElapsed : 0, cueActive ? state.CueDurationTicks : 0,
+                state.HitClock >= 0 ? (int)Math.Min(int.MaxValue, clock - state.HitClock) : -1,
+                state.DeathClock >= 0 ? (int)Math.Min(int.MaxValue, clock - state.DeathClock) : -1, state.DeadPending);
             return true;
         }
 

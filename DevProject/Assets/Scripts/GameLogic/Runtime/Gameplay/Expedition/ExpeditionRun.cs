@@ -561,6 +561,7 @@ namespace GameLogic.Gameplay.Expedition
             CombatCatalog catalog = CombatCatalog.CreatePrototype();
             CombatSkillDefinition player = catalog.Skills[1];
             player.StartRange = attackRange + 0.6f;
+            player.Nodes[0].Effects[0].DurationTicks = 16;
             player.Nodes[1].Effects[0].Value = 0.35f;
             CombatEffectDefinition hit = player.Nodes[2].Effects[0];
             hit.Value = 0;
@@ -569,7 +570,7 @@ namespace GameLogic.Gameplay.Expedition
             hit.Shape = CombatHitShape.Circle;
             var enemy = new CombatSkillDefinition { CombatSkillId = 2, DurationTicks = 38, CooldownTicks = 65, StartRange = 2.1f };
             var cue = new CombatTimelineNode { Tick = 0 };
-            cue.Effects.Add(new CombatEffectDefinition { Kind = CombatEffectKind.Cue, DefinitionId = 20 });
+            cue.Effects.Add(new CombatEffectDefinition { Kind = CombatEffectKind.Cue, DefinitionId = 20, DurationTicks = 38 });
             var strike = new CombatTimelineNode { Tick = 25 };
             strike.Effects.Add(new CombatEffectDefinition { Kind = CombatEffectKind.Damage, DefinitionId = 21, AttackCoefficient = 1,
                 Radius = 1.7f, Shape = CombatHitShape.Sector, Angle = 100, Height = 2, RequireLineOfSight = true });
@@ -579,7 +580,9 @@ namespace GameLogic.Gameplay.Expedition
             var boss = new CombatSkillDefinition { CombatSkillId = 3, DurationTicks = 48, CooldownTicks = 90, StartRange = 8 };
             var launch = new CombatTimelineNode { Tick = 30 };
             launch.Effects.Add(new CombatEffectDefinition { Kind = CombatEffectKind.SpawnProjectile, DefinitionId = 30, LinkedId = 1 });
-            boss.Nodes.Add(cue);
+            var bossCue = new CombatTimelineNode { Tick = 0 };
+            bossCue.Effects.Add(new CombatEffectDefinition { Kind = CombatEffectKind.Cue, DefinitionId = 30, DurationTicks = 48 });
+            boss.Nodes.Add(bossCue);
             boss.Nodes.Add(launch);
             catalog.Skills.Add(3, boss);
             catalog.Projectiles[1].OnHit[0].Value = 0;

@@ -100,6 +100,13 @@ namespace GameLogic.Gameplay.Expedition
                     LogFailure("SC_Expedition 缺少 Camera，拒绝进入关卡。");
                     return null;
                 }
+                foreach (GameObject character in new[] { assets.Player, assets.Enemy, assets.Boss, assets.Npc })
+                {
+                    Animator animator = character.GetComponent<Animator>();
+                    if (animator != null && animator.runtimeAnimatorController != null) continue;
+                    LogFailure("角色预制件缺少 Animator 或动画控制器：" + character.name);
+                    return null;
+                }
                 if (!scope.TryOwn(group)) throw new OperationCanceledException(scope.Token);
                 group = null;
                 return assets;

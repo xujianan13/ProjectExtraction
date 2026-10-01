@@ -1,4 +1,5 @@
 using GameLogic.Project;
+using GameFramework;
 using System;
 using System.Collections.Generic;
 using GameLogic.Gameplay.Combat;
@@ -17,6 +18,10 @@ namespace GameLogic.Gameplay.Expedition
         private readonly GameObject root;
         private readonly Camera camera;
         private readonly Dictionary<int, GameObject> actors = new();
+        private readonly Dictionary<int, CombatCharacterAnimation> animations = new();
+        private readonly HashSet<int> visibleActors = new();
+        private GameObject ambientRoom;
+        private AnimatorPlayback ambientAnimation;
         private readonly Dictionary<string, GameObject> loot = new();
         private readonly List<CombatActorSnapshot> snapshots = new();
         private readonly Dictionary<CombatEntityRef, GameObject> projectiles = new();
@@ -42,6 +47,7 @@ namespace GameLogic.Gameplay.Expedition
             public int ActorId;
             public int RoomId;
             public long StartTick;
+            public int DurationTicks;
             public Vector3 Direction;
         }
 
@@ -72,11 +78,12 @@ namespace GameLogic.Gameplay.Expedition
         public void Refresh()
         {
             if (disposed) return;
-            foreach (GameObject actor in actors.Values) actor.SetActive(false);
+            visibleActors.Clear();
             run.World.GetActorsSnapshot(snapshots);
             foreach (CombatActorSnapshot snapshot in snapshots)
             {
-                if (snapshot.RoomId != run.Maps.CurrentRoomId || snapshot.Dead) continue;
+                if (snapshot.RoomId != run.Maps.CurrentRoomId || !run.World.TryGetAnimationSnapshot(snapshot.Entity, out var motion)) continue;
+                if (snapshot.Dead && motion.DeathElapsedTicks >= CombatCharacterAnimation.DeathDurationTicks) continue;
                 if (!actors.TryGetValue(snapshot.ActorId, out GameObject actor))
                 {
                     bool isPlayer = snapshot.ActorId == 1;
@@ -84,15 +91,21 @@ namespace GameLogic.Gameplay.Expedition
                     actor = CreateModel("Actor_" + snapshot.ActorId, isPlayer ? assets.Player : isBoss ? assets.Boss : assets.Enemy);
                     actor.transform.localScale = isBoss ? new Vector3(1.8f, 1.5f, 1.8f) : new Vector3(0.9f, 1f, 0.9f);
                     actors.Add(snapshot.ActorId, actor);
+                    animations.Add(snapshot.ActorId, new CombatCharacterAnimation(actor));
                 }
-                actor.SetActive(true);
+                visibleActors.Add(snapshot.ActorId);
+                if (!actor.activeSelf) actor.SetActive(true);
                 actor.transform.position = snapshot.Position + Vector3.up * actor.transform.localScale.y;
+                animations[snapshot.ActorId].Sample(motion);
                 if (snapshot.ActorId == 1)
                 {
                     camera.transform.position = snapshot.Position + new Vector3(0, 18, -11.25f);
                     camera.orthographicSize = Mathf.Max(10, 7 / Mathf.Max(0.4f, camera.aspect));
                 }
             }
+            foreach (var pair in actors)
+                if (!visibleActors.Contains(pair.Key) && pair.Value.activeSelf) pair.Value.SetActive(false);
+            RefreshAmbientAnimation();
             foreach (GameObject item in loot.Values) item.SetActive(false);
             foreach (ExpeditionDrop drop in run.Drops)
             {
@@ -119,11 +132,33 @@ namespace GameLogic.Gameplay.Expedition
             if (disposed) return;
             disposed = true;
             run.CombatEventPublished -= PresentEvent;
+            foreach (CombatCharacterAnimation animation in animations.Values) animation.Dispose();
+            animations.Clear();
+            ambientAnimation?.Dispose();
+            ambientAnimation = null;
+            ambientRoom = null;
             ReleaseObject(root);
             actors.Clear();
             loot.Clear();
             projectiles.Clear();
             cues.Clear();
+        }
+
+        /// <summary>
+        /// 用通用播放器驱动房间内 NPC 的待机，使三选一暂停时环境角色也同步冻结。
+        /// </summary>
+        private void RefreshAmbientAnimation()
+        {
+            GameObject room = run.RoomView?.Root;
+            if (ambientRoom != room)
+            {
+                ambientAnimation?.Dispose();
+                ambientAnimation = null;
+                ambientRoom = room;
+                Animator npc = room != null ? room.GetComponentInChildren<Animator>() : null;
+                if (npc != null) ambientAnimation = new AnimatorPlayback(npc);
+            }
+            ambientAnimation?.TrySample("Base Layer.Idle", Mathf.Repeat((float)(run.World.TickIndex * CombatWorld.TickSeconds), 1f));
         }
 
         /// <summary>
@@ -161,23 +196,36 @@ namespace GameLogic.Gameplay.Expedition
         /// <param name="fact">已经确认的战斗事件。</param>
         private void PresentEvent(CombatEvent fact)
         {
-            if (disposed || fact.RoomId != run.Maps.CurrentRoomId || fact.Kind != CombatEventKind.Cue) return;
+            if (disposed) return;
+            if (fact.Kind == CombatEventKind.Death || fact.Kind == CombatEventKind.CastCancelled)
+            {
+                int owner = fact.Kind == CombatEventKind.Death ? fact.TargetActorId : fact.ActorId;
+                for (int index = cues.Count - 1; index >= 0; index--)
+                {
+                    if (cues[index].ActorId != owner) continue;
+                    ReleaseObject(cues[index].Object);
+                    cues.RemoveAt(index);
+                }
+                return;
+            }
+            if (fact.RoomId != run.Maps.CurrentRoomId || fact.Kind != CombatEventKind.Cue) return;
+            if (fact.DefinitionId != 1 && fact.DefinitionId != 20 && fact.DefinitionId != 30) return;
             Vector3 direction = Vector3.forward;
+            int duration = 18;
             run.World.GetActorsSnapshot(snapshots);
             foreach (CombatActorSnapshot actor in snapshots)
             {
-                if (actor.ActorId != fact.TargetActorId) continue;
-                direction = actor.Position - fact.Position;
-                direction.y = 0;
-                if (direction.sqrMagnitude > 0.001f) direction.Normalize();
-                else direction = Vector3.forward;
+                if (actor.ActorId != fact.ActorId || !run.World.TryGetAnimationSnapshot(actor.Entity, out var motion)) continue;
+                if (motion.Dead) return;
+                direction = motion.CueDirection;
+                duration = Mathf.Max(1, motion.CueDurationTicks);
                 break;
             }
             GameObject model = CreateModel("SkillCue", assets.MeleeCue);
             ApplyTint(model, fact.ActorId == 1 ? new Color(0.7f, 1, 1) : new Color(1, 0.55f, 0.2f));
             model.transform.localScale = new Vector3(0.14f, 0.14f, 1.7f);
             cues.Add(new CombatCueView { Object = model, ActorId = fact.ActorId, RoomId = fact.RoomId,
-                StartTick = fact.Tick, Direction = direction });
+                StartTick = fact.Tick, DurationTicks = duration, Direction = direction });
         }
 
         /// <summary>
@@ -188,7 +236,7 @@ namespace GameLogic.Gameplay.Expedition
             for (int index = cues.Count - 1; index >= 0; index--)
             {
                 CombatCueView cue = cues[index];
-                float progress = (run.World.TickIndex - cue.StartTick) / 18f;
+                float progress = (run.World.TickIndex - cue.StartTick) / (float)cue.DurationTicks;
                 if (progress >= 1 || cue.RoomId != run.Maps.CurrentRoomId || !actors.TryGetValue(cue.ActorId, out GameObject actor) || !actor.activeSelf)
                 {
                     ReleaseObject(cue.Object);

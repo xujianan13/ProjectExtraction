@@ -284,6 +284,32 @@
   ],
   "companionTypes": [
     {
+      "task": "播放、暂停和采样 Animator 状态",
+      "symbol": "GameFramework.AnimatorPlayback",
+      "source": "DevProject/Assets/Scripts/GameFramework/Runtime/Utilities/Animation/AnimatorPlayback.cs",
+      "guide": "docs/framework/通用动画播放.md",
+      "recipe": "DevProject/Assets/Tests/PlayMode/ApiRecipes.cs",
+      "owner": "调用方在模型回收前 Dispose；不销毁模型或资源",
+      "cancellation": "Stop 停止播放；Dispose 恢复原 Animator 配置",
+      "failure": "无效参数或缺失状态返回 false",
+      "thread": "Unity 主线程",
+      "paused": "本地模式由 SetPaused 控制；外部采样由调用方时钟决定",
+      "signatures": ["bool IsPaused { get; }", "bool IsValid { get; }", "public AnimatorPlayback(Animator animator);", "public bool TryGetState(int layer, out AnimationPlaybackState state);", "public bool TryPlay(string stateName, bool loop = false, float speed = 1f, int layer = 0, float startNormalizedTime = 0f);", "public bool TrySample(string stateName, float normalizedTime, int layer = 0);", "public bool TrySetSpeed(float speed, int layer = 0);", "public void Advance(float deltaTime);", "public void Dispose();", "public void Reset();", "public void SetPaused(bool paused);", "public void Stop();"]
+    },
+    {
+      "task": "读取动画层播放进度",
+      "symbol": "GameFramework.AnimationPlaybackState",
+      "source": "DevProject/Assets/Scripts/GameFramework/Runtime/Utilities/Animation/AnimatorPlayback.cs",
+      "guide": "docs/framework/通用动画播放.md",
+      "recipe": "DevProject/Assets/Tests/PlayMode/ApiRecipes.cs",
+      "owner": "不可变快照，无需释放",
+      "cancellation": "同步读取无取消",
+      "failure": "TryGetState 返回 false 时输出默认值",
+      "thread": "Unity 主线程",
+      "paused": "按具体调用及模块文档",
+      "signatures": ["bool Completed { get; }", "bool ExternalClock { get; }", "bool Loop { get; }", "float NormalizedTime { get; }", "float Speed { get; }", "public AnimationPlaybackState(string stateName, float normalizedTime, float speed, bool loop, bool externalClock, bool completed);", "string StateName { get; }"]
+    },
+    {
       "task": "托管本轮生命周期",
       "symbol": "GameFramework.LifetimeScope",
       "source": "DevProject/Assets/Scripts/GameFramework/Runtime/Core/Lifetime/LifetimeScope.cs",

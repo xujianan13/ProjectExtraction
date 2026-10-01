@@ -48,6 +48,7 @@ namespace GameLogic.Gameplay.Combat
                 foreach (var wall in walls)
                     if (SweepAabb(start, end, wall, actor.Spec.Radius, out var t, out _) && t < hitT) hitT = t;
             actor.Position = Vector3.Lerp(start, end, Mathf.Max(0f, hitT - 0.001f));
+            actor.Velocity += (actor.Position - start) / TickSeconds;
             var horizontal = new Vector3(delta.x, 0f, delta.z);
             if (horizontal.sqrMagnitude > 0.0001f) actor.Forward = horizontal.normalized;
         }
@@ -62,6 +63,7 @@ namespace GameLogic.Gameplay.Combat
             foreach (var id in actorIds)
             {
                 var actor = actors[id];
+                if (actor.Spec.RoomId == activeRoomId) actor.Velocity = Vector3.zero;
                 if (actor.DeadPending || actor.Spec.RoomId != activeRoomId) continue;
                 var motion = new Vector3(actor.Move.x, 0f, actor.Move.y) *
                     Mathf.Max(0f, actor.Spec.MoveSpeed + actor.MoveBonus) * TickSeconds;
@@ -127,6 +129,11 @@ namespace GameLogic.Gameplay.Combat
         /// <param name="mapTransfer">是否因成功换图取消。</param>
         private void CancelOwnedCast(int owner, bool mapTransfer)
         {
+            if (actors.TryGetValue(owner, out var cueOwner))
+            {
+                cueOwner.CueId = 0;
+                cueOwner.CueClock = -1;
+            }
             var castIds = new List<int>();
             foreach (var pair in casts)
                 if (pair.Value.Owner == owner) castIds.Add(pair.Key);
@@ -397,6 +404,15 @@ namespace GameLogic.Gameplay.Combat
             {
                 case CombatEffectKind.Cue:
                     var cueHasActor = actors.TryGetValue(command.Source, out var cueActor);
+                    if (cueHasActor)
+                    {
+                        var cueDirection = new Vector3(command.Direction.x, 0f, command.Direction.z);
+                        if (cueDirection.sqrMagnitude < 0.0001f) cueDirection = cueActor.Forward;
+                        cueActor.CueDirection = cueDirection.normalized;
+                        cueActor.CueId = effect.DefinitionId;
+                        cueActor.CueDurationTicks = effect.DurationTicks > 0 ? effect.DurationTicks : 18;
+                        cueActor.CueClock = GetBuffClock(cueActor);
+                    }
                     ProjectileComponent cueProjectile = null;
                     var room = cueHasActor ? cueActor.Spec.RoomId :
                         projectiles.TryGetValue(command.Source, out cueProjectile) ? cueProjectile.RoomId : activeRoomId;
@@ -505,6 +521,7 @@ namespace GameLogic.Gameplay.Combat
             damage *= 100d / (100d + target.Spec.Defense);
             damage *= 1d - target.Spec.DamageReduction;
             float actual = (float)Math.Min(target.Health, Math.Min(float.MaxValue, Math.Max(0d, damage)));
+            if (actual > 0f) target.HitClock = GetBuffClock(target);
             target.Health -= actual;
             if (target.Health <= 0f)
             {
@@ -688,6 +705,7 @@ namespace GameLogic.Gameplay.Combat
                 var actor = actors[id];
                 if (!actor.DeadPending || actor.DeathPublished || actor.Spec.RoomId != activeRoomId) continue;
                 actor.DeathPublished = true;
+                actor.DeathClock = GetBuffClock(actor);
                 CancelOwnedCast(id, false);
                 RemoveOwnedDisplacement(id);
                 var buffIds = new List<int>();

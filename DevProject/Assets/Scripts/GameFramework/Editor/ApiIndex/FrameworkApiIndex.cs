@@ -84,6 +84,8 @@ namespace GameFramework.Editor.ApiIndex
 
         private static readonly Entry[] CompanionEntries =
         {
+            Module("AnimatorPlayback", "播放、暂停和采样 Animator 状态", "Utilities/Animation/AnimatorPlayback.cs", "docs/framework/通用动画播放.md", "调用方在模型回收前 Dispose；不销毁模型或资源", "Stop 停止播放；Dispose 恢复原 Animator 配置", "无效参数或缺失状态返回 false", paused: "本地模式由 SetPaused 控制；外部采样由调用方时钟决定"),
+            Module("AnimationPlaybackState", "读取动画层播放进度", "Utilities/Animation/AnimatorPlayback.cs", "docs/framework/通用动画播放.md", "不可变快照，无需释放", "同步读取无取消", "TryGetState 返回 false 时输出默认值"),
             Module("LifetimeScope", "托管本轮生命周期", "Core/Lifetime/LifetimeScope.cs", LifetimeGuide, "创建者持有并释放作用域", "Stop 取消本轮；Dispose 完成同步清理", "失活后登记立即清理"),
             Module("LifetimeScopeExtensions", "将事件、输入、计时器和资源绑定到作用域", "Core/Lifetime/LifetimeScopeExtensions.cs", LifetimeGuide, "调用方的 LifetimeScope 持有登记", "作用域停止后回调失活", "迟到资源自动释放"),
             Module("SceneBase", "实现逻辑场景生命周期", "Modules/Scene/SceneBase.cs", "docs/framework/关卡与单局流程.md", "SceneScope 持有本轮工作", "退出使用独立令牌", "进入失败时释放本轮作用域"),
