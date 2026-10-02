@@ -3,7 +3,7 @@ using UnityEngine;
 namespace GameLogic.UI.Battle
 {
     /// <summary>
-    /// 在当前安全区内排列战斗信息、圆形摇杆、操作按钮与背包。
+    /// 在当前安全区内排列战斗信息、圆形摇杆与操作按钮。
     /// </summary>
     public sealed class BattleHudLayout : MonoBehaviour
     {
@@ -12,7 +12,6 @@ namespace GameLogic.UI.Battle
         private RectTransform minimap;
         private RectTransform stick;
         private RectTransform actions;
-        private RectTransform bag;
 
         /// <summary>
         /// 绑定现有控件并按安全区实际尺寸布局。
@@ -21,15 +20,13 @@ namespace GameLogic.UI.Battle
         /// <param name="minimap">右上小地图。</param>
         /// <param name="stick">左下圆形摇杆。</param>
         /// <param name="actions">右下操作区。</param>
-        /// <param name="bag">中部背包区。</param>
-        public void Configure(RectTransform header, RectTransform minimap, RectTransform stick, RectTransform actions, RectTransform bag)
+        public void Configure(RectTransform header, RectTransform minimap, RectTransform stick, RectTransform actions)
         {
             area = (RectTransform)transform;
             this.header = header;
             this.minimap = minimap;
             this.stick = stick;
             this.actions = actions;
-            this.bag = bag;
             Refresh();
         }
 
@@ -43,7 +40,7 @@ namespace GameLogic.UI.Battle
         /// </summary>
         public void Refresh()
         {
-            if (area == null || header == null || minimap == null || stick == null || actions == null || bag == null) return;
+            if (area == null || header == null || minimap == null || stick == null || actions == null) return;
             float width = area.rect.width;
             float height = area.rect.height;
             if (width <= 0f || height <= 0f) return;
@@ -56,9 +53,6 @@ namespace GameLogic.UI.Battle
             Pin(minimap, Vector2.one, new Vector2(-padding, -padding), Vector2.one * mapSize);
             Pin(stick, Vector2.zero, new Vector2(padding, padding * 2f), Vector2.one * diameter);
             Pin(actions, Vector2.right, new Vector2(-padding, padding * 2f), new Vector2(actionWidth, controlsHeight));
-            float bottom = padding * 3f + Mathf.Max(diameter, controlsHeight);
-            float top = height - padding * 2f - Mathf.Max(mapSize, 214f);
-            Pin(bag, Vector2.zero, new Vector2(padding, bottom), new Vector2(width - padding * 2f, Mathf.Max(120f, top - bottom)));
         }
 
         /// <summary>

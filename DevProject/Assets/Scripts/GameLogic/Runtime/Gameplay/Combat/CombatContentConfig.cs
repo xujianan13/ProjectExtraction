@@ -135,12 +135,13 @@ namespace GameLogic.Gameplay.Combat
             if (float.IsNaN(attackRange) || float.IsInfinity(attackRange) || attackRange <= 0)
                 throw new ArgumentOutOfRangeException(nameof(attackRange));
             if (!Validate(out string error)) throw new InvalidOperationException(error);
-            var catalog = new CombatCatalog();
+            var catalog = new CombatCatalog { InitialAttackRange = attackRange };
             foreach (CfgCombatSkillsRow row in GameTables.CfgCombatSkills.GetAll())
                 catalog.Skills.Add(row.ID, new CombatSkillDefinition
                 {
                     CombatSkillId = row.ID, DurationTicks = row.DurationTicks, CooldownTicks = row.CooldownTicks,
-                    StartRange = (float)row.StartRange + (row.StartRangeSource == 1 ? attackRange : 0)
+                    StartRange = (float)row.StartRange + (row.StartRangeSource == 1 ? attackRange : 0),
+                    AttackRangeSource = row.StartRangeSource == 1
                 });
             var nodes = new List<CfgCombatTimelineNodesRow>(GameTables.CfgCombatTimelineNodes.GetAll());
             nodes.Sort((left, right) =>
@@ -214,6 +215,7 @@ namespace GameLogic.Gameplay.Combat
                     CanDodge = row.CanDodge, DurationTicks = row.DurationTicks, LinkedId = row.LinkedID,
                     Shape = (CombatHitShape)row.Shape,
                     Radius = (float)row.Radius + (row.RadiusSource == 1 ? attackRange : 0),
+                    AttackRangeSource = row.RadiusSource == 1,
                     Angle = (float)row.Angle, Width = (float)row.Width, Height = (float)row.Height,
                     RequireLineOfSight = row.RequireLineOfSight
                 });

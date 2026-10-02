@@ -50,7 +50,7 @@ namespace GameLogic.Gameplay.Combat
                     {
                         bool missile = effect.Kind == CombatEffectKind.SpawnProjectile;
                         if (effect.Kind != CombatEffectKind.Damage && !missile) continue;
-                        float radius = effect.Radius;
+                        float radius = effect.AttackRangeSource ? Mathf.Max(0f, effect.Radius + cast.RangeDelta) : effect.Radius;
                         float width = effect.Width;
                         Vector3 origin = owner.Position;
                         Vector3 direction = cast.Forward;
@@ -71,7 +71,7 @@ namespace GameLogic.Gameplay.Combat
                             else
                             {
                                 shape = CombatHitShape.Capsule;
-                                radius = Mathf.Min(Mathf.Max(1f, projectile.MaxDistance), Mathf.Max(1f, skill.StartRange));
+                                radius = Mathf.Min(Mathf.Max(1f, projectile.MaxDistance), Mathf.Max(1f, skill.StartRange + (skill.AttackRangeSource ? cast.RangeDelta : 0f)));
                                 width = Mathf.Max(0.15f, projectile.Radius * 2f);
                                 if (projectile.Target != ProjectileTargetKind.Direction) direction = cast.TargetPoint - origin;
                                 if ((projectile.Target == ProjectileTargetKind.EntityLock || projectile.Target == ProjectileTargetKind.EntitySnapshot) &&

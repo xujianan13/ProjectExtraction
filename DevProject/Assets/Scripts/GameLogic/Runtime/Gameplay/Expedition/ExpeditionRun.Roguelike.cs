@@ -21,7 +21,7 @@ namespace GameLogic.Gameplay.Expedition
         public RogueChoiceSnapshot PendingRogueChoice => rogueChoices.Active;
         public bool IsChoosingRogue => rogueChoices.HasPending;
         public string RogueMessage { get; private set; } = string.Empty;
-        private bool CanAcceptRogueInput => IsRunning && IsReady && !paused && !disposed && !stopped &&
+        private bool CanAcceptRogueInput => IsRunning && IsReady && !paused && ActivePanel == ExpeditionPanelKind.None && !disposed && !stopped &&
             !GameEntry.IsInBackground && !session.HasPendingSave;
 
         /// <summary>

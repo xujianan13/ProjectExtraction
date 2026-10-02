@@ -11,6 +11,8 @@ namespace GameLogic.Project
     {
         public const string BattleSceneName = "Expedition";
         public const int BattleHudWindow = 2200;
+        public const int ExpeditionInventoryWindow = 2201;
+        public const int ExpeditionMerchantWindow = 2202;
         public const int TransitionWindow = 2300;
         public const int ResultWindow = 2301;
         public const int RogueChoiceWindow = 2500;

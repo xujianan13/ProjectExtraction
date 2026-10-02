@@ -58,13 +58,13 @@ namespace GameLogic.Gameplay.Expedition
         public int KillExperience { get; private set; }
         public int GoldSpent { get; private set; }
         public int AvailableGold => session.Gold - GoldSpent;
-        private bool CanInteract => IsRunning && IsReady && !paused && !IsChoosingRogue && !disposed && !stopped && !session.HasPendingSave && !GameEntry.IsInBackground;
+        private bool CanInteract => IsRunning && IsReady && !paused && ActivePanel == ExpeditionPanelKind.None && !IsChoosingRogue && !disposed && !stopped && !session.HasPendingSave && !GameEntry.IsInBackground;
         /// <summary>
         /// 当前是否允许玩家输入，供局内触屏控件门禁使用。
         /// </summary>
         public bool CanAcceptPlayerInput => CanInteract;
         public string Message { get; private set; } = "移动靠近敌人自动攻击；靠近出口或物品后交互。";
-        public IReadOnlyList<ProjectItem> Inventory => inventory;
+        public IReadOnlyList<ProjectItem> Inventory => inventory.ConvertAll(item => item.Copy());
         public IReadOnlyList<ExpeditionDrop> Drops => drops;
         public int SafeCount => protectedItems.Count;
         public string InteractionLabel { get; private set; } = "交互 / E";
@@ -147,7 +147,7 @@ namespace GameLogic.Gameplay.Expedition
                 !LevelContentConfig.TryGetLevel(levelId, out LevelDefinition definition) ||
                 !LevelGenerator.TryGenerate(seed, definition, out LevelRunState maps)) return false;
             var created = new ExpeditionRun(session, runId, definition, maps, items, roguePolicy, rogueAccess);
-            if (created.Player.Id == 0)
+            if (created.Player.Id == 0 || !created.InitializeMerchants())
             {
                 created.Dispose();
                 return false;
@@ -241,7 +241,7 @@ namespace GameLogic.Gameplay.Expedition
         public void Advance(float deltaTime)
         {
             AdvanceDeathPresentation(deltaTime);
-            if (!IsRunning || !IsReady || paused || IsChoosingRogue || disposed || RoomView == null || session.HasPendingSave || GameEntry.IsInBackground)
+            if (!IsRunning || !IsReady || paused || ActivePanel != ExpeditionPanelKind.None || IsChoosingRogue || disposed || RoomView == null || session.HasPendingSave || GameEntry.IsInBackground)
             {
                 World.ClearPendingTime();
                 if (IsRunning && GameEntry.IsInBackground) SetPaused(true);
@@ -300,7 +300,7 @@ namespace GameLogic.Gameplay.Expedition
                 if (interact) Interact(player.Position);
             }
             Changed?.Invoke();
-            return IsRunning && !IsChoosingRogue;
+            return IsRunning && !paused && ActivePanel == ExpeditionPanelKind.None && !IsChoosingRogue;
         }
 
         /// <summary>
@@ -368,18 +368,25 @@ namespace GameLogic.Gameplay.Expedition
         }
 
         /// <summary>
-        /// 切换战利品的安全箱保护；已穿戴物品须先在后续装备界面卸下。
+        /// 切换战利品的安全箱保护，已穿戴物品须先卸下。
         /// </summary>
         /// <param name="itemId">本局物品实例身份。</param>
         /// <returns>是否已经改变保护状态。</returns>
         public bool ToggleSafe(string itemId)
         {
-            if (!CanInteract) return false;
+            if (!CanInteract && !CanManageInventory) return false;
             ProjectItem item = inventory.Find(value => value.Id == itemId);
-            if (item == null || item.Equipped) return false;
-            if (protectedItems.Remove(itemId)) { Changed?.Invoke(); return true; }
-            if (protectedItems.Count >= PrototypeRules.SafeSlots) { Message = "安全箱已满。"; return false; }
+            if (item == null) return ReportInventoryFailure("物品已不存在。");
+            if (item.Equipped) return ReportInventoryFailure("请先卸下装备，再放入安全箱。");
+            if (protectedItems.Remove(itemId))
+            {
+                Message = "已移回背包：" + item.Name;
+                Changed?.Invoke();
+                return true;
+            }
+            if (protectedItems.Count >= SafeCapacity) return ReportInventoryFailure("安全箱已满。");
             protectedItems.Add(itemId);
+            Message = "已放入安全箱：" + item.Name;
             Changed?.Invoke();
             return true;
         }
@@ -433,7 +440,9 @@ namespace GameLogic.Gameplay.Expedition
         {
             stopped = true;
             IsRunning = false;
+            ActivePanel = ExpeditionPanelKind.None;
             StopRogueChoices();
+            Changed?.Invoke();
             World.ClearPendingTime();
             touchMove = Vector2.zero;
             interactionRequested = false;
@@ -471,7 +480,7 @@ namespace GameLogic.Gameplay.Expedition
             if (kind == LevelInteractionKind.Npc)
             {
                 bool sold = CurrentRoom.TryGetNpcStock("relic", out int stock) && stock <= 0;
-                InteractionLabel = sold ? "商品已售罄" : "购买 " + CurrentRoom.Plan.NpcPrice + " 金币 / E";
+                InteractionLabel = sold ? "商品已售罄" : "查看商店 / E";
             }
         }
 
@@ -501,13 +510,7 @@ namespace GameLogic.Gameplay.Expedition
             }
             else if (kind == LevelInteractionKind.Npc)
             {
-                if (!CurrentRoom.TryGetNpcStock("relic", out int count)) count = CurrentRoom.Plan.NpcStock;
-                if (count <= 0) { Message = "本地图商品已售罄。"; return; }
-                if (AvailableGold < CurrentRoom.Plan.NpcPrice) { Message = "金币不足。"; return; }
-                GoldSpent += CurrentRoom.Plan.NpcPrice;
-                CurrentRoom.TrySetNpcStock("relic", count - 1);
-                inventory.Add(ProjectEquipmentRules.CreateLootFromPool(random, LevelId, CurrentRoom.Plan.LootPoolID));
-                Message = "购买成功，金币 -" + CurrentRoom.Plan.NpcPrice;
+                TryOpenMerchant();
             }
             RoomView.Refresh();
         }

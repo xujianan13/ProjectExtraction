@@ -75,6 +75,8 @@ namespace GameLogic.Scenes.Expedition
         {
             run?.Stop();
             await GameEntry.Get<IUIModule>().CloseWindowAsync(ProjectServices.RogueChoiceWindow, GameWindowCloseReason.ScopeExit);
+            await GameEntry.Get<IUIModule>().CloseWindowAsync(ProjectServices.ExpeditionInventoryWindow, GameWindowCloseReason.ScopeExit);
+            await GameEntry.Get<IUIModule>().CloseWindowAsync(ProjectServices.ExpeditionMerchantWindow, GameWindowCloseReason.ScopeExit);
             await GameEntry.Get<IUIModule>().CloseWindowAsync(ProjectServices.BattleHudWindow, GameWindowCloseReason.ScopeExit);
             if (gameplay.IsValid) await GameEntry.Get<IGameplayModule>().StopAsync(gameplay);
             Cleanup();

@@ -64,7 +64,7 @@ namespace MiniGame.Tests
         });
 
         /// <summary>
-        /// 商店按模板价格和库存出售，离开再进入保持售罄，金币只消耗一次。
+        /// 商店预览不消耗金币，逐件购买后回访保留商品与售出状态。
         /// </summary>
         /// <returns>实际 NPC 交互验证任务。</returns>
         [UnityTest]
@@ -84,25 +84,59 @@ namespace MiniGame.Tests
             Vector3 position = new Vector3((float)geometry.NpcX, 0, (float)geometry.NpcZ);
             int goldBefore = run.AvailableGold;
             Assert.That(goldBefore, Is.GreaterThanOrEqualTo(room.Plan.NpcPrice * room.Plan.NpcStock));
-            for (int i = 0; i < room.Plan.NpcStock; i++)
-            {
-                Assert.That(run.World.TrySetPosition(run.Player, position), Is.True);
-                run.RequestInteraction();
-                run.Advance(CombatWorld.TickSeconds);
-            }
-            Assert.That(run.Inventory.Count, Is.EqualTo(room.Plan.NpcStock));
-            Assert.That(run.GoldSpent, Is.EqualTo(room.Plan.NpcPrice * room.Plan.NpcStock));
-            Assert.That(run.Inventory.All(item => GameTables.CfgLootPool.GetAll().Any(row =>
-                row.PoolID == room.Plan.LootPoolID && row.DefinitionId == item.DefinitionId)), Is.True);
-            int neighbor = room.Exits.Values.First();
-            MoveToRoom(run, neighbor);
-            MoveToRoom(run, room.RoomId);
+            ExpeditionMerchantOffer[] planned = run.MerchantOffers.ToArray();
+            Assert.That(planned.Length, Is.EqualTo(room.Plan.NpcStock));
+            Assert.That(planned.All(offer => offer.Price == room.Plan.NpcPrice && !offer.Sold), Is.True);
             Assert.That(run.World.TrySetPosition(run.Player, position), Is.True);
             run.RequestInteraction();
             run.Advance(CombatWorld.TickSeconds);
+            Assert.That(run.ActivePanel, Is.EqualTo(ExpeditionPanelKind.Merchant));
+            Assert.That(run.GoldSpent, Is.Zero);
+            Assert.That(run.Inventory, Is.Empty);
+
+            string originalPreview = JsonUtility.ToJson(planned[0].Item);
+            ProjectItem mutablePreview = planned[0].Item;
+            mutablePreview.Name = "修改预览";
+            mutablePreview.Id = "修改身份";
+            mutablePreview.BaseAttributes.Clear();
+            mutablePreview.Affixes.Clear();
+            Assert.That(JsonUtility.ToJson(run.MerchantOffers[0].Item), Is.EqualTo(originalPreview));
+            for (int i = 0; i < planned.Length; i++)
+            {
+                Assert.That(run.TryPurchase(planned[i].Id), Is.True);
+                Assert.That(run.TryPurchase(planned[i].Id), Is.False, "已售商品不能重复扣费。");
+                Assert.That(run.GoldSpent, Is.EqualTo(room.Plan.NpcPrice * (i + 1)));
+                Assert.That(run.Inventory.Count, Is.EqualTo(i + 1));
+            }
+            Assert.That(run.Inventory.All(item => !item.Equipped), Is.True);
+            Assert.That(run.Inventory.All(item => GameTables.CfgLootPool.GetAll().Any(row =>
+                row.PoolID == room.Plan.LootPoolID && row.DefinitionId == item.DefinitionId)), Is.True);
+            Assert.That(room.TryGetNpcStock("relic", out int stock) && stock == 0, Is.True);
+            RoomDirection exitDirection = room.Exits.Keys.First();
+            float edge = (float)(geometry.HalfExtent - geometry.ExitCenterInset);
+            Vector3 exitPosition = exitDirection == RoomDirection.North ? new Vector3(0, 0, edge) :
+                exitDirection == RoomDirection.South ? new Vector3(0, 0, -edge) :
+                exitDirection == RoomDirection.East ? new Vector3(edge, 0, 0) : new Vector3(-edge, 0, 0);
+            Assert.That(run.World.TrySetPosition(run.Player, exitPosition), Is.True);
+            run.RequestInteraction();
+            run.Advance(CombatWorld.TickSeconds);
+            Assert.That(run.CurrentRoom.RoomId, Is.EqualTo(room.RoomId), "商店未关闭时不能换图。");
+            run.ClosePanel(ExpeditionPanelKind.Merchant);
+            int neighbor = room.Exits.Values.First();
+            MoveToRoom(run, neighbor);
+            MoveToRoom(run, room.RoomId);
+            ExpeditionMerchantOffer[] revisited = run.MerchantOffers.ToArray();
+            CollectionAssert.AreEqual(planned.Select(offer => offer.Id).ToArray(), revisited.Select(offer => offer.Id).ToArray());
+            CollectionAssert.AreEqual(planned.Select(offer => JsonUtility.ToJson(offer.Item)).ToArray(),
+                revisited.Select(offer => JsonUtility.ToJson(offer.Item)).ToArray());
+            Assert.That(revisited.All(offer => offer.Sold), Is.True);
+            Assert.That(run.World.TrySetPosition(run.Player, position), Is.True);
+            run.RequestInteraction();
+            run.Advance(CombatWorld.TickSeconds);
+            Assert.That(run.ActivePanel, Is.EqualTo(ExpeditionPanelKind.Merchant), "售罄后仍可浏览商品。");
             Assert.That(run.Inventory.Count, Is.EqualTo(room.Plan.NpcStock));
             Assert.That(run.AvailableGold, Is.EqualTo(goldBefore - room.Plan.NpcPrice * room.Plan.NpcStock));
-            Assert.That(run.Message, Does.Contain("售罄"));
+            Assert.That(run.TryPurchase(revisited[0].Id), Is.False);
         });
 
         /// <summary>

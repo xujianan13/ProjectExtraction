@@ -24,6 +24,7 @@ namespace GameLogic.Gameplay.Combat
         public int LinkedId;
         public CombatHitShape Shape = CombatHitShape.Circle;
         public float Radius;
+        public bool AttackRangeSource;
         public float Angle = 360f;
         public float Width;
         public float Height = 2f;
@@ -48,6 +49,7 @@ namespace GameLogic.Gameplay.Combat
         public int DurationTicks;
         public int CooldownTicks;
         public float StartRange;
+        public bool AttackRangeSource;
         public readonly List<CombatTimelineNode> Nodes = new List<CombatTimelineNode>();
     }
 
@@ -106,6 +108,7 @@ namespace GameLogic.Gameplay.Combat
     /// </summary>
     public sealed class CombatCatalog
     {
+        public float InitialAttackRange;
         public readonly Dictionary<int, CombatSkillDefinition> Skills = new Dictionary<int, CombatSkillDefinition>();
         public readonly Dictionary<int, CombatProjectileDefinition> Projectiles = new Dictionary<int, CombatProjectileDefinition>();
         public readonly Dictionary<int, CombatBuffDefinition> Buffs = new Dictionary<int, CombatBuffDefinition>();

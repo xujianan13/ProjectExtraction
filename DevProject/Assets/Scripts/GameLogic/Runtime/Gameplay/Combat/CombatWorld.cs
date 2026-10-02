@@ -19,6 +19,8 @@ namespace GameLogic.Gameplay.Combat
         private sealed class ActorComponent
         {
             public CombatActorSpec Spec;
+            public CombatActorSpec BaseSpec;
+            public readonly float[] PermanentBonuses = new float[8];
             public Vector3 Position;
             public Vector3 Forward = Vector3.forward;
             public Vector2 Move;
@@ -67,6 +69,7 @@ namespace GameLogic.Gameplay.Combat
             public Vector3 TargetPoint;
             public Vector3 Forward;
             public int NextNode;
+            public float RangeDelta;
             public bool UsesWorldClock;
             public CombatOffense Offense;
         }
@@ -83,6 +86,7 @@ namespace GameLogic.Gameplay.Combat
         private sealed class ProjectileComponent
         {
             public int ProjectileId;
+            public float RangeDelta;
             public int RoomId;
             public int InstigatorActorId;
             public CombatOffense Offense;
@@ -113,6 +117,7 @@ namespace GameLogic.Gameplay.Combat
 
         private sealed class BuffComponent
         {
+            public float RangeDelta;
             public int Owner;
             public int BuffId;
             public int SourceActorId;
@@ -126,6 +131,7 @@ namespace GameLogic.Gameplay.Combat
         private struct EffectCommand
         {
             public CombatEffectDefinition Definition;
+            public float RangeDelta;
             public int Source;
             public CombatEntityRef Target;
             public Vector3 Position;
@@ -252,7 +258,7 @@ namespace GameLogic.Gameplay.Combat
                 if (actor.Spec.ActorId == spec.ActorId) return default;
             var entity = Allocate();
             if (spec.EnemySkills != null) spec.EnemySkills = (CombatEnemySkillDefinition[])spec.EnemySkills.Clone();
-            actors.Add(entity.Id, new ActorComponent { Spec = spec, Position = spec.Position, Health = spec.MaxHealth });
+            actors.Add(entity.Id, new ActorComponent { Spec = spec, BaseSpec = spec, Position = spec.Position, Health = spec.MaxHealth });
             if (spec.IsPlayer) playerId = entity.Id;
             if (activeRoomId == 0) activeRoomId = spec.RoomId;
             return entity;
@@ -341,16 +347,19 @@ namespace GameLogic.Gameplay.Combat
                 source.Spec.RoomId != activeRoomId || HasCast(actor.Id) ||
                 !catalog.Skills.TryGetValue(skillId, out var definition)) return false;
             if (source.SkillCooldowns.TryGetValue(skillId, out var cooldown) && cooldown > 0) return false;
+            var rangeDelta = source.Spec.IsPlayer && skillId == source.Spec.BasicSkillId
+                ? source.Spec.AttackRange - catalog.InitialAttackRange : 0f;
+            var startRange = Mathf.Max(0f, definition.StartRange + (definition.AttackRangeSource ? rangeDelta : 0f));
             if (target.Id != 0 && (!IsValid(target) || !actors.TryGetValue(target.Id, out var targetActor) ||
                 targetActor.DeadPending || targetActor.Spec.RoomId != source.Spec.RoomId ||
-                Vector3.Distance(source.Position, targetActor.Position) > definition.StartRange + source.RangeBonus)) return false;
+                Vector3.Distance(source.Position, targetActor.Position) > startRange + source.RangeBonus)) return false;
             var cast = Allocate();
-            var point = target.Id != 0 ? actors[target.Id].Position : source.Position + source.Forward * definition.StartRange;
+            var point = target.Id != 0 ? actors[target.Id].Position : source.Position + source.Forward * startRange;
             casts.Add(cast.Id, new CastComponent
             {
                 Owner = actor.Id, SkillId = skillId, StartTick = source.Spec.IsPlayer ? TickIndex : GetRoomTick(source.Spec.RoomId),
                 Target = target, TargetPoint = point, Forward = source.Forward, NextNode = 0,
-                UsesWorldClock = source.Spec.IsPlayer, Offense = new CombatOffense(source.Spec)
+                UsesWorldClock = source.Spec.IsPlayer, Offense = new CombatOffense(source.Spec), RangeDelta = rangeDelta
             });
             source.SkillCooldowns[skillId] = Mathf.Max(0, definition.CooldownTicks);
             return true;

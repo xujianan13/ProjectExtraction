@@ -144,9 +144,8 @@ namespace MiniGame.Tests
                 RectTransform map = GeometryChild(area, "Minimap");
                 RectTransform stick = GeometryChild(area, "MoveStick");
                 RectTransform actions = GeometryChild(area, "ControlActions");
-                RectTransform bag = GeometryChild(area, "RunInventory");
                 BattleHudLayout layout = host.AddComponent<BattleHudLayout>();
-                layout.Configure(header, map, stick, actions, bag);
+                layout.Configure(header, map, stick, actions);
                 var sizes = new[]
                 {
                     new Vector2(1080f, 1920f), new Vector2(720f, 1280f),
@@ -163,14 +162,10 @@ namespace MiniGame.Tests
                     Rect mapRect = GeometryRect(area, map);
                     Rect stickRect = GeometryRect(area, stick);
                     Rect actionRect = GeometryRect(area, actions);
-                    Rect bagRect = GeometryRect(area, bag);
                     Assert.That(stickRect.width, Is.EqualTo(stickRect.height).Within(0.01f), size.ToString());
                     Assert.That(headerRect.Overlaps(mapRect), Is.False, size.ToString());
                     Assert.That(stickRect.Overlaps(actionRect), Is.False, size.ToString());
-                    Assert.That(bagRect.yMax, Is.LessThanOrEqualTo(headerRect.yMin + 0.01f), size.ToString());
-                    Assert.That(bagRect.yMin, Is.GreaterThanOrEqualTo(Mathf.Max(stickRect.yMax, actionRect.yMax) - 0.01f),
-                        size.ToString());
-                    foreach (Rect child in new[] { headerRect, mapRect, stickRect, actionRect, bagRect })
+                    foreach (Rect child in new[] { headerRect, mapRect, stickRect, actionRect })
                     {
                         Assert.That(child.xMin, Is.GreaterThanOrEqualTo(area.rect.xMin - 0.01f), size.ToString());
                         Assert.That(child.xMax, Is.LessThanOrEqualTo(area.rect.xMax + 0.01f), size.ToString());

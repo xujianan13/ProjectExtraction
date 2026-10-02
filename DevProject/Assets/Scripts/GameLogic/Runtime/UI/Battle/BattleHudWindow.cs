@@ -11,7 +11,7 @@ using UnityEngine;
 namespace GameLogic.UI.Battle
 {
     /// <summary>
-    /// 局内生命、交互、探索小地图和安全箱界面。
+    /// 局内生命、交互、探索小地图与物品面板入口。
     /// </summary>
     public sealed class BattleHudWindow : GameWindow
     {
@@ -21,15 +21,13 @@ namespace GameLogic.UI.Battle
         private UnityEngine.UI.Text status;
         private UnityEngine.UI.Text hint;
         private RectTransform map;
-        private RectTransform bag;
         private UnityEngine.UI.Button resumeChoice;
         private UnityEngine.UI.Button interactButton;
-        private RectTransform bagContent;
         private ExpeditionJoystick joystick;
         private int mapRoom = -1;
         private int mapCleared = -1;
-        private int bagCount = -1;
-        private int safeCount = -1;
+        private bool openingPanel;
+        private ExpeditionPanelKind openedPanel;
 
         /// <summary>
         /// 建立代码驱动的 HUD 层级，沿用框架的 Canvas 与 EventSystem。
@@ -57,18 +55,14 @@ namespace GameLogic.UI.Battle
             interactionLabel = interactButton.GetComponentInChildren<UnityEngine.UI.Text>();
             interactionLabel.fontSize = 32;
             ProjectUiFactory.Height((RectTransform)interactButton.transform, 100f);
-            var bagButton = ProjectUiFactory.ActionButton(actions, "背包 / 安全箱", ToggleBag);
+            var bagButton = ProjectUiFactory.ActionButton(actions, "背包 / 安全箱", OpenInventory);
             bagButton.GetComponentInChildren<UnityEngine.UI.Text>().fontSize = 32;
             ProjectUiFactory.Height((RectTransform)bagButton.transform, 100f);
             resumeChoice = ProjectUiFactory.ActionButton(actions, "继续选择强化", OpenPendingChoice);
             resumeChoice.GetComponentInChildren<UnityEngine.UI.Text>().fontSize = 30;
             ProjectUiFactory.Height((RectTransform)resumeChoice.transform, 100f);
             resumeChoice.gameObject.SetActive(false);
-            bag = ProjectUiFactory.Panel(content, "RunInventory", new Color(0.055f, 0.1f, 0.15f, 0.98f));
-            content.gameObject.AddComponent<BattleHudLayout>().Configure(header, map, stick, actions, bag);
-            UnityEngine.UI.ScrollRect scroll = ProjectUiFactory.Scroll(bag, "Items", out bagContent);
-            ProjectUiFactory.Stretch((RectTransform)scroll.transform, 12);
-            bag.gameObject.SetActive(false);
+            content.gameObject.AddComponent<BattleHudLayout>().Configure(header, map, stick, actions);
         }
 
         /// <summary>
@@ -79,17 +73,20 @@ namespace GameLogic.UI.Battle
         {
             run = args.UserData as ExpeditionRun;
             if (run == null) return;
-            joystick.Bind(run.SetTouchMove, () => run.CanAcceptPlayerInput && !bag.gameObject.activeSelf);
+            joystick.Bind(run.SetTouchMove, () => run.CanAcceptPlayerInput);
             run.Changed += Refresh;
             coordinator = ProjectServices.Coordinator;
             if (coordinator != null) coordinator.Changed += Refresh;
+            ExpeditionRun current = run;
             OpenScope.Defer(() =>
             {
-                run.Changed -= Refresh;
+                current.Changed -= Refresh;
                 if (coordinator != null) coordinator.Changed -= Refresh;
                 joystick.ResetInput();
                 joystick.Bind(null);
-                run.SetTouchMove(Vector2.zero);
+                current.SetTouchMove(Vector2.zero);
+                current.ClosePanel(current.ActivePanel);
+                if (ReferenceEquals(run, current)) run = null;
             });
             Refresh();
         }
@@ -106,13 +103,12 @@ namespace GameLogic.UI.Battle
             hint.text = run.Message;
             bool choosing = run.IsChoosingRogue && run.PendingRogueChoice != null;
             resumeChoice.gameObject.SetActive(choosing);
-            bool acceptsInput = run.CanAcceptPlayerInput && !bag.gameObject.activeSelf;
+            bool acceptsInput = run.CanAcceptPlayerInput;
             joystick.enabled = acceptsInput;
             if (!acceptsInput) joystick.ResetInput();
             interactButton.interactable = acceptsInput;
             if (choosing)
             {
-                bag.gameObject.SetActive(false);
                 run.SetTouchMove(Vector2.zero);
             }
             interactionLabel.text = run.InteractionLabel;
@@ -124,7 +120,8 @@ namespace GameLogic.UI.Battle
                 mapCleared = cleared;
                 RefreshMap(run.Maps.GetMinimapProjection());
             }
-            if (bag.gameObject.activeSelf && (bagCount != run.Inventory.Count || safeCount != run.SafeCount)) RefreshBag();
+            if (run.ActivePanel == ExpeditionPanelKind.None) openedPanel = ExpeditionPanelKind.None;
+            else if (!openingPanel && openedPanel != run.ActivePanel) OpenActivePanelAsync(run.ActivePanel).Forget();
         }
 
         /// <summary>
@@ -165,43 +162,55 @@ namespace GameLogic.UI.Battle
         }
 
         /// <summary>
-        /// 展开或关闭本局物品与安全箱列表。
+        /// 请求打开本局背包弹窗。
         /// </summary>
-        private void ToggleBag()
+        private void OpenInventory()
         {
-            if (coordinator == null || coordinator.Phase != ProjectRunPhase.Playing || run == null || run.IsChoosingRogue) return;
-            bag.gameObject.SetActive(!bag.gameObject.activeSelf);
-            run?.SetTouchMove(Vector2.zero);
-            if (bag.gameObject.activeSelf) RefreshBag();
-            Refresh();
+            if (coordinator?.Phase == ProjectRunPhase.Playing && run?.TryOpenInventory() == true)
+                run.SetTouchMove(Vector2.zero);
         }
 
         /// <summary>
-        /// 每个物品按实例展示保护状态，点击未穿戴物品切换安全箱。
+        /// 按单局面板状态打开对应的模态窗口，失败时归还面板状态。
         /// </summary>
-        private void RefreshBag()
+        /// <param name="kind">准备打开的面板类型。</param>
+        /// <returns>窗口打开任务。</returns>
+        private async UniTaskVoid OpenActivePanelAsync(ExpeditionPanelKind kind)
         {
-            if (run == null) return;
-            ProjectUiFactory.Clear(bagContent);
-            bagCount = run.Inventory.Count;
-            safeCount = run.SafeCount;
-            var title = ProjectUiFactory.Label(bagContent, "安全箱 " + safeCount + " / " + PrototypeRules.SafeSlots +
-                " · 点击战利品切换保护", 24, TextAnchor.MiddleLeft, Color.white);
-            ProjectUiFactory.Height(title.rectTransform, 55);
-            foreach (ProjectItem item in run.Inventory)
+            if (run == null || openingPanel) return;
+            openingPanel = true;
+            ExpeditionRun current = run;
+            LifetimeScope scope = OpenScope;
+            IUIModule ui = GameEntry.Get<IUIModule>();
+            int windowId = kind == ExpeditionPanelKind.Inventory ? ProjectServices.ExpeditionInventoryWindow :
+                ProjectServices.ExpeditionMerchantWindow;
+            try
             {
-                string id = item.Id;
-                string label = (run.IsProtected(id) ? "[安全箱] " : "[背包] ") + ProjectEquipmentText.ColoredTitle(item) +
-                    (item.Equipped ? " · 已穿戴" : string.Empty) + "\n" + ProjectEquipmentText.Details(item);
-                var button = ProjectUiFactory.ActionButton(bagContent, label, () =>
+                GameWindow opened = ui == null ? null : await ui.OpenWindowAsync(windowId, new GameWindowOpenArgs(current), scope.Token);
+                if (opened == null)
                 {
-                    if (coordinator?.Phase != ProjectRunPhase.Playing || run.IsChoosingRogue) return;
-                    run.ToggleSafe(id);
-                    RefreshBag();
-                });
-                button.GetComponentInChildren<UnityEngine.UI.Text>().supportRichText = true;
-                button.interactable = coordinator != null && coordinator.Phase == ProjectRunPhase.Playing && run.IsRunning && !run.IsChoosingRogue && !item.Equipped;
-                ProjectUiFactory.Height((RectTransform)button.transform, ProjectEquipmentText.PreferredHeight(label, 120f));
+                    if (scope.IsActive && current.ActivePanel == kind) current.ClosePanel(kind);
+                    return;
+                }
+                if (!scope.IsActive || !ReferenceEquals(run, current) || current.ActivePanel != kind)
+                {
+                    await ui.CloseWindowAsync(windowId);
+                    return;
+                }
+                openedPanel = kind;
+            }
+            catch (System.OperationCanceledException)
+            {
+                if (scope.IsActive && ReferenceEquals(run, current) && current.ActivePanel == kind) current.ClosePanel(kind);
+            }
+            catch (System.Exception error)
+            {
+                GameEntry.Get<ILogModule>()?.Error("BattleHud", "打开局内面板失败：" + error.Message);
+                if (scope.IsActive && ReferenceEquals(run, current) && current.ActivePanel == kind) current.ClosePanel(kind);
+            }
+            finally
+            {
+                openingPanel = false;
             }
         }
 
