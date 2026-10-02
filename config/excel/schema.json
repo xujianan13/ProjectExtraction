@@ -265,15 +265,15 @@
         "ID": {
           "min": 1
         },
-        "LayoutID": {
-          "ref": "CfgRoomLayouts"
-        },
         "EnemyID": {
           "ref": "CfgEnemies"
         },
         "Count": {
           "min": 1,
           "max": 999
+        },
+        "EncounterID": {
+          "ref": "CfgEncounters"
         }
       }
     },
@@ -381,6 +381,90 @@
         },
         "ScaleZ": {
           "min": 0.01
+        }
+      }
+    },
+    "CfgRoomTemplates": {
+      "fields": {
+        "ID": {
+          "min": 1
+        },
+        "LevelID": {
+          "ref": "CfgLevels"
+        },
+        "RoomType": {
+          "required": true
+        },
+        "LayoutID": {
+          "ref": "CfgRoomLayouts"
+        },
+        "Weight": {
+          "min": 1
+        },
+        "AllowedExits": {
+          "min": 1,
+          "max": 15
+        },
+        "NpcPrice": {
+          "min": 0
+        },
+        "NpcStock": {
+          "min": 0
+        }
+      }
+    },
+    "CfgEncounters": {
+      "fields": {
+        "ID": {
+          "min": 1
+        },
+        "PoolID": {
+          "required": true
+        },
+        "LayoutID": {
+          "ref": "CfgRoomLayouts"
+        },
+        "MinLevel": {
+          "min": 1
+        },
+        "MaxLevel": {
+          "min": 1
+        },
+        "Weight": {
+          "min": 1
+        }
+      }
+    },
+    "CfgEnemySkills": {
+      "fields": {
+        "ID": {
+          "min": 1
+        },
+        "EnemyID": {
+          "ref": "CfgEnemies"
+        },
+        "SkillID": {
+          "ref": "CfgCombatSkills"
+        },
+        "Priority": {
+          "min": 0
+        },
+        "Weight": {
+          "min": 1
+        },
+        "MinHealthRatio": {
+          "min": 0,
+          "max": 1
+        },
+        "MaxHealthRatio": {
+          "min": 0,
+          "max": 1
+        },
+        "MinDistance": {
+          "min": 0
+        },
+        "MaxDistance": {
+          "min": 0
         }
       }
     }

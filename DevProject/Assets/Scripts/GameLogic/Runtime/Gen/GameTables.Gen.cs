@@ -56,9 +56,19 @@ namespace GameLogic.Tables
         public static CfgCombatTimelineNodesTable CfgCombatTimelineNodes { get; private set; }
 
         /// <summary>
+        /// CfgEncounters 配置表。
+        /// </summary>
+        public static CfgEncountersTable CfgEncounters { get; private set; }
+
+        /// <summary>
         /// CfgEnemies 配置表。
         /// </summary>
         public static CfgEnemiesTable CfgEnemies { get; private set; }
+
+        /// <summary>
+        /// CfgEnemySkills 配置表。
+        /// </summary>
+        public static CfgEnemySkillsTable CfgEnemySkills { get; private set; }
 
         /// <summary>
         /// CfgItemDefinitions 配置表。
@@ -111,6 +121,11 @@ namespace GameLogic.Tables
         public static CfgRoomLayoutsTable CfgRoomLayouts { get; private set; }
 
         /// <summary>
+        /// CfgRoomTemplates 配置表。
+        /// </summary>
+        public static CfgRoomTemplatesTable CfgRoomTemplates { get; private set; }
+
+        /// <summary>
         /// CfgSkills 配置表。
         /// </summary>
         public static CfgSkillsTable CfgSkills { get; private set; }
@@ -139,7 +154,9 @@ namespace GameLogic.Tables
             CfgCombatProjectilesTable nextCfgCombatProjectiles = await CfgCombatProjectilesTable.LoadAsync(resources, ct);
             CfgCombatSkillsTable nextCfgCombatSkills = await CfgCombatSkillsTable.LoadAsync(resources, ct);
             CfgCombatTimelineNodesTable nextCfgCombatTimelineNodes = await CfgCombatTimelineNodesTable.LoadAsync(resources, ct);
+            CfgEncountersTable nextCfgEncounters = await CfgEncountersTable.LoadAsync(resources, ct);
             CfgEnemiesTable nextCfgEnemies = await CfgEnemiesTable.LoadAsync(resources, ct);
+            CfgEnemySkillsTable nextCfgEnemySkills = await CfgEnemySkillsTable.LoadAsync(resources, ct);
             CfgItemDefinitionsTable nextCfgItemDefinitions = await CfgItemDefinitionsTable.LoadAsync(resources, ct);
             CfgLevelsTable nextCfgLevels = await CfgLevelsTable.LoadAsync(resources, ct);
             CfgLootPoolTable nextCfgLootPool = await CfgLootPoolTable.LoadAsync(resources, ct);
@@ -150,6 +167,7 @@ namespace GameLogic.Tables
             CfgRoguePolicyTable nextCfgRoguePolicy = await CfgRoguePolicyTable.LoadAsync(resources, ct);
             CfgRogueRewardsTable nextCfgRogueRewards = await CfgRogueRewardsTable.LoadAsync(resources, ct);
             CfgRoomLayoutsTable nextCfgRoomLayouts = await CfgRoomLayoutsTable.LoadAsync(resources, ct);
+            CfgRoomTemplatesTable nextCfgRoomTemplates = await CfgRoomTemplatesTable.LoadAsync(resources, ct);
             CfgSkillsTable nextCfgSkills = await CfgSkillsTable.LoadAsync(resources, ct);
             CfgSpawnsTable nextCfgSpawns = await CfgSpawnsTable.LoadAsync(resources, ct);
             CfgAffixes = nextCfgAffixes;
@@ -161,7 +179,9 @@ namespace GameLogic.Tables
             CfgCombatProjectiles = nextCfgCombatProjectiles;
             CfgCombatSkills = nextCfgCombatSkills;
             CfgCombatTimelineNodes = nextCfgCombatTimelineNodes;
+            CfgEncounters = nextCfgEncounters;
             CfgEnemies = nextCfgEnemies;
+            CfgEnemySkills = nextCfgEnemySkills;
             CfgItemDefinitions = nextCfgItemDefinitions;
             CfgLevels = nextCfgLevels;
             CfgLootPool = nextCfgLootPool;
@@ -172,6 +192,7 @@ namespace GameLogic.Tables
             CfgRoguePolicy = nextCfgRoguePolicy;
             CfgRogueRewards = nextCfgRogueRewards;
             CfgRoomLayouts = nextCfgRoomLayouts;
+            CfgRoomTemplates = nextCfgRoomTemplates;
             CfgSkills = nextCfgSkills;
             CfgSpawns = nextCfgSpawns;
         }

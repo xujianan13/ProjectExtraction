@@ -24,6 +24,78 @@
       "Weight": 1,
       "MinLevel": 1,
       "MaxLevel": 1000
+    },
+    {
+      "ID": "treasure_weapon",
+      "PoolID": "treasure",
+      "DefinitionId": "ruin_weapon",
+      "Weight": 3,
+      "MinLevel": 1,
+      "MaxLevel": 1000
+    },
+    {
+      "ID": "treasure_armor",
+      "PoolID": "treasure",
+      "DefinitionId": "ruin_armor",
+      "Weight": 2,
+      "MinLevel": 1,
+      "MaxLevel": 1000
+    },
+    {
+      "ID": "treasure_item",
+      "PoolID": "treasure",
+      "DefinitionId": "relic_part",
+      "Weight": 5,
+      "MinLevel": 1,
+      "MaxLevel": 1000
+    },
+    {
+      "ID": "merchant_weapon",
+      "PoolID": "merchant",
+      "DefinitionId": "ruin_weapon",
+      "Weight": 2,
+      "MinLevel": 1,
+      "MaxLevel": 1000
+    },
+    {
+      "ID": "merchant_armor",
+      "PoolID": "merchant",
+      "DefinitionId": "ruin_armor",
+      "Weight": 3,
+      "MinLevel": 1,
+      "MaxLevel": 1000
+    },
+    {
+      "ID": "merchant_item",
+      "PoolID": "merchant",
+      "DefinitionId": "relic_part",
+      "Weight": 4,
+      "MinLevel": 1,
+      "MaxLevel": 1000
+    },
+    {
+      "ID": "boss_weapon",
+      "PoolID": "boss",
+      "DefinitionId": "ruin_weapon",
+      "Weight": 4,
+      "MinLevel": 1,
+      "MaxLevel": 1000
+    },
+    {
+      "ID": "boss_armor",
+      "PoolID": "boss",
+      "DefinitionId": "ruin_armor",
+      "Weight": 4,
+      "MinLevel": 1,
+      "MaxLevel": 1000
+    },
+    {
+      "ID": "boss_item",
+      "PoolID": "boss",
+      "DefinitionId": "relic_part",
+      "Weight": 2,
+      "MinLevel": 1,
+      "MaxLevel": 1000
     }
   ]
 }

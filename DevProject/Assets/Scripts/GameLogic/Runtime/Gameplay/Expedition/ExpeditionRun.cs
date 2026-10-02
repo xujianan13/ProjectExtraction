@@ -27,8 +27,8 @@ namespace GameLogic.Gameplay.Expedition
     public sealed partial class ExpeditionRun : IDisposable
     {
         private readonly ProjectSession session;
-        private readonly LevelDefinition level;
         private readonly Dictionary<int, EnemyDefinition> enemyDefinitions = new();
+        private readonly Dictionary<int, LevelRoomLayout> roomLayouts = new();
         private readonly System.Random random;
         private readonly List<CombatEvent> events = new();
         private readonly HashSet<int> rewardedDeaths = new();
@@ -52,7 +52,7 @@ namespace GameLogic.Gameplay.Expedition
         public CombatWorld World { get; }
         public CombatEntityRef Player { get; }
         public LevelRoomView RoomView { get; private set; }
-        public LevelRoomLayout Layout { get; }
+        public LevelRoomLayout Layout => roomLayouts[Maps.CurrentRoomId];
         public bool IsReady { get; private set; }
         public bool IsRunning { get; private set; }
         public int KillExperience { get; private set; }
@@ -85,9 +85,7 @@ namespace GameLogic.Gameplay.Expedition
         {
             this.session = session;
             RunId = runId;
-            this.level = level;
             LevelId = level.ID;
-            Layout = new LevelRoomLayout(level);
             Maps = maps;
             rogueChoices = new RogueChoiceSession(runId, maps.Seed ^ 0x5247, roguePolicy);
             rogueAccessProvider = rogueAccess;
@@ -99,9 +97,11 @@ namespace GameLogic.Gameplay.Expedition
             World = new CombatWorld(catalog, randomSeed: maps.Seed) { ErrorLogger = reason => GameEntry.Get<ILogModule>()?.Error("Combat", reason) };
             foreach (LevelRoomState room in maps.Rooms)
             {
-                float extent = Layout.HalfExtent - Layout.WallThickness * 0.5f;
+                var layout = new LevelRoomLayout(room.Plan.Definition);
+                roomLayouts.Add(room.RoomId, layout);
+                float extent = layout.HalfExtent - layout.WallThickness * 0.5f;
                 World.SetRoomBounds(room.RoomId, new Rect(-extent, -extent, extent * 2, extent * 2));
-                foreach (LevelObstacle obstacle in Layout.Obstacles)
+                foreach (LevelObstacle obstacle in layout.Obstacles)
                     World.AddObstacle(room.RoomId, Rect.MinMaxRect(obstacle.Min.x, obstacle.Min.y, obstacle.Max.x, obstacle.Max.y));
             }
             Player = World.CreateActor(new CombatActorSpec
@@ -166,9 +166,15 @@ namespace GameLogic.Gameplay.Expedition
             if (disposed || stopped || RoomView != null || assets == null) return;
             visualAssets = assets;
             sceneParent = parent;
-            RoomView = LevelRoomView.Create(CurrentRoom, assets, level, parent);
+            RoomView = LevelRoomView.Create(CurrentRoom, assets, CurrentRoom.Plan.Definition, parent);
             if (RoomView == null) return;
-            SpawnRoomEnemies(CurrentRoom);
+            if (!SpawnRoomEnemies(CurrentRoom))
+            {
+                RoomView.Dispose();
+                RoomView = null;
+                Stop();
+                return;
+            }
             Changed?.Invoke();
         }
 
@@ -465,7 +471,7 @@ namespace GameLogic.Gameplay.Expedition
             if (kind == LevelInteractionKind.Npc)
             {
                 bool sold = CurrentRoom.TryGetNpcStock("relic", out int stock) && stock <= 0;
-                InteractionLabel = sold ? "商品已售罄" : "购买 " + PrototypeRules.NpcItemPrice + " 金币 / E";
+                InteractionLabel = sold ? "商品已售罄" : "购买 " + CurrentRoom.Plan.NpcPrice + " 金币 / E";
             }
         }
 
@@ -489,19 +495,19 @@ namespace GameLogic.Gameplay.Expedition
             if (kind == LevelInteractionKind.Chest && !CurrentRoom.ChestOpened)
             {
                 CurrentRoom.MarkChestOpened();
-                inventory.Add(ProjectEquipmentRules.CreateLootFromPool(random, LevelId, level.LootPoolID));
+                inventory.Add(ProjectEquipmentRules.CreateLootFromPool(random, LevelId, CurrentRoom.Plan.LootPoolID));
                 Message = "已打开箱子，获得一件战利品。";
                 TryBeginRogueChoice("chest:" + CurrentRoom.RoomId);
             }
             else if (kind == LevelInteractionKind.Npc)
             {
-                if (!CurrentRoom.TryGetNpcStock("relic", out int count)) count = 1;
+                if (!CurrentRoom.TryGetNpcStock("relic", out int count)) count = CurrentRoom.Plan.NpcStock;
                 if (count <= 0) { Message = "本地图商品已售罄。"; return; }
-                if (AvailableGold < PrototypeRules.NpcItemPrice) { Message = "金币不足。"; return; }
-                GoldSpent += PrototypeRules.NpcItemPrice;
+                if (AvailableGold < CurrentRoom.Plan.NpcPrice) { Message = "金币不足。"; return; }
+                GoldSpent += CurrentRoom.Plan.NpcPrice;
                 CurrentRoom.TrySetNpcStock("relic", count - 1);
-                inventory.Add(ProjectEquipmentRules.CreateLootFromPool(random, LevelId, level.LootPoolID));
-                Message = "购买成功，金币 -" + PrototypeRules.NpcItemPrice;
+                inventory.Add(ProjectEquipmentRules.CreateLootFromPool(random, LevelId, CurrentRoom.Plan.LootPoolID));
+                Message = "购买成功，金币 -" + CurrentRoom.Plan.NpcPrice;
             }
             RoomView.Refresh();
         }
@@ -514,11 +520,11 @@ namespace GameLogic.Gameplay.Expedition
         {
             if (!CanInteract) return;
             if (!Maps.TryGetDestination(direction, out int destination) || !Maps.TryGetRoom(destination, out LevelRoomState room)) return;
-            LevelRoomView prepared = LevelRoomView.Create(room, visualAssets, level, sceneParent);
+            LevelRoomView prepared = LevelRoomView.Create(room, visualAssets, room.Plan.Definition, sceneParent);
             if (prepared == null) { Message = "目标地图准备失败。"; return; }
             RoomDirection entrySide = LevelGenerator.Opposite(direction);
             Vector3 spawn = prepared.GetSpawnPosition(entrySide);
-            if (Layout.IsBlocked(spawn, (float)ProjectContentConfig.Player.Radius)) { prepared.Dispose(); Message = "目标入口不可用。"; return; }
+            if (prepared.Layout.IsBlocked(spawn, (float)ProjectContentConfig.Player.Radius)) { prepared.Dispose(); Message = "目标入口不可用。"; return; }
             if (!World.TryTransferActor(Player, destination, spawn))
             {
                 prepared.Dispose();
@@ -535,7 +541,11 @@ namespace GameLogic.Gameplay.Expedition
             LevelRoomView previous = RoomView;
             RoomView = prepared;
             previous.Dispose();
-            SpawnRoomEnemies(room);
+            if (!SpawnRoomEnemies(room))
+            {
+                HandleFault("房间敌人创建失败，正在处理中断的单局。");
+                return;
+            }
             Message = "进入地图 " + destination + "，可随时沿出口继续探索。";
         }
 
@@ -543,13 +553,18 @@ namespace GameLogic.Gameplay.Expedition
         /// 首次激活战斗地图时创建其敌人实体。
         /// </summary>
         /// <param name="room">激活的地图。</param>
-        private void SpawnRoomEnemies(LevelRoomState room)
+        /// <returns>全部计划敌人创建成功，或无需再次创建时为真。</returns>
+        private bool SpawnRoomEnemies(LevelRoomState room)
         {
-            if (room.EnemiesSpawned || (room.Type != LevelRoomType.Mob && room.Type != LevelRoomType.Boss)) return;
+            if (room.EnemiesSpawned || (room.Type != LevelRoomType.Mob && room.Type != LevelRoomType.Boss)) return true;
             int sequence = 0;
-            foreach (SpawnDefinition spawn in LevelContentConfig.GetSpawns(level, room.Type, room.IsStart))
+            foreach (SpawnDefinition spawn in room.Plan.Spawns)
             {
-                if (!LevelContentConfig.TryGetEnemy(spawn.EnemyID, out EnemyDefinition enemy)) continue;
+                if (!LevelContentConfig.TryGetEnemy(spawn.EnemyID, out EnemyDefinition enemy))
+                {
+                    GameEntry.Get<ILogModule>()?.Error("Expedition", "房间计划引用的敌人不存在：" + spawn.EnemyID);
+                    return false;
+                }
                 for (int index = 0; index < spawn.Count; index++)
                 {
                     int actorId = room.RoomId * 1000 + ++sequence;
@@ -558,12 +573,19 @@ namespace GameLogic.Gameplay.Expedition
                         ActorId = actorId, RoomId = room.RoomId, Team = 2, Position = spawn.PositionAt(index),
                         MaxHealth = enemy.HealthAt(LevelId), Attack = (float)enemy.Row.Attack, MoveSpeed = (float)enemy.Row.MoveSpeed,
                         Radius = (float)enemy.Row.Radius, AttackRange = (float)enemy.Row.AttackRange,
-                        AggroRange = (float)enemy.Row.AggroRange, BasicSkillId = enemy.SkillID
+                        AggroRange = (float)enemy.Row.AggroRange, BasicSkillId = enemy.SkillID,
+                        EnemySkills = CombatEnemySkillConfig.Create(enemy.ID)
                     });
-                    if (entity.Id != 0) enemyDefinitions.Add(actorId, enemy);
+                    if (entity.Id == 0)
+                    {
+                        GameEntry.Get<ILogModule>()?.Error("Expedition", "房间计划敌人创建失败：" + room.RoomId + "/" + spawn.EnemyID);
+                        return false;
+                    }
+                    enemyDefinitions.Add(actorId, enemy);
                 }
             }
             room.MarkEnemiesSpawned();
+            return true;
         }
 
         /// <summary>

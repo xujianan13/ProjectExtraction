@@ -65,7 +65,7 @@ namespace GameLogic.Gameplay.Level
         /// <returns>需要由持有者释放的地图视图。</returns>
         public static LevelRoomView Create(LevelRoomState room, ExpeditionVisualAssets assets, Transform parent = null)
         {
-            return Create(room, assets, PrototypeLevelConfig.DefaultLevel, parent);
+            return Create(room, assets, room?.Plan?.Definition ?? PrototypeLevelConfig.DefaultLevel, parent);
         }
 
         /// <summary>
@@ -78,7 +78,8 @@ namespace GameLogic.Gameplay.Level
         /// <returns>需要由持有者释放的地图视图。</returns>
         public static LevelRoomView Create(LevelRoomState room, ExpeditionVisualAssets assets, LevelDefinition level, Transform parent = null)
         {
-            return room == null || assets == null || level == null ? null : new LevelRoomView(room, assets, level, parent);
+            LevelDefinition definition = room?.Plan?.Definition ?? level;
+            return room == null || assets == null || definition == null ? null : new LevelRoomView(room, assets, definition, parent);
         }
 
         /// <summary>

@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using GameLogic.Project;
 using GameLogic.Tables;
 using UnityEngine;
+using Random = System.Random;
 
 namespace GameLogic.Gameplay.Level
 {
@@ -66,7 +67,7 @@ namespace GameLogic.Gameplay.Level
     }
 
     /// <summary>
-    /// 一个房间类型的敌人生成位置规则。
+    /// 一个遭遇中的敌人生成位置规则。
     /// </summary>
     public sealed class SpawnDefinition
     {
@@ -92,10 +93,10 @@ namespace GameLogic.Gameplay.Level
     /// <summary>
     /// 关卡表的读取、解析与启动验证。
     /// </summary>
-    public static class LevelContentConfig
+    public static partial class LevelContentConfig
     {
         /// <summary>
-        /// 校验所有关卡、房间、刷怪与敌人引用。
+        /// 校验关卡、模板、遭遇、几何和全部引用。
         /// </summary>
         /// <param name="error">失败时的说明。</param>
         /// <returns>全部关卡内容可用时为真。</returns>
@@ -103,13 +104,11 @@ namespace GameLogic.Gameplay.Level
         {
             error = null;
             if (GameTables.CfgLevels == null || GameTables.CfgRoomLayouts == null || GameTables.CfgObstacles == null ||
-                GameTables.CfgSpawns == null || GameTables.CfgEnemies == null || GameTables.CfgCombatSkills == null || GameTables.CfgLootPool == null)
-            {
-                error = "关卡配置表未完整加载。";
-                return false;
-            }
+                GameTables.CfgRoomTemplates == null || GameTables.CfgEncounters == null || GameTables.CfgSpawns == null ||
+                GameTables.CfgEnemies == null || GameTables.CfgCombatSkills == null || GameTables.CfgLootPool == null ||
+                GameTables.CfgPlayerCombat?.GetById(1) == null)
+            { error = "关卡配置表未完整加载。"; return false; }
             int defaults = 0;
-            if (GameTables.CfgLevels.GetAll().Count == 0) { error = "没有关卡条目。"; return false; }
             foreach (CfgLevelsRow row in GameTables.CfgLevels.GetAll())
             {
                 if (row.IsDefault) defaults++;
@@ -120,108 +119,110 @@ namespace GameLogic.Gameplay.Level
                     row.ExtraConnectionMin < 0 || row.ExtraConnectionMax < row.ExtraConnectionMin ||
                     row.ExtraConnectionMax > (row.GridWidth - 1) * (row.GridHeight - 1) ||
                     row.LootRoomCount < 0 || row.LootRoomCount > row.GridWidth * row.GridHeight - 3 ||
-                    row.ExtraExtractionChance < 0 || row.ExtraExtractionChance > 1 ||
+                    !Finite(row.ExtraExtractionChance) || row.ExtraExtractionChance < 0 || row.ExtraExtractionChance > 1 ||
                     GameTables.CfgRoomLayouts.GetById(row.LayoutID) == null || !HasPool(row.LootPoolID, row.ID))
                 { error = "关卡配置无效：" + row.ID; return false; }
             }
-            if (defaults != 1) { error = "关卡必须且只能有一项默认条目。"; return false; }
+            if (defaults != 1 || GameTables.CfgLevels.GetAll().Count == 0)
+            { error = "关卡必须且只能有一项默认条目。"; return false; }
             foreach (CfgRoomLayoutsRow row in GameTables.CfgRoomLayouts.GetAll())
             {
-                if (row.HalfExtent <= 0 || row.WallHeight <= 0 || row.WallThickness <= 0 || row.ExitHalfWidth <= 0 ||
-                    row.ExitHalfWidth >= row.HalfExtent || row.SpawnInset <= row.WallThickness * 0.5 ||
-                    row.SpawnInset >= row.HalfExtent || row.ExitCenterInset < 0 || row.ExitCenterInset >= row.HalfExtent ||
-                    row.ExitInteractionRadius <= 0 || row.ObjectInteractionRadius <= 0 || row.ObstacleHeight <= 0 ||
-                    !Inside(row.ChestX, row.ChestZ, row.HalfExtent) || !Inside(row.NpcX, row.NpcZ, row.HalfExtent) ||
-                    !Inside(row.ExtractionX, row.ExtractionZ, row.HalfExtent))
+                if (!FinitePositive(row.HalfExtent) || row.HalfExtent > 32 || !FinitePositive(row.WallHeight) ||
+                    !FinitePositive(row.WallThickness) || !FinitePositive(row.ExitHalfWidth) ||
+                    row.ExitHalfWidth >= row.HalfExtent || !Finite(row.SpawnInset) || row.SpawnInset <= row.WallThickness * 0.5 ||
+                    row.SpawnInset >= row.HalfExtent || !Finite(row.ExitCenterInset) || row.ExitCenterInset < 0 || row.ExitCenterInset >= row.HalfExtent ||
+                    !FinitePositive(row.ExitInteractionRadius) || !FinitePositive(row.ObjectInteractionRadius) ||
+                    !FinitePositive(row.ObstacleHeight) || !Inside(row.ChestX, row.ChestZ, row.HalfExtent) ||
+                    !Inside(row.NpcX, row.NpcZ, row.HalfExtent) || !Inside(row.ExtractionX, row.ExtractionZ, row.HalfExtent))
                 { error = "房间布局无效：" + row.ID; return false; }
             }
             foreach (CfgObstaclesRow row in GameTables.CfgObstacles.GetAll())
             {
                 CfgRoomLayoutsRow layout = GameTables.CfgRoomLayouts.GetById(row.LayoutID);
-                if (layout == null || row.MinX >= row.MaxX || row.MinZ >= row.MaxZ ||
-                    !Inside(row.MinX, row.MinZ, layout.HalfExtent) || !Inside(row.MaxX, row.MaxZ, layout.HalfExtent))
+                if (layout == null || !Inside(row.MinX, row.MinZ, layout.HalfExtent) ||
+                    !Inside(row.MaxX, row.MaxZ, layout.HalfExtent) || row.MinX >= row.MaxX || row.MinZ >= row.MaxZ)
                 { error = "房间障碍无效：" + row.ID; return false; }
             }
             foreach (CfgEnemiesRow row in GameTables.CfgEnemies.GetAll())
             {
-                if (string.IsNullOrWhiteSpace(row.Name) || string.IsNullOrWhiteSpace(row.PrefabAddress) || row.ModelScaleX <= 0 || row.ModelScaleY <= 0 || row.ModelScaleZ <= 0 ||
-                    row.BaseHealth <= 0 || row.HealthPerLevel < 0 || row.Attack <= 0 || row.MoveSpeed <= 0 || row.Radius <= 0 ||
-                    row.AttackRange <= 0 || row.AggroRange < row.AttackRange || GameTables.CfgCombatSkills.GetById(row.SkillID) == null ||
-                    row.ExperienceBase < 0 || row.ExperiencePerLevel < 0 || row.DropChance < 0 || row.DropChance > 1 || !HasPool(row.DropPoolID))
+                if (string.IsNullOrWhiteSpace(row.Name) || string.IsNullOrWhiteSpace(row.PrefabAddress) ||
+                    !FinitePositive(row.ModelScaleX) || !FinitePositive(row.ModelScaleY) || !FinitePositive(row.ModelScaleZ) ||
+                    !FinitePositive(row.BaseHealth) || !Finite(row.HealthPerLevel) || row.HealthPerLevel < 0 || !FinitePositive(row.Attack) ||
+                    !FinitePositive(row.MoveSpeed) || !FinitePositive(row.Radius) || !FinitePositive(row.AttackRange) ||
+                    !Finite(row.AggroRange) || row.AggroRange < row.AttackRange || GameTables.CfgCombatSkills.GetById(row.SkillID) == null ||
+                    row.ExperienceBase < 0 || row.ExperiencePerLevel < 0 || !Finite(row.DropChance) || row.DropChance < 0 || row.DropChance > 1 ||
+                    !HasPool(row.DropPoolID))
                 { error = "敌人配置无效：" + row.ID; return false; }
             }
             foreach (CfgSpawnsRow row in GameTables.CfgSpawns.GetAll())
-            {
-                CfgRoomLayoutsRow layout = GameTables.CfgRoomLayouts.GetById(row.LayoutID);
-                bool type = Enum.TryParse(row.RoomType, out LevelRoomType parsed) &&
-                    (parsed == LevelRoomType.Mob || parsed == LevelRoomType.Boss);
-                if (!type || layout == null || GameTables.CfgEnemies.GetById(row.EnemyID) == null || row.Count < 1 || row.Count >= 1000)
+                if (GameTables.CfgEncounters.GetById(row.EncounterID) == null ||
+                    GameTables.CfgEnemies.GetById(row.EnemyID) == null || row.Count < 1 || row.Count > 999 ||
+                    !Finite(row.StartX) || !Finite(row.StartZ) || !Finite(row.StepX) ||
+                    !Finite(row.StepZ) || !Finite(row.AlternateZ))
                 { error = "刷怪配置无效：" + row.ID; return false; }
-                for (int i = 0; i < row.Count; i++)
-                {
-                    Vector3 position = new SpawnDefinition(row).PositionAt(i);
-                    if (Inside(position.x, position.z, layout.HalfExtent)) continue;
-                    error = "刷怪位置超出房间：" + row.ID;
-                    return false;
-                }
-            }
-            foreach (CfgLevelsRow row in GameTables.CfgLevels.GetAll())
+            foreach (CfgEncountersRow row in GameTables.CfgEncounters.GetAll())
+                if (string.IsNullOrWhiteSpace(row.PoolID) || GameTables.CfgRoomLayouts.GetById(row.LayoutID) == null ||
+                    row.MinLevel < 1 || row.MaxLevel < row.MinLevel || row.Weight <= 0 || GetSpawns(row.ID).Count == 0)
+                { error = "遭遇配置无效：" + row.ID; return false; }
+            foreach (CfgRoomTemplatesRow row in GameTables.CfgRoomTemplates.GetAll())
             {
-                if (HasSpawn(row.LayoutID, LevelRoomType.Mob, true) && HasSpawn(row.LayoutID, LevelRoomType.Mob, false) &&
-                    HasSpawn(row.LayoutID, LevelRoomType.Boss, false)) continue;
-                error = "关卡缺少必要刷怪组：" + row.ID;
-                return false;
-            }
-            foreach (CfgLevelsRow row in GameTables.CfgLevels.GetAll())
-            {
-                foreach (CfgSpawnsRow spawn in GameTables.CfgSpawns.GetAll())
+                if (!Enum.TryParse(row.RoomType, out LevelRoomType type) || row.LevelID <= 0 ||
+                    GameTables.CfgLevels.GetById(row.LevelID) == null ||
+                    GameTables.CfgRoomLayouts.GetById(row.LayoutID) == null || row.Weight <= 0 ||
+                    row.AllowedExits < 1 || row.AllowedExits > 15 || row.IsStart && type != LevelRoomType.Mob ||
+                    (type == LevelRoomType.Loot || type == LevelRoomType.Npc) && !HasPool(row.LootPoolID, row.LevelID) ||
+                    type == LevelRoomType.Npc && (row.NpcPrice < 1 || row.NpcStock < 1) ||
+                    (type == LevelRoomType.Mob || type == LevelRoomType.Boss) && string.IsNullOrWhiteSpace(row.EncounterPoolID) ||
+                    (type == LevelRoomType.Npc || type == LevelRoomType.Loot) && !string.IsNullOrWhiteSpace(row.EncounterPoolID))
+                { error = "房间模板无效：" + row.ID; return false; }
+                if (type == LevelRoomType.Mob || type == LevelRoomType.Boss)
                 {
-                    if (spawn.LayoutID != row.LayoutID) continue;
-                    CfgEnemiesRow enemy = GameTables.CfgEnemies.GetById(spawn.EnemyID);
-                    if (enemy != null && HasPool(enemy.DropPoolID, row.ID) &&
-                        (long)enemy.ExperienceBase + (long)enemy.ExperiencePerLevel * row.ID <= int.MaxValue &&
-                        enemy.BaseHealth + enemy.HealthPerLevel * row.ID <= float.MaxValue) continue;
-                    error = "关卡敌人没有该等级可抽取的掉落项：" + row.ID + "/" + spawn.EnemyID;
-                    return false;
+                    bool hasEncounter = false;
+                    foreach (CfgEncountersRow encounter in GameTables.CfgEncounters.GetAll())
+                    {
+                        if (encounter.PoolID != row.EncounterPoolID || encounter.LayoutID != row.LayoutID ||
+                            encounter.MinLevel > row.LevelID || encounter.MaxLevel < row.LevelID) continue;
+                        hasEncounter = true;
+                        if (!ValidateEncounter(row, encounter, out error)) return false;
+                    }
+                    if (!hasEncounter) { error = "模板缺少可用遭遇：" + row.ID; return false; }
                 }
+                if (!ValidateGeometry(row, out error)) return false;
             }
-            return ValidateSpawnGroups(out error);
+            foreach (CfgLevelsRow level in GameTables.CfgLevels.GetAll())
+                foreach (LevelRoomType type in Enum.GetValues(typeof(LevelRoomType)))
+                    for (int mask = 1; mask <= 15; mask++)
+                        if (!HasTemplate(level.ID, type, false, mask) ||
+                            type == LevelRoomType.Mob && !HasTemplate(level.ID, type, true, mask))
+                        { error = "关卡房间模板缺少类型或出口覆盖：" + level.ID + "/" + type + "/" + mask; return false; }
+            return true;
         }
 
         /// <summary>
         /// 取得局外关卡选择条目。
         /// </summary>
-        /// <returns>按编号排列的独立关卡条目。</returns>
+        /// <returns>按编号排列的关卡条目。</returns>
         public static ProjectLevelOption[] CreateLevels()
         {
             if (GameTables.CfgLevels == null) return Array.Empty<ProjectLevelOption>();
-            var options = new List<ProjectLevelOption>();
+            var result = new List<ProjectLevelOption>();
             foreach (CfgLevelsRow row in GameTables.CfgLevels.GetAll())
-                options.Add(new ProjectLevelOption { Id = row.ID, Name = row.Name, Description = row.Description, RequiredLevel = row.RequiredLevel });
-            options.Sort((a, b) => a.Id.CompareTo(b.Id));
-            return options.ToArray();
+                result.Add(new ProjectLevelOption { Id = row.ID, Name = row.Name, Description = row.Description, RequiredLevel = row.RequiredLevel });
+            result.Sort((a, b) => a.Id.CompareTo(b.Id));
+            return result.ToArray();
         }
 
         /// <summary>
-        /// 读取并解析指定关卡。
+        /// 读取并解析指定关卡的旧默认布局。
         /// </summary>
         /// <param name="id">关卡编号。</param>
         /// <param name="level">存在时的关卡内容。</param>
-        /// <returns>关卡及布局均存在时为真。</returns>
+        /// <returns>关卡及默认布局均存在时为真。</returns>
         public static bool TryGetLevel(int id, out LevelDefinition level)
         {
-            level = null;
             CfgLevelsRow row = GameTables.CfgLevels?.GetById(id);
-            CfgRoomLayoutsRow layout = row == null ? null : GameTables.CfgRoomLayouts?.GetById(row.LayoutID);
-            if (layout == null) return false;
-            var obstacles = new List<LevelObstacle>();
-            if (GameTables.CfgObstacles != null)
-                foreach (CfgObstaclesRow obstacle in GameTables.CfgObstacles.GetAll())
-                    if (obstacle.LayoutID == layout.ID)
-                        obstacles.Add(new LevelObstacle(new Vector2((float)obstacle.MinX, (float)obstacle.MinZ),
-                            new Vector2((float)obstacle.MaxX, (float)obstacle.MaxZ)));
-            level = new LevelDefinition(row, layout, obstacles);
-            return true;
+            level = row == null ? null : CreateDefinition(row, row.LayoutID);
+            return level != null;
         }
 
         /// <summary>
@@ -238,112 +239,187 @@ namespace GameLogic.Gameplay.Level
         }
 
         /// <summary>
-        /// 获取指定房间类型的全部刷怪组。
+        /// 按房间图和固定随机源抽选模板与遭遇。
         /// </summary>
-        /// <param name="level">当前关卡。</param>
-        /// <param name="type">房间类型。</param>
-        /// <param name="isStart">是否起始房间。</param>
-        /// <returns>按配置编号排列的刷怪组。</returns>
-        public static IReadOnlyList<SpawnDefinition> GetSpawns(LevelDefinition level, LevelRoomType type, bool isStart)
+        /// <param name="level">所属关卡。</param>
+        /// <param name="room">已生成出口的房间。</param>
+        /// <param name="random">本局固定随机源。</param>
+        /// <param name="plan">选定的内容计划。</param>
+        /// <returns>模板和遭遇都可用时为真。</returns>
+        public static bool TryCreateRoomPlan(LevelDefinition level, LevelRoomState room, Random random, out LevelRoomPlan plan)
         {
-            var result = new List<SpawnDefinition>();
-            if (level == null || GameTables.CfgSpawns == null) return result;
-            foreach (CfgSpawnsRow row in GameTables.CfgSpawns.GetAll())
-                if (row.LayoutID == level.Layout.ID && row.RoomType == type.ToString() && row.IsStart == isStart)
-                    result.Add(new SpawnDefinition(row));
-            result.Sort((a, b) => a.Row.ID.CompareTo(b.Row.ID));
-            return result;
-        }
-
-        /// <summary>
-        /// 校验房间中全部敌人数量、边界、障碍和彼此之间的空间关系。
-        /// </summary>
-        /// <param name="error">失败时的说明。</param>
-        /// <returns>全部刷怪组可以安全生成时为真。</returns>
-        private static bool ValidateSpawnGroups(out string error)
-        {
-            error = null;
-            foreach (CfgRoomLayoutsRow layout in GameTables.CfgRoomLayouts.GetAll())
+            plan = null;
+            if (level == null || room == null || random == null || GameTables.CfgRoomTemplates == null) return false;
+            int mask = ExitMask(room.Exits.Keys);
+            var templates = new List<CfgRoomTemplatesRow>();
+            foreach (CfgRoomTemplatesRow template in GameTables.CfgRoomTemplates.GetAll())
+                if (template.LevelID == level.ID && template.RoomType == room.Type.ToString() &&
+                    template.IsStart == room.IsStart && (template.AllowedExits & mask) == mask && template.Weight > 0)
+                    templates.Add(template);
+            templates.Sort((a, b) => a.ID.CompareTo(b.ID));
+            CfgRoomTemplatesRow selected = WeightedPick(templates, row => row.Weight, random);
+            if (selected == null) return false;
+            int encounterId = 0;
+            IReadOnlyList<SpawnDefinition> spawns = Array.Empty<SpawnDefinition>();
+            if (room.Type == LevelRoomType.Mob || room.Type == LevelRoomType.Boss)
             {
-                foreach (LevelRoomType type in new[] { LevelRoomType.Mob, LevelRoomType.Boss })
-                {
-                    foreach (bool isStart in new[] { false, true })
-                    {
-                        var positions = new List<Vector2>();
-                        var radii = new List<float>();
-                        foreach (CfgSpawnsRow spawn in GameTables.CfgSpawns.GetAll())
-                        {
-                            if (spawn.LayoutID != layout.ID || spawn.RoomType != type.ToString() || spawn.IsStart != isStart) continue;
-                            CfgEnemiesRow enemy = GameTables.CfgEnemies.GetById(spawn.EnemyID);
-                            float radius = (float)enemy.Radius;
-                            for (int i = 0; i < spawn.Count; i++)
-                            {
-                                if (positions.Count >= 999) { error = "单房间敌人超过实体编号容量：" + layout.ID; return false; }
-                                Vector3 point = new SpawnDefinition(spawn).PositionAt(i);
-                                float limit = (float)(layout.HalfExtent - layout.WallThickness * 0.5) - radius;
-                                if (Mathf.Abs(point.x) >= limit || Mathf.Abs(point.z) >= limit)
-                                { error = "刷怪点靠近边界：" + spawn.ID; return false; }
-                                var position = new Vector2(point.x, point.z);
-                                foreach (CfgObstaclesRow obstacle in GameTables.CfgObstacles.GetAll())
-                                {
-                                    if (obstacle.LayoutID != layout.ID) continue;
-                                    var area = new LevelObstacle(new Vector2((float)obstacle.MinX, (float)obstacle.MinZ),
-                                        new Vector2((float)obstacle.MaxX, (float)obstacle.MaxZ));
-                                    if (!area.Overlaps(position, radius)) continue;
-                                    error = "刷怪点与障碍重叠：" + spawn.ID;
-                                    return false;
-                                }
-                                for (int earlier = 0; earlier < positions.Count; earlier++)
-                                {
-                                    if (Vector2.Distance(position, positions[earlier]) >= radius + radii[earlier]) continue;
-                                    error = "刷怪点相互重叠：" + spawn.ID;
-                                    return false;
-                                }
-                                positions.Add(position);
-                                radii.Add(radius);
-                            }
-                        }
-                    }
-                }
+                var encounters = new List<CfgEncountersRow>();
+                foreach (CfgEncountersRow encounter in GameTables.CfgEncounters.GetAll())
+                    if (encounter.PoolID == selected.EncounterPoolID && encounter.LayoutID == selected.LayoutID &&
+                        encounter.MinLevel <= level.ID && encounter.MaxLevel >= level.ID && encounter.Weight > 0)
+                        encounters.Add(encounter);
+                encounters.Sort((a, b) => a.ID.CompareTo(b.ID));
+                CfgEncountersRow chosen = WeightedPick(encounters, row => row.Weight, random);
+                if (chosen == null) return false;
+                encounterId = chosen.ID;
+                spawns = GetSpawns(encounterId);
             }
+            LevelDefinition definition = CreateDefinition(level.Row, selected.LayoutID);
+            if (definition == null) return false;
+            plan = new LevelRoomPlan(selected.ID, encounterId, definition, spawns, selected.LootPoolID,
+                selected.NpcPrice, selected.NpcStock);
             return true;
         }
 
         /// <summary>
-        /// 检查坐标位于布局边界内。
+        /// 兼容旧调用：返回与默认布局相同的第一组匹配遭遇。
         /// </summary>
-        /// <param name="x">水平坐标。</param>
-        /// <param name="z">纵向坐标。</param>
-        /// <param name="extent">房间半边长。</param>
-        /// <returns>坐标严格位于边界内时为真。</returns>
-        private static bool Inside(double x, double z, double extent) => Math.Abs(x) < extent && Math.Abs(z) < extent;
+        /// <param name="level">关卡默认布局。</param>
+        /// <param name="type">房间类型。</param>
+        /// <param name="isStart">是否起始房间。</param>
+        /// <returns>兼容测试使用的出生组。</returns>
+        public static IReadOnlyList<SpawnDefinition> GetSpawns(LevelDefinition level, LevelRoomType type, bool isStart)
+        {
+            if (level == null || GameTables.CfgRoomTemplates == null) return Array.Empty<SpawnDefinition>();
+            foreach (CfgRoomTemplatesRow template in GameTables.CfgRoomTemplates.GetAll())
+                if (template.LevelID == level.ID && template.LayoutID == level.Layout.ID &&
+                    template.RoomType == type.ToString() && template.IsStart == isStart)
+                    foreach (CfgEncountersRow encounter in GameTables.CfgEncounters.GetAll())
+                        if (encounter.PoolID == template.EncounterPoolID && encounter.LayoutID == template.LayoutID &&
+                            encounter.MinLevel <= level.ID && encounter.MaxLevel >= level.ID)
+                            return GetSpawns(encounter.ID);
+            return Array.Empty<SpawnDefinition>();
+        }
 
         /// <summary>
-        /// 判断掉落池身份是否在物品配置中存在。
+        /// 按遭遇编号读取全部出生组。
         /// </summary>
-        /// <param name="poolId">掉落池身份。</param>
-        /// <param name="levelId">关卡编号；零表示任意等级。</param>
-        /// <returns>至少有一项时为真。</returns>
+        /// <param name="encounterId">遭遇编号。</param>
+        /// <returns>按 ID 排序的出生组。</returns>
+        private static IReadOnlyList<SpawnDefinition> GetSpawns(int encounterId)
+        {
+            var result = new List<SpawnDefinition>();
+            foreach (CfgSpawnsRow row in GameTables.CfgSpawns.GetAll())
+                if (row.EncounterID == encounterId) result.Add(new SpawnDefinition(row));
+            result.Sort((a, b) => a.Row.ID.CompareTo(b.Row.ID));
+            return result.AsReadOnly();
+        }
+
+        /// <summary>
+        /// 创建指定房间布局定义。
+        /// </summary>
+        /// <param name="row">所属关卡。</param>
+        /// <param name="layoutId">选定布局编号。</param>
+        /// <returns>包含该布局障碍的定义。</returns>
+        private static LevelDefinition CreateDefinition(CfgLevelsRow row, int layoutId)
+        {
+            CfgRoomLayoutsRow layout = GameTables.CfgRoomLayouts?.GetById(layoutId);
+            if (layout == null) return null;
+            var obstacles = new List<LevelObstacle>();
+            if (GameTables.CfgObstacles != null)
+                foreach (CfgObstaclesRow obstacle in GameTables.CfgObstacles.GetAll())
+                    if (obstacle.LayoutID == layoutId)
+                        obstacles.Add(new LevelObstacle(new Vector2((float)obstacle.MinX, (float)obstacle.MinZ),
+                            new Vector2((float)obstacle.MaxX, (float)obstacle.MaxZ)));
+            return new LevelDefinition(row, layout, obstacles);
+        }
+
+        /// <summary>
+        /// 按正权重选择一行。
+        /// </summary>
+        /// <typeparam name="T">配置行类型。</typeparam>
+        /// <param name="rows">稳定排序后的候选。</param>
+        /// <param name="weight">权重读取函数。</param>
+        /// <param name="random">本局随机源。</param>
+        /// <returns>选中行；无候选时为空。</returns>
+        private static T WeightedPick<T>(IReadOnlyList<T> rows, Func<T, int> weight, Random random) where T : class
+        {
+            long total = 0;
+            foreach (T row in rows) total += weight(row);
+            if (total <= 0) return null;
+            long draw = (long)(random.NextDouble() * total);
+            foreach (T row in rows)
+            {
+                draw -= weight(row);
+                if (draw < 0) return row;
+            }
+            return rows[rows.Count - 1];
+        }
+
+        /// <summary>
+        /// 将出口方向转成配置掩码。
+        /// </summary>
+        /// <param name="exits">房间全部出口。</param>
+        /// <returns>North=1、East=2、South=4、West=8。</returns>
+        private static int ExitMask(IEnumerable<RoomDirection> exits)
+        {
+            int mask = 0;
+            foreach (RoomDirection direction in exits) mask |= 1 << (int)direction;
+            return mask;
+        }
+
+        /// <summary>
+        /// 检查关卡类型与出口掩码有可用模板。
+        /// </summary>
+        /// <param name="levelId">关卡编号。</param>
+        /// <param name="type">房间类型。</param>
+        /// <param name="start">是否起始房间。</param>
+        /// <param name="mask">需要包含的出口。</param>
+        /// <returns>存在可用模板时为真。</returns>
+        private static bool HasTemplate(int levelId, LevelRoomType type, bool start, int mask)
+        {
+            foreach (CfgRoomTemplatesRow row in GameTables.CfgRoomTemplates.GetAll())
+                if (row.LevelID == levelId && row.RoomType == type.ToString() && row.IsStart == start &&
+                    (row.AllowedExits & mask) == mask && row.Weight > 0) return true;
+            return false;
+        }
+
+        /// <summary>
+        /// 检查池在指定关卡有正权重掉落。
+        /// </summary>
+        /// <param name="poolId">池标识。</param>
+        /// <param name="levelId">关卡编号；零表示任意关卡。</param>
+        /// <returns>至少一项可用时为真。</returns>
         private static bool HasPool(string poolId, int levelId = 0)
         {
             if (string.IsNullOrWhiteSpace(poolId) || GameTables.CfgLootPool == null) return false;
             foreach (CfgLootPoolRow row in GameTables.CfgLootPool.GetAll())
-                if (row.PoolID == poolId && row.Weight > 0 && (levelId == 0 || row.MinLevel <= levelId && levelId <= row.MaxLevel)) return true;
+                if (row.PoolID == poolId && row.Weight > 0 &&
+                    (levelId == 0 || row.MinLevel <= levelId && levelId <= row.MaxLevel)) return true;
             return false;
         }
 
         /// <summary>
-        /// 判断布局包含对应房间类型的刷怪组。
+        /// 检查坐标严格位于布局边界内。
         /// </summary>
-        /// <param name="layoutId">布局编号。</param>
-        /// <param name="type">房间类型。</param>
-        /// <param name="isStart">是否起始房间。</param>
-        /// <returns>存在刷怪组时为真。</returns>
-        private static bool HasSpawn(int layoutId, LevelRoomType type, bool isStart)
-        {
-            foreach (CfgSpawnsRow row in GameTables.CfgSpawns.GetAll())
-                if (row.LayoutID == layoutId && row.RoomType == type.ToString() && row.IsStart == isStart) return true;
-            return false;
-        }
+        /// <param name="x">水平坐标。</param>
+        /// <param name="z">纵向坐标。</param>
+        /// <param name="extent">房间半边长。</param>
+        /// <returns>位置位于边界内时为真。</returns>
+        private static bool Inside(double x, double z, double extent) => Finite(x) && Finite(z) && Math.Abs(x) < extent && Math.Abs(z) < extent;
+
+        /// <summary>
+        /// 检查数值有限。
+        /// </summary>
+        /// <param name="value">待检查数值。</param>
+        /// <returns>有限时为真。</returns>
+        private static bool Finite(double value) => !double.IsNaN(value) && !double.IsInfinity(value);
+
+        /// <summary>
+        /// 检查数值有限且为正。
+        /// </summary>
+        /// <param name="value">待检查数值。</param>
+        /// <returns>有限正数时为真。</returns>
+        private static bool FinitePositive(double value) => Finite(value) && value > 0 && value <= float.MaxValue;
     }
 }

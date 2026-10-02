@@ -3,7 +3,7 @@
   "sources": [
     {
       "path": "config/excel/schema.json",
-      "sha256": "ba185edae5a2c46ce53810700b11d24833a6199d1daf76c2b6f651cff51a9b7f"
+      "sha256": "77f6c234db460f02222e94db38dd6171e8e6cdf3ddb9c903faff91826abf066c"
     },
     {
       "path": "config/excel/CfgAffixes.xlsx",
@@ -15,7 +15,7 @@
     },
     {
       "path": "config/excel/CfgCombatAnimationCues.xlsx",
-      "sha256": "25c18afcbaf87ff49043c5b0d5bb71d44556d9465da75465821cb7e66c1729c3"
+      "sha256": "c8cf2e400076e085c15095501f01a18eee0e711d1f0a016bbfdcd781f4675a9e"
     },
     {
       "path": "config/excel/CfgCombatAnimationSettings.xlsx",
@@ -27,7 +27,7 @@
     },
     {
       "path": "config/excel/CfgCombatEffects.xlsx",
-      "sha256": "6c3e7fac465505ed2d3df2496a613515daf706acd3e5ef31e1277b0537974da6"
+      "sha256": "29049713413e3886e063e5ddfc13fea27bb4fe71eedaa658fa7c5addeaa3729d"
     },
     {
       "path": "config/excel/CfgCombatProjectiles.xlsx",
@@ -35,15 +35,23 @@
     },
     {
       "path": "config/excel/CfgCombatSkills.xlsx",
-      "sha256": "42b2b6be2b37d876bb59686b9d7b555183f210e954b506b73e6a4237bea0ee36"
+      "sha256": "49b1139dbb8bd8f356aca84a28715c991a68f4e882d2fe8eb09aebedae69a9af"
     },
     {
       "path": "config/excel/CfgCombatTimelineNodes.xlsx",
-      "sha256": "05aefd1ab0dc149bd3f68965ce6dac07ff5ca48aefc72fc027b04192ae913bdc"
+      "sha256": "5feaeb2541fcb4e8adbd29ed15f93474571dcf2dd9d40242f3e34c742cb52b02"
+    },
+    {
+      "path": "config/excel/CfgEncounters.xlsx",
+      "sha256": "f2ddef43167ac45c2603d34dd436f0937df589e14ddb1613bb7badefd9235782"
     },
     {
       "path": "config/excel/CfgEnemies.xlsx",
-      "sha256": "e918297754060d59c964055849d73fc5e059bbcca9feca813b7a808016d28499"
+      "sha256": "23085caa17bb2c815e4329db8dd8d72c3fcdbb05bc5b35394c91ee35858a7ec7"
+    },
+    {
+      "path": "config/excel/CfgEnemySkills.xlsx",
+      "sha256": "da513f2cd1f5d0f7e47edcabc4a8086f6ad4aac12497d2695f5c4947b4cdb7ff"
     },
     {
       "path": "config/excel/CfgItemDefinitions.xlsx",
@@ -55,11 +63,11 @@
     },
     {
       "path": "config/excel/CfgLootPool.xlsx",
-      "sha256": "44ff6b36399f25485606c8790dd9fbd921ee3b33f66de505066c41eb0953b78b"
+      "sha256": "85a039f001aab17907bf7bbbf817dc51a2d879f226b0752ad8f3f84ba601d929"
     },
     {
       "path": "config/excel/CfgObstacles.xlsx",
-      "sha256": "f9513390619f321779ce1939316877ba77853ab74877e0725def810de6dbc4c5"
+      "sha256": "f7b72bb92c55946d042f9af0dc6c7caa10e4d6d21a64fc58c050854ab46881a3"
     },
     {
       "path": "config/excel/CfgPlayerCombat.xlsx",
@@ -83,7 +91,11 @@
     },
     {
       "path": "config/excel/CfgRoomLayouts.xlsx",
-      "sha256": "163dcb41862a97d2d1f4b82e211a72e65f3113f364271bcd05879160d0572d97"
+      "sha256": "6c1cd283e13a2af8ae42b345606601a32214b8635da98f0a8336e3fb79e72b00"
+    },
+    {
+      "path": "config/excel/CfgRoomTemplates.xlsx",
+      "sha256": "586c8f39dadc27c1e191dacf207e90249452599e78595a6e10defea37bf40b54"
     },
     {
       "path": "config/excel/CfgSkills.xlsx",
@@ -91,7 +103,7 @@
     },
     {
       "path": "config/excel/CfgSpawns.xlsx",
-      "sha256": "bacf4b90a1f487ccc43e7ab155972a8c925d0d6ed64bf44ed3aeb8d732392c49"
+      "sha256": "6c449b369150dccffd921b6c2c46535e0259ee5f52a664b116c7071dd42a218f"
     }
   ],
   "resources": [
@@ -576,6 +588,36 @@
       ]
     },
     {
+      "name": "CfgEncounters",
+      "source": "config/excel/CfgEncounters.xlsx",
+      "fields": [
+        {
+          "name": "ID",
+          "type": "int"
+        },
+        {
+          "name": "PoolID",
+          "type": "string"
+        },
+        {
+          "name": "LayoutID",
+          "type": "int"
+        },
+        {
+          "name": "MinLevel",
+          "type": "int"
+        },
+        {
+          "name": "MaxLevel",
+          "type": "int"
+        },
+        {
+          "name": "Weight",
+          "type": "int"
+        }
+      ]
+    },
+    {
       "name": "CfgEnemies",
       "source": "config/excel/CfgEnemies.xlsx",
       "fields": [
@@ -650,6 +692,48 @@
         {
           "name": "DropPoolID",
           "type": "string"
+        }
+      ]
+    },
+    {
+      "name": "CfgEnemySkills",
+      "source": "config/excel/CfgEnemySkills.xlsx",
+      "fields": [
+        {
+          "name": "ID",
+          "type": "int"
+        },
+        {
+          "name": "EnemyID",
+          "type": "int"
+        },
+        {
+          "name": "SkillID",
+          "type": "int"
+        },
+        {
+          "name": "Priority",
+          "type": "int"
+        },
+        {
+          "name": "Weight",
+          "type": "int"
+        },
+        {
+          "name": "MinHealthRatio",
+          "type": "number"
+        },
+        {
+          "name": "MaxHealthRatio",
+          "type": "number"
+        },
+        {
+          "name": "MinDistance",
+          "type": "number"
+        },
+        {
+          "name": "MaxDistance",
+          "type": "number"
         }
       ]
     },
@@ -1218,6 +1302,56 @@
       ]
     },
     {
+      "name": "CfgRoomTemplates",
+      "source": "config/excel/CfgRoomTemplates.xlsx",
+      "fields": [
+        {
+          "name": "ID",
+          "type": "int"
+        },
+        {
+          "name": "LevelID",
+          "type": "int"
+        },
+        {
+          "name": "RoomType",
+          "type": "string"
+        },
+        {
+          "name": "IsStart",
+          "type": "bool"
+        },
+        {
+          "name": "LayoutID",
+          "type": "int"
+        },
+        {
+          "name": "Weight",
+          "type": "int"
+        },
+        {
+          "name": "AllowedExits",
+          "type": "int"
+        },
+        {
+          "name": "EncounterPoolID",
+          "type": "string"
+        },
+        {
+          "name": "LootPoolID",
+          "type": "string"
+        },
+        {
+          "name": "NpcPrice",
+          "type": "int"
+        },
+        {
+          "name": "NpcStock",
+          "type": "int"
+        }
+      ]
+    },
+    {
       "name": "CfgSkills",
       "source": "config/excel/CfgSkills.xlsx",
       "fields": [
@@ -1272,16 +1406,8 @@
           "type": "int"
         },
         {
-          "name": "LayoutID",
+          "name": "EncounterID",
           "type": "int"
-        },
-        {
-          "name": "RoomType",
-          "type": "string"
-        },
-        {
-          "name": "IsStart",
-          "type": "bool"
         },
         {
           "name": "EnemyID",
@@ -1333,7 +1459,7 @@
     },
     {
       "path": "DevProject/Assets/GameResources/Config/Tables/Table_CfgCombatAnimationCues.json",
-      "sha256": "fe3345bb15d03b39cbf24396ef0f7922aaa23b347965596014359615eaaaa833"
+      "sha256": "2c8decfb17ac315ced3896b5190bb0f31fdb4594d5ad94a379a423119829d3aa"
     },
     {
       "path": "DevProject/Assets/Scripts/GameLogic/Runtime/Gen/CfgCombatAnimationCues.Gen.cs",
@@ -1357,7 +1483,7 @@
     },
     {
       "path": "DevProject/Assets/GameResources/Config/Tables/Table_CfgCombatEffects.json",
-      "sha256": "6bced1306e033dbf07162bd7ca94b53df08594f8482391f19ad94b7eefd519c0"
+      "sha256": "1c67c415261858714fea91573c488a8760c42fa18bf8a061333c87e963994d0d"
     },
     {
       "path": "DevProject/Assets/Scripts/GameLogic/Runtime/Gen/CfgCombatEffects.Gen.cs",
@@ -1373,7 +1499,7 @@
     },
     {
       "path": "DevProject/Assets/GameResources/Config/Tables/Table_CfgCombatSkills.json",
-      "sha256": "ec521fc71e7201f5118d022ef126f6a70f2f7f9ee0849bf74e68886f818419ef"
+      "sha256": "78d2a8743fdaf1d50caab3395833b44db9a49bd1fbde82aedaa50283f0d35f5c"
     },
     {
       "path": "DevProject/Assets/Scripts/GameLogic/Runtime/Gen/CfgCombatSkills.Gen.cs",
@@ -1381,19 +1507,35 @@
     },
     {
       "path": "DevProject/Assets/GameResources/Config/Tables/Table_CfgCombatTimelineNodes.json",
-      "sha256": "678de897cce93d6d3ac37bd49f3d71d01fc7e6da131f19783555c32f6d970883"
+      "sha256": "4f776dfb9f7d4c9dde2b8ddf0205a2feffec99cdc27167393fc191e7b371b360"
     },
     {
       "path": "DevProject/Assets/Scripts/GameLogic/Runtime/Gen/CfgCombatTimelineNodes.Gen.cs",
       "sha256": "306873ed19f48d261b8d45d08866ebd99218387b52ced18f646121b3a8c8040c"
     },
     {
+      "path": "DevProject/Assets/GameResources/Config/Tables/Table_CfgEncounters.json",
+      "sha256": "df166075080b718f2e4e8399a402ac03b59d85a5ea002b41ab2090de466be0dc"
+    },
+    {
+      "path": "DevProject/Assets/Scripts/GameLogic/Runtime/Gen/CfgEncounters.Gen.cs",
+      "sha256": "4f7a544667eac17accdff836f6356cd65523421ada507312e7154faf1997eb19"
+    },
+    {
       "path": "DevProject/Assets/GameResources/Config/Tables/Table_CfgEnemies.json",
-      "sha256": "09d01cf00e04ddacdfcf7056a828982f7118145836cb59f37c4357b66ac04d02"
+      "sha256": "51d6aa27a26f00dfb8d09cff4accbe0c4099502aca2c88285256923910ec2fb5"
     },
     {
       "path": "DevProject/Assets/Scripts/GameLogic/Runtime/Gen/CfgEnemies.Gen.cs",
       "sha256": "2d8830b8b798068eaf3057c71055d075fd087bd1319b76ab0ad0be0bbf21017a"
+    },
+    {
+      "path": "DevProject/Assets/GameResources/Config/Tables/Table_CfgEnemySkills.json",
+      "sha256": "1d546f26775b119019f17c0bd7e3953fdf1e3d5bcebd5c7440cb701c38e1ebb5"
+    },
+    {
+      "path": "DevProject/Assets/Scripts/GameLogic/Runtime/Gen/CfgEnemySkills.Gen.cs",
+      "sha256": "787c10b5248899de5c87888d3ef4abd8bc78c0a5ab5306f40da1d54ed48b05d3"
     },
     {
       "path": "DevProject/Assets/GameResources/Config/Tables/Table_CfgItemDefinitions.json",
@@ -1413,7 +1555,7 @@
     },
     {
       "path": "DevProject/Assets/GameResources/Config/Tables/Table_CfgLootPool.json",
-      "sha256": "290b78f62f1d4fc3221d05a2f41777d71fef0c24d8629e729b4e918ccfc79d05"
+      "sha256": "c7f21e34fb8b38e07558eb04faa9551b80d7ba497830eeff9c4ea381b1afd9bf"
     },
     {
       "path": "DevProject/Assets/Scripts/GameLogic/Runtime/Gen/CfgLootPool.Gen.cs",
@@ -1421,7 +1563,7 @@
     },
     {
       "path": "DevProject/Assets/GameResources/Config/Tables/Table_CfgObstacles.json",
-      "sha256": "86e768e4dbc682c513bca1821c0621dce297931c76b870c000d97eb36e96b6f3"
+      "sha256": "e0d32305c4aa735adf7ff87af0c4ab4f8ef5fc5355c2ad9301853ecb1133270a"
     },
     {
       "path": "DevProject/Assets/Scripts/GameLogic/Runtime/Gen/CfgObstacles.Gen.cs",
@@ -1469,11 +1611,19 @@
     },
     {
       "path": "DevProject/Assets/GameResources/Config/Tables/Table_CfgRoomLayouts.json",
-      "sha256": "27b83a625f5a3f7239101a67df0dd5705a4fe3a3c017cb79c42a23945f9895d0"
+      "sha256": "16b47cc2cfedccf8c5315f18e9d55b0518f11cb421e0f96780b0249f49aafafd"
     },
     {
       "path": "DevProject/Assets/Scripts/GameLogic/Runtime/Gen/CfgRoomLayouts.Gen.cs",
       "sha256": "0916d711ce4bc83cadb887ea35e287c9f22b9f419cbdd19d0dd19e8b2a8cab89"
+    },
+    {
+      "path": "DevProject/Assets/GameResources/Config/Tables/Table_CfgRoomTemplates.json",
+      "sha256": "300e569547dca5b816a365b894381faa816d1b8bb304a86dfdd0dfbf01a6609a"
+    },
+    {
+      "path": "DevProject/Assets/Scripts/GameLogic/Runtime/Gen/CfgRoomTemplates.Gen.cs",
+      "sha256": "c3f79f52083f065de741e00cf47d9912c0a5eddf71056490c21c087fe4221a93"
     },
     {
       "path": "DevProject/Assets/GameResources/Config/Tables/Table_CfgSkills.json",
@@ -1485,15 +1635,15 @@
     },
     {
       "path": "DevProject/Assets/GameResources/Config/Tables/Table_CfgSpawns.json",
-      "sha256": "f7a7f9389515469d498130b0b47ad73827ff2f4f19ec7301def73877a88ba3df"
+      "sha256": "07c3dc7c400fa6b025473699d9c5ce4fe686f883d81463324a82b8893da9c96d"
     },
     {
       "path": "DevProject/Assets/Scripts/GameLogic/Runtime/Gen/CfgSpawns.Gen.cs",
-      "sha256": "08394fa8b7f5d772a0d805755166ae68e5d9ccd63174dea7616c9d45f6a46870"
+      "sha256": "2dc6a41ee8abce8d9bd27ba8bed5d2b7b86f09cc83e11271d55762f4a634fc47"
     },
     {
       "path": "DevProject/Assets/Scripts/GameLogic/Runtime/Gen/GameTables.Gen.cs",
-      "sha256": "a431b6725cf87e392e518a78c9c9374e256889d02cb4d7e46c0df24c38e3d735"
+      "sha256": "d74a82d3719476e54ee4e75ed7c63831b04ca93f07d00689f5dbf27d6db6cf2b"
     }
   ]
 }

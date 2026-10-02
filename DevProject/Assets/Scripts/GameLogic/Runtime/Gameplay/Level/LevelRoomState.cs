@@ -24,6 +24,7 @@ namespace GameLogic.Gameplay.Level
         public bool IsExtractionVisible => HasExtractionCandidate && (!ExtractionRequiresClear || IsCleared);
         public IReadOnlyDictionary<RoomDirection, int> Exits => exits;
         public IReadOnlyDictionary<string, int> NpcStock => npcStock;
+        public LevelRoomPlan Plan { get; private set; }
 
         /// <summary>
         /// 创建单局地图状态。
@@ -104,6 +105,15 @@ namespace GameLogic.Gameplay.Level
             if (destinationRoomId <= 0 || exits.ContainsKey(direction)) return false;
             exits.Add(direction, destinationRoomId);
             return true;
+        }
+
+        /// <summary>
+        /// 固定本局房间内容，不允许回访时重新抽取。
+        /// </summary>
+        /// <param name="plan">生成时选定的房间内容。</param>
+        internal void SetPlan(LevelRoomPlan plan)
+        {
+            if (Plan == null) Plan = plan;
         }
 
         /// <summary>

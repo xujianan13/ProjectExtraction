@@ -86,9 +86,42 @@ namespace GameLogic.Tests.Editor.Level
             {
                 Assert.That(second.TryGetRoom(room.RoomId, out LevelRoomState counterpart), Is.True);
                 Assert.That(counterpart.Type, Is.EqualTo(room.Type));
+                Assert.That(room.Plan, Is.Not.Null);
+                Assert.That(counterpart.Plan.TemplateID, Is.EqualTo(room.Plan.TemplateID));
+                Assert.That(counterpart.Plan.EncounterID, Is.EqualTo(room.Plan.EncounterID));
+                Assert.That(counterpart.Plan.Definition.Layout.ID, Is.EqualTo(room.Plan.Definition.Layout.ID));
                 Assert.That(counterpart.HasExtractionCandidate, Is.EqualTo(room.HasExtractionCandidate));
                 Assert.That(counterpart.Exits.OrderBy(exit => exit.Key).ToArray(), Is.EqualTo(room.Exits.OrderBy(exit => exit.Key).ToArray()));
             }
+        }
+
+        /// <summary>
+        /// 不同种子能抽到不同模板或遭遇，特殊房间保留专用内容。
+        /// </summary>
+        [Test]
+        public void SeedsVaryRoomContentAndSpecialRoomsHaveDedicatedPlans()
+        {
+            var signatures = new HashSet<string>();
+            for (int seed = 0; seed < 24; seed++)
+            {
+                Assert.That(LevelGenerator.TryGenerate(seed, out LevelRunState run), Is.True);
+                signatures.Add(string.Join(",", run.Rooms.Select(room => room.Plan.TemplateID + ":" + room.Plan.EncounterID)));
+                foreach (LevelRoomState room in run.Rooms)
+                {
+                    Assert.That(room.Plan.Definition, Is.Not.Null);
+                    if (room.Type == LevelRoomType.Mob || room.Type == LevelRoomType.Boss)
+                    {
+                        Assert.That(room.Plan.EncounterID, Is.GreaterThan(0));
+                        Assert.That(room.Plan.Spawns, Is.Not.Empty);
+                    }
+                    else
+                    {
+                        Assert.That(room.Plan.EncounterID, Is.Zero);
+                        Assert.That(room.Plan.Spawns, Is.Empty);
+                    }
+                }
+            }
+            Assert.That(signatures.Count, Is.GreaterThan(1));
         }
 
         /// <summary>
@@ -123,6 +156,8 @@ namespace GameLogic.Tests.Editor.Level
             Assert.That(run.TryCommitTransition(start.RoomId), Is.True);
             Assert.That(run.CurrentRoomId, Is.EqualTo(start.RoomId));
             Assert.That(start.IsCleared, Is.False);
+            Assert.That(run.TryGetRoom(start.RoomId, out LevelRoomState revisited), Is.True);
+            Assert.That(revisited.Plan, Is.SameAs(start.Plan));
 
             LevelRoomState extraction = run.Rooms.First(room => room.HasExtractionCandidate && room.ExtractionRequiresClear);
             Assert.That(extraction.IsExtractionVisible, Is.False);

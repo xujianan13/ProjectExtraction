@@ -56,6 +56,86 @@
       "EffectIDs": [
         6
       ]
+    },
+    {
+      "ID": 8,
+      "SkillID": 4,
+      "Tick": 0,
+      "EffectIDs": [
+        12
+      ]
+    },
+    {
+      "ID": 9,
+      "SkillID": 4,
+      "Tick": 22,
+      "EffectIDs": [
+        13
+      ]
+    },
+    {
+      "ID": 10,
+      "SkillID": 4,
+      "Tick": 34,
+      "EffectIDs": [
+        14
+      ]
+    },
+    {
+      "ID": 11,
+      "SkillID": 5,
+      "Tick": 0,
+      "EffectIDs": [
+        15
+      ]
+    },
+    {
+      "ID": 12,
+      "SkillID": 5,
+      "Tick": 36,
+      "EffectIDs": [
+        16
+      ]
+    },
+    {
+      "ID": 13,
+      "SkillID": 6,
+      "Tick": 0,
+      "EffectIDs": [
+        17
+      ]
+    },
+    {
+      "ID": 14,
+      "SkillID": 6,
+      "Tick": 38,
+      "EffectIDs": [
+        18
+      ]
+    },
+    {
+      "ID": 15,
+      "SkillID": 7,
+      "Tick": 0,
+      "EffectIDs": [
+        19
+      ]
+    },
+    {
+      "ID": 16,
+      "SkillID": 7,
+      "Tick": 20,
+      "EffectIDs": [
+        20
+      ]
+    },
+    {
+      "ID": 17,
+      "SkillID": 7,
+      "Tick": 36,
+      "EffectIDs": [
+        21
+      ]
     }
   ]
 }

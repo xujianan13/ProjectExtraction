@@ -19,19 +19,9 @@ namespace GameLogic.Tables
         public int ID;
 
         /// <summary>
-        /// LayoutID 字段。
+        /// EncounterID 字段。
         /// </summary>
-        public int LayoutID;
-
-        /// <summary>
-        /// RoomType 字段。
-        /// </summary>
-        public string RoomType;
-
-        /// <summary>
-        /// IsStart 字段。
-        /// </summary>
-        public bool IsStart;
+        public int EncounterID;
 
         /// <summary>
         /// EnemyID 字段。
@@ -103,7 +93,7 @@ namespace GameLogic.Tables
                 TextAsset asset = lease.Asset;
                 if (asset == null) throw new InvalidOperationException("配置表资源不可用：CfgSpawns");
                 var envelope = JsonUtility.FromJson(asset.text, typeof(Envelope)) as Envelope;
-                if (envelope == null || envelope.schemaHash != "00c285b233c1716946d6d54a4f35cb23008f6f293d130a224dde1cada4bd0e5d" || envelope.rows == null)
+                if (envelope == null || envelope.schemaHash != "d857049dd2f98132dcb682eac298605b69369589513a45d4d80f3cda55715d5b" || envelope.rows == null)
                     throw new InvalidOperationException("配置表结构不匹配：CfgSpawns");
 
                 var table = new CfgSpawnsTable();

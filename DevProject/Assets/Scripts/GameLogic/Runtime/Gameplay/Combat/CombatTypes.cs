@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using UnityEngine;
 
 namespace GameLogic.Gameplay.Combat
@@ -132,6 +132,20 @@ namespace GameLogic.Gameplay.Combat
     }
 
     /// <summary>
+    /// 敌人自动选择技能时使用的纯数据条件。
+    /// </summary>
+    public struct CombatEnemySkillDefinition
+    {
+        public int SkillId;
+        public int Priority;
+        public int Weight;
+        public float MinHealthRatio;
+        public float MaxHealthRatio;
+        public float MinDistance;
+        public float MaxDistance;
+    }
+
+    /// <summary>
     /// 创建角色所需的初始数据。
     /// </summary>
     public struct CombatActorSpec
@@ -153,6 +167,7 @@ namespace GameLogic.Gameplay.Combat
         public float Radius;
         public float AttackRange;
         public int BasicSkillId;
+        public CombatEnemySkillDefinition[] EnemySkills;
         public float AggroRange;
     }
 

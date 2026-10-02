@@ -21,6 +21,34 @@
       "CooldownTicks": 90,
       "StartRange": 8,
       "StartRangeSource": 0
+    },
+    {
+      "ID": 4,
+      "DurationTicks": 44,
+      "CooldownTicks": 90,
+      "StartRange": 3.5,
+      "StartRangeSource": 0
+    },
+    {
+      "ID": 5,
+      "DurationTicks": 52,
+      "CooldownTicks": 110,
+      "StartRange": 3.2,
+      "StartRangeSource": 0
+    },
+    {
+      "ID": 6,
+      "DurationTicks": 54,
+      "CooldownTicks": 105,
+      "StartRange": 3.2,
+      "StartRangeSource": 0
+    },
+    {
+      "ID": 7,
+      "DurationTicks": 50,
+      "CooldownTicks": 95,
+      "StartRange": 6,
+      "StartRangeSource": 0
     }
   ]
 }

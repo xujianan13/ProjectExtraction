@@ -458,7 +458,8 @@ namespace MiniGame.Tests
             {
                 int destination = path.Pop();
                 RoomDirection direction = run.CurrentRoom.Exits.First(pair => pair.Value == destination).Key;
-                float edge = PrototypeLevelConfig.RoomHalfExtent - 1;
+                var geometry = run.CurrentRoom.Plan.Definition.Layout;
+                float edge = (float)(geometry.HalfExtent - geometry.ExitCenterInset);
                 Vector3 position = direction == RoomDirection.North ? new Vector3(0, 0, edge) :
                     direction == RoomDirection.South ? new Vector3(0, 0, -edge) :
                     direction == RoomDirection.East ? new Vector3(edge, 0, 0) : new Vector3(-edge, 0, 0);
@@ -468,7 +469,8 @@ namespace MiniGame.Tests
                 Assert.That(run.CurrentRoom.RoomId, Is.EqualTo(destination));
             }
             target.MarkCleared();
-            Assert.That(run.World.TrySetPosition(run.Player, new Vector3(4, 0, -1)), Is.True);
+            var targetLayout = target.Plan.Definition.Layout;
+            Assert.That(run.World.TrySetPosition(run.Player, new Vector3((float)targetLayout.ExtractionX, 0, (float)targetLayout.ExtractionZ)), Is.True);
             run.Advance(CombatWorld.TickSeconds);
             Assert.That(run.IsRunning, Is.False);
             await WaitForPhaseAsync(ProjectRunPhase.ResultsReady);

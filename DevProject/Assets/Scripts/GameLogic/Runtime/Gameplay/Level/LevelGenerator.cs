@@ -142,6 +142,11 @@ namespace GameLogic.Gameplay.Level
                 if (room.IsStart || room.HasExtractionCandidate || random.NextDouble() >= level.Row.ExtraExtractionChance) continue;
                 room.SetExtractionCandidate(room.Type == LevelRoomType.Mob || room.Type == LevelRoomType.Boss);
             }
+            foreach (LevelRoomState room in rooms)
+            {
+                if (!LevelContentConfig.TryCreateRoomPlan(level, room, random, out LevelRoomPlan plan)) return false;
+                room.SetPlan(plan);
+            }
             run = new LevelRunState(seed, rooms, startId);
             return true;
         }

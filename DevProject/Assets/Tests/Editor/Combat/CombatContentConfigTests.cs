@@ -11,14 +11,15 @@ namespace ProjectExtraction.Tests.Editor.Combat
     public sealed class CombatContentConfigTests
     {
         /// <summary>
-        /// 真实表可构建包含三种技能、飞弹命中链与装备范围的目录。
+        /// 真实表可构建包含全部技能、飞弹命中链与装备范围的目录。
         /// </summary>
         [Test]
         public void BuildsCatalogFromExportedTables()
         {
             Assert.That(CombatContentConfig.Validate(out string error), Is.True, error);
             CombatCatalog catalog = CombatContentConfig.CreateCatalog(2.4f);
-            Assert.That(catalog.Skills.Count, Is.EqualTo(3));
+            Assert.That(catalog.Skills.Count, Is.EqualTo(GameTables.CfgCombatSkills.GetAll().Count));
+            Assert.That(catalog.Skills.ContainsKey(7), Is.True, "Boss 阶段冲刺技能必须进入战斗目录。");
             Assert.That(catalog.Skills[1].StartRange, Is.EqualTo(3f).Within(0.0001f));
             Assert.That(catalog.Skills[1].Nodes[2].Effects[0].Radius, Is.EqualTo(2.4f).Within(0.0001f));
             Assert.That(catalog.Projectiles[1].OnHit.Count, Is.EqualTo(2));
@@ -94,6 +95,34 @@ namespace ProjectExtraction.Tests.Editor.Combat
                 effect.LinkedID = oldLinkedId;
             }
             Assert.That(CombatContentConfig.Validate(out string restoredError), Is.True, restoredError);
+        }
+        /// <summary>
+        /// 敌人技能复制后与源表隔离，生命阶段缺口和超出起手距离的配置被拒绝。
+        /// </summary>
+        [Test]
+        public void EnemySkillProfilesAreCopiedAndInvalidConditionsAreRejected()
+        {
+            Assert.That(CombatEnemySkillConfig.Validate(out string error), Is.True, error);
+            CombatEnemySkillDefinition[] copied = CombatEnemySkillConfig.Create(1);
+            CfgEnemySkillsRow row = GameTables.CfgEnemySkills.GetById(1);
+            double oldMinimum = row.MinHealthRatio, oldDistance = row.MaxDistance;
+            try
+            {
+                row.MinHealthRatio = 0.2;
+                Assert.That(CombatEnemySkillConfig.Validate(out error), Is.False);
+                Assert.That(error, Does.Contain("生命阶段"));
+                Assert.That(copied[0].MinHealthRatio, Is.Zero);
+                row.MinHealthRatio = oldMinimum;
+                row.MaxDistance = GameTables.CfgCombatSkills.GetById(row.SkillID).StartRange + 1;
+                Assert.That(CombatEnemySkillConfig.Validate(out error), Is.False);
+                Assert.That(error, Does.Contain("技能选择配置无效"));
+            }
+            finally
+            {
+                row.MinHealthRatio = oldMinimum;
+                row.MaxDistance = oldDistance;
+            }
+            Assert.That(CombatEnemySkillConfig.Validate(out error), Is.True, error);
         }
     }
 }

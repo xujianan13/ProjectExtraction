@@ -1,0 +1,71 @@
+{
+  "schemaHash": "cfef212105b4f0730c084c0905d2a9641c636190bebc5dbf38a356092913adab",
+  "rows": [
+    {
+      "ID": 1,
+      "EnemyID": 1,
+      "SkillID": 2,
+      "Priority": 0,
+      "Weight": 1,
+      "MinHealthRatio": 0,
+      "MaxHealthRatio": 1,
+      "MinDistance": 0,
+      "MaxDistance": 2.1
+    },
+    {
+      "ID": 2,
+      "EnemyID": 2,
+      "SkillID": 3,
+      "Priority": 0,
+      "Weight": 1,
+      "MinHealthRatio": 0,
+      "MaxHealthRatio": 1,
+      "MinDistance": 0,
+      "MaxDistance": 8
+    },
+    {
+      "ID": 3,
+      "EnemyID": 2,
+      "SkillID": 6,
+      "Priority": 1,
+      "Weight": 2,
+      "MinHealthRatio": 0,
+      "MaxHealthRatio": 1,
+      "MinDistance": 0,
+      "MaxDistance": 3.2
+    },
+    {
+      "ID": 4,
+      "EnemyID": 2,
+      "SkillID": 7,
+      "Priority": 2,
+      "Weight": 3,
+      "MinHealthRatio": 0,
+      "MaxHealthRatio": 0.5,
+      "MinDistance": 3.2,
+      "MaxDistance": 6
+    },
+    {
+      "ID": 5,
+      "EnemyID": 3,
+      "SkillID": 4,
+      "Priority": 0,
+      "Weight": 1,
+      "MinHealthRatio": 0,
+      "MaxHealthRatio": 1,
+      "MinDistance": 0,
+      "MaxDistance": 3.5
+    },
+    {
+      "ID": 6,
+      "EnemyID": 4,
+      "SkillID": 5,
+      "Priority": 0,
+      "Weight": 1,
+      "MinHealthRatio": 0,
+      "MaxHealthRatio": 1,
+      "MinDistance": 0,
+      "MaxDistance": 3.2
+    }
+  ]
+}

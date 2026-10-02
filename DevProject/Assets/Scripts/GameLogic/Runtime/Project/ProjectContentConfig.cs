@@ -5,7 +5,6 @@ using GameFramework;
 using GameLogic.Gameplay.Combat;
 using GameLogic.Gameplay.Level;
 using GameLogic.Tables;
-using UnityEngine;
 
 namespace GameLogic.Project
 {
@@ -50,7 +49,7 @@ namespace GameLogic.Project
         public static bool Validate(out string error)
         {
             if (!CombatContentConfig.Validate(out error) || !ProjectRulesConfig.Validate(out error) ||
-                !LevelContentConfig.Validate(out error)) return false;
+                !CombatEnemySkillConfig.Validate(out error)) return false;
             error = "项目资源绑定或玩家战斗表缺失。";
             if (GameTables.CfgAssets == null || GameTables.CfgPlayerCombat == null || Player == null ||
                 GameTables.CfgPlayerCombat.GetAll().Count != 1) return false;
@@ -62,27 +61,7 @@ namespace GameLogic.Project
                 double.IsNaN(player.SpawnX) || double.IsInfinity(player.SpawnX) || double.IsNaN(player.SpawnZ) ||
                 double.IsInfinity(player.SpawnZ) || GameTables.CfgCombatSkills.GetById(player.SkillID) == null)
             { error = "玩家战斗属性或基础技能引用无效。"; return false; }
-            foreach (CfgLevelsRow row in GameTables.CfgLevels.GetAll())
-            {
-                LevelContentConfig.TryGetLevel(row.ID, out LevelDefinition level);
-                var layout = new LevelRoomLayout(level);
-                Vector3 spawn = new Vector3((float)player.SpawnX, 0, (float)player.SpawnZ);
-                if (layout.IsBlocked(spawn, (float)player.Radius))
-                { error = "玩家出生位置被阻挡，关卡：" + row.ID; return false; }
-                foreach (SpawnDefinition group in LevelContentConfig.GetSpawns(level, LevelRoomType.Mob, true))
-                {
-                    LevelContentConfig.TryGetEnemy(group.EnemyID, out EnemyDefinition enemy);
-                    float separation = (float)(player.Radius + enemy.Row.Radius);
-                    for (int i = 0; i < group.Count; i++)
-                        if ((group.PositionAt(i) - spawn).sqrMagnitude < separation * separation)
-                        { error = "起始房玩家与敌人出生位置重叠，关卡：" + row.ID; return false; }
-                }
-                float entry = layout.HalfExtent - (float)level.Layout.SpawnInset;
-                foreach (Vector3 position in new[] { new Vector3(entry, 0, 0), new Vector3(-entry, 0, 0),
-                    new Vector3(0, 0, entry), new Vector3(0, 0, -entry) })
-                    if (layout.IsBlocked(position, (float)player.Radius) || player.Radius >= level.Layout.ExitHalfWidth)
-                    { error = "玩家半径或房间入口不可通行，关卡：" + row.ID; return false; }
-            }
+            if (!LevelContentConfig.Validate(out error)) return false;
             error = null;
             return true;
         }

@@ -89,6 +89,55 @@ namespace GameLogic.Tests.Editor.Level
         }
 
         /// <summary>
+        /// 横贯房间的极薄障碍会被整段路径检测到。
+        /// </summary>
+        [Test]
+        public void RejectsThinBarrierAcrossRoom()
+        {
+            CfgObstaclesRow obstacle = GameTables.CfgObstacles.GetById(3);
+            double minX = obstacle.MinX;
+            double maxX = obstacle.MaxX;
+            double minZ = obstacle.MinZ;
+            double maxZ = obstacle.MaxZ;
+            try
+            {
+                obstacle.MinX = -11;
+                obstacle.MaxX = 11;
+                obstacle.MinZ = 1.01;
+                obstacle.MaxZ = 1.02;
+                Assert.That(LevelContentConfig.Validate(out string error), Is.False);
+                Assert.That(error, Does.Contain("封路"));
+            }
+            finally
+            {
+                obstacle.MinX = minX;
+                obstacle.MaxX = maxX;
+                obstacle.MinZ = minZ;
+                obstacle.MaxZ = maxZ;
+            }
+        }
+
+        /// <summary>
+        /// NPC 房间缺少自身商品掉落池时拒绝启动内容。
+        /// </summary>
+        [Test]
+        public void RejectsMissingNpcLootPool()
+        {
+            CfgRoomTemplatesRow row = GameTables.CfgRoomTemplates.GetById(106);
+            string original = row.LootPoolID;
+            try
+            {
+                row.LootPoolID = "missing-pool";
+                Assert.That(LevelContentConfig.Validate(out string error), Is.False);
+                Assert.That(error, Does.Contain("房间模板无效"));
+            }
+            finally
+            {
+                row.LootPoolID = original;
+            }
+        }
+
+        /// <summary>
         /// 关卡等级没有正权重可抽掉落项时拒绝内容配置。
         /// </summary>
         [Test]

@@ -39,7 +39,8 @@ namespace MiniGame.Tests
             Assert.That(GameEntry.Get<ISceneModule>().CurrentScene, Is.TypeOf<GameLogic.Scenes.Expedition.ExpeditionScene>());
             MoveToRoom(run, run.Maps.Rooms.First(room => room.Type == LevelRoomType.Loot).RoomId);
             int inventoryBeforeChest = run.Inventory.Count;
-            Assert.That(run.World.TrySetPosition(run.Player, new Vector3(-4f, 0f, -1f)), Is.True);
+            var chestLayout = run.CurrentRoom.Plan.Definition.Layout;
+            Assert.That(run.World.TrySetPosition(run.Player, new Vector3((float)chestLayout.ChestX, 0, (float)chestLayout.ChestZ)), Is.True);
             long before = run.World.TickIndex;
             run.RequestInteraction();
             run.Advance(CombatWorld.TickSeconds * 4f);
@@ -195,7 +196,8 @@ namespace MiniGame.Tests
             {
                 int destination = path.Pop();
                 RoomDirection direction = run.CurrentRoom.Exits.First(pair => pair.Value == destination).Key;
-                float edge = PrototypeLevelConfig.RoomHalfExtent - 1;
+                var geometry = run.CurrentRoom.Plan.Definition.Layout;
+                float edge = (float)(geometry.HalfExtent - geometry.ExitCenterInset);
                 Vector3 position = direction == RoomDirection.North ? new Vector3(0, 0, edge) :
                     direction == RoomDirection.South ? new Vector3(0, 0, -edge) :
                     direction == RoomDirection.East ? new Vector3(edge, 0, 0) : new Vector3(-edge, 0, 0);

@@ -110,7 +110,16 @@ namespace GameLogic.Gameplay.Combat
         private void ExpireBuffsAndCooldowns()
         {
             foreach (var actor in actors.Values)
-                if (actor.Spec.RoomId == activeRoomId && actor.Cooldown > 0) actor.Cooldown--;
+            {
+                if (actor.Spec.RoomId != activeRoomId) continue;
+                var skillIds = new List<int>(actor.SkillCooldowns.Keys);
+                foreach (var skillId in skillIds)
+                {
+                    var remaining = actor.SkillCooldowns[skillId] - 1;
+                    if (remaining > 0) actor.SkillCooldowns[skillId] = remaining;
+                    else actor.SkillCooldowns.Remove(skillId);
+                }
+            }
             var buffIds = new List<int>(buffs.Keys);
             buffIds.Sort();
             foreach (var id in buffIds)
@@ -212,7 +221,7 @@ namespace GameLogic.Gameplay.Combat
         }
 
         /// <summary>
-        /// 由最接近的有效敌人驱动追击和自动基础攻击。
+        /// 由最近的有效敌人驱动追击和自动技能。
         /// </summary>
         private void AutoCombat()
         {
@@ -221,9 +230,15 @@ namespace GameLogic.Gameplay.Combat
             foreach (var id in actorIds)
             {
                 var source = actors[id];
-                if (source.DeadPending || source.Spec.RoomId != activeRoomId || source.Spec.BasicSkillId <= 0) continue;
-                var targetId = FindNearestEnemy(id, source.Spec.IsPlayer ? source.Spec.AttackRange + source.RangeBonus :
-                    Mathf.Max(source.Spec.AttackRange + source.RangeBonus, source.Spec.AggroRange));
+                var enemySkills = !source.Spec.IsPlayer && source.Spec.EnemySkills != null && source.Spec.EnemySkills.Length > 0;
+                if (source.DeadPending || source.Spec.RoomId != activeRoomId ||
+                    (!enemySkills && source.Spec.BasicSkillId <= 0)) continue;
+                var searchRange = source.Spec.IsPlayer ? source.Spec.AttackRange + source.RangeBonus :
+                    Mathf.Max(source.Spec.AttackRange + source.RangeBonus, source.Spec.AggroRange);
+                if (enemySkills)
+                    foreach (var skill in source.Spec.EnemySkills)
+                        searchRange = Mathf.Max(searchRange, skill.MaxDistance + source.RangeBonus);
+                var targetId = FindNearestEnemy(id, searchRange);
                 if (targetId == 0)
                 {
                     if (!source.Spec.IsPlayer) source.Move = Vector2.zero;
@@ -232,16 +247,94 @@ namespace GameLogic.Gameplay.Combat
                 var target = actors[targetId];
                 var delta = target.Position - source.Position;
                 delta.y = 0f;
-                var inRange = delta.magnitude <= source.Spec.AttackRange + source.RangeBonus;
+                var distance = delta.magnitude;
                 var hasLineOfSight = !HasWallBetween(source.Spec.RoomId, source.Position, target.Position);
                 var casting = HasCast(id);
+                var skillId = casting || !hasLineOfSight ? 0 :
+                    enemySkills ? SelectEnemySkill(source, distance) : source.Spec.BasicSkillId;
+                var inRange = enemySkills ? skillId > 0 : distance <= source.Spec.AttackRange + source.RangeBonus;
                 if (!source.Spec.IsPlayer)
-                    source.Move = casting || (inRange && hasLineOfSight) ? Vector2.zero :
+                {
+                    var retreatDistance = enemySkills && !casting && !inRange ? EnemyRetreatDistance(source, distance) : 0f;
+                    var retreatDirection = delta.sqrMagnitude > 0.0001f ? delta.normalized : source.Forward;
+                    var retreatGoal = source.Position - retreatDirection * (retreatDistance + 0.1f);
+                    source.Move = casting || (inRange && hasLineOfSight) ? Vector2.zero : retreatDistance > 0f ?
+                        FindPursuitDirection(source.Spec.RoomId, source.Position, retreatGoal, source.Spec.Radius) :
                         FindPursuitDirection(source.Spec.RoomId, source.Position, target.Position, source.Spec.Radius);
+                }
                 if (!casting && delta.sqrMagnitude > 0.0001f) source.Forward = delta.normalized;
                 if (inRange && hasLineOfSight && !casting)
-                    TryStartSkill(Ref(id), source.Spec.BasicSkillId, Ref(targetId));
+                    TryStartSkill(Ref(id), skillId, Ref(targetId));
             }
+        }
+
+        /// <summary>
+        /// 选择当前生命阶段与距离内优先级最高的可用敌人技能，并按权重决定同级技能。
+        /// </summary>
+        /// <param name="source">敌人状态。</param>
+        /// <param name="distance">敌人与目标的 XZ 距离。</param>
+        /// <returns>选中的技能编号；没有可用技能时为零。</returns>
+        private int SelectEnemySkill(ActorComponent source, float distance)
+        {
+            var healthRatio = source.Health / source.Spec.MaxHealth;
+            var bestPriority = int.MinValue;
+            long totalWeight = 0;
+            foreach (var skill in source.Spec.EnemySkills)
+            {
+                if (!EnemySkillAvailable(source, skill, healthRatio, distance)) continue;
+                if (skill.Priority > bestPriority)
+                {
+                    bestPriority = skill.Priority;
+                    totalWeight = 0;
+                }
+                if (skill.Priority == bestPriority) totalWeight += skill.Weight;
+            }
+            if (totalWeight == 0) return 0;
+            var draw = (long)(random.NextDouble() * totalWeight);
+            foreach (var skill in source.Spec.EnemySkills)
+            {
+                if (skill.Priority != bestPriority || !EnemySkillAvailable(source, skill, healthRatio, distance)) continue;
+                draw -= skill.Weight;
+                if (draw < 0) return skill.SkillId;
+            }
+            return 0;
+        }
+
+        /// <summary>
+        /// 判断单项敌人技能当前是否可发起。
+        /// </summary>
+        /// <param name="source">敌人状态。</param>
+        /// <param name="skill">自动技能条件。</param>
+        /// <param name="healthRatio">敌人当前生命比例。</param>
+        /// <param name="distance">敌人与目标的 XZ 距离。</param>
+        /// <returns>阶段、距离及独立冷却均满足则为真。</returns>
+        private bool EnemySkillAvailable(ActorComponent source, CombatEnemySkillDefinition skill, float healthRatio, float distance)
+        {
+            if (healthRatio < skill.MinHealthRatio || healthRatio > skill.MaxHealthRatio ||
+                distance < skill.MinDistance || distance > skill.MaxDistance + source.RangeBonus ||
+                !catalog.Skills.TryGetValue(skill.SkillId, out var definition) ||
+                distance > definition.StartRange + source.RangeBonus) return false;
+            return !source.SkillCooldowns.TryGetValue(skill.SkillId, out var cooldown) || cooldown <= 0;
+        }
+
+        /// <summary>
+        /// 无技能可用且目标过近时，求满足当前生命阶段技能的最短退让距离。
+        /// </summary>
+        /// <param name="source">敌人状态。</param>
+        /// <param name="distance">敌人与目标的 XZ 距离。</param>
+        /// <returns>需要后撤的距离；无可用近距离条件时为零。</returns>
+        private float EnemyRetreatDistance(ActorComponent source, float distance)
+        {
+            var healthRatio = source.Health / source.Spec.MaxHealth;
+            var minDistance = float.PositiveInfinity;
+            foreach (var skill in source.Spec.EnemySkills)
+            {
+                if (healthRatio < skill.MinHealthRatio || healthRatio > skill.MaxHealthRatio ||
+                    distance >= skill.MinDistance || !catalog.Skills.ContainsKey(skill.SkillId) ||
+                    source.SkillCooldowns.TryGetValue(skill.SkillId, out var cooldown) && cooldown > 0) continue;
+                minDistance = Mathf.Min(minDistance, skill.MinDistance);
+            }
+            return float.IsPositiveInfinity(minDistance) ? 0f : minDistance - distance;
         }
 
         /// <summary>

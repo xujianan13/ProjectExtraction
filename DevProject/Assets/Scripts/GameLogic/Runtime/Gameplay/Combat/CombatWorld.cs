@@ -25,7 +25,7 @@ namespace GameLogic.Gameplay.Combat
             public float Health;
             public float MoveBonus;
             public float RangeBonus;
-            public int Cooldown;
+            public readonly Dictionary<int, int> SkillCooldowns = new Dictionary<int, int>();
             public bool DeadPending;
             public bool DeathPublished;
             public int LastInstigatorActorId;
@@ -235,12 +235,23 @@ namespace GameLogic.Gameplay.Combat
                 spec.DodgeChance < 0f || spec.DamageIncrease < 0f || spec.DamageReduction < 0f ||
                 spec.MoveSpeed < 0f || spec.Radius <= 0f || spec.AttackRange < 0f || !IsFinite(spec.Position) ||
                 !CanOccupy(spec.RoomId, spec.Position, spec.Radius, 0)) return default;
+            if (spec.EnemySkills != null)
+            {
+                var skillIds = new HashSet<int>();
+                foreach (var skill in spec.EnemySkills)
+                    if (!skillIds.Add(skill.SkillId) || skill.SkillId <= 0 || skill.Weight <= 0 || !IsFinite(skill.MinHealthRatio) ||
+                        !IsFinite(skill.MaxHealthRatio) || !IsFinite(skill.MinDistance) || !IsFinite(skill.MaxDistance) ||
+                        skill.MinHealthRatio < 0f || skill.MaxHealthRatio > 1f || skill.MinHealthRatio > skill.MaxHealthRatio ||
+                        skill.MinDistance < 0f || skill.MinDistance > skill.MaxDistance ||
+                        !catalog.Skills.ContainsKey(skill.SkillId)) return default;
+            }
             spec.CriticalDamage = spec.CriticalDamage == 0f ? 1.5f : Mathf.Max(1f, spec.CriticalDamage);
             spec.DodgeChance = Mathf.Min(0.75f, spec.DodgeChance);
             spec.DamageReduction = Mathf.Min(0.75f, spec.DamageReduction);
             foreach (var actor in actors.Values)
                 if (actor.Spec.ActorId == spec.ActorId) return default;
             var entity = Allocate();
+            if (spec.EnemySkills != null) spec.EnemySkills = (CombatEnemySkillDefinition[])spec.EnemySkills.Clone();
             actors.Add(entity.Id, new ActorComponent { Spec = spec, Position = spec.Position, Health = spec.MaxHealth });
             if (spec.IsPlayer) playerId = entity.Id;
             if (activeRoomId == 0) activeRoomId = spec.RoomId;
@@ -327,8 +338,9 @@ namespace GameLogic.Gameplay.Combat
         public bool TryStartSkill(CombatEntityRef actor, int skillId, CombatEntityRef target)
         {
             if (!IsValid(actor) || !actors.TryGetValue(actor.Id, out var source) || source.DeadPending ||
-                source.Spec.RoomId != activeRoomId || source.Cooldown > 0 || HasCast(actor.Id) ||
+                source.Spec.RoomId != activeRoomId || HasCast(actor.Id) ||
                 !catalog.Skills.TryGetValue(skillId, out var definition)) return false;
+            if (source.SkillCooldowns.TryGetValue(skillId, out var cooldown) && cooldown > 0) return false;
             if (target.Id != 0 && (!IsValid(target) || !actors.TryGetValue(target.Id, out var targetActor) ||
                 targetActor.DeadPending || targetActor.Spec.RoomId != source.Spec.RoomId ||
                 Vector3.Distance(source.Position, targetActor.Position) > definition.StartRange + source.RangeBonus)) return false;
@@ -340,7 +352,7 @@ namespace GameLogic.Gameplay.Combat
                 Target = target, TargetPoint = point, Forward = source.Forward, NextNode = 0,
                 UsesWorldClock = source.Spec.IsPlayer, Offense = new CombatOffense(source.Spec)
             });
-            source.Cooldown = Mathf.Max(0, definition.CooldownTicks);
+            source.SkillCooldowns[skillId] = Mathf.Max(0, definition.CooldownTicks);
             return true;
         }
 
