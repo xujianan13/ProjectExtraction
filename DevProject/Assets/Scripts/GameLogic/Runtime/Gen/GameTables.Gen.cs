@@ -81,6 +81,11 @@ namespace GameLogic.Tables
         public static CfgEnemySkillsTable CfgEnemySkills { get; private set; }
 
         /// <summary>
+        /// CfgHomeShop 配置表。
+        /// </summary>
+        public static CfgHomeShopTable CfgHomeShop { get; private set; }
+
+        /// <summary>
         /// CfgItemDefinitions 配置表。
         /// </summary>
         public static CfgItemDefinitionsTable CfgItemDefinitions { get; private set; }
@@ -169,6 +174,7 @@ namespace GameLogic.Tables
             CfgEncountersTable nextCfgEncounters = await CfgEncountersTable.LoadAsync(resources, ct);
             CfgEnemiesTable nextCfgEnemies = await CfgEnemiesTable.LoadAsync(resources, ct);
             CfgEnemySkillsTable nextCfgEnemySkills = await CfgEnemySkillsTable.LoadAsync(resources, ct);
+            CfgHomeShopTable nextCfgHomeShop = await CfgHomeShopTable.LoadAsync(resources, ct);
             CfgItemDefinitionsTable nextCfgItemDefinitions = await CfgItemDefinitionsTable.LoadAsync(resources, ct);
             CfgLevelsTable nextCfgLevels = await CfgLevelsTable.LoadAsync(resources, ct);
             CfgLootPoolTable nextCfgLootPool = await CfgLootPoolTable.LoadAsync(resources, ct);
@@ -196,6 +202,7 @@ namespace GameLogic.Tables
             CfgEncounters = nextCfgEncounters;
             CfgEnemies = nextCfgEnemies;
             CfgEnemySkills = nextCfgEnemySkills;
+            CfgHomeShop = nextCfgHomeShop;
             CfgItemDefinitions = nextCfgItemDefinitions;
             CfgLevels = nextCfgLevels;
             CfgLootPool = nextCfgLootPool;

@@ -168,6 +168,7 @@ namespace GameLogic.Project
                 IUIModule ui = GameEntry.Get<IUIModule>();
                 await ui.CloseWindowAsync(2101);
                 await ui.CloseWindowAsync(2102);
+                await ui.CloseWindowAsync(ProjectServices.HomeShopWindow);
                 bool entered = await flow.StartLevelAsync(levelId, lifetime.Token);
                 if (!entered)
                 {

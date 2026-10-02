@@ -11,7 +11,7 @@ namespace GameLogic.Project
     /// <summary>
     /// 局外状态与单局事务的唯一存档入口，持久化确认后才公布交易结果。
     /// </summary>
-    public sealed class ProjectSession : IDisposable
+    public sealed partial class ProjectSession : IDisposable
     {
         private readonly SaveSession<ProjectSaveData> saves;
         private ProjectSaveData profile;

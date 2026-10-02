@@ -1,0 +1,77 @@
+{
+  "schemaHash": "a10597b6cc16dcebc83a16c3d0c4b8fe5256b8e53cded009037043b01cfa741c",
+  "rows": [
+    {
+      "ID": "basic_blade",
+      "Name": "练习短刃",
+      "DefinitionId": "starter_weapon",
+      "Quality": 0,
+      "ItemLevel": 1,
+      "RequiredLevel": 1,
+      "PriceGold": 20,
+      "StockLimit": -1,
+      "ItemSeed": 1101,
+      "SortOrder": 10
+    },
+    {
+      "ID": "basic_armor",
+      "Name": "旧制护甲",
+      "DefinitionId": "ruin_armor",
+      "Quality": 0,
+      "ItemLevel": 1,
+      "RequiredLevel": 1,
+      "PriceGold": 28,
+      "StockLimit": -1,
+      "ItemSeed": 1102,
+      "SortOrder": 20
+    },
+    {
+      "ID": "fine_blade",
+      "Name": "精良遗迹短刃",
+      "DefinitionId": "ruin_weapon",
+      "Quality": 1,
+      "ItemLevel": 3,
+      "RequiredLevel": 3,
+      "PriceGold": 60,
+      "StockLimit": 2,
+      "ItemSeed": 1301,
+      "SortOrder": 30
+    },
+    {
+      "ID": "fine_armor",
+      "Name": "精良旧制护甲",
+      "DefinitionId": "ruin_armor",
+      "Quality": 1,
+      "ItemLevel": 3,
+      "RequiredLevel": 3,
+      "PriceGold": 60,
+      "StockLimit": 2,
+      "ItemSeed": 1302,
+      "SortOrder": 40
+    },
+    {
+      "ID": "rare_blade",
+      "Name": "优秀遗迹短刃",
+      "DefinitionId": "ruin_weapon",
+      "Quality": 2,
+      "ItemLevel": 6,
+      "RequiredLevel": 6,
+      "PriceGold": 100,
+      "StockLimit": 1,
+      "ItemSeed": 1601,
+      "SortOrder": 50
+    },
+    {
+      "ID": "rare_armor",
+      "Name": "优秀旧制护甲",
+      "DefinitionId": "ruin_armor",
+      "Quality": 2,
+      "ItemLevel": 6,
+      "RequiredLevel": 6,
+      "PriceGold": 100,
+      "StockLimit": 1,
+      "ItemSeed": 1602,
+      "SortOrder": 60
+    }
+  ]
+}

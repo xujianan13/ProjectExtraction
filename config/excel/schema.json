@@ -516,6 +516,20 @@
         }
       }
     },
+    "CfgHomeShop": {
+      "fields": {
+        "ID": { "required": true },
+        "Name": { "required": true },
+        "DefinitionId": { "ref": "CfgItemDefinitions", "required": true },
+        "Quality": { "min": 0, "max": 5 },
+        "ItemLevel": { "min": 1 },
+        "RequiredLevel": { "min": 1 },
+        "PriceGold": { "min": 1 },
+        "StockLimit": { "min": -1 },
+        "ItemSeed": { "min": 0 },
+        "SortOrder": { "min": 0 }
+      }
+    },
     "CfgAdvancedAffixes": {
       "fields": {
         "AugmentID": {

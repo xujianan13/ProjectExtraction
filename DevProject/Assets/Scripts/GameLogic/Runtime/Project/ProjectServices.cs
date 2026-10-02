@@ -10,6 +10,7 @@ namespace GameLogic.Project
     public static class ProjectServices
     {
         public const string BattleSceneName = "Expedition";
+        public const int HomeShopWindow = 2103;
         public const int BattleHudWindow = 2200;
         public const int ExpeditionInventoryWindow = 2201;
         public const int ExpeditionMerchantWindow = 2202;

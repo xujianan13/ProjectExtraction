@@ -7,6 +7,7 @@ using GameLogic.UI.Run;
 using GameLogic.UI.Roguelike;
 using GameLogic.UI.Warehouse;
 using GameLogic.UI.Skills;
+using GameLogic.UI.Shop;
 using UnityEngine;
 
 namespace GameLogic.Scaffold
@@ -40,6 +41,7 @@ namespace GameLogic.Scaffold
             {
                 CreateProjectWindow<WarehouseWindow>(2101, "Warehouse", GameUILayers.Popup, true),
                 CreateProjectWindow<SkillsWindow>(2102, "Skills", GameUILayers.Popup, true),
+                CreateProjectWindow<HomeShopWindow>(ProjectServices.HomeShopWindow, "HomeShop", GameUILayers.Popup, true),
                 CreateProjectWindow<CharacterStatsWindow>(2400, "CharacterStats", GameUILayers.Popup, true),
                 CreateProjectWindow<BattleHudWindow>(ProjectServices.BattleHudWindow, "BattleHud", GameUILayers.Hud, false),
                 CreateProjectWindow<ExpeditionInventoryWindow>(ProjectServices.ExpeditionInventoryWindow, "ExpeditionInventory", GameUILayers.Popup, true),
@@ -52,6 +54,7 @@ namespace GameLogic.Scaffold
             {
                 registry.Register<WarehouseWindow>(2101);
                 registry.Register<SkillsWindow>(2102);
+                registry.Register<HomeShopWindow>(ProjectServices.HomeShopWindow);
                 registry.Register<CharacterStatsWindow>(2400);
                 registry.Register<BattleHudWindow>(ProjectServices.BattleHudWindow);
                 registry.Register<ExpeditionInventoryWindow>(ProjectServices.ExpeditionInventoryWindow);

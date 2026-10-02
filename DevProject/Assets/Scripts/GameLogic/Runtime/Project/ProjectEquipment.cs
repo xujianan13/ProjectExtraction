@@ -265,6 +265,21 @@ namespace GameLogic.Project
         }
 
         /// <summary>
+        /// 根据指定模板和随机源创建已冻结属性的物品。
+        /// </summary>
+        /// <param name="random">商品属性使用的随机源。</param>
+        /// <param name="level">商品物品等级。</param>
+        /// <param name="quality">商品品质。</param>
+        /// <param name="definitionId">物品模板身份。</param>
+        /// <returns>独立物品实例；参数或模板无效时为空。</returns>
+        public static ProjectItem CreateConfiguredItem(System.Random random, int level, ProjectItemQuality quality, string definitionId)
+        {
+            if (random == null || level < 1 || level > PrototypeRules.LegacySkillRankLimit ||
+                !Enum.IsDefined(typeof(ProjectItemQuality), quality) || string.IsNullOrWhiteSpace(definitionId)) return null;
+            return CreateGenerated(random, level, quality, ProjectRulesConfig.Item(definitionId));
+        }
+
+        /// <summary>
         /// 从初始模板生成新档装备。
         /// </summary>
         /// <returns>已经冻结数值的新手装备。</returns>

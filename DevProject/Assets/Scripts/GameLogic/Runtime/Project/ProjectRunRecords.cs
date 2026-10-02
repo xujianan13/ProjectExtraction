@@ -99,6 +99,7 @@ namespace GameLogic.Project
         {
             ProjectSaveData data = JsonUtility.FromJson<ProjectSaveData>(json);
             if (data == null) return null;
+            data.HomeShopPurchases ??= new List<ProjectHomeShopPurchase>();
             if (data.Stage != ProjectRunStage.OutcomeRecorded && EmptyOutcome(data.Outcome)) data.Outcome = null;
             if (EmptyResult(data.LastResult)) data.LastResult = null;
             return data;

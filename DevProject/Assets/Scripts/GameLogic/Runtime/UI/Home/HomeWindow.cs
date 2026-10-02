@@ -7,7 +7,7 @@ using UnityEngine;
 namespace GameLogic.UI.Home
 {
     /// <summary>
-    /// 局外主界面，读取项目会话并导航至仓库和技能窗口。
+    /// 局外主界面，读取项目会话并导航至仓库、技能和商店窗口。
     /// </summary>
     public sealed class HomeWindow : GameWindow
     {
@@ -23,6 +23,7 @@ namespace GameLogic.UI.Home
         private UnityEngine.UI.Button supplyButton;
         private UnityEngine.UI.Button warehouseButton;
         private UnityEngine.UI.Button skillsButton;
+        private UnityEngine.UI.Button shopButton;
         private UnityEngine.UI.Button characterButton;
         private ProjectSession session;
         private ProjectRunCoordinator coordinator;
@@ -95,6 +96,7 @@ namespace GameLogic.UI.Home
             ProjectUiFactory.Height(footer, 90f);
             warehouseButton = ProjectUiFactory.ActionButton(footer, "仓库", () => GameEntry.Get<IUIModule>().OpenWindowAsync(2101).Forget());
             skillsButton = ProjectUiFactory.ActionButton(footer, "技能", () => GameEntry.Get<IUIModule>().OpenWindowAsync(2102).Forget());
+            shopButton = ProjectUiFactory.ActionButton(footer, "商店", () => GameEntry.Get<IUIModule>().OpenWindowAsync(ProjectServices.HomeShopWindow).Forget());
         }
 
         /// <summary>
@@ -112,6 +114,7 @@ namespace GameLogic.UI.Home
                 supplyButton.interactable = false;
                 warehouseButton.interactable = false;
                 skillsButton.interactable = false;
+                shopButton.interactable = false;
                 characterButton.interactable = false;
                 return;
             }
@@ -170,6 +173,7 @@ namespace GameLogic.UI.Home
             supplyButton.interactable = canEdit;
             warehouseButton.interactable = canEdit;
             skillsButton.interactable = canEdit;
+            shopButton.interactable = canEdit;
             characterButton.interactable = canEdit;
             retryButton.gameObject.SetActive(session.HasPendingSave);
             retryButton.interactable = session.HasPendingSave && coordinator.Phase == ProjectRunPhase.HomeReady && !retrying && !launching;

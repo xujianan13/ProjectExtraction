@@ -21,6 +21,7 @@
 - [技能成长设计](docs/project/技能成长设计.md)、[主界面设计](docs/project/主界面设计.md)：角色技能点的局外提升、Home 顶部五项属性与底部仓库/技能入口。
 - [关卡内容首版实现](docs/project/关卡内容首版实现.md)：房间模板与固定内容计划、随机怪群、敌人多技能、特殊房间及可达性验证。
 - [搜打撤交互首版实现](docs/project/搜打撤交互首版实现.md)：局内换装、背包安全箱、固定商品商店和模态暂停。
+- [局外金币商店首版实现](docs/project/局外金币商店首版实现.md)：固定商品、金币购买、等级门槛、库存与失败重试，以及死亡后补给循环的验证。
 - [高级词条与局内流派首版实现](docs/project/高级词条与局内流派首版实现.md)：高级词条冻结、战斗增益、Rogue 升级与兼容边界；本轮验证状态以该文档为准。
 - [关卡与地图设计](docs/project/关卡与地图设计.md)：随机连通地图、未清图自由往返、回访状态与撤离建议。
 - [ECS 战斗框架设计](docs/project/战斗框架设计.md)：统一效果执行、技能时间轴、飞弹和 Buff，包含固定时序与跨图状态；首版实现与验证范围见[首版代码实现与验证](docs/project/首版代码实现与验证.md)。
@@ -45,11 +46,13 @@
 - 关卡基础测试表现保留 14 个热更 Prefab：场景/房间位于 `GameResources/Scenes/Expedition`，角色、障碍和交互物位于 `GameResources/Gameplay/Expedition`，13 个材质位于 `GameResources/Art/Prototype/Materials`。由 `ExpeditionVisualAssets` 加载并随场景释放租约；角色为胶囊体，碰撞仍由 ECS 管理。资源生成入口为 `Tools/ProjectExtraction/Create Test Prefabs`，只补齐缺失资产；另增 4 个反馈 Prefab、3 个合成测试 WAV 和 2 个材质，由 `Create Combat Feedback` 补齐。目录和本轮验证状态见[测试资源与热更目录](docs/project/测试资源与热更目录.md)、[战斗反馈与角色碰撞](docs/project/战斗反馈与角色碰撞.md)。
 - 战斗反馈从 ECS 快照与事件驱动血条、伤害/暴击/闪避文字、命中闪光、下一伤害节点地面预警和短音效；预警飞弹只提示发射方向或出生目标范围，不表示完整弹道。角色 XZ 圆形占位、墙体扩半径保守矩形及移动扫掠由 ECS 负责；敌人使用障碍角点追击并在施法时停步，死者不阻挡。玩家死亡立即冻结并持久化结果，完成 0.6 秒倒下与 0.15 秒停留后进入结果页。本轮不含 NavMesh、动态拥挤避让或按墙裁剪预警；尚无真机与人工可视化验收。
 - `GameFramework.AnimatorPlayback` 是不依赖 GameLogic 的通用动画播放器，支持本地时间播放与外部进度采样；项目通过 `CombatCharacterAnimation` 读取 ECS 快照控制 Idle/Move/Attack/Hit/Death。四个测试角色使用原生 Animator，5 个动画片段和控制器位于 `GameResources/Art/Prototype/Animations`。动画不参与战斗伤害判定或 ECS 位移。
-- Excel 源表在 `config/excel`，当前包含 27 张项目内容表；工具在 `tool`。生成 JSON 位于 `GameResources/Config/Tables`，可重生 C# 位于 `GameLogic/Runtime/Gen`，扩展 partial 位于 `GameLogic/Runtime/Ext`。
+- Excel 源表在 `config/excel`，当前包含 28 张项目内容表；工具在 `tool`。生成 JSON 位于 `GameResources/Config/Tables`，可重生 C# 位于 `GameLogic/Runtime/Gen`，扩展 partial 位于 `GameLogic/Runtime/Ext`。
 
 - 关卡内容已扩展为 7 种布局、11 组候选怪群、3 类小怪和多技能 Boss；每房模板/怪群在开局抽定，回访复用 ECS 状态。敌人按生命阶段、距离、优先级和权重选技能，各技能独立冷却。配置和最新验证见[关卡内容首版实现](docs/project/关卡内容首版实现.md)。
 
 - 搜打撤交互首版已接入：局内背包与安全箱使用模态窗口，武器/护甲可穿脱并预览属性；换装保留局内强化及冷却，不因生命上限提升回血。NPC 商品开局冻结，明确购买并保留回访售出状态。所有商业数值沿用既有 Excel；窗口暂停独立于应用暂停和三选一。
+
+- 局外金币商店由 `CfgHomeShop` 配置，Home 底部提供入口，固定属性商品可预览后购买并进入仓库；金币、物品、购买修订号及累计库存原子保存。基础武器和护甲常备，高级商品按等级解锁；首版限购使用存档累计数量，无每日刷新。钻石仍是独立高级货币。详见[局外金币商店首版实现](docs/project/局外金币商店首版实现.md)。
 
 ## 修改与验收
 

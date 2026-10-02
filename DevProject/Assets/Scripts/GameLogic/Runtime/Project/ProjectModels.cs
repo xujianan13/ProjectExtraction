@@ -146,6 +146,8 @@ namespace GameLogic.Project
         public int Stamina;
         public int Gold;
         public int Diamonds;
+        public long HomeShopPurchaseRevision;
+        public List<ProjectHomeShopPurchase> HomeShopPurchases = new();
         public int SkillPoints;
         public int PowerRank;
         public int VitalityRank;
@@ -194,6 +196,7 @@ namespace GameLogic.Project
             var copy = (ProjectSaveData)MemberwiseClone();
             copy.Warehouse = Warehouse.ConvertAll(item => item.Copy());
             copy.EntryItems = EntryItems.ConvertAll(item => item.Copy());
+            copy.HomeShopPurchases = HomeShopPurchases?.ConvertAll(purchase => purchase?.Copy()) ?? new List<ProjectHomeShopPurchase>();
             copy.Outcome = Outcome?.Copy();
             copy.LastResult = LastResult?.Copy();
             return copy;
@@ -207,11 +210,16 @@ namespace GameLogic.Project
         public static string Validate(ProjectSaveData data)
         {
             if (data == null || data.Level < 1 || data.Level > 1000 || data.Experience < 0 || data.Stamina < 0 || data.Gold < 0 ||
-                data.Diamonds < 0 || data.SkillPoints < 0 || data.Warehouse == null || data.EntryItems == null)
+                data.Diamonds < 0 || data.SkillPoints < 0 || data.HomeShopPurchaseRevision < 0 ||
+                data.HomeShopPurchases == null || data.Warehouse == null || data.EntryItems == null)
                 return "玩家数据字段无效。";
             if (data.PowerRank < 0 || data.PowerRank > PrototypeRules.LegacySkillRankLimit || data.VitalityRank < 0 ||
                 data.VitalityRank > PrototypeRules.LegacySkillRankLimit || data.AgilityRank < 0 || data.AgilityRank > PrototypeRules.LegacySkillRankLimit)
                 return "技能等级无效。";
+            var shopIds = new HashSet<string>(StringComparer.Ordinal);
+            foreach (ProjectHomeShopPurchase purchase in data.HomeShopPurchases)
+                if (purchase == null || string.IsNullOrWhiteSpace(purchase.Id) || purchase.Count < 1 || !shopIds.Add(purchase.Id))
+                    return "局外商店购买记录无效。";
             var ids = new HashSet<string>();
             var equippedSlots = new HashSet<ProjectItemType>();
             foreach (ProjectItem item in data.Warehouse)
