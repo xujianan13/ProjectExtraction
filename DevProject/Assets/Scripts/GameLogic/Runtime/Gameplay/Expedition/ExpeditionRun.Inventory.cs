@@ -9,7 +9,7 @@ namespace GameLogic.Gameplay.Expedition
     /// <summary>
     /// 与应用暂停和强化选择分别管理的局内交互面板。
     /// </summary>
-    public enum ExpeditionPanelKind { None, Inventory, Merchant }
+    public enum ExpeditionPanelKind { None, Inventory, Merchant, RogueOverview }
 
     public sealed partial class ExpeditionRun
     {
@@ -71,7 +71,7 @@ namespace GameLogic.Gameplay.Expedition
             if (!item.Equipped && PlayerLevel < item.RequiredLevel) return ReportInventoryFailure("角色等级不足，暂时不能穿戴。");
             List<ProjectItem> proposed = CreateEquipmentProposal(item);
             CombatActorSpec spec = EquipmentSpec(proposed);
-            if (!World.TryReplaceBaseAttributes(Player, spec))
+            if (!TryApplyEquipment(proposed, spec))
                 return ReportInventoryFailure("当前装备属性无法应用，请稍后重试。");
             bool equipped = !item.Equipped;
             for (int index = 0; index < inventory.Count; index++) inventory[index].Equipped = proposed[index].Equipped;

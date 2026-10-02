@@ -21,6 +21,11 @@ namespace GameLogic.Gameplay.Combat
             public CombatActorSpec Spec;
             public CombatActorSpec BaseSpec;
             public readonly float[] PermanentBonuses = new float[8];
+            public readonly Dictionary<string, List<CombatAugmentDefinition>> AugmentGroups =
+                new Dictionary<string, List<CombatAugmentDefinition>>(StringComparer.Ordinal);
+            public readonly List<string> AugmentGroupOrder = new List<string>();
+            public readonly Dictionary<string, Dictionary<string, long>> AugmentCooldowns =
+                new Dictionary<string, Dictionary<string, long>>(StringComparer.Ordinal);
             public Vector3 Position;
             public Vector3 Forward = Vector3.forward;
             public Vector2 Move;
@@ -46,17 +51,20 @@ namespace GameLogic.Gameplay.Combat
             public readonly float CriticalRating;
             public readonly float CriticalDamage;
             public readonly float DamageIncrease;
+            public readonly float DamageMultiplier;
 
             /// <summary>
             /// 冻结一次效果来源的进攻属性。
             /// </summary>
             /// <param name="spec">已经校验的来源角色配置。</param>
-            public CombatOffense(CombatActorSpec spec)
+            /// <param name="damageMultiplier">施放时冻结的技能伤害倍率。</param>
+            public CombatOffense(CombatActorSpec spec, float damageMultiplier = 1f)
             {
                 Attack = spec.Attack;
                 CriticalRating = spec.CriticalRating;
                 CriticalDamage = spec.CriticalDamage;
                 DamageIncrease = spec.DamageIncrease;
+                DamageMultiplier = damageMultiplier;
             }
         }
 
@@ -70,6 +78,7 @@ namespace GameLogic.Gameplay.Combat
             public Vector3 Forward;
             public int NextNode;
             public float RangeDelta;
+            public float RangeMultiplier;
             public bool UsesWorldClock;
             public CombatOffense Offense;
         }
@@ -87,8 +96,11 @@ namespace GameLogic.Gameplay.Combat
         {
             public int ProjectileId;
             public float RangeDelta;
+            public float RangeMultiplier;
+            public bool PassiveDerived;
             public int RoomId;
             public int InstigatorActorId;
+            public int SourceTeam;
             public CombatOffense Offense;
             public CombatEntityRef Source;
             public CombatEntityRef Target;
@@ -118,6 +130,8 @@ namespace GameLogic.Gameplay.Combat
         private sealed class BuffComponent
         {
             public float RangeDelta;
+            public float RangeMultiplier;
+            public bool PassiveDerived;
             public int Owner;
             public int BuffId;
             public int SourceActorId;
@@ -132,6 +146,8 @@ namespace GameLogic.Gameplay.Combat
         {
             public CombatEffectDefinition Definition;
             public float RangeDelta;
+            public float RangeMultiplier;
+            public bool PassiveDerived;
             public int Source;
             public CombatEntityRef Target;
             public Vector3 Position;
@@ -349,19 +365,23 @@ namespace GameLogic.Gameplay.Combat
             if (source.SkillCooldowns.TryGetValue(skillId, out var cooldown) && cooldown > 0) return false;
             var rangeDelta = source.Spec.IsPlayer && skillId == source.Spec.BasicSkillId
                 ? source.Spec.AttackRange - catalog.InitialAttackRange : 0f;
+            GetSkillModifiers(source, skillId, out var cooldownMultiplier, out var rangeMultiplier, out var damageMultiplier);
             var startRange = Mathf.Max(0f, definition.StartRange + (definition.AttackRangeSource ? rangeDelta : 0f));
+            startRange = Mathf.Min(AttributeCeiling, (startRange + source.RangeBonus) * rangeMultiplier);
             if (target.Id != 0 && (!IsValid(target) || !actors.TryGetValue(target.Id, out var targetActor) ||
                 targetActor.DeadPending || targetActor.Spec.RoomId != source.Spec.RoomId ||
-                Vector3.Distance(source.Position, targetActor.Position) > startRange + source.RangeBonus)) return false;
+                Vector3.Distance(source.Position, targetActor.Position) > startRange)) return false;
             var cast = Allocate();
             var point = target.Id != 0 ? actors[target.Id].Position : source.Position + source.Forward * startRange;
             casts.Add(cast.Id, new CastComponent
             {
                 Owner = actor.Id, SkillId = skillId, StartTick = source.Spec.IsPlayer ? TickIndex : GetRoomTick(source.Spec.RoomId),
                 Target = target, TargetPoint = point, Forward = source.Forward, NextNode = 0,
-                UsesWorldClock = source.Spec.IsPlayer, Offense = new CombatOffense(source.Spec), RangeDelta = rangeDelta
+                UsesWorldClock = source.Spec.IsPlayer, Offense = new CombatOffense(source.Spec, damageMultiplier),
+                RangeDelta = rangeDelta, RangeMultiplier = rangeMultiplier
             });
-            source.SkillCooldowns[skillId] = Mathf.Max(0, definition.CooldownTicks);
+            source.SkillCooldowns[skillId] = (int)Math.Min(int.MaxValue,
+                Math.Max(definition.DurationTicks, Math.Ceiling((double)definition.CooldownTicks * cooldownMultiplier)));
             return true;
         }
 

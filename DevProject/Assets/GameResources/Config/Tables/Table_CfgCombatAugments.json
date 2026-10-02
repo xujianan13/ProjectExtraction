@@ -1,0 +1,111 @@
+{
+  "schemaHash": "c22b1feff90c46cedd141cc3fb3e81cb746ab380a80202d3787d294d71cdc6b3",
+  "rows": [
+    {
+      "ID": "bleed",
+      "Version": 1,
+      "Title": "割裂",
+      "Description": "命中有{value}概率施加流血：3秒内每秒每层3伤害，最多3层；触发间隔0.5秒。",
+      "Trigger": 1,
+      "Chance": 1,
+      "CooldownTicks": 30,
+      "TargetSelf": false,
+      "SkillID": 0,
+      "EffectIDs": [
+        1001
+      ],
+      "ModifierKind": 0,
+      "ValueMode": 1
+    },
+    {
+      "ID": "critical_echo",
+      "Version": 1,
+      "Title": "暴击追伤",
+      "Description": "暴击追加伤害为基础效果的{value}（基础效果为40%攻击力），触发间隔0.75秒。",
+      "Trigger": 2,
+      "Chance": 1,
+      "CooldownTicks": 45,
+      "TargetSelf": false,
+      "SkillID": 0,
+      "EffectIDs": [
+        1002
+      ],
+      "ModifierKind": 0,
+      "ValueMode": 0
+    },
+    {
+      "ID": "kill_leech",
+      "Version": 1,
+      "Title": "猎杀回复",
+      "Description": "击杀回复基础效果的{value}生命（基础效果为4点）。",
+      "Trigger": 3,
+      "Chance": 1,
+      "CooldownTicks": 0,
+      "TargetSelf": true,
+      "SkillID": 0,
+      "EffectIDs": [
+        1003
+      ],
+      "ModifierKind": 0,
+      "ValueMode": 0
+    },
+    {
+      "ID": "retaliation",
+      "Version": 1,
+      "Title": "荆棘反击",
+      "Description": "受伤反击为基础效果的{value}（基础效果为30%攻击力），触发间隔1.5秒。",
+      "Trigger": 4,
+      "Chance": 1,
+      "CooldownTicks": 90,
+      "TargetSelf": false,
+      "SkillID": 0,
+      "EffectIDs": [
+        1004
+      ],
+      "ModifierKind": 0,
+      "ValueMode": 0
+    },
+    {
+      "ID": "swift_blade",
+      "Version": 1,
+      "Title": "疾风",
+      "Description": "基础攻击冷却缩短{value}，不会短于攻击动作。",
+      "Trigger": 0,
+      "Chance": 1,
+      "CooldownTicks": 0,
+      "TargetSelf": false,
+      "SkillID": 0,
+      "EffectIDs": [],
+      "ModifierKind": 1,
+      "ValueMode": 2
+    },
+    {
+      "ID": "wide_blade",
+      "Version": 1,
+      "Title": "横扫",
+      "Description": "基础攻击范围扩大{value}。",
+      "Trigger": 0,
+      "Chance": 1,
+      "CooldownTicks": 0,
+      "TargetSelf": false,
+      "SkillID": 0,
+      "EffectIDs": [],
+      "ModifierKind": 2,
+      "ValueMode": 2
+    },
+    {
+      "ID": "heavy_blade",
+      "Version": 1,
+      "Title": "重击",
+      "Description": "基础攻击伤害提高{value}。",
+      "Trigger": 0,
+      "Chance": 1,
+      "CooldownTicks": 0,
+      "TargetSelf": false,
+      "SkillID": 0,
+      "EffectIDs": [],
+      "ModifierKind": 3,
+      "ValueMode": 2
+    }
+  ]
+}

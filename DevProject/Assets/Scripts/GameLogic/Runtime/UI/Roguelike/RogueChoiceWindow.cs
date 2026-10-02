@@ -95,10 +95,16 @@ namespace GameLogic.UI.Roguelike
                 int index = option.Index;
                 bool locked = option.IsExtra && !choice.ExtraUnlocked;
                 string caption = option.Reward.Title + "\n" + option.Reward.Description;
+                if (option.Reward.Kind != RogueRewardKind.RandomLoot)
+                {
+                    int current = option.Reward.Rank - 1;
+                    string limit = option.Reward.MaxRank > 0 ? " / " + option.Reward.MaxRank : string.Empty;
+                    caption += "\n当前 Lv." + current + " → 下一层 Lv." + option.Reward.Rank + limit;
+                }
                 if (locked) caption += "\n第 4 项 · " +
                     (busy ? "正在确认授权" : run.CanRequestExtraRogueChoice ? "授权后可选择" : "尚未开放");
                 UnityEngine.UI.Button button = ProjectUiFactory.ActionButton(cards, caption, () => Choose(offerId, revision, index));
-                ProjectUiFactory.Height((RectTransform)button.transform, 130f);
+                ProjectUiFactory.Height((RectTransform)button.transform, option.Reward.Kind == RogueRewardKind.RandomLoot ? 130f : 155f);
                 button.interactable = !busy && !locked;
             }
             bool canUnlock = !choice.ExtraUnlocked && run.CanRequestExtraRogueChoice;

@@ -53,10 +53,12 @@ namespace GameLogic.Gameplay.Combat
         /// <returns>效果参数合法则为真。</returns>
         private static bool ValidEffect(CombatEffectDefinition effect)
         {
-            if (effect == null || !IsFinite(effect.Value) || !IsFinite(effect.AttackCoefficient) || !IsFinite(effect.Radius) ||
+            if (effect == null || effect.Kind < CombatEffectKind.Cue || effect.Kind > CombatEffectKind.Heal ||
+                !IsFinite(effect.Value) || !IsFinite(effect.AttackCoefficient) || !IsFinite(effect.Radius) ||
                 !IsFinite(effect.Angle) || !IsFinite(effect.Width) || !IsFinite(effect.Height) ||
                 effect.Radius < 0f || effect.Width < 0f || effect.Height < 0f) return false;
-            if (effect.Kind == CombatEffectKind.Damage && (effect.Value < 0f || effect.AttackCoefficient < 0f)) return false;
+            if ((effect.Kind == CombatEffectKind.Damage || effect.Kind == CombatEffectKind.Heal) &&
+                (effect.Value < 0f || effect.AttackCoefficient < 0f)) return false;
             if (effect.Kind == CombatEffectKind.Displace && effect.DurationTicks <= 0) return false;
             if (effect.Kind == CombatEffectKind.ModifyAttribute &&
                 (effect.Value <= 0f || !ValidAttribute(effect.Attribute))) return false;

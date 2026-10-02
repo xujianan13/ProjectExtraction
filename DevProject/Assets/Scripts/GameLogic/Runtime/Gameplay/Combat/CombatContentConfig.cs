@@ -48,7 +48,7 @@ namespace GameLogic.Gameplay.Combat
 
             foreach (CfgCombatEffectsRow row in GameTables.CfgCombatEffects.GetAll())
             {
-                if (row.ID <= 0 || row.DefinitionID <= 0 || row.Kind < 0 || row.Kind > (int)CombatEffectKind.ModifyAttribute ||
+                if (row.ID <= 0 || row.DefinitionID <= 0 || row.Kind < 0 || row.Kind > (int)CombatEffectKind.Heal ||
                     row.Attribute < 0 || row.Attribute > (int)CombatAttributeKind.DamageReduction ||
                     row.Shape < 0 || row.Shape > (int)CombatHitShape.Capsule ||
                     row.RadiusSource < 0 || row.RadiusSource > 1 || row.DurationTicks < 0 ||
@@ -57,7 +57,7 @@ namespace GameLogic.Gameplay.Combat
                     !FiniteNonnegative(row.Height) || !Finite(row.Angle) || row.Angle < 0 || row.Angle > 360)
                     return Fail("效果参数无效：" + row.ID, out error);
                 var kind = (CombatEffectKind)row.Kind;
-                if (kind == CombatEffectKind.Damage && row.Value < 0 ||
+                if ((kind == CombatEffectKind.Damage || kind == CombatEffectKind.Heal) && row.Value < 0 ||
                     kind == CombatEffectKind.Displace && row.DurationTicks <= 0 ||
                     kind == CombatEffectKind.ModifyAttribute && row.Value <= 0)
                     return Fail("效果类型参数无效：" + row.ID, out error);
@@ -193,6 +193,25 @@ namespace GameLogic.Gameplay.Combat
                 catalog.Buffs.Add(row.ID, buff);
             }
             return catalog;
+        }
+
+        /// <summary>
+        /// 从配置编号创建独立效果定义，任一编号缺失时整体失败。
+        /// </summary>
+        /// <param name="ids">按执行顺序排列的效果配置编号。</param>
+        /// <param name="attackRange">用于动态半径初值的装备攻击范围。</param>
+        /// <param name="effects">成功时返回独立效果列表。</param>
+        /// <returns>范围和全部编号有效且映射成功时为真。</returns>
+        public static bool TryCreateEffects(int[] ids, float attackRange, out List<CombatEffectDefinition> effects)
+        {
+            effects = null;
+            if (ids == null || !FinitePositive(attackRange)) return false;
+            foreach (int id in ids)
+                if (id <= 0 || GameTables.CfgCombatEffects.GetById(id) == null) return false;
+            var created = new List<CombatEffectDefinition>(ids.Length);
+            AddEffects(created, ids, attackRange);
+            effects = created;
+            return true;
         }
 
         /// <summary>

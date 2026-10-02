@@ -90,9 +90,11 @@ namespace GameLogic.Gameplay.Expedition
             rogueChoices = new RogueChoiceSession(runId, maps.Seed ^ 0x5247, roguePolicy);
             rogueAccessProvider = rogueAccess;
             rogueLootRandom = new System.Random(maps.Seed ^ 0x5291);
+            roomRewardRandom = new System.Random(maps.Seed ^ 0x53A4);
             random = new System.Random(maps.Seed ^ 0x5162);
             inventory.AddRange(items.ConvertAll(item => item.Copy()));
             ProjectCharacterStats attributes = ProjectEquipmentRules.Calculate(items, session.PowerRank, session.VitalityRank, session.AgilityRank);
+            augmentBaseAttackRange = attributes.AttackRange;
             CombatCatalog catalog = CombatContentConfig.CreateCatalog(attributes.AttackRange);
             World = new CombatWorld(catalog, randomSeed: maps.Seed) { ErrorLogger = reason => GameEntry.Get<ILogModule>()?.Error("Combat", reason) };
             foreach (LevelRoomState room in maps.Rooms)
@@ -147,7 +149,7 @@ namespace GameLogic.Gameplay.Expedition
                 !LevelContentConfig.TryGetLevel(levelId, out LevelDefinition definition) ||
                 !LevelGenerator.TryGenerate(seed, definition, out LevelRunState maps)) return false;
             var created = new ExpeditionRun(session, runId, definition, maps, items, roguePolicy, rogueAccess);
-            if (created.Player.Id == 0 || !created.InitializeMerchants())
+            if (created.Player.Id == 0 || !created.InitializeEquipmentAugments() || !created.InitializeMerchants())
             {
                 created.Dispose();
                 return false;
@@ -287,7 +289,10 @@ namespace GameLogic.Gameplay.Expedition
                     }
                 }
                 else if (fact.Kind == CombatEventKind.RoomCleared && Maps.TryGetRoom(fact.RoomId, out LevelRoomState room))
+                {
                     room.MarkCleared();
+                    QueueRoomReward(room);
+                }
             }
             RoomView.Refresh();
             if (World.Faulted) { HandleFault("战斗世界异常，正在处理中断的单局。"); return false; }
@@ -297,6 +302,7 @@ namespace GameLogic.Gameplay.Expedition
                 UpdateInteractionLabel(player.Position);
                 if (RoomView.TryGetInteractionNear(player.Position, out LevelInteractionKind kind) && kind == LevelInteractionKind.Extraction)
                 { EndRun(true); return false; }
+                BeginPendingRoomReward();
                 if (interact) Interact(player.Position);
             }
             Changed?.Invoke();
@@ -441,6 +447,7 @@ namespace GameLogic.Gameplay.Expedition
             stopped = true;
             IsRunning = false;
             ActivePanel = ExpeditionPanelKind.None;
+            roomRewardSources.Clear();
             StopRogueChoices();
             Changed?.Invoke();
             World.ClearPendingTime();

@@ -167,16 +167,16 @@ namespace GameLogic.Gameplay.Combat
                             Angle = effect.Angle, Width = effect.Width, Height = effect.Height,
                             RequireLineOfSight = effect.RequireLineOfSight
                         };
-                        Enqueue(scaled, buff.Owner, Ref(buff.Owner), owner.Position, owner.Forward, buff.SourceActorId, buff.Offense, buff.RangeDelta);
+                        Enqueue(scaled, buff.Owner, Ref(buff.Owner), owner.Position, owner.Forward, buff.SourceActorId, buff.Offense, buff.RangeDelta, buff.RangeMultiplier, buff.PassiveDerived);
                     }
-                    else Enqueue(effect, buff.Owner, Ref(buff.Owner), owner.Position, owner.Forward, buff.SourceActorId, buff.Offense, buff.RangeDelta);
+                    else Enqueue(effect, buff.Owner, Ref(buff.Owner), owner.Position, owner.Forward, buff.SourceActorId, buff.Offense, buff.RangeDelta, buff.RangeMultiplier, buff.PassiveDerived);
                 }
                 if (definition.PeriodicDamagePerStack > 0f)
                     Enqueue(new CombatEffectDefinition
                     {
                         Kind = CombatEffectKind.Damage, DefinitionId = definition.BuffId,
                         Value = definition.PeriodicDamagePerStack * buff.Stacks, CanCritical = false, CanDodge = false
-                    }, buff.Owner, Ref(buff.Owner), owner.Position, owner.Forward, buff.SourceActorId, buff.Offense, buff.RangeDelta);
+                    }, buff.Owner, Ref(buff.Owner), owner.Position, owner.Forward, buff.SourceActorId, buff.Offense, buff.RangeDelta, buff.RangeMultiplier, buff.PassiveDerived);
                 buff.NextTick += Mathf.Max(1, definition.IntervalTicks);
             }
         }
@@ -197,7 +197,7 @@ namespace GameLogic.Gameplay.Combat
             {
                 if (catalog.Buffs.TryGetValue(buff.BuffId, out var definition))
                     foreach (var effect in definition.OnExpire)
-                        Enqueue(effect, buff.Owner, Ref(buff.Owner), owner.Position, owner.Forward, buff.SourceActorId, buff.Offense, buff.RangeDelta);
+                        Enqueue(effect, buff.Owner, Ref(buff.Owner), owner.Position, owner.Forward, buff.SourceActorId, buff.Offense, buff.RangeDelta, buff.RangeMultiplier, buff.PassiveDerived);
                 events.Add(new CombatEvent(CombatEventKind.BuffExpired, TickIndex, owner.Spec.RoomId,
                     buff.SourceActorId, owner.Spec.ActorId, buff.BuffId, 0f, owner.Position));
             }
@@ -233,8 +233,10 @@ namespace GameLogic.Gameplay.Combat
                 var enemySkills = !source.Spec.IsPlayer && source.Spec.EnemySkills != null && source.Spec.EnemySkills.Length > 0;
                 if (source.DeadPending || source.Spec.RoomId != activeRoomId ||
                     (!enemySkills && source.Spec.BasicSkillId <= 0)) continue;
-                var searchRange = source.Spec.IsPlayer ? source.Spec.AttackRange + source.RangeBonus :
-                    Mathf.Max(source.Spec.AttackRange + source.RangeBonus, source.Spec.AggroRange);
+                GetSkillModifiers(source, source.Spec.BasicSkillId, out _, out var basicRangeMultiplier, out _);
+                var basicRange = (source.Spec.AttackRange + source.RangeBonus) * basicRangeMultiplier;
+                var searchRange = source.Spec.IsPlayer ? basicRange :
+                    Mathf.Max(basicRange, source.Spec.AggroRange);
                 if (enemySkills)
                     foreach (var skill in source.Spec.EnemySkills)
                         searchRange = Mathf.Max(searchRange, skill.MaxDistance + source.RangeBonus);
@@ -252,7 +254,7 @@ namespace GameLogic.Gameplay.Combat
                 var casting = HasCast(id);
                 var skillId = casting || !hasLineOfSight ? 0 :
                     enemySkills ? SelectEnemySkill(source, distance) : source.Spec.BasicSkillId;
-                var inRange = enemySkills ? skillId > 0 : distance <= source.Spec.AttackRange + source.RangeBonus;
+                var inRange = enemySkills ? skillId > 0 : distance <= basicRange;
                 if (!source.Spec.IsPlayer)
                 {
                     var retreatDistance = enemySkills && !casting && !inRange ? EnemyRetreatDistance(source, distance) : 0f;
@@ -389,8 +391,8 @@ namespace GameLogic.Gameplay.Combat
                     {
                         var target = effect.Kind == CombatEffectKind.SpawnProjectile ||
                             effect.Kind == CombatEffectKind.ApplyBuff || effect.Kind == CombatEffectKind.ModifyAttribute ||
-                            effect.Kind == CombatEffectKind.Cue ? cast.Target : default;
-                        Enqueue(effect, cast.Owner, target, cast.TargetPoint, cast.Forward, owner.Spec.ActorId, cast.Offense, cast.RangeDelta);
+                            effect.Kind == CombatEffectKind.Cue || effect.Kind == CombatEffectKind.Heal ? cast.Target : default;
+                        Enqueue(effect, cast.Owner, target, cast.TargetPoint, cast.Forward, owner.Spec.ActorId, cast.Offense, cast.RangeDelta, cast.RangeMultiplier);
                     }
                 }
                 if (elapsed < definition.DurationTicks) continue;
@@ -410,14 +412,21 @@ namespace GameLogic.Gameplay.Combat
         /// <param name="instigatorActorId">稳定的收益归因角色编号。</param>
         /// <param name="offense">效果出生时冻结的来源进攻属性。</param>
         /// <param name="rangeDelta">施放时攻击范围相对目录初值的差值。</param>
+        /// <param name="rangeMultiplier">施放时冻结的技能范围倍率。</param>
+        /// <param name="passiveDerived">效果是否由被动衍生，不再触发被动。</param>
         private void Enqueue(CombatEffectDefinition effect, int source, CombatEntityRef target, Vector3 position,
-            Vector3 direction, int instigatorActorId, CombatOffense offense, float rangeDelta = 0f)
+            Vector3 direction, int instigatorActorId, CombatOffense offense, float rangeDelta = 0f,
+            float rangeMultiplier = 1f, bool passiveDerived = false)
         {
-            if (effect != null && effect.AttackRangeSource && rangeDelta != 0f) effect = CopyEffectWithRadius(effect, Mathf.Max(0f, effect.Radius + rangeDelta));
+            if (effect != null && (effect.AttackRangeSource && rangeDelta != 0f || rangeMultiplier != 1f))
+            {
+                var radius = effect.Radius + (effect.AttackRangeSource ? rangeDelta : 0f);
+                effect = CopyEffectWithRadius(effect, Mathf.Min(AttributeCeiling, Mathf.Max(0f, radius * rangeMultiplier)));
+            }
             if (!ValidEffect(effect)) { MarkFault("Invalid effect definition"); return; }
             effectQueue.Enqueue(new EffectCommand
             {
-                Definition = effect, RangeDelta = rangeDelta, Source = source, Target = target, Position = position, Direction = direction,
+                Definition = effect, RangeDelta = rangeDelta, RangeMultiplier = rangeMultiplier, PassiveDerived = passiveDerived, Source = source, Target = target, Position = position, Direction = direction,
                 InstigatorActorId = instigatorActorId, Offense = offense,
                 RootId = activeRootId != 0 ? activeRootId : ++nextRootId,
                 TriggerId = ++nextTriggerId, Depth = activeRootId != 0 ? activeDepth + 1 : 0
@@ -514,21 +523,26 @@ namespace GameLogic.Gameplay.Combat
                     { MarkFault("Invalid projectile definition"); break; }
                     if (actors.ContainsKey(command.Source))
                         TrySpawnProjectileInternal(Ref(command.Source), effect.LinkedId, command.Target,
-                            command.Position, command.Direction, null, false, command.Offense, command.RangeDelta);
+                            command.Position, command.Direction, null, false, command.Offense, command.RangeDelta,
+                            command.RangeMultiplier, command.PassiveDerived, command.InstigatorActorId);
                     else if (projectiles.TryGetValue(command.Source, out var parentProjectile) &&
                              IsValid(parentProjectile.Source))
                         TrySpawnProjectileInternal(parentProjectile.Source, effect.LinkedId, command.Target,
-                            command.Position, command.Direction, command.Position, true, command.Offense, command.RangeDelta);
+                            command.Position, command.Direction, command.Position, true, command.Offense, command.RangeDelta,
+                            command.RangeMultiplier, command.PassiveDerived, command.InstigatorActorId);
                     break;
                 case CombatEffectKind.ApplyBuff:
                     if (!catalog.Buffs.TryGetValue(effect.LinkedId, out var buffDefinition) || !ValidBuff(buffDefinition))
                     { MarkFault("Invalid buff definition"); break; }
                     if (command.Target.Id != 0 || actors.ContainsKey(command.Source))
                         ApplyBuff(command.Target.Id != 0 ? command.Target : Ref(command.Source), effect.LinkedId,
-                            command.InstigatorActorId, command.Offense, command.RangeDelta);
+                            command.InstigatorActorId, command.Offense, command.RangeDelta, command.RangeMultiplier, command.PassiveDerived);
                     break;
                 case CombatEffectKind.ModifyAttribute:
                     ApplyAttributeBonus(command.Target.Id != 0 ? command.Target : Ref(command.Source), effect.Attribute, effect.Value);
+                    break;
+                case CombatEffectKind.Heal:
+                    ExecuteHeal(command);
                     break;
             }
         }
@@ -542,7 +556,7 @@ namespace GameLogic.Gameplay.Combat
             if (command.Target.Id != 0)
             {
                 if (IsValid(command.Target) && actors.TryGetValue(command.Target.Id, out var target))
-                    ApplyDamage(target, command.InstigatorActorId, command.Definition, command.Offense);
+                    ApplyDamage(command.Target.Id, target, command.InstigatorActorId, command.Definition, command.Offense, command.PassiveDerived);
                 return;
             }
             var hasActorSource = actors.TryGetValue(command.Source, out var source);
@@ -550,9 +564,7 @@ namespace GameLogic.Gameplay.Combat
             if (!hasActorSource && !hasProjectileSource) return;
             var roomId = hasActorSource ? source.Spec.RoomId : projectile.RoomId;
             var origin = hasActorSource ? source.Position : command.Position;
-            var sourceTeam = hasActorSource ? source.Spec.Team :
-                IsValid(projectile.Source) && actors.TryGetValue(projectile.Source.Id, out var projectileOwner)
-                    ? projectileOwner.Spec.Team : 0;
+            var sourceTeam = hasActorSource ? source.Spec.Team : projectile.SourceTeam;
             var effect = command.Definition;
             var actorIds = new List<int>(actors.Keys);
             actorIds.Sort();
@@ -563,18 +575,21 @@ namespace GameLogic.Gameplay.Combat
                     (sourceTeam != 0 && target.Spec.Team == sourceTeam) ||
                     !InsideShape(origin, command.Direction, target.Position, effect)) continue;
                 if (effect.RequireLineOfSight && HasWallBetween(roomId, origin, target.Position)) continue;
-                ApplyDamage(target, command.InstigatorActorId, effect, command.Offense);
+                ApplyDamage(id, target, command.InstigatorActorId, effect, command.Offense, command.PassiveDerived);
             }
         }
 
         /// <summary>
         /// 结算闪避、暴击和防御后写入有效伤害。
         /// </summary>
+        /// <param name="targetId">受击角色槽位。</param>
         /// <param name="target">受击角色。</param>
         /// <param name="sourceActorId">归因角色编号。</param>
         /// <param name="effect">伤害效果定义。</param>
         /// <param name="offense">效果出生时冻结的来源属性。</param>
-        private void ApplyDamage(ActorComponent target, int sourceActorId, CombatEffectDefinition effect, CombatOffense offense)
+        /// <param name="passiveDerived">本次伤害是否由被动衍生。</param>
+        private void ApplyDamage(int targetId, ActorComponent target, int sourceActorId, CombatEffectDefinition effect,
+            CombatOffense offense, bool passiveDerived)
         {
             double raw = Math.Max(0d, (double)effect.Value + (double)offense.Attack * effect.AttackCoefficient);
             if (target.DeadPending || raw <= 0d) return;
@@ -589,6 +604,7 @@ namespace GameLogic.Gameplay.Combat
             double damage = raw * (1d + offense.DamageIncrease) * (critical ? offense.CriticalDamage : 1d);
             damage *= 100d / (100d + target.Spec.Defense);
             damage *= 1d - target.Spec.DamageReduction;
+            damage *= offense.DamageMultiplier;
             float actual = (float)Math.Min(target.Health, Math.Min(float.MaxValue, Math.Max(0d, damage)));
             if (actual > 0f) target.HitClock = GetBuffClock(target);
             target.Health -= actual;
@@ -600,6 +616,16 @@ namespace GameLogic.Gameplay.Combat
             }
             events.Add(new CombatEvent(CombatEventKind.Damage, TickIndex, target.Spec.RoomId, sourceActorId,
                 target.Spec.ActorId, effect.DefinitionId, actual, target.Position, critical));
+            if (actual <= 0f || passiveDerived) return;
+            var sourceId = FindActorSlot(sourceActorId);
+            if (sourceId != 0 && sourceId != targetId)
+            {
+                TriggerAugments(sourceId, targetId, CombatTriggerKind.Hit);
+                if (critical) TriggerAugments(sourceId, targetId, CombatTriggerKind.CriticalHit);
+                if (target.DeadPending) TriggerAugments(sourceId, targetId, CombatTriggerKind.Kill);
+            }
+            if (!target.DeadPending && sourceId != 0 && sourceId != targetId)
+                TriggerAugments(targetId, sourceId, CombatTriggerKind.Damaged);
         }
 
         /// <summary>
@@ -714,7 +740,7 @@ namespace GameLogic.Gameplay.Combat
         /// <param name="sourceActorId">稳定来源角色编号。</param>
         /// <returns>配置与目标有效则为真。</returns>
         public bool ApplyBuff(CombatEntityRef targetRef, int buffId, int sourceActorId) =>
-            ApplyBuff(targetRef, buffId, sourceActorId, CaptureOffense(sourceActorId), 0f);
+            ApplyBuff(targetRef, buffId, sourceActorId, CaptureOffense(sourceActorId), 0f, 1f, false);
 
         /// <summary>
         /// 使用已冻结的来源属性添加或合并周期 Buff。
@@ -724,8 +750,10 @@ namespace GameLogic.Gameplay.Combat
         /// <param name="sourceActorId">稳定来源角色编号。</param>
         /// <param name="offense">施加时的来源进攻属性。</param>
         /// <param name="rangeDelta">施加时攻击范围相对目录初值的差值。</param>
+        /// <param name="rangeMultiplier">施加时冻结的技能范围倍率。</param>
+        /// <param name="passiveDerived">Buff 是否由被动衍生。</param>
         /// <returns>配置与目标有效则为真。</returns>
-        private bool ApplyBuff(CombatEntityRef targetRef, int buffId, int sourceActorId, CombatOffense offense, float rangeDelta)
+        private bool ApplyBuff(CombatEntityRef targetRef, int buffId, int sourceActorId, CombatOffense offense, float rangeDelta, float rangeMultiplier, bool passiveDerived)
         {
             if (!IsValid(targetRef) || !actors.TryGetValue(targetRef.Id, out var target) || target.DeadPending ||
                 !catalog.Buffs.TryGetValue(buffId, out var definition) || !ValidBuff(definition)) return false;
@@ -733,12 +761,15 @@ namespace GameLogic.Gameplay.Combat
             var existing = 0;
             foreach (var pair in buffs)
                 if (pair.Value.Owner == targetRef.Id && pair.Value.BuffId == buffId &&
-                    pair.Value.SourceActorId == sourceActorId) { existing = pair.Key; break; }
+                    pair.Value.SourceActorId == sourceActorId && pair.Value.PassiveDerived == passiveDerived)
+                { existing = pair.Key; break; }
             if (existing != 0)
             {
                 var current = buffs[existing];
                 current.Offense = offense;
                 current.RangeDelta = rangeDelta;
+                current.RangeMultiplier = rangeMultiplier;
+                current.PassiveDerived = passiveDerived;
                 if (definition.Merge == CombatBuffMerge.AddStack)
                     current.Stacks = Mathf.Min(definition.MaxStacks, current.Stacks + 1);
                 else if (definition.Merge == CombatBuffMerge.ResetDuration)
@@ -753,12 +784,13 @@ namespace GameLogic.Gameplay.Combat
             var entity = Allocate();
             buffs.Add(entity.Id, new BuffComponent
             {
-                Owner = targetRef.Id, BuffId = buffId, SourceActorId = sourceActorId, Offense = offense, RangeDelta = rangeDelta, Stacks = 1,
+                Owner = targetRef.Id, BuffId = buffId, SourceActorId = sourceActorId, Offense = offense, RangeDelta = rangeDelta, RangeMultiplier = rangeMultiplier,
+                PassiveDerived = passiveDerived, Stacks = 1,
                 ExpireTick = now + definition.DurationTicks, NextTick = now + definition.IntervalTicks
             });
             RecalculateBonuses(targetRef.Id);
             foreach (var effect in definition.OnApply)
-                Enqueue(effect, targetRef.Id, targetRef, target.Position, target.Forward, sourceActorId, offense, rangeDelta);
+                Enqueue(effect, targetRef.Id, targetRef, target.Position, target.Forward, sourceActorId, offense, rangeDelta, rangeMultiplier, passiveDerived);
             events.Add(new CombatEvent(CombatEventKind.BuffApplied, TickIndex, target.Spec.RoomId,
                 sourceActorId, target.Spec.ActorId, buffId, 1f, target.Position));
             return true;

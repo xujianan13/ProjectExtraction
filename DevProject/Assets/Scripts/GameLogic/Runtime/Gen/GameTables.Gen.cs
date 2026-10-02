@@ -11,6 +11,11 @@ namespace GameLogic.Tables
     public static partial class GameTables
     {
         /// <summary>
+        /// CfgAdvancedAffixes 配置表。
+        /// </summary>
+        public static CfgAdvancedAffixesTable CfgAdvancedAffixes { get; private set; }
+
+        /// <summary>
         /// CfgAffixes 配置表。
         /// </summary>
         public static CfgAffixesTable CfgAffixes { get; private set; }
@@ -29,6 +34,11 @@ namespace GameLogic.Tables
         /// CfgCombatAnimationSettings 配置表。
         /// </summary>
         public static CfgCombatAnimationSettingsTable CfgCombatAnimationSettings { get; private set; }
+
+        /// <summary>
+        /// CfgCombatAugments 配置表。
+        /// </summary>
+        public static CfgCombatAugmentsTable CfgCombatAugments { get; private set; }
 
         /// <summary>
         /// CfgCombatBuffs 配置表。
@@ -145,10 +155,12 @@ namespace GameLogic.Tables
         {
             if (resources == null) throw new ArgumentNullException(nameof(resources));
             ct.ThrowIfCancellationRequested();
+            CfgAdvancedAffixesTable nextCfgAdvancedAffixes = await CfgAdvancedAffixesTable.LoadAsync(resources, ct);
             CfgAffixesTable nextCfgAffixes = await CfgAffixesTable.LoadAsync(resources, ct);
             CfgAssetsTable nextCfgAssets = await CfgAssetsTable.LoadAsync(resources, ct);
             CfgCombatAnimationCuesTable nextCfgCombatAnimationCues = await CfgCombatAnimationCuesTable.LoadAsync(resources, ct);
             CfgCombatAnimationSettingsTable nextCfgCombatAnimationSettings = await CfgCombatAnimationSettingsTable.LoadAsync(resources, ct);
+            CfgCombatAugmentsTable nextCfgCombatAugments = await CfgCombatAugmentsTable.LoadAsync(resources, ct);
             CfgCombatBuffsTable nextCfgCombatBuffs = await CfgCombatBuffsTable.LoadAsync(resources, ct);
             CfgCombatEffectsTable nextCfgCombatEffects = await CfgCombatEffectsTable.LoadAsync(resources, ct);
             CfgCombatProjectilesTable nextCfgCombatProjectiles = await CfgCombatProjectilesTable.LoadAsync(resources, ct);
@@ -170,10 +182,12 @@ namespace GameLogic.Tables
             CfgRoomTemplatesTable nextCfgRoomTemplates = await CfgRoomTemplatesTable.LoadAsync(resources, ct);
             CfgSkillsTable nextCfgSkills = await CfgSkillsTable.LoadAsync(resources, ct);
             CfgSpawnsTable nextCfgSpawns = await CfgSpawnsTable.LoadAsync(resources, ct);
+            CfgAdvancedAffixes = nextCfgAdvancedAffixes;
             CfgAffixes = nextCfgAffixes;
             CfgAssets = nextCfgAssets;
             CfgCombatAnimationCues = nextCfgCombatAnimationCues;
             CfgCombatAnimationSettings = nextCfgCombatAnimationSettings;
+            CfgCombatAugments = nextCfgCombatAugments;
             CfgCombatBuffs = nextCfgCombatBuffs;
             CfgCombatEffects = nextCfgCombatEffects;
             CfgCombatProjectiles = nextCfgCombatProjectiles;

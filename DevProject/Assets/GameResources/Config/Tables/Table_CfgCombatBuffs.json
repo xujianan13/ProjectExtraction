@@ -30,6 +30,19 @@
       ],
       "OnTickEffectIDs": [],
       "OnExpireEffectIDs": []
+    },
+    {
+      "ID": 1001,
+      "DurationTicks": 180,
+      "IntervalTicks": 60,
+      "MaxStacks": 3,
+      "Merge": 0,
+      "MoveSpeedAddPerStack": 0,
+      "AttackRangeAddPerStack": 0,
+      "PeriodicDamagePerStack": 3,
+      "OnApplyEffectIDs": [],
+      "OnTickEffectIDs": [],
+      "OnExpireEffectIDs": []
     }
   ]
 }

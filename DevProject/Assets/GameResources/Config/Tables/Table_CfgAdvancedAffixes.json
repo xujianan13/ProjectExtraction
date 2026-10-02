@@ -1,0 +1,68 @@
+{
+  "schemaHash": "ace373a4aa1133f77c2e7200289e5aa980dbd5390db0b16535ff5b968e70fe67",
+  "rows": [
+    {
+      "ID": "weapon_bleed",
+      "AugmentID": "bleed",
+      "ItemType": 0,
+      "MinQuality": 3,
+      "Weight": 3,
+      "ValueMin": 0.25,
+      "ValueMax": 0.4
+    },
+    {
+      "ID": "weapon_critical_echo",
+      "AugmentID": "critical_echo",
+      "ItemType": 0,
+      "MinQuality": 3,
+      "Weight": 2,
+      "ValueMin": 0.8,
+      "ValueMax": 1.2
+    },
+    {
+      "ID": "weapon_swift",
+      "AugmentID": "swift_blade",
+      "ItemType": 0,
+      "MinQuality": 3,
+      "Weight": 2,
+      "ValueMin": 0.08,
+      "ValueMax": 0.15
+    },
+    {
+      "ID": "weapon_wide",
+      "AugmentID": "wide_blade",
+      "ItemType": 0,
+      "MinQuality": 3,
+      "Weight": 2,
+      "ValueMin": 0.15,
+      "ValueMax": 0.25
+    },
+    {
+      "ID": "weapon_heavy",
+      "AugmentID": "heavy_blade",
+      "ItemType": 0,
+      "MinQuality": 3,
+      "Weight": 2,
+      "ValueMin": 0.12,
+      "ValueMax": 0.2
+    },
+    {
+      "ID": "armor_leech",
+      "AugmentID": "kill_leech",
+      "ItemType": 3,
+      "MinQuality": 3,
+      "Weight": 2,
+      "ValueMin": 0.8,
+      "ValueMax": 1.2
+    },
+    {
+      "ID": "armor_retaliation",
+      "AugmentID": "retaliation",
+      "ItemType": 3,
+      "MinQuality": 3,
+      "Weight": 2,
+      "ValueMin": 0.8,
+      "ValueMax": 1.2
+    }
+  ]
+}

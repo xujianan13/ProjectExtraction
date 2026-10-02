@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using UnityEngine;
 
 namespace GameLogic.Gameplay.Combat
@@ -49,7 +49,7 @@ namespace GameLogic.Gameplay.Combat
     /// <summary>
     /// 战斗效果类型。
     /// </summary>
-    public enum CombatEffectKind { Cue, Damage, Displace, SpawnProjectile, ApplyBuff, ModifyAttribute }
+    public enum CombatEffectKind { Cue, Damage, Displace, SpawnProjectile, ApplyBuff, ModifyAttribute, Heal }
 
     /// <summary>
     /// 局内可强化的战斗属性。
@@ -87,7 +87,7 @@ namespace GameLogic.Gameplay.Combat
     /// <summary>
     /// 战斗事件类型。
     /// </summary>
-    public enum CombatEventKind { Cue, Damage, Death, RoomCleared, ProjectileHit, ProjectileEnded, BuffApplied, BuffExpired, CastCancelled, Dodged }
+    public enum CombatEventKind { Cue, Damage, Death, RoomCleared, ProjectileHit, ProjectileEnded, BuffApplied, BuffExpired, CastCancelled, Dodged, Heal }
 
     /// <summary>
     /// 一条已确认的战斗事件。

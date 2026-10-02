@@ -30,6 +30,7 @@ namespace GameLogic.Project
         public int EquipmentVersion;
         public List<ProjectAttributeValue> BaseAttributes = new();
         public List<ProjectEquipmentAffix> Affixes = new();
+        public List<ProjectAdvancedAffix> AdvancedAffixes = new();
 
         /// <summary>
         /// 创建不共享可写字段的实例副本。
@@ -40,6 +41,7 @@ namespace GameLogic.Project
             var copy = (ProjectItem)MemberwiseClone();
             copy.BaseAttributes = BaseAttributes?.ConvertAll(value => value?.Copy());
             copy.Affixes = Affixes?.ConvertAll(value => value?.Copy());
+            copy.AdvancedAffixes = AdvancedAffixes?.ConvertAll(value => value?.Copy());
             return copy;
         }
     }

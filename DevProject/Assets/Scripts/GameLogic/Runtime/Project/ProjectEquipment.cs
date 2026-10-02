@@ -74,7 +74,8 @@ namespace GameLogic.Project
     /// </summary>
     public static class ProjectEquipmentRules
     {
-        public const int EquipmentVersion = 1;
+        public const int EquipmentVersion = 2;
+        public const int LegacyEquipmentVersion = 1;
         public const float MaxAttributeValue = 1000000f;
         public const float MaxAttackRange = 100f;
         /// <summary>
@@ -344,6 +345,13 @@ namespace GameLogic.Project
                     DefinitionId = affix.ID, Attribute = (ProjectAttributeType)affix.Attribute, Value = (float)Math.Round(value, 3)
                 });
             }
+            int advancedCount = item.Type == ProjectItemType.Item ? 0 : qualityRow.AdvancedAffixCount;
+            if (!ProjectAdvancedAffixRules.TryRoll(random, item.Type, quality, advancedCount, out List<ProjectAdvancedAffix> advanced))
+            {
+                GameEntry.Get<ILogModule>()?.Error("Equipment", "高级词条配置不足：" + item.Type + "/" + quality);
+                return null;
+            }
+            item.AdvancedAffixes = advanced;
             return item;
         }
 
@@ -436,11 +444,13 @@ namespace GameLogic.Project
             {
                 if (item.Quality != ProjectItemQuality.Common || item.Type == ProjectItemType.Armor ||
                     item.BaseAttributes != null && item.BaseAttributes.Count != 0 ||
-                    item.Affixes != null && item.Affixes.Count != 0) return "旧版物品包含新装备字段。";
+                    item.Affixes != null && item.Affixes.Count != 0 ||
+                    item.AdvancedAffixes != null && item.AdvancedAffixes.Count != 0) return "旧版物品包含新装备字段。";
                 return null;
             }
             if (item.Type == ProjectItemType.Equipment) return "新版护甲分类无效。";
-            if (item.EquipmentVersion != EquipmentVersion || !Enum.IsDefined(typeof(ProjectItemQuality), item.Quality) ||
+            if (item.EquipmentVersion != LegacyEquipmentVersion && item.EquipmentVersion != EquipmentVersion ||
+                !Enum.IsDefined(typeof(ProjectItemQuality), item.Quality) ||
                 item.BaseAttributes == null || item.Affixes == null) return "物品装备版本或品质无效。";
             if (item.Type == ProjectItemType.Item && (item.BaseAttributes.Count != 0 || item.Affixes.Count != 0)) return "材料不能携带装备属性。";
             var bases = new HashSet<ProjectAttributeType>();
@@ -453,7 +463,9 @@ namespace GameLogic.Project
                     !KnownFrozenAffix(affix) || !FiniteNonNegative(affix.Value) ||
                     affix.Value > MaxAttributeValue || !affixes.Add(affix.Attribute)) return "装备词条重复或未注册。";
             if (item.Affixes.Count > Enum.GetValues(typeof(ProjectAttributeType)).Length) return "装备词条超过品质上限。";
-            return null;
+            if (item.EquipmentVersion == LegacyEquipmentVersion)
+                return item.AdvancedAffixes == null || item.AdvancedAffixes.Count == 0 ? null : "旧版装备不能包含高级词条。";
+            return ProjectAdvancedAffixRules.Validate(item);
         }
 
         /// <summary>
@@ -468,9 +480,10 @@ namespace GameLogic.Project
                 if (item == null || item.EquipmentVersion != 0) continue;
                 if (IsArmor(item.Type)) item.Type = ProjectItemType.Armor;
                 item.Quality = ProjectItemQuality.Common;
-                item.EquipmentVersion = EquipmentVersion;
+                item.EquipmentVersion = LegacyEquipmentVersion;
                 item.BaseAttributes = new List<ProjectAttributeValue>();
                 item.Affixes = new List<ProjectEquipmentAffix>();
+                item.AdvancedAffixes = new List<ProjectAdvancedAffix>();
                 if (item.Type == ProjectItemType.Weapon)
                     item.BaseAttributes.Add(new ProjectAttributeValue { Attribute = ProjectAttributeType.Attack, Value = item.Damage });
                 else if (IsArmor(item.Type) && item.BonusHealth > 0)

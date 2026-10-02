@@ -181,12 +181,19 @@ namespace MiniGame.Tests
             Assert.That(GameTables.CfgLootPool.GetAll().Any(row => row.PoolID == definition.DropPoolID &&
                 row.DefinitionId == reward.Item.DefinitionId), Is.True);
             int experience = run.KillExperience;
+            Assert.That(run.IsChoosingRogue, Is.True, "Boss 首次清房必出三选一。");
+            long pausedTick = run.World.TickIndex;
+            run.Advance(1f);
+            Assert.That(run.World.TickIndex, Is.EqualTo(pausedTick));
+            var offer = run.PendingRogueChoice;
+            Assert.That(run.TryChooseRogue(offer.OfferId, offer.Revision, 0), Is.True);
             MoveToRoom(run, room.Exits.Values.First());
             MoveToRoom(run, room.RoomId);
             Assert.That(room.IsCleared, Is.True);
             Assert.That(run.Drops.Count(drop => drop.RoomId == room.RoomId), Is.EqualTo(1));
             Assert.That(run.Drops.Single(drop => drop.RoomId == room.RoomId), Is.SameAs(reward));
             Assert.That(run.KillExperience, Is.EqualTo(experience));
+            Assert.That(run.IsChoosingRogue, Is.False, "回访不重复发清房奖励。");
             run.World.GetActorsSnapshot(actors);
             Assert.That(actors.Any(actor => actor.RoomId == room.RoomId && actor.ActorId != 1 && !actor.Dead), Is.False);
         });

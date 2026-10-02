@@ -16,6 +16,7 @@ namespace GameLogic.Project
         public const int TransitionWindow = 2300;
         public const int ResultWindow = 2301;
         public const int RogueChoiceWindow = 2500;
+        public const int RogueOverviewWindow = 2501;
         public static ProjectRunCoordinator Coordinator { get; private set; }
         public static ProjectSession Session { get; private set; }
         private static UnityEngine.GameObject lifecycleObserver;

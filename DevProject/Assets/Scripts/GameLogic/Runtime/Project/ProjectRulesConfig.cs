@@ -223,7 +223,8 @@ namespace GameLogic.Project
                     return false;
                 }
             CfgRoguePolicyRow policy = RoguePolicy;
-            if (policy == null || GameTables.CfgRoguePolicy.GetAll().Count != 1 || policy.MaxRefreshes < 0)
+            if (policy == null || GameTables.CfgRoguePolicy.GetAll().Count != 1 || policy.MaxRefreshes < 0 ||
+                !FiniteFloat(policy.MobClearChance) || policy.MobClearChance < 0 || policy.MobClearChance > 1)
             {
                 error = "Rogue 策略无效。";
                 return false;
@@ -255,7 +256,7 @@ namespace GameLogic.Project
             }
             if (rogueWeight > int.MaxValue) error = "Rogue 奖励总权重超过可表示范围。";
             if (rogueCount < 4) error = "Rogue 奖励少于四项。";
-            return error == null;
+            return error == null && ProjectAugmentConfig.Validate(out error);
         }
 
         /// <summary>

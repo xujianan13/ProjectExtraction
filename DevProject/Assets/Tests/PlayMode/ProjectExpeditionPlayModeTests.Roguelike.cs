@@ -237,6 +237,12 @@ namespace MiniGame.Tests
                 Assert.That(run.Inventory.Count, Is.EqualTo(inventoryBefore + 1));
                 return;
             }
+            if (reward.Kind == RogueRewardKind.CombatAugment)
+            {
+                Assert.That(run.Inventory.Count, Is.EqualTo(inventoryBefore));
+                Assert.That(run.RogueUpgrades.Single(item => item.Id == reward.Id).Rank, Is.EqualTo(reward.Rank));
+                return;
+            }
             Assert.That(reward.Kind, Is.EqualTo(RogueRewardKind.AttributeBonus));
             Assert.That(run.Inventory.Count, Is.EqualTo(inventoryBefore));
             Assert.That(AttributeValue(after, reward.Attribute), Is.GreaterThan(AttributeValue(before, reward.Attribute)));

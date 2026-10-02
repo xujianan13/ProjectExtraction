@@ -44,7 +44,7 @@
         },
         "Kind": {
           "min": 0,
-          "max": 5
+          "max": 6
         },
         "Attribute": {
           "min": 0,
@@ -314,6 +314,9 @@
         "ID": {
           "min": 0,
           "max": 5
+        },
+        "AdvancedAffixCount": {
+          "min": 0
         }
       }
     },
@@ -332,6 +335,10 @@
       "fields": {
         "ID": {
           "min": 1
+        },
+        "MobClearChance": {
+          "min": 0,
+          "max": 1
         }
       }
     },
@@ -339,7 +346,7 @@
       "fields": {
         "Kind": {
           "min": 0,
-          "max": 1
+          "max": 2
         },
         "Attribute": {
           "min": 0,
@@ -348,6 +355,12 @@
         "LootType": {
           "min": 0,
           "max": 3
+        },
+        "MaxRank": {
+          "min": 0
+        },
+        "PrerequisiteRank": {
+          "min": 0
         }
       }
     },
@@ -464,6 +477,66 @@
           "min": 0
         },
         "MaxDistance": {
+          "min": 0
+        }
+      }
+    },
+    "CfgCombatAugments": {
+      "fields": {
+        "Version": {
+          "min": 1
+        },
+        "Title": {
+          "required": true
+        },
+        "Trigger": {
+          "min": 0,
+          "max": 4
+        },
+        "Chance": {
+          "min": 0,
+          "max": 1
+        },
+        "CooldownTicks": {
+          "min": 0
+        },
+        "SkillID": {
+          "min": 0
+        },
+        "EffectIDs": {
+          "ref": "CfgCombatEffects"
+        },
+        "ModifierKind": {
+          "min": 0,
+          "max": 3
+        },
+        "ValueMode": {
+          "min": 0,
+          "max": 2
+        }
+      }
+    },
+    "CfgAdvancedAffixes": {
+      "fields": {
+        "AugmentID": {
+          "ref": "CfgCombatAugments",
+          "required": true
+        },
+        "ItemType": {
+          "min": 0,
+          "max": 3
+        },
+        "MinQuality": {
+          "min": 0,
+          "max": 5
+        },
+        "Weight": {
+          "min": 1
+        },
+        "ValueMin": {
+          "min": 0
+        },
+        "ValueMax": {
           "min": 0
         }
       }

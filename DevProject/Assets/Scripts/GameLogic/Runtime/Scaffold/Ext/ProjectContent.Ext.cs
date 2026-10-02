@@ -45,6 +45,7 @@ namespace GameLogic.Scaffold
                 CreateProjectWindow<ExpeditionInventoryWindow>(ProjectServices.ExpeditionInventoryWindow, "ExpeditionInventory", GameUILayers.Popup, true),
                 CreateProjectWindow<ExpeditionMerchantWindow>(ProjectServices.ExpeditionMerchantWindow, "ExpeditionMerchant", GameUILayers.Popup, true),
                 CreateProjectWindow<RogueChoiceWindow>(ProjectServices.RogueChoiceWindow, "RogueChoice", GameUILayers.Popup, true),
+                CreateProjectWindow<RogueOverviewWindow>(ProjectServices.RogueOverviewWindow, "RogueOverview", GameUILayers.Popup, true),
                 CreateProjectWindow<RunTransitionWindow>(2300, "RunTransition", GameUILayers.Guide, false, GameWindowScope.Global),
                 CreateProjectWindow<RunResultWindow>(2301, "RunResult", GameUILayers.Popup, false, GameWindowScope.Global)
             }, registry =>
@@ -56,6 +57,7 @@ namespace GameLogic.Scaffold
                 registry.Register<ExpeditionInventoryWindow>(ProjectServices.ExpeditionInventoryWindow);
                 registry.Register<ExpeditionMerchantWindow>(ProjectServices.ExpeditionMerchantWindow);
                 registry.Register<RogueChoiceWindow>(ProjectServices.RogueChoiceWindow);
+                registry.Register<RogueOverviewWindow>(ProjectServices.RogueOverviewWindow);
                 registry.Register<RunTransitionWindow>(2300);
                 registry.Register<RunResultWindow>(2301);
             });

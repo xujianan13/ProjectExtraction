@@ -28,6 +28,20 @@ namespace ProjectExtraction.Tests.Editor.Combat
         }
 
         /// <summary>
+        /// 高级词条效果映射生成独立快照，缺失编号时整体拒绝。
+        /// </summary>
+        [Test]
+        public void TryCreateEffects_RejectsMissingIdsAndReturnsIndependentCopies()
+        {
+            Assert.That(CombatContentConfig.TryCreateEffects(new[] { 5 }, 2f, out var first), Is.True);
+            Assert.That(CombatContentConfig.TryCreateEffects(new[] { 5 }, 2f, out var second), Is.True);
+            Assert.That(first.Count, Is.EqualTo(1));
+            Assert.That(first[0], Is.Not.SameAs(second[0]));
+            Assert.That(CombatContentConfig.TryCreateEffects(new[] { 5, int.MaxValue }, 2f, out var missing), Is.False);
+            Assert.That(missing, Is.Null);
+        }
+
+        /// <summary>
         /// 修改已加载表行会影响后建目录，旧目录保持原值。
         /// </summary>
         [Test]

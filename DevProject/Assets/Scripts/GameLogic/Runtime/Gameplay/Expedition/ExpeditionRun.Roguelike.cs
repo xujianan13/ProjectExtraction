@@ -139,6 +139,7 @@ namespace GameLogic.Gameplay.Expedition
                 Message = "本局强化：" + reward.Title;
                 return true;
             }
+            if (reward.Kind == RogueRewardKind.CombatAugment) return ApplyCombatAugmentReward(reward);
             if (reward.Kind != RogueRewardKind.RandomLoot) return false;
             ProjectItem item = ProjectEquipmentRules.CreateLoot(rogueLootRandom, LevelId, reward.LootType);
             if (ProjectEquipmentRules.ValidateItem(item) != null) return false;

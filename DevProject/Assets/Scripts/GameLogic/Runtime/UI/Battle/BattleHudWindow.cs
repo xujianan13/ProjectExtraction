@@ -54,13 +54,16 @@ namespace GameLogic.UI.Battle
             interactButton = ProjectUiFactory.ActionButton(actions, "交互 / E", RequestInteraction);
             interactionLabel = interactButton.GetComponentInChildren<UnityEngine.UI.Text>();
             interactionLabel.fontSize = 32;
-            ProjectUiFactory.Height((RectTransform)interactButton.transform, 100f);
+            ProjectUiFactory.Height((RectTransform)interactButton.transform, 90f);
             var bagButton = ProjectUiFactory.ActionButton(actions, "背包 / 安全箱", OpenInventory);
             bagButton.GetComponentInChildren<UnityEngine.UI.Text>().fontSize = 32;
-            ProjectUiFactory.Height((RectTransform)bagButton.transform, 100f);
+            ProjectUiFactory.Height((RectTransform)bagButton.transform, 90f);
+            var overviewButton = ProjectUiFactory.ActionButton(actions, "强化总览", OpenRogueOverview);
+            overviewButton.GetComponentInChildren<UnityEngine.UI.Text>().fontSize = 30;
+            ProjectUiFactory.Height((RectTransform)overviewButton.transform, 90f);
             resumeChoice = ProjectUiFactory.ActionButton(actions, "继续选择强化", OpenPendingChoice);
             resumeChoice.GetComponentInChildren<UnityEngine.UI.Text>().fontSize = 30;
-            ProjectUiFactory.Height((RectTransform)resumeChoice.transform, 100f);
+            ProjectUiFactory.Height((RectTransform)resumeChoice.transform, 90f);
             resumeChoice.gameObject.SetActive(false);
             content.gameObject.AddComponent<BattleHudLayout>().Configure(header, map, stick, actions);
         }
@@ -171,6 +174,15 @@ namespace GameLogic.UI.Battle
         }
 
         /// <summary>
+        /// 请求打开本局强化总览弹窗。
+        /// </summary>
+        private void OpenRogueOverview()
+        {
+            if (coordinator?.Phase == ProjectRunPhase.Playing && run?.TryOpenRogueOverview() == true)
+                run.SetTouchMove(Vector2.zero);
+        }
+
+        /// <summary>
         /// 按单局面板状态打开对应的模态窗口，失败时归还面板状态。
         /// </summary>
         /// <param name="kind">准备打开的面板类型。</param>
@@ -183,7 +195,7 @@ namespace GameLogic.UI.Battle
             LifetimeScope scope = OpenScope;
             IUIModule ui = GameEntry.Get<IUIModule>();
             int windowId = kind == ExpeditionPanelKind.Inventory ? ProjectServices.ExpeditionInventoryWindow :
-                ProjectServices.ExpeditionMerchantWindow;
+                kind == ExpeditionPanelKind.Merchant ? ProjectServices.ExpeditionMerchantWindow : ProjectServices.RogueOverviewWindow;
             try
             {
                 GameWindow opened = ui == null ? null : await ui.OpenWindowAsync(windowId, new GameWindowOpenArgs(current), scope.Token);

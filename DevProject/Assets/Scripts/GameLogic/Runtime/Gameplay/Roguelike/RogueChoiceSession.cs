@@ -11,7 +11,7 @@ namespace GameLogic.Gameplay.Roguelike
     /// <summary>
     /// 本局强化的效果分类。
     /// </summary>
-    public enum RogueRewardKind { AttributeBonus, RandomLoot }
+    public enum RogueRewardKind { AttributeBonus, RandomLoot, CombatAugment }
 
     /// <summary>
     /// 可配置但每局创建时会复制的选择功能开关。
@@ -41,7 +41,7 @@ namespace GameLogic.Gameplay.Roguelike
     }
 
     /// <summary>
-    /// 当前仅表达本局属性或随机战利品，应用由调用方完成。
+    /// 表达本局属性、随机战利品或战斗强化，应用由调用方完成。
     /// </summary>
     public sealed class RogueRewardDefinition
     {
@@ -52,6 +52,9 @@ namespace GameLogic.Gameplay.Roguelike
         public ProjectAttributeType Attribute { get; }
         public float Amount { get; }
         public ProjectItemType LootType { get; }
+        public string AugmentId { get; }
+        public int Rank { get; }
+        public int MaxRank { get; }
 
         /// <summary>
         /// 创建不可变奖励定义。
@@ -63,8 +66,12 @@ namespace GameLogic.Gameplay.Roguelike
         /// <param name="attribute">本局属性种类。</param>
         /// <param name="amount">本局属性增量。</param>
         /// <param name="lootType">随机战利品类型。</param>
+        /// <param name="augmentId">战斗强化身份。</param>
+        /// <param name="rank">本次获得后的等级。</param>
+        /// <param name="maxRank">允许的最高等级，零表示不限。</param>
         public RogueRewardDefinition(string id, string title, string description, RogueRewardKind kind,
-            ProjectAttributeType attribute = default, float amount = 0, ProjectItemType lootType = default)
+            ProjectAttributeType attribute = default, float amount = 0, ProjectItemType lootType = default,
+            string augmentId = null, int rank = 1, int maxRank = 0)
         {
             Id = id;
             Title = title;
@@ -73,6 +80,40 @@ namespace GameLogic.Gameplay.Roguelike
             Attribute = attribute;
             Amount = amount;
             LootType = lootType;
+            AugmentId = augmentId;
+            Rank = rank;
+            MaxRank = maxRank;
+        }
+    }
+
+    /// <summary>
+    /// 单局已获得强化的不可变快照。
+    /// </summary>
+    public sealed class RogueUpgradeSnapshot
+    {
+        public string Id { get; }
+        public string Title { get; }
+        public string Description { get; }
+        public int Rank { get; }
+        public int MaxRank { get; }
+        public RogueRewardKind Kind { get; }
+        public string AugmentId { get; }
+        public float Amount { get; }
+
+        /// <summary>
+        /// 冻结一次已获得的强化等级。
+        /// </summary>
+        /// <param name="reward">成功应用的奖励。</param>
+        public RogueUpgradeSnapshot(RogueRewardDefinition reward)
+        {
+            Id = reward.Id;
+            Title = reward.Title;
+            Description = reward.Description;
+            Rank = reward.Rank;
+            MaxRank = reward.MaxRank;
+            Kind = reward.Kind;
+            AugmentId = reward.AugmentId;
+            Amount = reward.Amount;
         }
     }
 
@@ -218,6 +259,9 @@ namespace GameLogic.Gameplay.Roguelike
         private readonly HashSet<string> usedSources = new();
         private readonly HashSet<string> usedReceipts = new();
         private readonly List<RogueChoiceOption> options = new();
+        private readonly Dictionary<string, int> selectedRanks = new();
+        private readonly Dictionary<string, string> selectedGroups = new();
+        private readonly Dictionary<string, RogueUpgradeSnapshot> upgrades = new();
         private string offerId;
         private string sourceId;
         private int revision;
@@ -253,6 +297,19 @@ namespace GameLogic.Gameplay.Roguelike
             refreshCount, policy.RefreshEnabled && refreshCount < policy.MaxRefreshes, extraUnlocked, options);
 
         /// <summary>
+        /// 获取已兑现且不含随机战利品的只读强化快照。
+        /// </summary>
+        public IReadOnlyList<RogueUpgradeSnapshot> Upgrades
+        {
+            get
+            {
+                var snapshot = new List<RogueUpgradeSnapshot>(upgrades.Values);
+                snapshot.Sort((left, right) => string.CompareOrdinal(left.Id, right.Id));
+                return new ReadOnlyCollection<RogueUpgradeSnapshot>(snapshot);
+            }
+        }
+
+        /// <summary>
         /// 每个来源在本局只创建一次选择。
         /// </summary>
         /// <param name="sourceId">触发来源身份。</param>
@@ -266,8 +323,10 @@ namespace GameLogic.Gameplay.Roguelike
             refreshCount = 0;
             extraUnlocked = false;
             pendingRequest = null;
-            Deal();
-            return true;
+            if (Deal()) return true;
+            usedSources.Remove(sourceId);
+            CloseActive();
+            return false;
         }
 
         /// <summary>
@@ -279,11 +338,11 @@ namespace GameLogic.Gameplay.Roguelike
         public bool TryRefresh(string offerId, int revision)
         {
             if (applying || !Current(offerId, revision) || !policy.RefreshEnabled || refreshCount >= policy.MaxRefreshes) return false;
+            if (!Deal()) return false;
             refreshCount++;
             this.revision++;
             extraUnlocked = false;
             pendingRequest = null;
-            Deal();
             return true;
         }
 
@@ -299,17 +358,22 @@ namespace GameLogic.Gameplay.Roguelike
         {
             if (!Current(offerId, revision) || applying || apply == null || optionIndex < 0 || optionIndex >= options.Count ||
                 (options[optionIndex].IsExtra && !extraUnlocked)) return false;
+            RogueRewardDefinition reward = options[optionIndex].Reward;
             bool applied;
             applying = true;
             try
             {
-                applied = apply(options[optionIndex].Reward);
+                applied = apply(reward);
             }
             finally
             {
                 applying = false;
             }
             if (!applied) return false;
+            selectedRanks[reward.Id] = reward.Rank;
+            CfgRogueRewardsRow row = GameTables.CfgRogueRewards.GetById(reward.Id);
+            if (!string.IsNullOrEmpty(row?.ExclusiveGroup)) selectedGroups[row.ExclusiveGroup] = reward.Id;
+            if (reward.Kind != RogueRewardKind.RandomLoot) upgrades[reward.Id] = new RogueUpgradeSnapshot(reward);
             CloseActive();
             return true;
         }
@@ -385,13 +449,26 @@ namespace GameLogic.Gameplay.Roguelike
         private bool Current(string id, int version) => offerId != null && offerId == id && revision == version;
 
         /// <summary>
-        /// 从独立随机流抽取互不重复的三个基础项和备用第四项。
+        /// 按等级上限、前置和互斥组过滤后，抽取不重复选项。
         /// </summary>
-        private void Deal()
+        /// <returns>至少可以生成三个基础选项时为真。</returns>
+        private bool Deal()
         {
-            options.Clear();
-            var pool = new List<CfgRogueRewardsRow>(GameTables.CfgRogueRewards.GetAll());
-            for (int index = 0; index < 4; index++)
+            var pool = new List<CfgRogueRewardsRow>();
+            foreach (CfgRogueRewardsRow row in GameTables.CfgRogueRewards.GetAll())
+            {
+                int rank = selectedRanks.TryGetValue(row.ID, out int current) ? current : 0;
+                if (row.MaxRank > 0 && rank >= row.MaxRank) continue;
+                if (!string.IsNullOrEmpty(row.PrerequisiteID) &&
+                    (!selectedRanks.TryGetValue(row.PrerequisiteID, out int prerequisite) || prerequisite < row.PrerequisiteRank)) continue;
+                if (!string.IsNullOrEmpty(row.ExclusiveGroup) && selectedGroups.TryGetValue(row.ExclusiveGroup, out string chosen) &&
+                    chosen != row.ID) continue;
+                pool.Add(row);
+            }
+            if (pool.Count < 3) return false;
+            var dealt = new List<RogueChoiceOption>();
+            int count = Math.Min(4, pool.Count);
+            for (int index = 0; index < count; index++)
             {
                 int total = 0;
                 foreach (CfgRogueRewardsRow candidate in pool) total += candidate.Weight;
@@ -404,11 +481,15 @@ namespace GameLogic.Gameplay.Roguelike
                 }
                 CfgRogueRewardsRow row = pool[chosen];
                 pool.RemoveAt(chosen);
+                int rank = selectedRanks.TryGetValue(row.ID, out int current) ? current + 1 : 1;
                 var reward = new RogueRewardDefinition(row.ID, row.Title, row.Description, (RogueRewardKind)row.Kind,
-                    (ProjectAttributeType)row.Attribute, (float)row.Amount, (ProjectItemType)row.LootType);
-                if (index < 3) options.Add(new RogueChoiceOption(index, false, reward));
-                else if (policy.ExtraChoiceEnabled) options.Add(new RogueChoiceOption(3, true, reward));
+                    (ProjectAttributeType)row.Attribute, (float)row.Amount, (ProjectItemType)row.LootType,
+                    row.AugmentID, rank, row.MaxRank);
+                if (index < 3 || policy.ExtraChoiceEnabled) dealt.Add(new RogueChoiceOption(index, index == 3, reward));
             }
+            options.Clear();
+            options.AddRange(dealt);
+            return true;
         }
     }
 }

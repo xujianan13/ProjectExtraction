@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using GameLogic.Project;
+using GameLogic.Tables;
 using NUnit.Framework;
 using UnityEngine;
 
@@ -26,6 +27,9 @@ namespace ProjectExtraction.Tests
                 Assert.AreEqual(names[index], ProjectEquipmentRules.QualityName(quality));
                 Assert.IsTrue(colors.Add(ProjectEquipmentRules.QualityColor(quality)));
                 Assert.AreEqual(index, item.Affixes.Count);
+                Assert.AreEqual(GameTables.CfgQualities.GetById(index).AdvancedAffixCount, item.AdvancedAffixes.Count);
+                Assert.AreEqual(item.AdvancedAffixes.Count,
+                    new HashSet<string>(item.AdvancedAffixes.ConvertAll(value => value.DefinitionId)).Count);
                 Assert.AreEqual(index, new HashSet<ProjectAttributeType>(item.Affixes.ConvertAll(value => value.Attribute)).Count);
                 Assert.IsNull(ProjectEquipmentRules.ValidateItem(item));
             }
@@ -41,11 +45,16 @@ namespace ProjectExtraction.Tests
             ProjectItem copy = item.Copy();
             float originalBase = item.BaseAttributes[0].Value;
             float originalAffix = item.Affixes[0].Value;
+            float originalAdvanced = item.AdvancedAffixes[0].Value;
             copy.BaseAttributes[0].Value += 100;
             copy.Affixes[0].Value += 100;
             copy.Affixes.Clear();
+            copy.AdvancedAffixes[0].Value += 1f;
+            copy.AdvancedAffixes.Clear();
             Assert.AreEqual(originalBase, item.BaseAttributes[0].Value);
             Assert.AreEqual(originalAffix, item.Affixes[0].Value);
+            Assert.AreEqual(originalAdvanced, item.AdvancedAffixes[0].Value);
+            Assert.AreEqual(2, item.AdvancedAffixes.Count);
             Assert.AreEqual(5, item.Affixes.Count);
             Assert.IsNull(ProjectEquipmentRules.ValidateItem(item));
         }
@@ -158,6 +167,121 @@ namespace ProjectExtraction.Tests
         }
 
         /// <summary>
+        /// 新高级词条经过存档编码和物品副本后保持定义、版本及随机值。
+        /// </summary>
+        [Test]
+        public void AdvancedAffixesRoundTripWithoutReroll()
+        {
+            ProjectSaveData data = ProjectSaveData.CreateDefault();
+            ProjectItem item = ProjectEquipmentRules.CreateEquipment(new System.Random(43), ProjectItemType.Armor, 4, ProjectItemQuality.Artifact);
+            data.Warehouse.Add(item);
+            var codec = new ProjectSaveCodec();
+            ProjectSaveData saved = codec.Decode(codec.Encode(data));
+            ProjectItem restored = saved.Warehouse.Find(value => value.Id == item.Id);
+            Assert.IsNotNull(restored);
+            Assert.AreEqual(ProjectEquipmentRules.EquipmentVersion, restored.EquipmentVersion);
+            Assert.AreEqual(item.AdvancedAffixes.Count, restored.AdvancedAffixes.Count);
+            for (int index = 0; index < item.AdvancedAffixes.Count; index++)
+            {
+                Assert.AreEqual(item.AdvancedAffixes[index].DefinitionId, restored.AdvancedAffixes[index].DefinitionId);
+                Assert.AreEqual(item.AdvancedAffixes[index].AugmentId, restored.AdvancedAffixes[index].AugmentId);
+                Assert.AreEqual(item.AdvancedAffixes[index].Version, restored.AdvancedAffixes[index].Version);
+                Assert.AreEqual(item.AdvancedAffixes[index].Value, restored.AdvancedAffixes[index].Value);
+            }
+            Assert.IsNull(ProjectSaveData.Validate(saved));
+        }
+
+        /// <summary>
+        /// 版本一装备跨编码往返时保持普通词条且不产生高级词条。
+        /// </summary>
+        [Test]
+        public void VersionOneEquipmentRoundTripsWithoutAdvancedReroll()
+        {
+            ProjectSaveData data = ProjectSaveData.CreateDefault();
+            ProjectItem item = ProjectEquipmentRules.CreateEquipment(new System.Random(23), ProjectItemType.Weapon, 3, ProjectItemQuality.Epic);
+            item.EquipmentVersion = ProjectEquipmentRules.LegacyEquipmentVersion;
+            item.AdvancedAffixes = null;
+            data.Warehouse.Add(item);
+            var codec = new ProjectSaveCodec();
+            ProjectSaveData restored = codec.Decode(codec.Encode(data));
+            ProjectItem saved = restored.Warehouse.Find(value => value.Id == item.Id);
+            Assert.IsNotNull(saved);
+            Assert.AreEqual(ProjectEquipmentRules.LegacyEquipmentVersion, saved.EquipmentVersion);
+            Assert.IsTrue(saved.AdvancedAffixes == null || saved.AdvancedAffixes.Count == 0);
+            Assert.AreEqual(item.Affixes.Count, saved.Affixes.Count);
+            Assert.AreEqual(item.BaseAttributes[0].Value, saved.BaseAttributes[0].Value);
+            Assert.IsNull(ProjectEquipmentRules.ValidateItem(saved));
+            Assert.IsNull(ProjectSaveData.Validate(restored));
+        }
+
+        /// <summary>
+        /// 调整新掉落区间和品质数量后，已保存的冻结装备仍可读取。
+        /// </summary>
+        [Test]
+        public void ExistingAdvancedAffixesSurviveCurrentRollRangeAndCountChanges()
+        {
+            ProjectItem existing = ProjectEquipmentRules.CreateEquipment(new System.Random(51), ProjectItemType.Armor, 4, ProjectItemQuality.Artifact);
+            CfgQualitiesRow quality = GameTables.CfgQualities.GetById((int)ProjectItemQuality.Artifact);
+            CfgAdvancedAffixesRow first = GameTables.CfgAdvancedAffixes.GetById(existing.AdvancedAffixes[0].DefinitionId);
+            CfgAdvancedAffixesRow second = GameTables.CfgAdvancedAffixes.GetById(existing.AdvancedAffixes[1].DefinitionId);
+            int originalCount = quality.AdvancedAffixCount;
+            float firstValue = existing.AdvancedAffixes[0].Value, secondValue = existing.AdvancedAffixes[1].Value;
+            double firstMin = first.ValueMin, firstMax = first.ValueMax, secondMin = second.ValueMin, secondMax = second.ValueMax;
+            try
+            {
+                quality.AdvancedAffixCount = 1;
+                first.ValueMin = second.ValueMin = 0.01;
+                first.ValueMax = second.ValueMax = 0.02;
+                Assert.IsNull(ProjectEquipmentRules.ValidateItem(existing));
+                Assert.AreEqual(firstValue, existing.AdvancedAffixes[0].Value);
+                Assert.AreEqual(secondValue, existing.AdvancedAffixes[1].Value);
+                ProjectItem next = ProjectEquipmentRules.CreateEquipment(new System.Random(52), ProjectItemType.Armor, 4, ProjectItemQuality.Artifact);
+                Assert.AreEqual(1, next.AdvancedAffixes.Count);
+                Assert.That(next.AdvancedAffixes[0].Value, Is.InRange(0.01f, 0.02f));
+                Assert.IsNull(ProjectEquipmentRules.ValidateItem(next));
+            }
+            finally
+            {
+                quality.AdvancedAffixCount = originalCount;
+                first.ValueMin = firstMin;
+                first.ValueMax = firstMax;
+                second.ValueMin = secondMin;
+                second.ValueMax = secondMax;
+            }
+        }
+
+        /// <summary>
+        /// 高级词条来源、效果版本、冻结值和数量不允许被伪造。
+        /// </summary>
+        [Test]
+        public void ValidationRejectsInvalidAdvancedAffixIdentityVersionAndValue()
+        {
+            ProjectItem valid = ProjectEquipmentRules.CreateEquipment(new System.Random(31), ProjectItemType.Weapon, 4, ProjectItemQuality.Artifact);
+            Assert.IsNull(ProjectEquipmentRules.ValidateItem(valid));
+            ProjectItem invalid = valid.Copy();
+            invalid.AdvancedAffixes[0].DefinitionId = "missing.advanced";
+            Assert.IsNotNull(ProjectEquipmentRules.ValidateItem(invalid));
+            invalid = valid.Copy();
+            invalid.AdvancedAffixes[0].Version++;
+            Assert.IsNotNull(ProjectEquipmentRules.ValidateItem(invalid));
+            invalid = valid.Copy();
+            invalid.AdvancedAffixes[0].Value = float.PositiveInfinity;
+            Assert.IsNotNull(ProjectEquipmentRules.ValidateItem(invalid));
+            invalid = valid.Copy();
+            invalid.AdvancedAffixes[0].Value = -0.1f;
+            Assert.IsNotNull(ProjectEquipmentRules.ValidateItem(invalid));
+            invalid = valid.Copy();
+            invalid.AdvancedAffixes[0].DefinitionId = invalid.AdvancedAffixes[1].DefinitionId;
+            Assert.IsNotNull(ProjectEquipmentRules.ValidateItem(invalid));
+            invalid = valid.Copy();
+            invalid.AdvancedAffixes = null;
+            Assert.IsNotNull(ProjectEquipmentRules.ValidateItem(invalid));
+            invalid = valid.Copy();
+            invalid.AdvancedAffixes[0].AugmentId = "missing.augment";
+            Assert.IsNotNull(ProjectEquipmentRules.ValidateItem(invalid));
+        }
+
+        /// <summary>
         /// 执行版本二装备迁移并模拟实际存档编码往返。
         /// </summary>
         /// <param name="codec">项目编解码器。</param>
@@ -183,7 +307,7 @@ namespace ProjectExtraction.Tests
         {
             Assert.AreEqual(type, item.Type);
             Assert.AreEqual(ProjectItemQuality.Common, item.Quality);
-            Assert.AreEqual(ProjectEquipmentRules.EquipmentVersion, item.EquipmentVersion);
+            Assert.AreEqual(ProjectEquipmentRules.LegacyEquipmentVersion, item.EquipmentVersion);
             Assert.AreEqual(0, item.Affixes.Count);
             Assert.AreEqual(value, item.BaseAttributes[0].Value);
         }

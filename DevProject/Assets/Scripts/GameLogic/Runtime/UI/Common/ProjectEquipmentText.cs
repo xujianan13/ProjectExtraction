@@ -1,5 +1,6 @@
 using System.Text;
 using GameLogic.Project;
+using GameLogic.Tables;
 using UnityEngine;
 
 namespace GameLogic.UI.Common
@@ -108,7 +109,26 @@ namespace GameLogic.UI.Common
             if (item.Affixes == null || item.Affixes.Count == 0) builder.Append("无");
             else foreach (ProjectEquipmentAffix affix in item.Affixes)
                 if (affix != null) builder.AppendLine(ItemAttribute(affix.Attribute, affix.Value));
+            builder.AppendLine().AppendLine("高级词条");
+            if (item.AdvancedAffixes == null || item.AdvancedAffixes.Count == 0) builder.Append("无");
+            else foreach (ProjectAdvancedAffix affix in item.AdvancedAffixes)
+                if (affix != null) builder.AppendLine(AdvancedAffixText(affix));
             return builder.ToString().TrimEnd();
+        }
+
+        /// <summary>
+        /// 使用已冻结的数值展示高级词条效果，不重新抽取词条。
+        /// </summary>
+        /// <param name="affix">物品携带的高级词条。</param>
+        /// <returns>标题和实际百分比效果说明。</returns>
+        private static string AdvancedAffixText(ProjectAdvancedAffix affix)
+        {
+            CfgCombatAugmentsRow augment = GameTables.CfgCombatAugments?.GetById(affix.AugmentId);
+            if (augment == null || augment.Version != affix.Version) return "高级词条配置不可用";
+            string percentage = (affix.Value * 100f).ToString("0.#") + "%";
+            string description = augment.Description ?? string.Empty;
+            return augment.Title + " · " + (description.Contains("{value}") ?
+                description.Replace("{value}", percentage) : description + " " + percentage);
         }
 
         /// <summary>

@@ -3,7 +3,11 @@
   "sources": [
     {
       "path": "config/excel/schema.json",
-      "sha256": "77f6c234db460f02222e94db38dd6171e8e6cdf3ddb9c903faff91826abf066c"
+      "sha256": "ad49926de7e3bea0d587bc389c36a9a4d2dded77d6abdc670b9cf51ead0164cf"
+    },
+    {
+      "path": "config/excel/CfgAdvancedAffixes.xlsx",
+      "sha256": "12abcd98f58dd2dd42a53b74aa6558249dff60208d175557db493146eea2641d"
     },
     {
       "path": "config/excel/CfgAffixes.xlsx",
@@ -22,12 +26,16 @@
       "sha256": "2211f1b7a75205fe4f76f748190e7dffb19bd660edc0bdf46e0f65b4d052df38"
     },
     {
+      "path": "config/excel/CfgCombatAugments.xlsx",
+      "sha256": "c0a042907902bba523be007930d5e1b51ddae26a70b1e39f0164622b98002a7c"
+    },
+    {
       "path": "config/excel/CfgCombatBuffs.xlsx",
-      "sha256": "c77436527e945ce304a866b8d5618ca626ae9c327f8e6fbbf245cb58270c7adb"
+      "sha256": "f8e5c485181a2461ff4b001b317ab2b46b9bc136eac21fdb192ca460709ce737"
     },
     {
       "path": "config/excel/CfgCombatEffects.xlsx",
-      "sha256": "29049713413e3886e063e5ddfc13fea27bb4fe71eedaa658fa7c5addeaa3729d"
+      "sha256": "0b69ec79f352741e3f3edb1f0c7374c0e2439d93979b303eee3c5dff6cb4d07c"
     },
     {
       "path": "config/excel/CfgCombatProjectiles.xlsx",
@@ -79,15 +87,15 @@
     },
     {
       "path": "config/excel/CfgQualities.xlsx",
-      "sha256": "18f8a4c140f9b3b949943e10449ddfbcc405b5ae30507092c876eeff020bdd9c"
+      "sha256": "224b99f0a6e0348ba79fcfbe0aaed09045fc5d93024b69ed9a65c913d2f8c0c7"
     },
     {
       "path": "config/excel/CfgRoguePolicy.xlsx",
-      "sha256": "47279f9cf1bc27a06e49bf2b979d9dae1dab9fcf120bc3bf4a34dbe19f66a2e2"
+      "sha256": "99af034cf67f2c25dc6cae4fe2b9fb2e11863323f6040f38e9201faed4b7e205"
     },
     {
       "path": "config/excel/CfgRogueRewards.xlsx",
-      "sha256": "e8b3cbda9505bfbb40df44220392cb4a05e74f57dab2c7804c4a3fd893a1f394"
+      "sha256": "ccff9cb914f002f0f7ef535d5efbf17432d9dc0bdd3d8c2d75f99c4f88088e2b"
     },
     {
       "path": "config/excel/CfgRoomLayouts.xlsx",
@@ -194,6 +202,40 @@
   ],
   "tables": [
     {
+      "name": "CfgAdvancedAffixes",
+      "source": "config/excel/CfgAdvancedAffixes.xlsx",
+      "fields": [
+        {
+          "name": "ID",
+          "type": "string"
+        },
+        {
+          "name": "AugmentID",
+          "type": "string"
+        },
+        {
+          "name": "ItemType",
+          "type": "int"
+        },
+        {
+          "name": "MinQuality",
+          "type": "int"
+        },
+        {
+          "name": "Weight",
+          "type": "int"
+        },
+        {
+          "name": "ValueMin",
+          "type": "number"
+        },
+        {
+          "name": "ValueMax",
+          "type": "number"
+        }
+      ]
+    },
+    {
       "name": "CfgAffixes",
       "source": "config/excel/CfgAffixes.xlsx",
       "fields": [
@@ -290,6 +332,60 @@
         {
           "name": "DeathHoldSeconds",
           "type": "number"
+        }
+      ]
+    },
+    {
+      "name": "CfgCombatAugments",
+      "source": "config/excel/CfgCombatAugments.xlsx",
+      "fields": [
+        {
+          "name": "ID",
+          "type": "string"
+        },
+        {
+          "name": "Version",
+          "type": "int"
+        },
+        {
+          "name": "Title",
+          "type": "string"
+        },
+        {
+          "name": "Description",
+          "type": "string"
+        },
+        {
+          "name": "Trigger",
+          "type": "int"
+        },
+        {
+          "name": "Chance",
+          "type": "number"
+        },
+        {
+          "name": "CooldownTicks",
+          "type": "int"
+        },
+        {
+          "name": "TargetSelf",
+          "type": "bool"
+        },
+        {
+          "name": "SkillID",
+          "type": "int"
+        },
+        {
+          "name": "EffectIDs",
+          "type": "int[]"
+        },
+        {
+          "name": "ModifierKind",
+          "type": "int"
+        },
+        {
+          "name": "ValueMode",
+          "type": "int"
         }
       ]
     },
@@ -1168,6 +1264,10 @@
         {
           "name": "ScaleMax",
           "type": "number"
+        },
+        {
+          "name": "AdvancedAffixCount",
+          "type": "int"
         }
       ]
     },
@@ -1190,6 +1290,14 @@
         {
           "name": "MaxRefreshes",
           "type": "int"
+        },
+        {
+          "name": "MobClearChance",
+          "type": "number"
+        },
+        {
+          "name": "BossClearReward",
+          "type": "bool"
         }
       ]
     },
@@ -1228,6 +1336,26 @@
         {
           "name": "Weight",
           "type": "int"
+        },
+        {
+          "name": "AugmentID",
+          "type": "string"
+        },
+        {
+          "name": "MaxRank",
+          "type": "int"
+        },
+        {
+          "name": "PrerequisiteID",
+          "type": "string"
+        },
+        {
+          "name": "PrerequisiteRank",
+          "type": "int"
+        },
+        {
+          "name": "ExclusiveGroup",
+          "type": "string"
         }
       ]
     },
@@ -1442,6 +1570,14 @@
   ],
   "outputs": [
     {
+      "path": "DevProject/Assets/GameResources/Config/Tables/Table_CfgAdvancedAffixes.json",
+      "sha256": "e757bc56c86b86fa6ada2fa307f2efd796f312ea48ca7706e6579b3a05c33119"
+    },
+    {
+      "path": "DevProject/Assets/Scripts/GameLogic/Runtime/Gen/CfgAdvancedAffixes.Gen.cs",
+      "sha256": "fe27c4b2f58061f32710aa504d517d492d1cb7153444779f5f6b337efa147bd6"
+    },
+    {
       "path": "DevProject/Assets/GameResources/Config/Tables/Table_CfgAffixes.json",
       "sha256": "d0ef3553e74ce72bb057591859a550136dc9843c2ec124788a835d3fd000743a"
     },
@@ -1474,8 +1610,16 @@
       "sha256": "d9567c66b82b433a06d9df7e36a4ce76198a15224e045ca0810e868f54f0816f"
     },
     {
+      "path": "DevProject/Assets/GameResources/Config/Tables/Table_CfgCombatAugments.json",
+      "sha256": "5d961b13f09ca38f2378af8118a9d91eaeebfbc7bb92ff2558412c5fc8a470d6"
+    },
+    {
+      "path": "DevProject/Assets/Scripts/GameLogic/Runtime/Gen/CfgCombatAugments.Gen.cs",
+      "sha256": "fcf4b64fca1623a0eb22e8d573d0bbf068229fce737e8a4df261f677cfb449fb"
+    },
+    {
       "path": "DevProject/Assets/GameResources/Config/Tables/Table_CfgCombatBuffs.json",
-      "sha256": "855a58c17d653e959a6cb7a20499890e026da8cf0446872af36bff1507a4972e"
+      "sha256": "45a668913eaca4d8b4ad5744225bffcadc4621926163fbc78384e4c8568a357c"
     },
     {
       "path": "DevProject/Assets/Scripts/GameLogic/Runtime/Gen/CfgCombatBuffs.Gen.cs",
@@ -1483,7 +1627,7 @@
     },
     {
       "path": "DevProject/Assets/GameResources/Config/Tables/Table_CfgCombatEffects.json",
-      "sha256": "1c67c415261858714fea91573c488a8760c42fa18bf8a061333c87e963994d0d"
+      "sha256": "84580799f8c6489eed96cc36116a3863571f59936c0145ad3d462301dcc9775f"
     },
     {
       "path": "DevProject/Assets/Scripts/GameLogic/Runtime/Gen/CfgCombatEffects.Gen.cs",
@@ -1587,27 +1731,27 @@
     },
     {
       "path": "DevProject/Assets/GameResources/Config/Tables/Table_CfgQualities.json",
-      "sha256": "edeb11c8ddf29f3aaeaf8ef83f7d0035e3ed2a8f78135bad674037bc0f8240de"
+      "sha256": "9b3c630ba726186c99b20f5f20927c3b40c17eac8f0799d45f1c492dfe71dc9e"
     },
     {
       "path": "DevProject/Assets/Scripts/GameLogic/Runtime/Gen/CfgQualities.Gen.cs",
-      "sha256": "9fb94471c19bf22e6206265be4d9a0c13e5d406d94fb8432518f79c80272c871"
+      "sha256": "046cc1f813057f026ee687eb52dea3a7fc978f00806193d2a2b99f3f1ead4031"
     },
     {
       "path": "DevProject/Assets/GameResources/Config/Tables/Table_CfgRoguePolicy.json",
-      "sha256": "e5b3b1bac2310b7f788444b7f5d33db776473f0f4776ff817aa35a7393f5e146"
+      "sha256": "2bb90c74b5f643e146863f96059d45778bb5acf2285389494be3e021b50018e9"
     },
     {
       "path": "DevProject/Assets/Scripts/GameLogic/Runtime/Gen/CfgRoguePolicy.Gen.cs",
-      "sha256": "8f12095b05565cd9d952ab9eefd1065f45637cac84f11ea05818aba3c9febf74"
+      "sha256": "27342c5bab6d697c05d1d1fb9cb69440715ea067d142225e5f0076911cf41f20"
     },
     {
       "path": "DevProject/Assets/GameResources/Config/Tables/Table_CfgRogueRewards.json",
-      "sha256": "a8be62272f4ba85462bc28c88a13adb16baf587f060b03b7b939232f895f4c65"
+      "sha256": "d11d1170b2d04f520ea9fec1cd5c4dd23830042753023ff29ca930a19325e3d5"
     },
     {
       "path": "DevProject/Assets/Scripts/GameLogic/Runtime/Gen/CfgRogueRewards.Gen.cs",
-      "sha256": "91e17ea41a183561c09956b8f33b639ea4f64257ae90337c35ce1d2af3726e46"
+      "sha256": "3116d29177a415d43471dc0e5e922f6647fc868b6181ad282568b1f2a9e1e8d0"
     },
     {
       "path": "DevProject/Assets/GameResources/Config/Tables/Table_CfgRoomLayouts.json",
@@ -1643,7 +1787,7 @@
     },
     {
       "path": "DevProject/Assets/Scripts/GameLogic/Runtime/Gen/GameTables.Gen.cs",
-      "sha256": "d74a82d3719476e54ee4e75ed7c63831b04ca93f07d00689f5dbf27d6db6cf2b"
+      "sha256": "8fc136d23fdf070b8055d007419e853f87ee788547c38cfc9a9bd319a4cbe631"
     }
   ]
 }

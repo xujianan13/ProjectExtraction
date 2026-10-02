@@ -104,6 +104,28 @@ namespace GameLogic.Gameplay.Combat
     }
 
     /// <summary>
+    /// 高级词条在已确认战斗结果上的触发条件。
+    /// </summary>
+    public enum CombatTriggerKind { None, Hit, CriticalHit, Kill, Damaged }
+
+    /// <summary>
+    /// 本局角色词条定义；世界接纳时复制定义及效果，调用方可复用原始对象。
+    /// </summary>
+    public sealed class CombatAugmentDefinition
+    {
+        public string Id;
+        public CombatTriggerKind Trigger;
+        public float Chance = 1f;
+        public int CooldownTicks;
+        public bool TargetSelf;
+        public List<CombatEffectDefinition> Effects = new List<CombatEffectDefinition>();
+        public int SkillId;
+        public float CooldownMultiplier = 1f;
+        public float RangeMultiplier = 1f;
+        public float DamageMultiplier = 1f;
+    }
+
+    /// <summary>
     /// 战斗配置集合，供原型与后续导表共用。
     /// </summary>
     public sealed class CombatCatalog

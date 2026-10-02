@@ -24,7 +24,7 @@ namespace GameLogic.Gameplay.Combat
             var hasSource = IsValid(sourceRef) && actors.TryGetValue(sourceRef.Id, out source);
             CombatOffense offense = hasSource ? new CombatOffense(source.Spec) : CaptureOffense(0);
             var rangeDelta = hasSource && source.Spec.IsPlayer ? source.Spec.AttackRange - catalog.InitialAttackRange : 0f;
-            return TrySpawnProjectileInternal(sourceRef, projectileId, targetRef, targetPoint, forward, null, false, offense, rangeDelta);
+            return TrySpawnProjectileInternal(sourceRef, projectileId, targetRef, targetPoint, forward, null, false, offense, rangeDelta, 1f, false);
         }
 
         /// <summary>
@@ -39,9 +39,12 @@ namespace GameLogic.Gameplay.Combat
         /// <param name="allowDeadSource">是否允许已发射飞弹在来源死亡后继续生成子效果。</param>
         /// <param name="offense">飞弹出生时冻结的进攻属性。</param>
         /// <param name="rangeDelta">施放时攻击范围相对目录初值的差值。</param>
+        /// <param name="rangeMultiplier">施放时冻结的技能范围倍率。</param>
+        /// <param name="passiveDerived">飞弹是否由被动衍生。</param>
+        /// <param name="instigatorActorId">实际来源业务角色编号，零表示发射者。</param>
         /// <returns>生成成功则为真。</returns>
         private bool TrySpawnProjectileInternal(CombatEntityRef sourceRef, int projectileId, CombatEntityRef targetRef,
-            Vector3 targetPoint, Vector3 forward, Vector3? originOverride, bool allowDeadSource, CombatOffense offense, float rangeDelta)
+            Vector3 targetPoint, Vector3 forward, Vector3? originOverride, bool allowDeadSource, CombatOffense offense, float rangeDelta, float rangeMultiplier, bool passiveDerived, int instigatorActorId = 0)
         {
             if (!IsValid(sourceRef) || !actors.TryGetValue(sourceRef.Id, out var source) ||
                 (!allowDeadSource && source.DeadPending) ||
@@ -79,10 +82,15 @@ namespace GameLogic.Gameplay.Combat
                 if (toTarget.sqrMagnitude > 0.0001f) direction = toTarget.normalized;
             }
             var entity = Allocate();
+            var originId = instigatorActorId > 0 ? instigatorActorId : source.Spec.ActorId;
+            var originSlot = FindActorSlot(originId);
+            var originRef = originSlot > 0 ? Ref(originSlot) : sourceRef;
+            var originTeam = originSlot > 0 ? actors[originSlot].Spec.Team : source.Spec.Team;
             var component = new ProjectileComponent
             {
-                ProjectileId = projectileId, RangeDelta = rangeDelta, RoomId = source.Spec.RoomId, InstigatorActorId = source.Spec.ActorId,
-                Offense = offense, Source = sourceRef, Target = hasTarget ? targetRef : default, LastTargetPoint = targetPoint,
+                ProjectileId = projectileId, RangeDelta = rangeDelta, RangeMultiplier = rangeMultiplier,
+                PassiveDerived = passiveDerived, RoomId = source.Spec.RoomId, InstigatorActorId = originId,
+                SourceTeam = originTeam, Offense = offense, Source = originRef, Target = hasTarget ? targetRef : default, LastTargetPoint = targetPoint,
                 Position = origin, Previous = origin, Origin = origin, EndPoint = targetPoint,
                 Direction = direction, Velocity = direction * definition.Speed, CreatedTick = TickIndex,
                 FlightTicks = definition.Motion == ProjectileMotionKind.Instant ? 0 :
@@ -369,8 +377,7 @@ namespace GameLogic.Gameplay.Combat
         {
             if (target.DeadPending || target.Spec.RoomId != projectile.RoomId || target.Spec.ActorId == projectile.InstigatorActorId ||
                 (definition.OnlyLockedTarget && targetId != projectile.Target.Id)) return false;
-            if (IsValid(projectile.Source) && actors.TryGetValue(projectile.Source.Id, out var source) &&
-                source.Spec.Team == target.Spec.Team) return false;
+            if (projectile.SourceTeam == target.Spec.Team) return false;
             var targetRef = Ref(targetId);
             if (!projectile.Hits.TryGetValue(targetRef, out var hit)) return true;
             if (hit.Count >= definition.MaxHitsPerTarget) return false;
@@ -435,7 +442,8 @@ namespace GameLogic.Gameplay.Combat
             CombatEntityRef target)
         {
             foreach (var effect in effects)
-                Enqueue(effect, id, target, projectile.Position, projectile.Direction, projectile.InstigatorActorId, projectile.Offense, projectile.RangeDelta);
+                Enqueue(effect, id, target, projectile.Position, projectile.Direction, projectile.InstigatorActorId, projectile.Offense, projectile.RangeDelta,
+                    projectile.RangeMultiplier, projectile.PassiveDerived);
         }
 
         /// <summary>

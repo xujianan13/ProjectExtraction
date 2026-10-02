@@ -177,6 +177,69 @@ namespace ProjectExtraction.Tests
         }
 
         /// <summary>
+        /// 战斗强化按成功应用次数升级，达到上限后退出候选池，前置等级未达标时不可出现。
+        /// </summary>
+        [Test]
+        public void AugmentRanksRespectCapAndPrerequisite()
+        {
+            var session = new RogueChoiceSession("run", 771);
+            RogueUpgradeSnapshot firstRank = null;
+            bool sawBloodlust = false;
+            int bleedRank = 0;
+            for (int source = 0; source < 160; source++)
+            {
+                Assert.IsTrue(session.TryBegin("room_" + source));
+                RogueChoiceSnapshot offer = session.Active;
+                if (bleedRank < 2) Assert.IsFalse(offer.Options.Any(option => option.Reward.Id == "bloodlust"));
+                if (bleedRank == 3) Assert.IsFalse(offer.Options.Any(option => option.Reward.Id == "bleed"));
+                if (bleedRank >= 2) sawBloodlust |= offer.Options.Any(option => option.Reward.Id == "bloodlust");
+                RogueChoiceOption choice = offer.Options.FirstOrDefault(option => option.Reward.Id == "bleed");
+                if (choice == null || bleedRank == 3) choice = offer.Options.First(option => option.Reward.Id != "bloodlust");
+                if (choice.Reward.Id == "bleed")
+                {
+                    Assert.AreEqual(bleedRank + 1, choice.Reward.Rank);
+                    Assert.AreEqual(3, choice.Reward.MaxRank);
+                    Assert.IsFalse(session.TrySelect(offer.OfferId, offer.Revision, choice.Index, reward => false));
+                    Assert.AreEqual(bleedRank, session.Upgrades.FirstOrDefault(upgrade => upgrade.Id == "bleed")?.Rank ?? 0);
+                    Assert.IsTrue(session.TrySelect(offer.OfferId, offer.Revision, choice.Index, reward => true));
+                    bleedRank++;
+                    RogueUpgradeSnapshot current = session.Upgrades.Single(upgrade => upgrade.Id == "bleed");
+                    Assert.AreEqual(bleedRank, current.Rank);
+                    if (bleedRank == 1) firstRank = current;
+                }
+                else Assert.IsTrue(session.TrySelect(offer.OfferId, offer.Revision, choice.Index, reward => true));
+            }
+            Assert.AreEqual(3, bleedRank);
+            Assert.IsTrue(sawBloodlust);
+            Assert.AreEqual(1, firstRank.Rank);
+            Assert.AreEqual(3, session.Upgrades.Single(upgrade => upgrade.Id == "bleed").Rank);
+        }
+
+        /// <summary>
+        /// 互斥流派选定后不会发出另一流派，已选流派仍可继续升级。
+        /// </summary>
+        [Test]
+        public void ExclusiveStanceBlocksCompetingReward()
+        {
+            var session = new RogueChoiceSession("run", 772);
+            int swiftRank = 0;
+            for (int source = 0; source < 160; source++)
+            {
+                Assert.IsTrue(session.TryBegin("stance_" + source));
+                RogueChoiceSnapshot offer = session.Active;
+                if (swiftRank > 0) Assert.IsFalse(offer.Options.Any(option => option.Reward.Id == "heavy_blade"));
+                if (swiftRank == 3) Assert.IsFalse(offer.Options.Any(option => option.Reward.Id == "swift_blade"));
+                RogueChoiceOption choice = offer.Options.FirstOrDefault(option => option.Reward.Id == "swift_blade");
+                if (choice == null || swiftRank == 3) choice = offer.Options.First(option => option.Reward.Id != "heavy_blade");
+                Assert.IsTrue(session.TrySelect(offer.OfferId, offer.Revision, choice.Index, reward => true));
+                if (choice.Reward.Id == "swift_blade") swiftRank++;
+            }
+            Assert.AreEqual(3, swiftRank);
+            Assert.AreEqual(3, session.Upgrades.Single(upgrade => upgrade.Id == "swift_blade").Rank);
+            Assert.IsFalse(session.Upgrades.Any(upgrade => upgrade.Id == "heavy_blade"));
+        }
+
+        /// <summary>
         /// 创建外部提供者格式的测试回执。
         /// </summary>
         /// <param name="request">当前授权请求。</param>

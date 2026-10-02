@@ -52,6 +52,31 @@ namespace GameLogic.Tables
         /// Weight 字段。
         /// </summary>
         public int Weight;
+
+        /// <summary>
+        /// AugmentID 字段。
+        /// </summary>
+        public string AugmentID;
+
+        /// <summary>
+        /// MaxRank 字段。
+        /// </summary>
+        public int MaxRank;
+
+        /// <summary>
+        /// PrerequisiteID 字段。
+        /// </summary>
+        public string PrerequisiteID;
+
+        /// <summary>
+        /// PrerequisiteRank 字段。
+        /// </summary>
+        public int PrerequisiteRank;
+
+        /// <summary>
+        /// ExclusiveGroup 字段。
+        /// </summary>
+        public string ExclusiveGroup;
     }
 
     /// <summary>
@@ -88,7 +113,7 @@ namespace GameLogic.Tables
                 TextAsset asset = lease.Asset;
                 if (asset == null) throw new InvalidOperationException("配置表资源不可用：CfgRogueRewards");
                 var envelope = JsonUtility.FromJson(asset.text, typeof(Envelope)) as Envelope;
-                if (envelope == null || envelope.schemaHash != "546e80ede78ec3064035ebe298b618082ff8ffa2c2a357aacf762f2ff3d8532e" || envelope.rows == null)
+                if (envelope == null || envelope.schemaHash != "f659aac90f790a1d174bd75751f777e65d4910f18454b7e25b9c74cf39294ba2" || envelope.rows == null)
                     throw new InvalidOperationException("配置表结构不匹配：CfgRogueRewards");
 
                 var table = new CfgRogueRewardsTable();
