@@ -23,6 +23,7 @@ namespace GameLogic.Project
         public long Tick;
         public float ElapsedSeconds;
         public bool Extracted;
+        public bool Abandoned;
         public int KillExperience;
         public int AwardedKillExperience;
         public int ExtractionExperience;
@@ -100,6 +101,7 @@ namespace GameLogic.Project
             ProjectSaveData data = JsonUtility.FromJson<ProjectSaveData>(json);
             if (data == null) return null;
             data.HomeShopPurchases ??= new List<ProjectHomeShopPurchase>();
+            if (data.Preferences == null || data.Preferences.Version == 0) data.Preferences = new ProjectPreferences();
             if (data.Stage != ProjectRunStage.OutcomeRecorded && EmptyOutcome(data.Outcome)) data.Outcome = null;
             if (EmptyResult(data.LastResult)) data.LastResult = null;
             return data;
@@ -112,7 +114,7 @@ namespace GameLogic.Project
         /// <returns>是否没有实际终局内容。</returns>
         private static bool EmptyOutcome(ProjectRunOutcome outcome) => outcome == null ||
             string.IsNullOrEmpty(outcome.RunId) && outcome.LevelId == 0 && outcome.Seed == 0 && outcome.RulesVersion == 0 &&
-            outcome.Tick == 0 && outcome.ElapsedSeconds == 0 && !outcome.Extracted && outcome.KillExperience == 0 &&
+            outcome.Tick == 0 && outcome.ElapsedSeconds == 0 && !outcome.Extracted && !outcome.Abandoned && outcome.KillExperience == 0 &&
             outcome.AwardedKillExperience == 0 && outcome.ExtractionExperience == 0 && outcome.GoldSpent == 0 &&
             (outcome.Items == null || outcome.Items.Count == 0) && (outcome.SafeItemIds == null || outcome.SafeItemIds.Count == 0);
 
@@ -149,7 +151,7 @@ namespace GameLogic.Project
         public static string ValidateLegacyJson(string json)
         {
             if (string.IsNullOrWhiteSpace(json)) return "旧版存档为空。";
-            ProjectSaveData data = JsonUtility.FromJson<ProjectSaveData>(json);
+            ProjectSaveData data = new ProjectSaveCodec().Decode(json);
             if (data == null || data.Level < 1 || data.Experience < 0 || data.Stamina < 0 || data.Gold < 0 ||
                 data.Diamonds < 0 || data.SkillPoints < 0 || data.Warehouse == null || data.EntryItems == null)
                 return "旧版玩家数据无效。";
@@ -168,7 +170,7 @@ namespace GameLogic.Project
         /// <returns>新版 JSON 正文。</returns>
         public static string MigrateLegacyJson(string json)
         {
-            ProjectSaveData data = JsonUtility.FromJson<ProjectSaveData>(json);
+            ProjectSaveData data = new ProjectSaveCodec().Decode(json);
             data.Stage = string.IsNullOrEmpty(data.ActiveRunId) ? ProjectRunStage.None : ProjectRunStage.Running;
             data.ActiveLevelId = 0;
             data.ActiveSeed = 0;
@@ -358,7 +360,8 @@ namespace GameLogic.Project
             receipt.SkillPointsAfter = data.SkillPoints;
             receipt.GoldAfter = data.Gold;
             data.LastSettledRunId = outcome.RunId;
-            data.LastRunSummary = outcome.Extracted ? "撤离成功，已带回物品。" : "角色死亡，已保留安全箱物品。";
+            data.LastRunSummary = outcome.Extracted ? "撤离成功，已带回物品。" : outcome.Abandoned ?
+                "已放弃本局，已保留安全箱物品，体力不退还。" : "角色死亡，已保留安全箱物品。";
             data.LastResult = receipt;
             data.EntryItems.Clear();
             data.ActiveRunId = "";
@@ -452,7 +455,8 @@ namespace GameLogic.Project
             if (outcome.Tick < 0 || float.IsNaN(outcome.ElapsedSeconds) || float.IsInfinity(outcome.ElapsedSeconds) ||
                 outcome.ElapsedSeconds < 0 || outcome.KillExperience < 0 || outcome.AwardedKillExperience < 0 ||
                 outcome.AwardedKillExperience > outcome.KillExperience || outcome.ExtractionExperience < 0 || outcome.GoldSpent < 0 ||
-                (!outcome.Extracted && outcome.ExtractionExperience != 0) || outcome.Items == null || outcome.SafeItemIds == null) return false;
+                (outcome.Extracted && outcome.Abandoned) || (!outcome.Extracted && outcome.ExtractionExperience != 0) ||
+                outcome.Items == null || outcome.SafeItemIds == null) return false;
             var ids = new HashSet<string>();
             var equippedSlots = new HashSet<ProjectItemType>();
             error = "终局物品身份、词条或装备槽无效。";

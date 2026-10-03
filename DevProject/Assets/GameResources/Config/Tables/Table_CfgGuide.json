@@ -1,0 +1,47 @@
+{
+  "schemaHash": "0dd6a929b559d674e3a128bfd4e2ca76980976208a86ddf0da0048107a7a80e0",
+  "rows": [
+    {
+      "ID": "movement",
+      "SortOrder": 10,
+      "Title": "移动与战斗",
+      "Body": "拖动摇杆移动角色。敌人进入角色的近战范围后，角色会自动使用基础攻击。留意生命值和敌人的地面预警。"
+    },
+    {
+      "ID": "exploration",
+      "SortOrder": 20,
+      "Title": "探索地图",
+      "Body": "房间尚未清空时也可以走向相连房间，自由往返。小地图显示探索位置，但不标出撤离点；请在场景中寻找撤离入口。"
+    },
+    {
+      "ID": "loot",
+      "SortOrder": 30,
+      "Title": "拾取与装备",
+      "Body": "靠近战利品并拾取，打开局内背包查看物品。武器和护甲可以在局内穿脱，换装前可预览属性。安全箱当前有 {SafeSlots} 格，放入其中的物品受死亡保护。"
+    },
+    {
+      "ID": "outcome",
+      "SortOrder": 40,
+      "Title": "撤离与死亡",
+      "Body": "成功撤离可带出本局取得的全部物品。死亡会失去安全箱外的入场装备和战利品。主动放弃按死亡结算，入场消耗的体力不会退还。"
+    },
+    {
+      "ID": "rogue",
+      "SortOrder": 50,
+      "Title": "局内三选一",
+      "Body": "清理房间后可能出现三选一奖励。选择时战斗暂停；可获得临时强化、随机战利品或流派升级。局内强化不会写入局外技能等级。"
+    },
+    {
+      "ID": "progression",
+      "SortOrder": 60,
+      "Title": "局外成长",
+      "Body": "打怪和成功撤离可获得经验，升级后获得技能点。在主界面的技能入口提升局外技能；已保存的技能等级和剩余点数不会随死亡丢失。"
+    },
+    {
+      "ID": "stamina",
+      "SortOrder": 70,
+      "Title": "体力与补给",
+      "Body": "每局入场消耗 {EntryCost} 点体力，上限 {StaminaCap} 点；每 {RecoverySeconds} 秒恢复 1 点，每天 {DailyResetHour} 点重置到上限。每天 {SupplyHourFirst} 点、{SupplyHourSecond} 点、{SupplyHourThird} 点可手动领取 {SupplyAmount} 点补给。"
+    }
+  ]
+}

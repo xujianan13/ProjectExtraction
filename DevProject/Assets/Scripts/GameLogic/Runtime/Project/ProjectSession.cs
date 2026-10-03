@@ -47,6 +47,11 @@ namespace GameLogic.Project
         public string LastRunSummary => pending != null ? "保存未完成，请重试原操作。" : profile.LastRunSummary;
         public bool IsBusy => saving || pending != null || !homeEditable || disposed;
         public bool HasPendingSave => pending != null && !saving && !disposed;
+
+        /// <summary>
+        /// 是否仍有写入中或等待重试的存档事务。
+        /// </summary>
+        public bool HasUncommittedSave => saving || pending != null;
         public ExpeditionRun CurrentRun { get; private set; }
 
         /// <summary>
@@ -159,14 +164,7 @@ namespace GameLogic.Project
         /// <returns>交易结果。</returns>
         public UniTask<ProjectOperationResult> SellAsync(string itemId)
         {
-            if (!CanEdit()) return Rejected("当前不能出售。");
-            ProjectSaveData candidate = Candidate();
-            ProjectItem item = candidate.Warehouse.Find(value => value.Id == itemId);
-            if (item == null || item.Equipped) return Rejected("请先卸下要出售的物品。");
-            if (candidate.Gold > int.MaxValue - item.SellGold) return Rejected("金币余额已达到上限。");
-            candidate.Warehouse.Remove(item);
-            candidate.Gold += item.SellGold;
-            return CommitAsync(candidate, "出售成功，金币 +" + item.SellGold);
+            return SellItemsAsync(new[] { itemId });
         }
 
         /// <summary>

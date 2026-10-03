@@ -25,6 +25,8 @@ namespace GameLogic.UI.Home
         private UnityEngine.UI.Button skillsButton;
         private UnityEngine.UI.Button shopButton;
         private UnityEngine.UI.Button characterButton;
+        private UnityEngine.UI.Button settingsButton;
+        private UnityEngine.UI.Button guideButton;
         private ProjectSession session;
         private ProjectRunCoordinator coordinator;
         private bool launching;
@@ -77,6 +79,10 @@ namespace GameLogic.UI.Home
             heading.gameObject.AddComponent<UnityEngine.UI.LayoutElement>().flexibleWidth = 1f;
             characterButton = ProjectUiFactory.ActionButton(headingRow, "角色属性", () => GameEntry.Get<IUIModule>().OpenWindowAsync(2400).Forget());
             characterButton.gameObject.AddComponent<UnityEngine.UI.LayoutElement>().preferredWidth = 150f;
+            settingsButton = ProjectUiFactory.ActionButton(headingRow, "设置", () => OpenUtility(ProjectServices.SettingsWindow));
+            settingsButton.gameObject.AddComponent<UnityEngine.UI.LayoutElement>().preferredWidth = 100f;
+            guideButton = ProjectUiFactory.ActionButton(headingRow, "新手指引", () => OpenUtility(ProjectServices.GuideWindow));
+            guideButton.gameObject.AddComponent<UnityEngine.UI.LayoutElement>().preferredWidth = 150f;
             UnityEngine.UI.ScrollRect scroll = ProjectUiFactory.Scroll(body, "Levels", out levelList);
             UnityEngine.UI.LayoutElement scrollSize = scroll.gameObject.AddComponent<UnityEngine.UI.LayoutElement>();
             scrollSize.flexibleHeight = 1f;
@@ -116,6 +122,8 @@ namespace GameLogic.UI.Home
                 skillsButton.interactable = false;
                 shopButton.interactable = false;
                 characterButton.interactable = false;
+                settingsButton.interactable = false;
+                guideButton.interactable = false;
                 return;
             }
             session.Changed += Refresh;
@@ -175,10 +183,23 @@ namespace GameLogic.UI.Home
             skillsButton.interactable = canEdit;
             shopButton.interactable = canEdit;
             characterButton.interactable = canEdit;
+            settingsButton.interactable = canEdit;
+            guideButton.interactable = canEdit;
+            guideButton.GetComponentInChildren<UnityEngine.UI.Text>().text = session.Preferences.GuideVersion < 1 ? "新手指引" : "玩法帮助";
             retryButton.gameObject.SetActive(session.HasPendingSave);
             retryButton.interactable = session.HasPendingSave && coordinator.Phase == ProjectRunPhase.HomeReady && !retrying && !launching;
             if (!string.IsNullOrEmpty(session.LastRunSummary) && string.IsNullOrEmpty(feedback.text))
                 feedback.text = session.LastRunSummary;
+        }
+
+        /// <summary>
+        /// 在主界面稳定且没有存档事务时打开设置或帮助。
+        /// </summary>
+        /// <param name="windowId">目标窗口身份。</param>
+        private void OpenUtility(int windowId)
+        {
+            if (session == null || session.IsBusy || coordinator?.Phase != ProjectRunPhase.HomeReady || launching) return;
+            GameEntry.Get<IUIModule>()?.OpenWindowAsync(windowId).Forget();
         }
 
         /// <summary>

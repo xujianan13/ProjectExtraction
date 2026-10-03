@@ -14,6 +14,9 @@ namespace GameLogic.Project
         public const int BattleHudWindow = 2200;
         public const int ExpeditionInventoryWindow = 2201;
         public const int ExpeditionMerchantWindow = 2202;
+        public const int PauseWindow = 2203;
+        public const int SettingsWindow = 2600;
+        public const int GuideWindow = 2601;
         public const int TransitionWindow = 2300;
         public const int ResultWindow = 2301;
         public const int RogueChoiceWindow = 2500;
@@ -39,6 +42,7 @@ namespace GameLogic.Project
             ProjectSession created = await ProjectSession.OpenAsync(ct);
             if (created == null) return false;
             Session = created;
+            created.Preferences.Apply();
             var coordinator = new ProjectRunCoordinator(created);
             Coordinator = coordinator;
             UnityEngine.GameObject observer = new UnityEngine.GameObject("ProjectRunLifecycle");

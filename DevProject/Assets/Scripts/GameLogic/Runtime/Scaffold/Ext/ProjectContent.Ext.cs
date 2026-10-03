@@ -8,6 +8,8 @@ using GameLogic.UI.Roguelike;
 using GameLogic.UI.Warehouse;
 using GameLogic.UI.Skills;
 using GameLogic.UI.Shop;
+using GameLogic.UI.Settings;
+using GameLogic.UI.Guide;
 using UnityEngine;
 
 namespace GameLogic.Scaffold
@@ -43,6 +45,9 @@ namespace GameLogic.Scaffold
                 CreateProjectWindow<SkillsWindow>(2102, "Skills", GameUILayers.Popup, true),
                 CreateProjectWindow<HomeShopWindow>(ProjectServices.HomeShopWindow, "HomeShop", GameUILayers.Popup, true),
                 CreateProjectWindow<CharacterStatsWindow>(2400, "CharacterStats", GameUILayers.Popup, true),
+                CreateProjectWindow<ProjectPauseWindow>(ProjectServices.PauseWindow, "Pause", GameUILayers.Popup, true),
+                CreateProjectWindow<ProjectSettingsWindow>(ProjectServices.SettingsWindow, "Settings", GameUILayers.Popup, true),
+                CreateProjectWindow<ProjectGuideWindow>(ProjectServices.GuideWindow, "Guide", GameUILayers.Popup, true),
                 CreateProjectWindow<BattleHudWindow>(ProjectServices.BattleHudWindow, "BattleHud", GameUILayers.Hud, false),
                 CreateProjectWindow<ExpeditionInventoryWindow>(ProjectServices.ExpeditionInventoryWindow, "ExpeditionInventory", GameUILayers.Popup, true),
                 CreateProjectWindow<ExpeditionMerchantWindow>(ProjectServices.ExpeditionMerchantWindow, "ExpeditionMerchant", GameUILayers.Popup, true),
@@ -56,6 +61,9 @@ namespace GameLogic.Scaffold
                 registry.Register<SkillsWindow>(2102);
                 registry.Register<HomeShopWindow>(ProjectServices.HomeShopWindow);
                 registry.Register<CharacterStatsWindow>(2400);
+                registry.Register<ProjectPauseWindow>(ProjectServices.PauseWindow);
+                registry.Register<ProjectSettingsWindow>(ProjectServices.SettingsWindow);
+                registry.Register<ProjectGuideWindow>(ProjectServices.GuideWindow);
                 registry.Register<BattleHudWindow>(ProjectServices.BattleHudWindow);
                 registry.Register<ExpeditionInventoryWindow>(ProjectServices.ExpeditionInventoryWindow);
                 registry.Register<ExpeditionMerchantWindow>(ProjectServices.ExpeditionMerchantWindow);

@@ -62,7 +62,7 @@ namespace GameLogic.Project
                 double.IsInfinity(player.SpawnZ) || GameTables.CfgCombatSkills.GetById(player.SkillID) == null)
             { error = "玩家战斗属性或基础技能引用无效。"; return false; }
             if (!LevelContentConfig.Validate(out error) || !ProjectHomeShopConfig.Validate(out error) ||
-                !ProjectCombatFeedbackConfig.Validate(out error)) return false;
+                !ProjectCombatFeedbackConfig.Validate(out error) || !ProjectGuideConfig.Validate(out error)) return false;
             error = null;
             return true;
         }

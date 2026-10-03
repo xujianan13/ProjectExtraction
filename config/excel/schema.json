@@ -589,6 +589,14 @@
         }
       }
     },
+    "CfgGuide": {
+      "fields": {
+        "ID": { "required": true },
+        "SortOrder": { "min": 0 },
+        "Title": { "required": true },
+        "Body": { "required": true }
+      }
+    },
     "CfgCombatFeedback": {
       "fields": {
         "ID": {

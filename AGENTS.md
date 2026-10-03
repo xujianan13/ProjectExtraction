@@ -20,6 +20,7 @@
 - [战斗摇杆与界面适配](docs/project/战斗摇杆与界面适配.md)：1080×1920 默认竖屏、触屏摇杆控制、安全区和不同尺寸布局。
 - [技能成长设计](docs/project/技能成长设计.md)、[主界面设计](docs/project/主界面设计.md)：角色技能点的局外提升、Home 顶部五项属性与底部仓库/技能入口。
 - [关卡内容首版实现](docs/project/关卡内容首版实现.md)：房间模板与固定内容计划、随机怪群、敌人多技能、特殊房间及可达性验证。
+- [暂停、设置与物品整理首版实现](docs/project/暂停设置与物品整理首版实现.md)：主动放弃结算、独立手动暂停、偏好保存、仓库锁定批售与配置新手指引。
 - [闭环复查与后续验收](docs/project/闭环复查与后续验收.md)：现有闭环检查、玩家可见目标筛选及后续数值/平台验收范围。
 - [近战内容与房间组合扩展](docs/project/近战内容与房间组合扩展.md)：第八阶段武器取舍、双段连斩/长柄敌人、中央与错列掩体，以及真实配置生成和战斗验证。
 - [搜打撤交互首版实现](docs/project/搜打撤交互首版实现.md)：局内换装、背包安全箱、固定商品商店和模态暂停。
@@ -49,13 +50,15 @@
 - 关卡基础测试表现保留 14 个热更 Prefab：场景/房间位于 `GameResources/Scenes/Expedition`，角色、障碍和交互物位于 `GameResources/Gameplay/Expedition`，13 个材质位于 `GameResources/Art/Prototype/Materials`。由 `ExpeditionVisualAssets` 加载并随场景释放租约；角色为胶囊体，碰撞仍由 ECS 管理。资源生成入口为 `Tools/ProjectExtraction/Create Test Prefabs`，只补齐缺失资产；另增 4 个反馈 Prefab、3 个合成测试 WAV 和 2 个材质，由 `Create Combat Feedback` 补齐。目录和本轮验证状态见[测试资源与热更目录](docs/project/测试资源与热更目录.md)、[战斗反馈与角色碰撞](docs/project/战斗反馈与角色碰撞.md)。
 - 战斗反馈从 ECS 快照与事件驱动血条、伤害/暴击/闪避/实际治疗文字、流血/追伤/反击区分及 Buff 层数和剩余时间、命中闪光、下一伤害节点地面预警和短音效；预警飞弹只提示发射方向或出生目标范围，不表示完整弹道。角色 XZ 圆形占位、墙体扩半径保守矩形及移动扫掠由 ECS 负责；敌人使用障碍角点追击并在施法时停步，死者不阻挡。玩家死亡立即冻结并持久化结果，完成 0.6 秒倒下与 0.15 秒停留后进入结果页。本轮不含 NavMesh、动态拥挤避让或按墙裁剪预警；尚无真机与人工可视化验收。
 - `GameFramework.AnimatorPlayback` 是不依赖 GameLogic 的通用动画播放器，支持本地时间播放与外部进度采样；项目通过 `CombatCharacterAnimation` 读取 ECS 快照控制 Idle/Move/Attack/Hit/Death。四个测试角色使用原生 Animator，5 个动画片段和控制器位于 `GameResources/Art/Prototype/Animations`。动画不参与战斗伤害判定或 ECS 位移。
-- Excel 源表在 `config/excel`，当前包含 29 张项目内容表；工具在 `tool`。生成 JSON 位于 `GameResources/Config/Tables`，可重生 C# 位于 `GameLogic/Runtime/Gen`，扩展 partial 位于 `GameLogic/Runtime/Ext`。
+- Excel 源表在 `config/excel`，当前包含 30 张项目内容表；工具在 `tool`。生成 JSON 位于 `GameResources/Config/Tables`，可重生 C# 位于 `GameLogic/Runtime/Gen`，扩展 partial 位于 `GameLogic/Runtime/Ext`。
 
 - 关卡内容已扩展为 9 种布局、17 组候选怪群、30 个房间模板、5 类小怪和多技能 Boss；每房模板/怪群在开局抽定，回访复用 ECS 状态。敌人按生命阶段、距离、优先级和权重选技能，各技能独立冷却。共 7 个物品模板（含 5 种武器），三种新武器具有攻击、范围或生命/防御取舍，并进入四类掉落池及局外金币商店。配置和最新验证见[近战内容与房间组合扩展](docs/project/近战内容与房间组合扩展.md)。
 
 - 搜打撤交互首版已接入：局内背包与安全箱使用模态窗口，武器/护甲可穿脱并预览属性；换装保留局内强化及冷却，不因生命上限提升回血。NPC 商品开局冻结，明确购买并保留回访售出状态。所有商业数值沿用既有 Excel；窗口暂停独立于应用暂停和三选一。
 
 - 局外金币商店由 `CfgHomeShop` 配置，Home 底部提供入口，固定属性商品可预览后购买并进入仓库；金币、物品、购买修订号及累计库存原子保存。基础武器和护甲常备，高级商品按等级解锁；首版限购使用存档累计数量，无每日刷新。钻石仍是独立高级货币。详见[局外金币商店首版实现](docs/project/局外金币商店首版实现.md)。
+
+- 已接入暂停菜单、主动放弃、音量/画质设置、仓库锁定/排序/确认批售和七页配置指引。主动放弃沿用死亡物品规则且不退体力，不获得撤离经验；锁定仅防出售，不防死亡或放弃损失。异常中断补偿仍沿用原型策略。最新验证见[暂停、设置与物品整理首版实现](docs/project/暂停设置与物品整理首版实现.md)。
 
 ## 修改与验收
 

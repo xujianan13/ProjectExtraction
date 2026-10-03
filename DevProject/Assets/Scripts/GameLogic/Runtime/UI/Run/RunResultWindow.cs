@@ -79,7 +79,7 @@ namespace GameLogic.UI.Run
                 return;
             }
             ProjectRunOutcome outcome = result.Outcome;
-            title.text = outcome.Extracted ? "撤离成功" : "角色死亡";
+            title.text = outcome.Extracted ? "撤离成功" : outcome.Abandoned ? "已放弃本局" : "角色死亡";
             summary.text = $"关卡 {outcome.LevelId}  ·  游玩 {Mathf.CeilToInt(outcome.ElapsedSeconds)} 秒\n" +
                 $"等级 {result.LevelBefore} → {result.LevelAfter}  ·  经验 {result.ExperienceBefore} → {result.ExperienceAfter}\n" +
                 $"打怪经验 {outcome.AwardedKillExperience}  ·  撤离经验 {outcome.ExtractionExperience}\n" +

@@ -194,17 +194,35 @@ namespace GameLogic.Project
         /// <param name="run">发起结束的本局对象。</param>
         /// <param name="extracted">是否进入有效撤离点。</param>
         /// <returns>本次终局是否被接受。</returns>
-        public bool TryEndRun(ExpeditionRun run, bool extracted)
+        public bool TryEndRun(ExpeditionRun run, bool extracted) => TryEndRunCore(run, extracted, false);
+
+        /// <summary>
+        /// 从暂停菜单主动放弃本局，按死亡损失记录终局且不退还入场体力。
+        /// </summary>
+        /// <param name="run">已暂停并等待确认的本局。</param>
+        /// <returns>放弃已接纳并进入唯一终局流程时为真。</returns>
+        public bool TryAbandonRun(ExpeditionRun run) => run != null && run.CanAbandon && TryEndRunCore(run, false, true);
+
+        /// <summary>
+        /// 冻结并记录一次撤离、死亡或主动放弃结果。
+        /// </summary>
+        /// <param name="run">当前单局对象。</param>
+        /// <param name="extracted">是否成功撤离。</param>
+        /// <param name="abandoned">是否由玩家主动放弃。</param>
+        /// <returns>当前流程接受终局时为真。</returns>
+        private bool TryEndRunCore(ExpeditionRun run, bool extracted, bool abandoned)
         {
-            if (disposed || closing || busy || Phase != ProjectRunPhase.Playing || flow.State != GameRoundState.Playing ||
+            if (disposed || closing || busy || session.HasUncommittedSave || Phase != ProjectRunPhase.Playing || flow.State != GameRoundState.Playing ||
                 !ReferenceEquals(run, session.CurrentRun) || run.RunId != session.ActiveRunId) return false;
             run.Stop();
             ProjectRunOutcome outcome = run.CreateOutcome(extracted);
             if (outcome == null) return false;
+            outcome.Abandoned = abandoned;
             frozenOutcome = outcome;
             busy = true;
-            SetPhase(ProjectRunPhase.FreezingOutcome, extracted ? "已进入撤离点，正在记录本局结果。" : "角色死亡，正在记录本局结果。");
-            if (!extracted) run.BeginDeathPresentation();
+            SetPhase(ProjectRunPhase.FreezingOutcome, extracted ? "已进入撤离点，正在记录本局结果。" :
+                abandoned ? "已放弃本局，正在记录本局结果。" : "角色死亡，正在记录本局结果。");
+            if (!extracted && !abandoned) run.BeginDeathPresentation();
             RecordAndCompleteAsync(outcome, run).Forget();
             return true;
         }

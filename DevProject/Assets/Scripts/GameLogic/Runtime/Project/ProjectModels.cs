@@ -26,6 +26,7 @@ namespace GameLogic.Project
         public float Range;
         public int BonusHealth;
         public bool Equipped;
+        public bool Locked;
         public ProjectItemQuality Quality;
         public int EquipmentVersion;
         public List<ProjectAttributeValue> BaseAttributes = new();
@@ -146,6 +147,7 @@ namespace GameLogic.Project
         public int Stamina;
         public int Gold;
         public int Diamonds;
+        public ProjectPreferences Preferences = new();
         public long HomeShopPurchaseRevision;
         public List<ProjectHomeShopPurchase> HomeShopPurchases = new();
         public int SkillPoints;
@@ -197,6 +199,7 @@ namespace GameLogic.Project
             copy.Warehouse = Warehouse.ConvertAll(item => item.Copy());
             copy.EntryItems = EntryItems.ConvertAll(item => item.Copy());
             copy.HomeShopPurchases = HomeShopPurchases?.ConvertAll(purchase => purchase?.Copy()) ?? new List<ProjectHomeShopPurchase>();
+            copy.Preferences = Preferences?.Copy() ?? new ProjectPreferences();
             copy.Outcome = Outcome?.Copy();
             copy.LastResult = LastResult?.Copy();
             return copy;
@@ -216,6 +219,8 @@ namespace GameLogic.Project
             if (data.PowerRank < 0 || data.PowerRank > PrototypeRules.LegacySkillRankLimit || data.VitalityRank < 0 ||
                 data.VitalityRank > PrototypeRules.LegacySkillRankLimit || data.AgilityRank < 0 || data.AgilityRank > PrototypeRules.LegacySkillRankLimit)
                 return "技能等级无效。";
+            string preferenceError = ProjectPreferences.Validate(data.Preferences);
+            if (preferenceError != null) return preferenceError;
             var shopIds = new HashSet<string>(StringComparer.Ordinal);
             foreach (ProjectHomeShopPurchase purchase in data.HomeShopPurchases)
                 if (purchase == null || string.IsNullOrWhiteSpace(purchase.Id) || purchase.Count < 1 || !shopIds.Add(purchase.Id))

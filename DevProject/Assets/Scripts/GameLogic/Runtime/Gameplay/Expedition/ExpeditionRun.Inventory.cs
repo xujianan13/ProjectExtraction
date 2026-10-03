@@ -9,7 +9,7 @@ namespace GameLogic.Gameplay.Expedition
     /// <summary>
     /// 与应用暂停和强化选择分别管理的局内交互面板。
     /// </summary>
-    public enum ExpeditionPanelKind { None, Inventory, Merchant, RogueOverview }
+    public enum ExpeditionPanelKind { None, Inventory, Merchant, RogueOverview, Pause }
 
     public sealed partial class ExpeditionRun
     {
@@ -19,7 +19,7 @@ namespace GameLogic.Gameplay.Expedition
         public bool CanManageInventory => ActivePanel == ExpeditionPanelKind.Inventory && CanManagePanel;
         public bool CanManageMerchant => ActivePanel == ExpeditionPanelKind.Merchant && CanManagePanel;
         private bool CanManagePanel => IsRunning && IsReady && !paused && !IsChoosingRogue && !disposed && !stopped &&
-            !session.HasPendingSave && !GameEntry.IsInBackground && World.TryGetActor(Player, out var actor) && !actor.Dead;
+            !session.HasUncommittedSave && !GameEntry.IsInBackground && World.TryGetActor(Player, out var actor) && !actor.Dead;
 
         /// <summary>
         /// 打开背包并冻结战斗，已有其他交互时拒绝切换。
@@ -30,6 +30,23 @@ namespace GameLogic.Gameplay.Expedition
             if (CanManageInventory) return true;
             if (!CanInteract || !CanManagePanel) return false;
             SetActivePanel(ExpeditionPanelKind.Inventory);
+            return true;
+        }
+
+        /// <summary>
+        /// 当前暂停菜单是否允许主动放弃，后台或保存门禁期间拒绝操作。
+        /// </summary>
+        public bool CanAbandon => ActivePanel == ExpeditionPanelKind.Pause && CanManagePanel;
+
+        /// <summary>
+        /// 从正常游玩进入手动暂停，清除输入及未推进时间。
+        /// </summary>
+        /// <returns>菜单已经打开或成功接纳暂停时为真。</returns>
+        public bool TryOpenPause()
+        {
+            if (CanAbandon) return true;
+            if (!CanInteract || !CanManagePanel) return false;
+            SetActivePanel(ExpeditionPanelKind.Pause);
             return true;
         }
 

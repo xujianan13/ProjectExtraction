@@ -3,7 +3,7 @@
   "sources": [
     {
       "path": "config/excel/schema.json",
-      "sha256": "905876b6969c5a7ae9b80eb521e48c3c0420c0a1ff642e1ac85f3d8c81a6b76d"
+      "sha256": "b0c8f870369ff0f37521ed2c8d6367e76a3b91a1a5c5b5b15c9218320c8b2472"
     },
     {
       "path": "config/excel/CfgAdvancedAffixes.xlsx",
@@ -64,6 +64,10 @@
     {
       "path": "config/excel/CfgEnemySkills.xlsx",
       "sha256": "ce2dd4df8a558f8b15e0b49989e5103cc7ab3eb80acd0cbb045cfd694737a1c6"
+    },
+    {
+      "path": "config/excel/CfgGuide.xlsx",
+      "sha256": "8ff3260a70a8647f9e90ed3367090939429a5e8d20e368dec6ebca9def57c154"
     },
     {
       "path": "config/excel/CfgHomeShop.xlsx",
@@ -884,6 +888,28 @@
         {
           "name": "MaxDistance",
           "type": "number"
+        }
+      ]
+    },
+    {
+      "name": "CfgGuide",
+      "source": "config/excel/CfgGuide.xlsx",
+      "fields": [
+        {
+          "name": "ID",
+          "type": "string"
+        },
+        {
+          "name": "SortOrder",
+          "type": "int"
+        },
+        {
+          "name": "Title",
+          "type": "string"
+        },
+        {
+          "name": "Body",
+          "type": "string"
         }
       ]
     },
@@ -1806,6 +1832,14 @@
       "sha256": "787c10b5248899de5c87888d3ef4abd8bc78c0a5ab5306f40da1d54ed48b05d3"
     },
     {
+      "path": "DevProject/Assets/GameResources/Config/Tables/Table_CfgGuide.json",
+      "sha256": "49ecd103a003a9ddfe3d2379cbd502a8c7f2ae4174610efa816834f9d093b4c7"
+    },
+    {
+      "path": "DevProject/Assets/Scripts/GameLogic/Runtime/Gen/CfgGuide.Gen.cs",
+      "sha256": "1534712c6f454afbc994dfa3560c208cb2f028b7b3355416435d2b757c58cde8"
+    },
+    {
       "path": "DevProject/Assets/GameResources/Config/Tables/Table_CfgHomeShop.json",
       "sha256": "ff1c2b2e8f3b00cbec01c8a5ddf55092d163929dfe645263004fa086582be622"
     },
@@ -1919,7 +1953,7 @@
     },
     {
       "path": "DevProject/Assets/Scripts/GameLogic/Runtime/Gen/GameTables.Gen.cs",
-      "sha256": "7bf3ebebfc606a92c0626b37aee5b57de2fb154dcb352b8033733b12c055d6d2"
+      "sha256": "42d367ada5ec3edfa7096335d0c7b95ede68028578d577f7ac89fb4a1600da27"
     }
   ]
 }

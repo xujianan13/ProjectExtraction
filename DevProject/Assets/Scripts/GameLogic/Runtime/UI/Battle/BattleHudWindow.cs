@@ -58,9 +58,11 @@ namespace GameLogic.UI.Battle
             var bagButton = ProjectUiFactory.ActionButton(actions, "背包 / 安全箱", OpenInventory);
             bagButton.GetComponentInChildren<UnityEngine.UI.Text>().fontSize = 32;
             ProjectUiFactory.Height((RectTransform)bagButton.transform, 90f);
-            var overviewButton = ProjectUiFactory.ActionButton(actions, "强化总览", OpenRogueOverview);
-            overviewButton.GetComponentInChildren<UnityEngine.UI.Text>().fontSize = 30;
-            ProjectUiFactory.Height((RectTransform)overviewButton.transform, 90f);
+            RectTransform menuRow = ProjectUiFactory.Horizontal(actions, "MenuActions", 8f);
+            ProjectUiFactory.Height(menuRow, 90f);
+            var overviewButton = ProjectUiFactory.ActionButton(menuRow, "强化总览", OpenRogueOverview);
+            overviewButton.GetComponentInChildren<UnityEngine.UI.Text>().fontSize = 24;
+            ProjectUiFactory.ActionButton(menuRow, "暂停", OpenPause);
             resumeChoice = ProjectUiFactory.ActionButton(actions, "继续选择强化", OpenPendingChoice);
             resumeChoice.GetComponentInChildren<UnityEngine.UI.Text>().fontSize = 30;
             ProjectUiFactory.Height((RectTransform)resumeChoice.transform, 90f);
@@ -183,6 +185,15 @@ namespace GameLogic.UI.Battle
         }
 
         /// <summary>
+        /// 打开暂停菜单并清空摇杆输入。
+        /// </summary>
+        private void OpenPause()
+        {
+            if (coordinator?.Phase == ProjectRunPhase.Playing && run?.TryOpenPause() == true)
+                run.SetTouchMove(Vector2.zero);
+        }
+
+        /// <summary>
         /// 按单局面板状态打开对应的模态窗口，失败时归还面板状态。
         /// </summary>
         /// <param name="kind">准备打开的面板类型。</param>
@@ -195,7 +206,8 @@ namespace GameLogic.UI.Battle
             LifetimeScope scope = OpenScope;
             IUIModule ui = GameEntry.Get<IUIModule>();
             int windowId = kind == ExpeditionPanelKind.Inventory ? ProjectServices.ExpeditionInventoryWindow :
-                kind == ExpeditionPanelKind.Merchant ? ProjectServices.ExpeditionMerchantWindow : ProjectServices.RogueOverviewWindow;
+                kind == ExpeditionPanelKind.Merchant ? ProjectServices.ExpeditionMerchantWindow :
+                kind == ExpeditionPanelKind.Pause ? ProjectServices.PauseWindow : ProjectServices.RogueOverviewWindow;
             try
             {
                 GameWindow opened = ui == null ? null : await ui.OpenWindowAsync(windowId, new GameWindowOpenArgs(current), scope.Token);
@@ -206,6 +218,12 @@ namespace GameLogic.UI.Battle
                 }
                 if (!scope.IsActive || !ReferenceEquals(run, current) || current.ActivePanel != kind)
                 {
+                    await ui.CloseWindowAsync(windowId);
+                    return;
+                }
+                if (opened.State != GameWindowState.Opened || opened.Root == null)
+                {
+                    current.ClosePanel(kind);
                     await ui.CloseWindowAsync(windowId);
                     return;
                 }
@@ -223,6 +241,8 @@ namespace GameLogic.UI.Battle
             finally
             {
                 openingPanel = false;
+                if (scope.IsActive && ReferenceEquals(run, current) && current.ActivePanel != ExpeditionPanelKind.None &&
+                    openedPanel != current.ActivePanel) Refresh();
             }
         }
 

@@ -58,7 +58,7 @@ namespace GameLogic.Gameplay.Expedition
         public int KillExperience { get; private set; }
         public int GoldSpent { get; private set; }
         public int AvailableGold => session.Gold - GoldSpent;
-        private bool CanInteract => IsRunning && IsReady && !paused && ActivePanel == ExpeditionPanelKind.None && !IsChoosingRogue && !disposed && !stopped && !session.HasPendingSave && !GameEntry.IsInBackground;
+        private bool CanInteract => IsRunning && IsReady && !paused && ActivePanel == ExpeditionPanelKind.None && !IsChoosingRogue && !disposed && !stopped && !session.HasUncommittedSave && !GameEntry.IsInBackground;
         /// <summary>
         /// 当前是否允许玩家输入，供局内触屏控件门禁使用。
         /// </summary>
@@ -243,7 +243,7 @@ namespace GameLogic.Gameplay.Expedition
         public void Advance(float deltaTime)
         {
             AdvanceDeathPresentation(deltaTime);
-            if (!IsRunning || !IsReady || paused || ActivePanel != ExpeditionPanelKind.None || IsChoosingRogue || disposed || RoomView == null || session.HasPendingSave || GameEntry.IsInBackground)
+            if (!IsRunning || !IsReady || paused || ActivePanel != ExpeditionPanelKind.None || IsChoosingRogue || disposed || RoomView == null || session.HasUncommittedSave || GameEntry.IsInBackground)
             {
                 World.ClearPendingTime();
                 if (IsRunning && GameEntry.IsInBackground) SetPaused(true);

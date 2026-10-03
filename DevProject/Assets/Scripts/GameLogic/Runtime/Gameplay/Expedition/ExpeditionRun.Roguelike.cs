@@ -22,7 +22,7 @@ namespace GameLogic.Gameplay.Expedition
         public bool IsChoosingRogue => rogueChoices.HasPending;
         public string RogueMessage { get; private set; } = string.Empty;
         private bool CanAcceptRogueInput => IsRunning && IsReady && !paused && ActivePanel == ExpeditionPanelKind.None && !disposed && !stopped &&
-            !GameEntry.IsInBackground && !session.HasPendingSave;
+            !GameEntry.IsInBackground && !session.HasUncommittedSave;
 
         /// <summary>
         /// 是否可以向已配置的授权适配器请求解锁第四选项。
