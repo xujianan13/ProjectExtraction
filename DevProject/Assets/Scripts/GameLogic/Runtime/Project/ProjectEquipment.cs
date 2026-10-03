@@ -333,6 +333,20 @@ namespace GameLogic.Project
                 item.BaseAttributes.Add(new ProjectAttributeValue { Attribute = ProjectAttributeType.Attack, Value = attack });
                 item.Range = (float)(definition.RangeBase + random.NextDouble() * definition.RangeRandom);
                 item.Damage = attack;
+                if (definition.HealthBase > 0 || definition.HealthPerLevel > 0 || definition.HealthRandomExclusive > 0)
+                {
+                    float health = (float)(definition.HealthBase + level * definition.HealthPerLevel +
+                        (definition.HealthRandomExclusive > 0 ? random.Next(definition.HealthRandomExclusive) : 0));
+                    item.BaseAttributes.Add(new ProjectAttributeValue { Attribute = ProjectAttributeType.MaxHealth, Value = health });
+                }
+                if (definition.DefenseBase > 0 || definition.DefensePerLevel > 0 || definition.DefenseRandomMin > 0 ||
+                    definition.DefenseRandomExclusive > definition.DefenseRandomMin)
+                {
+                    float defense = (float)(definition.DefenseBase + level * definition.DefensePerLevel +
+                        (definition.DefenseRandomExclusive > definition.DefenseRandomMin ?
+                            random.Next(definition.DefenseRandomMin, definition.DefenseRandomExclusive) : definition.DefenseRandomMin));
+                    item.BaseAttributes.Add(new ProjectAttributeValue { Attribute = ProjectAttributeType.Defense, Value = defense });
+                }
             }
             else if (IsArmor(item.Type))
             {

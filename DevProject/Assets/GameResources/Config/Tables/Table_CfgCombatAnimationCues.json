@@ -42,6 +42,18 @@
       "IsAttack": true,
       "StateName": "Attack",
       "StatePath": "Base Layer.Attack"
+    },
+    {
+      "ID": 80,
+      "IsAttack": true,
+      "StateName": "Attack",
+      "StatePath": "Base Layer.Attack"
+    },
+    {
+      "ID": 90,
+      "IsAttack": true,
+      "StateName": "Attack",
+      "StatePath": "Base Layer.Attack"
     }
   ]
 }

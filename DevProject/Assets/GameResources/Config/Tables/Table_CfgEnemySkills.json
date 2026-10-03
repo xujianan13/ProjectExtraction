@@ -66,6 +66,28 @@
       "MaxHealthRatio": 1,
       "MinDistance": 0,
       "MaxDistance": 3.2
+    },
+    {
+      "ID": 7,
+      "EnemyID": 5,
+      "SkillID": 8,
+      "Priority": 0,
+      "Weight": 1,
+      "MinHealthRatio": 0,
+      "MaxHealthRatio": 1,
+      "MinDistance": 0,
+      "MaxDistance": 2.2
+    },
+    {
+      "ID": 8,
+      "EnemyID": 6,
+      "SkillID": 9,
+      "Priority": 0,
+      "Weight": 1,
+      "MinHealthRatio": 0,
+      "MaxHealthRatio": 1,
+      "MinDistance": 0,
+      "MaxDistance": 3.7
     }
   ]
 }

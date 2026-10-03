@@ -126,6 +126,42 @@
       "ExtractionX": 4,
       "ExtractionZ": 0,
       "ObstacleHeight": 1.6
+    },
+    {
+      "ID": 8,
+      "HalfExtent": 12,
+      "WallHeight": 2.5,
+      "WallThickness": 0.6,
+      "ExitHalfWidth": 2,
+      "SpawnInset": 4,
+      "ExitCenterInset": 1,
+      "ExitInteractionRadius": 2.4,
+      "ObjectInteractionRadius": 2.2,
+      "ChestX": -4,
+      "ChestZ": -1,
+      "NpcX": 0,
+      "NpcZ": 0,
+      "ExtractionX": 4,
+      "ExtractionZ": -1,
+      "ObstacleHeight": 1.6
+    },
+    {
+      "ID": 9,
+      "HalfExtent": 12,
+      "WallHeight": 2.5,
+      "WallThickness": 0.6,
+      "ExitHalfWidth": 2,
+      "SpawnInset": 4,
+      "ExitCenterInset": 1,
+      "ExitInteractionRadius": 2.4,
+      "ObjectInteractionRadius": 2.2,
+      "ChestX": -4,
+      "ChestZ": -1,
+      "NpcX": 0,
+      "NpcZ": 0,
+      "ExtractionX": 4,
+      "ExtractionZ": -5,
+      "ObstacleHeight": 1.6
     }
   ]
 }

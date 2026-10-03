@@ -72,6 +72,42 @@
       "StockLimit": 1,
       "ItemSeed": 1602,
       "SortOrder": 60
+    },
+    {
+      "ID": "heavy_blade",
+      "Name": "破阵重刃",
+      "DefinitionId": "ruin_heavy_blade",
+      "Quality": 0,
+      "ItemLevel": 1,
+      "RequiredLevel": 1,
+      "PriceGold": 40,
+      "StockLimit": -1,
+      "ItemSeed": 8101,
+      "SortOrder": 21
+    },
+    {
+      "ID": "poleblade",
+      "Name": "遗迹长刃",
+      "DefinitionId": "ruin_poleblade",
+      "Quality": 0,
+      "ItemLevel": 1,
+      "RequiredLevel": 1,
+      "PriceGold": 40,
+      "StockLimit": -1,
+      "ItemSeed": 8102,
+      "SortOrder": 22
+    },
+    {
+      "ID": "guard_blade",
+      "Name": "守卫短刃",
+      "DefinitionId": "guard_blade",
+      "Quality": 0,
+      "ItemLevel": 1,
+      "RequiredLevel": 1,
+      "PriceGold": 48,
+      "StockLimit": -1,
+      "ItemSeed": 8103,
+      "SortOrder": 23
     }
   ]
 }

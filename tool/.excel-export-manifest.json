@@ -19,7 +19,7 @@
     },
     {
       "path": "config/excel/CfgCombatAnimationCues.xlsx",
-      "sha256": "c8cf2e400076e085c15095501f01a18eee0e711d1f0a016bbfdcd781f4675a9e"
+      "sha256": "cdfdf6728f55700f5e7d468831af5fd6d286bdaa2aebc043f1ee1006abbd5dd8"
     },
     {
       "path": "config/excel/CfgCombatAnimationSettings.xlsx",
@@ -35,7 +35,7 @@
     },
     {
       "path": "config/excel/CfgCombatEffects.xlsx",
-      "sha256": "0b69ec79f352741e3f3edb1f0c7374c0e2439d93979b303eee3c5dff6cb4d07c"
+      "sha256": "1ec1c1f4e43d12376160938c97e9d52612825cb17889af475ed1e2bb4c6dbbce"
     },
     {
       "path": "config/excel/CfgCombatFeedback.xlsx",
@@ -47,31 +47,31 @@
     },
     {
       "path": "config/excel/CfgCombatSkills.xlsx",
-      "sha256": "49b1139dbb8bd8f356aca84a28715c991a68f4e882d2fe8eb09aebedae69a9af"
+      "sha256": "942865d4c292d1d26d6c97c163a952dc7851afd7314c603af4d2aa422da567b2"
     },
     {
       "path": "config/excel/CfgCombatTimelineNodes.xlsx",
-      "sha256": "5feaeb2541fcb4e8adbd29ed15f93474571dcf2dd9d40242f3e34c742cb52b02"
+      "sha256": "0c8ff44141e21ad78b79d6939580921380f81aef576208fd74e4baadfe39e5f2"
     },
     {
       "path": "config/excel/CfgEncounters.xlsx",
-      "sha256": "f2ddef43167ac45c2603d34dd436f0937df589e14ddb1613bb7badefd9235782"
+      "sha256": "b486706de36d21619a35d0abe2cdd807620fcf5e216b40eb3918c6d2dbd713d0"
     },
     {
       "path": "config/excel/CfgEnemies.xlsx",
-      "sha256": "23085caa17bb2c815e4329db8dd8d72c3fcdbb05bc5b35394c91ee35858a7ec7"
+      "sha256": "20c2628e7d739e133c2efc91e7c010c87a14e9bc5e51893a418092ee6115be0b"
     },
     {
       "path": "config/excel/CfgEnemySkills.xlsx",
-      "sha256": "da513f2cd1f5d0f7e47edcabc4a8086f6ad4aac12497d2695f5c4947b4cdb7ff"
+      "sha256": "ce2dd4df8a558f8b15e0b49989e5103cc7ab3eb80acd0cbb045cfd694737a1c6"
     },
     {
       "path": "config/excel/CfgHomeShop.xlsx",
-      "sha256": "f272f8f4d87912ca3694cfb1584d329fbf4d6c7c55307f1b5546de4cfd9f5899"
+      "sha256": "037448d9a62803f9aa58cb4b8a1dbe5a183be37037a5026bc4e802952aba8ff6"
     },
     {
       "path": "config/excel/CfgItemDefinitions.xlsx",
-      "sha256": "415828555ac470312486740a958cd177083692aa2d08f115f9e7d7ea5d28507f"
+      "sha256": "f153bf467a956e7350f613129cf34302470b31b74289059d73d534e8e884f009"
     },
     {
       "path": "config/excel/CfgLevels.xlsx",
@@ -79,11 +79,11 @@
     },
     {
       "path": "config/excel/CfgLootPool.xlsx",
-      "sha256": "85a039f001aab17907bf7bbbf817dc51a2d879f226b0752ad8f3f84ba601d929"
+      "sha256": "d3a75361a95a4f5fafb0746b37365e355495e5c85ad358fc32c1caee0aadb6ba"
     },
     {
       "path": "config/excel/CfgObstacles.xlsx",
-      "sha256": "f7b72bb92c55946d042f9af0dc6c7caa10e4d6d21a64fc58c050854ab46881a3"
+      "sha256": "3ca1b99111266a4bc043612a6f9f7e9d10ce208c24c0d9b22606a5eab3b93d95"
     },
     {
       "path": "config/excel/CfgPlayerCombat.xlsx",
@@ -107,11 +107,11 @@
     },
     {
       "path": "config/excel/CfgRoomLayouts.xlsx",
-      "sha256": "6c1cd283e13a2af8ae42b345606601a32214b8635da98f0a8336e3fb79e72b00"
+      "sha256": "860205454faa8aeefe25d43fde12ee13c8c097f1a2366c649844361b172e8c34"
     },
     {
       "path": "config/excel/CfgRoomTemplates.xlsx",
-      "sha256": "586c8f39dadc27c1e191dacf207e90249452599e78595a6e10defea37bf40b54"
+      "sha256": "e7b1992f7967dfa04f8f79f96ea85f988b31e410cc0730604b020f2d780ec449"
     },
     {
       "path": "config/excel/CfgSkills.xlsx",
@@ -119,7 +119,7 @@
     },
     {
       "path": "config/excel/CfgSpawns.xlsx",
-      "sha256": "6c449b369150dccffd921b6c2c46535e0259ee5f52a664b116c7071dd42a218f"
+      "sha256": "3e7d51fe956f7fce4023ac315fb69d1d69f0418a4848cd61725e257cfd36f25b"
     }
   ],
   "resources": [
@@ -1711,7 +1711,7 @@
     },
     {
       "path": "DevProject/Assets/GameResources/Config/Tables/Table_CfgCombatAnimationCues.json",
-      "sha256": "2c8decfb17ac315ced3896b5190bb0f31fdb4594d5ad94a379a423119829d3aa"
+      "sha256": "47851c99c6b609112dcdfdac3452e13977c6fba6fc8243049bb46c10766ea782"
     },
     {
       "path": "DevProject/Assets/Scripts/GameLogic/Runtime/Gen/CfgCombatAnimationCues.Gen.cs",
@@ -1743,7 +1743,7 @@
     },
     {
       "path": "DevProject/Assets/GameResources/Config/Tables/Table_CfgCombatEffects.json",
-      "sha256": "84580799f8c6489eed96cc36116a3863571f59936c0145ad3d462301dcc9775f"
+      "sha256": "f2e738e62cc1a57cd1c99cb962d0feaae5dde2d127c44fec7eed485190836fd9"
     },
     {
       "path": "DevProject/Assets/Scripts/GameLogic/Runtime/Gen/CfgCombatEffects.Gen.cs",
@@ -1767,7 +1767,7 @@
     },
     {
       "path": "DevProject/Assets/GameResources/Config/Tables/Table_CfgCombatSkills.json",
-      "sha256": "78d2a8743fdaf1d50caab3395833b44db9a49bd1fbde82aedaa50283f0d35f5c"
+      "sha256": "e2c5a689ecf3b81a8910b554b98e1c8f053dd56168a80f6e869bb72a1effbc20"
     },
     {
       "path": "DevProject/Assets/Scripts/GameLogic/Runtime/Gen/CfgCombatSkills.Gen.cs",
@@ -1775,7 +1775,7 @@
     },
     {
       "path": "DevProject/Assets/GameResources/Config/Tables/Table_CfgCombatTimelineNodes.json",
-      "sha256": "4f776dfb9f7d4c9dde2b8ddf0205a2feffec99cdc27167393fc191e7b371b360"
+      "sha256": "90f2b4c0f5aaa8400634481bfad9d94c24fc7f4919202009b19eab6b25287407"
     },
     {
       "path": "DevProject/Assets/Scripts/GameLogic/Runtime/Gen/CfgCombatTimelineNodes.Gen.cs",
@@ -1783,7 +1783,7 @@
     },
     {
       "path": "DevProject/Assets/GameResources/Config/Tables/Table_CfgEncounters.json",
-      "sha256": "df166075080b718f2e4e8399a402ac03b59d85a5ea002b41ab2090de466be0dc"
+      "sha256": "6de7cca052151e0c8103f127dc4d1ec5bdf715fc24b3137d3f8464c717c5b7d0"
     },
     {
       "path": "DevProject/Assets/Scripts/GameLogic/Runtime/Gen/CfgEncounters.Gen.cs",
@@ -1791,7 +1791,7 @@
     },
     {
       "path": "DevProject/Assets/GameResources/Config/Tables/Table_CfgEnemies.json",
-      "sha256": "51d6aa27a26f00dfb8d09cff4accbe0c4099502aca2c88285256923910ec2fb5"
+      "sha256": "c2f947af5767abc59d33c23a1218701e406d03d39df1259ad0e29a6294f9b0bd"
     },
     {
       "path": "DevProject/Assets/Scripts/GameLogic/Runtime/Gen/CfgEnemies.Gen.cs",
@@ -1799,7 +1799,7 @@
     },
     {
       "path": "DevProject/Assets/GameResources/Config/Tables/Table_CfgEnemySkills.json",
-      "sha256": "1d546f26775b119019f17c0bd7e3953fdf1e3d5bcebd5c7440cb701c38e1ebb5"
+      "sha256": "123be79c0a6295195a65fba9d1bd0e0453861e8e590eb0478859ebb02c5c1894"
     },
     {
       "path": "DevProject/Assets/Scripts/GameLogic/Runtime/Gen/CfgEnemySkills.Gen.cs",
@@ -1807,7 +1807,7 @@
     },
     {
       "path": "DevProject/Assets/GameResources/Config/Tables/Table_CfgHomeShop.json",
-      "sha256": "67dac4d3b7dcc0c9ec1cc5b4f82e18617135ce6f738633ba8b8c67f510e68deb"
+      "sha256": "ff1c2b2e8f3b00cbec01c8a5ddf55092d163929dfe645263004fa086582be622"
     },
     {
       "path": "DevProject/Assets/Scripts/GameLogic/Runtime/Gen/CfgHomeShop.Gen.cs",
@@ -1815,7 +1815,7 @@
     },
     {
       "path": "DevProject/Assets/GameResources/Config/Tables/Table_CfgItemDefinitions.json",
-      "sha256": "6a3c470de991af48653e2aed85a435c548022247fd34f44350804e91c47a46ed"
+      "sha256": "9efe8698e3166e28eaa9dc5f0737831ceb14df3fa98c3b080d1069a5db575214"
     },
     {
       "path": "DevProject/Assets/Scripts/GameLogic/Runtime/Gen/CfgItemDefinitions.Gen.cs",
@@ -1831,7 +1831,7 @@
     },
     {
       "path": "DevProject/Assets/GameResources/Config/Tables/Table_CfgLootPool.json",
-      "sha256": "c7f21e34fb8b38e07558eb04faa9551b80d7ba497830eeff9c4ea381b1afd9bf"
+      "sha256": "d5a1715022dcc63f64a9e9bd29a4231137d50bd1c2d8a1cf3e3e697eb805c0e6"
     },
     {
       "path": "DevProject/Assets/Scripts/GameLogic/Runtime/Gen/CfgLootPool.Gen.cs",
@@ -1839,7 +1839,7 @@
     },
     {
       "path": "DevProject/Assets/GameResources/Config/Tables/Table_CfgObstacles.json",
-      "sha256": "e0d32305c4aa735adf7ff87af0c4ab4f8ef5fc5355c2ad9301853ecb1133270a"
+      "sha256": "0abd73851d96fb7decea9b23eb6683b3c3b4b90d072397530fe76f8c43dcdfeb"
     },
     {
       "path": "DevProject/Assets/Scripts/GameLogic/Runtime/Gen/CfgObstacles.Gen.cs",
@@ -1887,7 +1887,7 @@
     },
     {
       "path": "DevProject/Assets/GameResources/Config/Tables/Table_CfgRoomLayouts.json",
-      "sha256": "16b47cc2cfedccf8c5315f18e9d55b0518f11cb421e0f96780b0249f49aafafd"
+      "sha256": "56d6a416170519e9f31fb9e5b35fd647e6e64e5b43cce7979ae1cc0dfdef1d48"
     },
     {
       "path": "DevProject/Assets/Scripts/GameLogic/Runtime/Gen/CfgRoomLayouts.Gen.cs",
@@ -1895,7 +1895,7 @@
     },
     {
       "path": "DevProject/Assets/GameResources/Config/Tables/Table_CfgRoomTemplates.json",
-      "sha256": "300e569547dca5b816a365b894381faa816d1b8bb304a86dfdd0dfbf01a6609a"
+      "sha256": "48bb769e9056e8bcb0068945490becf178cfb9eec599b6a04c0e245f526651bc"
     },
     {
       "path": "DevProject/Assets/Scripts/GameLogic/Runtime/Gen/CfgRoomTemplates.Gen.cs",
@@ -1911,7 +1911,7 @@
     },
     {
       "path": "DevProject/Assets/GameResources/Config/Tables/Table_CfgSpawns.json",
-      "sha256": "07c3dc7c400fa6b025473699d9c5ce4fe686f883d81463324a82b8893da9c96d"
+      "sha256": "4761bb64ff4f855b3539de50109041e842b20df1d41b67f359fc3be7009516cd"
     },
     {
       "path": "DevProject/Assets/Scripts/GameLogic/Runtime/Gen/CfgSpawns.Gen.cs",

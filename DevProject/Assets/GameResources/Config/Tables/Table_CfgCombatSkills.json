@@ -49,6 +49,20 @@
       "CooldownTicks": 95,
       "StartRange": 6,
       "StartRangeSource": 0
+    },
+    {
+      "ID": 8,
+      "DurationTicks": 38,
+      "CooldownTicks": 70,
+      "StartRange": 2.2,
+      "StartRangeSource": 0
+    },
+    {
+      "ID": 9,
+      "DurationTicks": 50,
+      "CooldownTicks": 90,
+      "StartRange": 3.7,
+      "StartRangeSource": 0
     }
   ]
 }

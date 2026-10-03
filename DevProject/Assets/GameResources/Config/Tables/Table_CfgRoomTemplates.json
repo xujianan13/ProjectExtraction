@@ -312,6 +312,84 @@
       "LootPoolID": "treasure",
       "NpcPrice": 0,
       "NpcStock": 0
+    },
+    {
+      "ID": 109,
+      "LevelID": 1,
+      "RoomType": "Mob",
+      "IsStart": false,
+      "LayoutID": 8,
+      "Weight": 3,
+      "AllowedExits": 15,
+      "EncounterPoolID": "mob_cover",
+      "LootPoolID": "",
+      "NpcPrice": 0,
+      "NpcStock": 0
+    },
+    {
+      "ID": 110,
+      "LevelID": 1,
+      "RoomType": "Mob",
+      "IsStart": false,
+      "LayoutID": 9,
+      "Weight": 3,
+      "AllowedExits": 15,
+      "EncounterPoolID": "mob_stagger",
+      "LootPoolID": "",
+      "NpcPrice": 0,
+      "NpcStock": 0
+    },
+    {
+      "ID": 209,
+      "LevelID": 2,
+      "RoomType": "Mob",
+      "IsStart": false,
+      "LayoutID": 8,
+      "Weight": 3,
+      "AllowedExits": 15,
+      "EncounterPoolID": "mob_cover",
+      "LootPoolID": "",
+      "NpcPrice": 0,
+      "NpcStock": 0
+    },
+    {
+      "ID": 210,
+      "LevelID": 2,
+      "RoomType": "Mob",
+      "IsStart": false,
+      "LayoutID": 9,
+      "Weight": 3,
+      "AllowedExits": 15,
+      "EncounterPoolID": "mob_stagger",
+      "LootPoolID": "",
+      "NpcPrice": 0,
+      "NpcStock": 0
+    },
+    {
+      "ID": 309,
+      "LevelID": 3,
+      "RoomType": "Mob",
+      "IsStart": false,
+      "LayoutID": 8,
+      "Weight": 3,
+      "AllowedExits": 15,
+      "EncounterPoolID": "mob_cover",
+      "LootPoolID": "",
+      "NpcPrice": 0,
+      "NpcStock": 0
+    },
+    {
+      "ID": 310,
+      "LevelID": 3,
+      "RoomType": "Mob",
+      "IsStart": false,
+      "LayoutID": 9,
+      "Weight": 3,
+      "AllowedExits": 15,
+      "EncounterPoolID": "mob_stagger",
+      "LootPoolID": "",
+      "NpcPrice": 0,
+      "NpcStock": 0
     }
   ]
 }

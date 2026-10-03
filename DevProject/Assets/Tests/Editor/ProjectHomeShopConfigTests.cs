@@ -23,7 +23,7 @@ namespace ProjectExtraction.Tests
         public void ConfiguredOffersAreValidAndOrdered()
         {
             Assert.That(ProjectHomeShopConfig.Validate(out string error), Is.True, error);
-            Assert.That(ProjectHomeShopConfig.All().Count, Is.EqualTo(6));
+            Assert.That(ProjectHomeShopConfig.All().Count, Is.EqualTo(9));
             Assert.That(ProjectHomeShopConfig.All()[0].ID, Is.EqualTo("basic_blade"));
             CfgHomeShopRow basic = ProjectHomeShopConfig.Get("basic_blade");
             Assert.That(basic.PriceGold, Is.LessThanOrEqualTo(ProjectRulesConfig.Profile.StartingGold));

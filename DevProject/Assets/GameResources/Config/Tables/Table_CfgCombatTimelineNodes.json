@@ -136,6 +136,46 @@
       "EffectIDs": [
         21
       ]
+    },
+    {
+      "ID": 18,
+      "SkillID": 8,
+      "Tick": 0,
+      "EffectIDs": [
+        22
+      ]
+    },
+    {
+      "ID": 19,
+      "SkillID": 8,
+      "Tick": 14,
+      "EffectIDs": [
+        23
+      ]
+    },
+    {
+      "ID": 20,
+      "SkillID": 8,
+      "Tick": 24,
+      "EffectIDs": [
+        23
+      ]
+    },
+    {
+      "ID": 21,
+      "SkillID": 9,
+      "Tick": 0,
+      "EffectIDs": [
+        24
+      ]
+    },
+    {
+      "ID": 22,
+      "SkillID": 9,
+      "Tick": 32,
+      "EffectIDs": [
+        25
+      ]
     }
   ]
 }

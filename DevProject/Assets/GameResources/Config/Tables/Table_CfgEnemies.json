@@ -80,6 +80,46 @@
       "ExperiencePerLevel": 5,
       "DropChance": 0.65,
       "DropPoolID": "default"
+    },
+    {
+      "ID": 5,
+      "Name": "双刃游荡者",
+      "PrefabAddress": "PF_TestEnemy",
+      "ModelScaleX": 0.76,
+      "ModelScaleY": 0.9,
+      "ModelScaleZ": 0.76,
+      "BaseHealth": 30,
+      "HealthPerLevel": 8,
+      "Attack": 9,
+      "MoveSpeed": 3,
+      "Radius": 0.38,
+      "AttackRange": 1.8,
+      "AggroRange": 10,
+      "SkillID": 8,
+      "ExperienceBase": 14,
+      "ExperiencePerLevel": 4,
+      "DropChance": 0.5,
+      "DropPoolID": "default"
+    },
+    {
+      "ID": 6,
+      "Name": "长柄守卫",
+      "PrefabAddress": "PF_TestEnemy",
+      "ModelScaleX": 1.1,
+      "ModelScaleY": 1.2,
+      "ModelScaleZ": 1.1,
+      "BaseHealth": 70,
+      "HealthPerLevel": 16,
+      "Attack": 11,
+      "MoveSpeed": 1.7,
+      "Radius": 0.55,
+      "AttackRange": 3.7,
+      "AggroRange": 10,
+      "SkillID": 9,
+      "ExperienceBase": 20,
+      "ExperiencePerLevel": 5,
+      "DropChance": 0.65,
+      "DropPoolID": "default"
     }
   ]
 }

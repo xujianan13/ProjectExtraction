@@ -13,7 +13,7 @@
       "ID": "armor",
       "PoolID": "default",
       "DefinitionId": "ruin_armor",
-      "Weight": 1,
+      "Weight": 4,
       "MinLevel": 1,
       "MaxLevel": 1000
     },
@@ -21,7 +21,7 @@
       "ID": "item",
       "PoolID": "default",
       "DefinitionId": "relic_part",
-      "Weight": 1,
+      "Weight": 4,
       "MinLevel": 1,
       "MaxLevel": 1000
     },
@@ -37,7 +37,7 @@
       "ID": "treasure_armor",
       "PoolID": "treasure",
       "DefinitionId": "ruin_armor",
-      "Weight": 2,
+      "Weight": 8,
       "MinLevel": 1,
       "MaxLevel": 1000
     },
@@ -45,7 +45,7 @@
       "ID": "treasure_item",
       "PoolID": "treasure",
       "DefinitionId": "relic_part",
-      "Weight": 5,
+      "Weight": 20,
       "MinLevel": 1,
       "MaxLevel": 1000
     },
@@ -61,7 +61,7 @@
       "ID": "merchant_armor",
       "PoolID": "merchant",
       "DefinitionId": "ruin_armor",
-      "Weight": 3,
+      "Weight": 12,
       "MinLevel": 1,
       "MaxLevel": 1000
     },
@@ -69,7 +69,7 @@
       "ID": "merchant_item",
       "PoolID": "merchant",
       "DefinitionId": "relic_part",
-      "Weight": 4,
+      "Weight": 16,
       "MinLevel": 1,
       "MaxLevel": 1000
     },
@@ -85,7 +85,7 @@
       "ID": "boss_armor",
       "PoolID": "boss",
       "DefinitionId": "ruin_armor",
-      "Weight": 4,
+      "Weight": 16,
       "MinLevel": 1,
       "MaxLevel": 1000
     },
@@ -93,7 +93,103 @@
       "ID": "boss_item",
       "PoolID": "boss",
       "DefinitionId": "relic_part",
+      "Weight": 8,
+      "MinLevel": 1,
+      "MaxLevel": 1000
+    },
+    {
+      "ID": "default_ruin_heavy_blade",
+      "PoolID": "default",
+      "DefinitionId": "ruin_heavy_blade",
+      "Weight": 1,
+      "MinLevel": 1,
+      "MaxLevel": 1000
+    },
+    {
+      "ID": "default_ruin_poleblade",
+      "PoolID": "default",
+      "DefinitionId": "ruin_poleblade",
+      "Weight": 1,
+      "MinLevel": 1,
+      "MaxLevel": 1000
+    },
+    {
+      "ID": "default_guard_blade",
+      "PoolID": "default",
+      "DefinitionId": "guard_blade",
+      "Weight": 1,
+      "MinLevel": 1,
+      "MaxLevel": 1000
+    },
+    {
+      "ID": "treasure_ruin_heavy_blade",
+      "PoolID": "treasure",
+      "DefinitionId": "ruin_heavy_blade",
+      "Weight": 3,
+      "MinLevel": 1,
+      "MaxLevel": 1000
+    },
+    {
+      "ID": "treasure_ruin_poleblade",
+      "PoolID": "treasure",
+      "DefinitionId": "ruin_poleblade",
+      "Weight": 3,
+      "MinLevel": 1,
+      "MaxLevel": 1000
+    },
+    {
+      "ID": "treasure_guard_blade",
+      "PoolID": "treasure",
+      "DefinitionId": "guard_blade",
+      "Weight": 3,
+      "MinLevel": 1,
+      "MaxLevel": 1000
+    },
+    {
+      "ID": "merchant_ruin_heavy_blade",
+      "PoolID": "merchant",
+      "DefinitionId": "ruin_heavy_blade",
       "Weight": 2,
+      "MinLevel": 1,
+      "MaxLevel": 1000
+    },
+    {
+      "ID": "merchant_ruin_poleblade",
+      "PoolID": "merchant",
+      "DefinitionId": "ruin_poleblade",
+      "Weight": 2,
+      "MinLevel": 1,
+      "MaxLevel": 1000
+    },
+    {
+      "ID": "merchant_guard_blade",
+      "PoolID": "merchant",
+      "DefinitionId": "guard_blade",
+      "Weight": 2,
+      "MinLevel": 1,
+      "MaxLevel": 1000
+    },
+    {
+      "ID": "boss_ruin_heavy_blade",
+      "PoolID": "boss",
+      "DefinitionId": "ruin_heavy_blade",
+      "Weight": 4,
+      "MinLevel": 1,
+      "MaxLevel": 1000
+    },
+    {
+      "ID": "boss_ruin_poleblade",
+      "PoolID": "boss",
+      "DefinitionId": "ruin_poleblade",
+      "Weight": 4,
+      "MinLevel": 1,
+      "MaxLevel": 1000
+    },
+    {
+      "ID": "boss_guard_blade",
+      "PoolID": "boss",
+      "DefinitionId": "guard_blade",
+      "Weight": 4,
       "MinLevel": 1,
       "MaxLevel": 1000
     }
