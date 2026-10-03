@@ -23,6 +23,8 @@ namespace MiniGame.Editor
         private static readonly ILogModule EditorLog = CreateEditorLog();
         private const int FirstSeed = 1;
         private const int LastSeed = 100;
+        private const int LootSeed = 20261003;
+        private const int LootSampleCount = 2048;
         private const string OutputDirectory = "verification/run-statistics-balance";
         private const BindingFlags InstanceFields = BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic;
         private const BindingFlags StaticProperties = BindingFlags.Static | BindingFlags.Public;
@@ -38,6 +40,15 @@ namespace MiniGame.Editor
             public double enemyHealth;
             public long killExperience;
             public int extractionExperience;
+            public double expectedEnemyLootCount;
+            public double expectedEnemyLootSellGold;
+            public int chestLootCount;
+            public double expectedChestLootSellGold;
+            public double expectedFreeLootSellGold;
+            public int merchantOffers;
+            public long merchantPurchaseGold;
+            public double expectedMerchantResaleGold;
+            public double expectedMerchantNetGold;
         }
 
         [Serializable]
@@ -61,6 +72,15 @@ namespace MiniGame.Editor
             public Range bossRoomEnemies;
             public Range enemyHealth;
             public Range killExperience;
+            public Range expectedEnemyLootCount;
+            public Range expectedEnemyLootSellGold;
+            public Range chestLootCount;
+            public Range expectedChestLootSellGold;
+            public Range expectedFreeLootSellGold;
+            public Range merchantOffers;
+            public Range merchantPurchaseGold;
+            public Range expectedMerchantResaleGold;
+            public Range expectedMerchantNetGold;
         }
 
         [Serializable]
@@ -71,6 +91,8 @@ namespace MiniGame.Editor
             public int requiredLevel;
             public int priceGold;
             public int stockLimit;
+            public int sellGold;
+            public int purchaseResaleGapGold;
         }
 
         [Serializable]
@@ -91,14 +113,16 @@ namespace MiniGame.Editor
         [Serializable]
         private sealed class Report
         {
-            public string scope = "配置与地图采样；假设清理全部房间和敌人。非胜率、耗时或实际收益模拟。";
-            public string dropResaleValue = "未计算：掉落池、品质、随机售价和背包携出路径不在地图生成结果中。";
+            public string scope = "配置与固定种子地图采样；假设清理全部敌人、开启全部宝箱，所得物品全部拾取并成功携出。非胜率、耗时或实际收益模拟。";
+            public string dropResaleValue = "按等级过滤的掉落池、品质权重和随机售价计算理论回收期望；另用真实物品生成入口固定种子采样。地图收益不含三选一物品、死亡、未拾取或入场装备损失。";
+            public string merchantValue = "NPC 估值假设购买全图全部商品并成功携出出售；差额为理论回收期望减买入成本，未假设玩家具有足够金币。局外商品列出固定实例实际回收价。";
             public string configSha256;
             public int firstSeed = FirstSeed;
             public int lastSeed = LastSeed;
             public int seedCount = LastSeed - FirstSeed + 1;
             public PlayerBaseline player;
             public ShopEntry[] shop;
+            public LootPoolEvaluation[] lootPools;
             public LevelSummary[] levels;
             public Sample[] samples;
         }
@@ -164,16 +188,25 @@ namespace MiniGame.Editor
                 };
                 var entries = new List<ShopEntry>();
                 foreach (CfgHomeShopRow shop in shops)
+                {
+                    ProjectItem item = ProjectEquipmentRules.CreateConfiguredItem(new System.Random(shop.ItemSeed), shop.ItemLevel,
+                        (ProjectItemQuality)shop.Quality, shop.DefinitionId);
+                    if (item == null) { error = "局外商品无法生成：" + shop.ID; return false; }
                     entries.Add(new ShopEntry { id = shop.ID, name = shop.Name, requiredLevel = shop.RequiredLevel,
-                        priceGold = shop.PriceGold, stockLimit = shop.StockLimit });
+                        priceGold = shop.PriceGold, stockLimit = shop.StockLimit, sellGold = item.SellGold,
+                        purchaseResaleGapGold = shop.PriceGold - item.SellGold });
+                }
                 report.shop = entries.ToArray();
 
                 var samples = new List<Sample>();
                 var summaries = new List<LevelSummary>();
+                var lootPools = new List<LootPoolEvaluation>();
                 foreach (CfgLevelsRow row in levels)
                 {
                     if (!LevelContentConfig.TryGetLevel(row.ID, out LevelDefinition level))
                     { error = "关卡配置无法解析：" + row.ID; return false; }
+                    if (!TryEvaluatePools(row.ID, out var pools, out error)) return false;
+                    lootPools.AddRange(pools.Values);
                     int start = samples.Count;
                     for (int seed = FirstSeed; seed <= LastSeed; seed++)
                     {
@@ -193,14 +226,36 @@ namespace MiniGame.Editor
                                 if (room.Type == LevelRoomType.Boss) sample.bossRoomEnemies += spawn.Count;
                                 sample.enemyHealth += (double)enemy.HealthAt(row.ID) * spawn.Count;
                                 sample.killExperience += (long)enemy.ExperienceAt(row.ID) * spawn.Count;
+                                if (!pools.TryGetValue(enemy.DropPoolID, out LootPoolEvaluation dropPool))
+                                { error = "敌人掉落池不覆盖关卡：" + enemy.DropPoolID + "/" + row.ID; return false; }
+                                double expectedCount = (double)enemy.DropChance * spawn.Count;
+                                sample.expectedEnemyLootCount += expectedCount;
+                                sample.expectedEnemyLootSellGold += expectedCount * dropPool.expectedSellGold;
+                            }
+                            if (room.Type != LevelRoomType.Loot && room.Type != LevelRoomType.Npc) continue;
+                            if (!pools.TryGetValue(room.Plan.LootPoolID, out LootPoolEvaluation roomPool))
+                            { error = "房间物品池不覆盖关卡：" + room.Plan.LootPoolID + "/" + row.ID; return false; }
+                            if (room.Type == LevelRoomType.Loot)
+                            {
+                                sample.chestLootCount++;
+                                sample.expectedChestLootSellGold += roomPool.expectedSellGold;
+                            }
+                            else
+                            {
+                                sample.merchantOffers += room.Plan.NpcStock;
+                                sample.merchantPurchaseGold += (long)room.Plan.NpcStock * room.Plan.NpcPrice;
+                                sample.expectedMerchantResaleGold += room.Plan.NpcStock * roomPool.expectedSellGold;
                             }
                         }
+                        sample.expectedFreeLootSellGold = sample.expectedEnemyLootSellGold + sample.expectedChestLootSellGold;
+                        sample.expectedMerchantNetGold = sample.expectedMerchantResaleGold - sample.merchantPurchaseGold;
                         samples.Add(sample);
                     }
                     summaries.Add(Summarize(row, samples, start));
                 }
                 report.samples = samples.ToArray();
                 report.levels = summaries.ToArray();
+                report.lootPools = lootPools.ToArray();
 
                 string root = Path.GetFullPath(Path.Combine(Application.dataPath, "..", ".."));
                 string directory = Path.Combine(root, OutputDirectory);
@@ -214,6 +269,29 @@ namespace MiniGame.Editor
             {
                 foreach (KeyValuePair<PropertyInfo, object> entry in previous) entry.Key.GetSetMethod(true).Invoke(null, new[] { entry.Value });
             }
+        }
+
+        /// <summary>
+        /// 按稳定顺序评估当前关卡能够抽取的全部掉落池。
+        /// </summary>
+        /// <param name="level">关卡编号及物品生成等级。</param>
+        /// <param name="pools">按池编号排序的评估结果。</param>
+        /// <param name="error">失败原因。</param>
+        /// <returns>全部池评估成功时为真。</returns>
+        private static bool TryEvaluatePools(int level, out SortedDictionary<string, LootPoolEvaluation> pools, out string error)
+        {
+            pools = new SortedDictionary<string, LootPoolEvaluation>(StringComparer.Ordinal);
+            var ids = new SortedSet<string>(StringComparer.Ordinal);
+            foreach (CfgLootPoolRow row in GameTables.CfgLootPool.GetAll())
+                if (row.Weight > 0 && level >= row.MinLevel && level <= row.MaxLevel) ids.Add(row.PoolID);
+            foreach (string id in ids)
+            {
+                if (!ProjectLootBalance.TryEvaluate(id, level, LootSeed, LootSampleCount, out LootPoolEvaluation result, out error))
+                    return false;
+                pools.Add(id, result);
+            }
+            error = null;
+            return true;
         }
 
         /// <summary>
@@ -232,7 +310,16 @@ namespace MiniGame.Editor
                 extractionExperience = ProjectRulesConfig.Profile.ExtractionExperience,
                 rooms = Measure(samples, start, s => s.rooms), enemies = Measure(samples, start, s => s.enemies),
                 bossRoomEnemies = Measure(samples, start, s => s.bossRoomEnemies), enemyHealth = Measure(samples, start, s => s.enemyHealth),
-                killExperience = Measure(samples, start, s => s.killExperience)
+                killExperience = Measure(samples, start, s => s.killExperience),
+                expectedEnemyLootCount = Measure(samples, start, s => s.expectedEnemyLootCount),
+                expectedEnemyLootSellGold = Measure(samples, start, s => s.expectedEnemyLootSellGold),
+                chestLootCount = Measure(samples, start, s => s.chestLootCount),
+                expectedChestLootSellGold = Measure(samples, start, s => s.expectedChestLootSellGold),
+                expectedFreeLootSellGold = Measure(samples, start, s => s.expectedFreeLootSellGold),
+                merchantOffers = Measure(samples, start, s => s.merchantOffers),
+                merchantPurchaseGold = Measure(samples, start, s => s.merchantPurchaseGold),
+                expectedMerchantResaleGold = Measure(samples, start, s => s.expectedMerchantResaleGold),
+                expectedMerchantNetGold = Measure(samples, start, s => s.expectedMerchantNetGold)
             };
         }
 
@@ -273,22 +360,56 @@ namespace MiniGame.Editor
                 AppendRange(csv, report.configSha256, level, "bossRoomEnemies", level.bossRoomEnemies);
                 AppendRange(csv, report.configSha256, level, "enemyHealth", level.enemyHealth);
                 AppendRange(csv, report.configSha256, level, "killExperience", level.killExperience);
+                AppendRange(csv, report.configSha256, level, "expectedEnemyLootCount", level.expectedEnemyLootCount);
+                AppendRange(csv, report.configSha256, level, "expectedEnemyLootSellGold", level.expectedEnemyLootSellGold);
+                AppendRange(csv, report.configSha256, level, "chestLootCount", level.chestLootCount);
+                AppendRange(csv, report.configSha256, level, "expectedChestLootSellGold", level.expectedChestLootSellGold);
+                AppendRange(csv, report.configSha256, level, "expectedFreeLootSellGold", level.expectedFreeLootSellGold);
+                AppendRange(csv, report.configSha256, level, "merchantOffers", level.merchantOffers);
+                AppendRange(csv, report.configSha256, level, "merchantPurchaseGold", level.merchantPurchaseGold);
+                AppendRange(csv, report.configSha256, level, "expectedMerchantResaleGold", level.expectedMerchantResaleGold);
+                AppendRange(csv, report.configSha256, level, "expectedMerchantNetGold", level.expectedMerchantNetGold);
                 AppendValue(csv, "summary", level.levelId, "", level.name, "extractionExperience", level.extractionExperience, report.configSha256);
                 AppendValue(csv, "summary", level.levelId, "", level.name, "requiredLevel", level.requiredLevel, report.configSha256);
             }
             foreach (Sample sample in report.samples)
             {
-                AppendValue(csv, "sample", sample.levelId, sample.seed.ToString(CultureInfo.InvariantCulture), "", "rooms", sample.rooms, report.configSha256);
-                AppendValue(csv, "sample", sample.levelId, sample.seed.ToString(CultureInfo.InvariantCulture), "", "enemies", sample.enemies, report.configSha256);
-                AppendValue(csv, "sample", sample.levelId, sample.seed.ToString(CultureInfo.InvariantCulture), "", "bossRoomEnemies", sample.bossRoomEnemies, report.configSha256);
-                AppendValue(csv, "sample", sample.levelId, sample.seed.ToString(CultureInfo.InvariantCulture), "", "enemyHealth", sample.enemyHealth, report.configSha256);
-                AppendValue(csv, "sample", sample.levelId, sample.seed.ToString(CultureInfo.InvariantCulture), "", "killExperience", sample.killExperience, report.configSha256);
+                string seed = sample.seed.ToString(CultureInfo.InvariantCulture);
+                AppendValue(csv, "sample", sample.levelId, seed, "", "rooms", sample.rooms, report.configSha256);
+                AppendValue(csv, "sample", sample.levelId, seed, "", "enemies", sample.enemies, report.configSha256);
+                AppendValue(csv, "sample", sample.levelId, seed, "", "bossRoomEnemies", sample.bossRoomEnemies, report.configSha256);
+                AppendValue(csv, "sample", sample.levelId, seed, "", "enemyHealth", sample.enemyHealth, report.configSha256);
+                AppendValue(csv, "sample", sample.levelId, seed, "", "killExperience", sample.killExperience, report.configSha256);
+                AppendValue(csv, "sample", sample.levelId, seed, "", "extractionExperience", sample.extractionExperience, report.configSha256);
+                AppendValue(csv, "sample", sample.levelId, seed, "", "expectedEnemyLootCount", sample.expectedEnemyLootCount, report.configSha256);
+                AppendValue(csv, "sample", sample.levelId, seed, "", "expectedEnemyLootSellGold", sample.expectedEnemyLootSellGold, report.configSha256);
+                AppendValue(csv, "sample", sample.levelId, seed, "", "chestLootCount", sample.chestLootCount, report.configSha256);
+                AppendValue(csv, "sample", sample.levelId, seed, "", "expectedChestLootSellGold", sample.expectedChestLootSellGold, report.configSha256);
+                AppendValue(csv, "sample", sample.levelId, seed, "", "expectedFreeLootSellGold", sample.expectedFreeLootSellGold, report.configSha256);
+                AppendValue(csv, "sample", sample.levelId, seed, "", "merchantOffers", sample.merchantOffers, report.configSha256);
+                AppendValue(csv, "sample", sample.levelId, seed, "", "merchantPurchaseGold", sample.merchantPurchaseGold, report.configSha256);
+                AppendValue(csv, "sample", sample.levelId, seed, "", "expectedMerchantResaleGold", sample.expectedMerchantResaleGold, report.configSha256);
+                AppendValue(csv, "sample", sample.levelId, seed, "", "expectedMerchantNetGold", sample.expectedMerchantNetGold, report.configSha256);
+            }
+            foreach (LootPoolEvaluation pool in report.lootPools)
+            {
+                string seed = pool.seed.ToString(CultureInfo.InvariantCulture);
+                AppendValue(csv, "lootPool", pool.level, seed, pool.poolId, "sampleCount", pool.sampleCount, report.configSha256);
+                AppendValue(csv, "lootPool", pool.level, seed, pool.poolId, "expectedSellGold", pool.expectedSellGold, report.configSha256);
+                AppendValue(csv, "lootPool", pool.level, seed, pool.poolId, "sampleMinSellGold", pool.sampleMinSellGold, report.configSha256);
+                AppendValue(csv, "lootPool", pool.level, seed, pool.poolId, "sampleAverageSellGold", pool.sampleAverageSellGold, report.configSha256);
+                AppendValue(csv, "lootPool", pool.level, seed, pool.poolId, "sampleMaxSellGold", pool.sampleMaxSellGold, report.configSha256);
+                AppendFrequencies(csv, report.configSha256, pool, "definition", pool.definitions);
+                AppendFrequencies(csv, report.configSha256, pool, "quality", pool.qualities);
+                AppendFrequencies(csv, report.configSha256, pool, "type", pool.types);
             }
             foreach (ShopEntry shop in report.shop)
             {
                 AppendValue(csv, "shop", 0, "", shop.id + ": " + shop.name, "priceGold", shop.priceGold, report.configSha256);
                 AppendValue(csv, "shop", 0, "", shop.id + ": " + shop.name, "requiredLevel", shop.requiredLevel, report.configSha256);
                 AppendValue(csv, "shop", 0, "", shop.id + ": " + shop.name, "stockLimit", shop.stockLimit, report.configSha256);
+                AppendValue(csv, "shop", 0, "", shop.id + ": " + shop.name, "sellGold", shop.sellGold, report.configSha256);
+                AppendValue(csv, "shop", 0, "", shop.id + ": " + shop.name, "purchaseResaleGapGold", shop.purchaseResaleGapGold, report.configSha256);
             }
             AppendValue(csv, "player", 0, "", "", "startingGold", report.player.startingGold, report.configSha256);
             AppendValue(csv, "player", 0, "", "", "startingLevel", report.player.startingLevel, report.configSha256);
@@ -299,7 +420,27 @@ namespace MiniGame.Editor
             AppendValue(csv, "player", 0, "", "", "unarmedAttack", report.player.unarmedAttack, report.configSha256);
             AppendValue(csv, "scope", 0, "", "", "description", report.scope, report.configSha256);
             AppendValue(csv, "scope", 0, "", "", "dropResaleValue", report.dropResaleValue, report.configSha256);
+            AppendValue(csv, "scope", 0, "", "", "merchantValue", report.merchantValue, report.configSha256);
             return csv.ToString();
+        }
+
+        /// <summary>
+        /// 向 CSV 写入物品模板、品质或类型的理论概率与实际采样次数。
+        /// </summary>
+        /// <param name="csv">输出缓冲区。</param>
+        /// <param name="hash">配置哈希。</param>
+        /// <param name="pool">掉落池评估。</param>
+        /// <param name="category">分布类别。</param>
+        /// <param name="frequencies">稳定排序的分布项。</param>
+        private static void AppendFrequencies(StringBuilder csv, string hash, LootPoolEvaluation pool, string category, LootFrequency[] frequencies)
+        {
+            string seed = pool.seed.ToString(CultureInfo.InvariantCulture);
+            foreach (LootFrequency frequency in frequencies)
+            {
+                string name = pool.poolId + "/" + frequency.id + ": " + frequency.name;
+                AppendValue(csv, "loot-" + category, pool.level, seed, name, "expectedProbability", frequency.expectedProbability, hash);
+                AppendValue(csv, "loot-" + category, pool.level, seed, name, "sampleCount", frequency.sampleCount, hash);
+            }
         }
 
         /// <summary>
