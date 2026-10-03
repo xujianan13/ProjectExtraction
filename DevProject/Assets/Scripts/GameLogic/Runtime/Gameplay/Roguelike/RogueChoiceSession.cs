@@ -21,6 +21,8 @@ namespace GameLogic.Gameplay.Roguelike
         public bool RefreshEnabled;
         public bool ExtraChoiceEnabled;
         public int MaxRefreshes;
+        public int SelectedUpgradeWeightMultiplier = 1;
+        public int UnlockedComboWeightMultiplier = 1;
 
         /// <summary>
         /// 从当前内容配置复制默认策略。
@@ -31,6 +33,8 @@ namespace GameLogic.Gameplay.Roguelike
             RefreshEnabled = row.RefreshEnabled;
             ExtraChoiceEnabled = row.ExtraChoiceEnabled;
             MaxRefreshes = row.MaxRefreshes;
+            SelectedUpgradeWeightMultiplier = row.SelectedUpgradeWeightMultiplier;
+            UnlockedComboWeightMultiplier = row.UnlockedComboWeightMultiplier;
         }
 
         /// <summary>
@@ -454,6 +458,8 @@ namespace GameLogic.Gameplay.Roguelike
         /// <returns>至少可以生成三个基础选项时为真。</returns>
         private bool Deal()
         {
+            if (policy.SelectedUpgradeWeightMultiplier < 1 || policy.SelectedUpgradeWeightMultiplier > 16 ||
+                policy.UnlockedComboWeightMultiplier < 1 || policy.UnlockedComboWeightMultiplier > 16) return false;
             var pool = new List<CfgRogueRewardsRow>();
             foreach (CfgRogueRewardsRow row in GameTables.CfgRogueRewards.GetAll())
             {
@@ -470,14 +476,16 @@ namespace GameLogic.Gameplay.Roguelike
             int count = Math.Min(4, pool.Count);
             for (int index = 0; index < count; index++)
             {
-                int total = 0;
-                foreach (CfgRogueRewardsRow candidate in pool) total += candidate.Weight;
-                int roll = random.Next(total);
+                long total = 0;
+                foreach (CfgRogueRewardsRow candidate in pool) total += EffectiveWeight(candidate);
+                if (total <= 0 || total > int.MaxValue) return false;
+                long roll = random.Next((int)total);
                 int chosen = 0;
                 for (; chosen < pool.Count - 1; chosen++)
                 {
-                    if (roll < pool[chosen].Weight) break;
-                    roll -= pool[chosen].Weight;
+                    long weight = EffectiveWeight(pool[chosen]);
+                    if (roll < weight) break;
+                    roll -= weight;
                 }
                 CfgRogueRewardsRow row = pool[chosen];
                 pool.RemoveAt(chosen);
@@ -490,6 +498,19 @@ namespace GameLogic.Gameplay.Roguelike
             options.Clear();
             options.AddRange(dealt);
             return true;
+        }
+
+        /// <summary>
+        /// 对已选未满级战斗强化和已解锁组合应用配置权重。
+        /// </summary>
+        /// <param name="row">已经通过资格过滤的奖励。</param>
+        /// <returns>本次无放回抽取使用的长整型正权重。</returns>
+        private long EffectiveWeight(CfgRogueRewardsRow row)
+        {
+            if (row.Kind != (int)RogueRewardKind.CombatAugment) return row.Weight;
+            if (selectedRanks.ContainsKey(row.ID)) return (long)row.Weight * policy.SelectedUpgradeWeightMultiplier;
+            if (!string.IsNullOrEmpty(row.PrerequisiteID)) return (long)row.Weight * policy.UnlockedComboWeightMultiplier;
+            return row.Weight;
         }
     }
 }

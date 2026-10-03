@@ -224,7 +224,10 @@ namespace GameLogic.Project
                 }
             CfgRoguePolicyRow policy = RoguePolicy;
             if (policy == null || GameTables.CfgRoguePolicy.GetAll().Count != 1 || policy.MaxRefreshes < 0 ||
-                !FiniteFloat(policy.MobClearChance) || policy.MobClearChance < 0 || policy.MobClearChance > 1)
+                !FiniteFloat(policy.MobClearChance) || policy.MobClearChance < 0 || policy.MobClearChance > 1 ||
+                policy.MaxConsecutiveMobMisses < 0 || policy.MaxConsecutiveMobMisses > 1000 ||
+                policy.SelectedUpgradeWeightMultiplier < 1 || policy.SelectedUpgradeWeightMultiplier > 16 ||
+                policy.UnlockedComboWeightMultiplier < 1 || policy.UnlockedComboWeightMultiplier > 16)
             {
                 error = "Rogue 策略无效。";
                 return false;
@@ -254,7 +257,8 @@ namespace GameLogic.Project
                 rogueWeight += reward.Weight;
                 rogueCount++;
             }
-            if (rogueWeight > int.MaxValue) error = "Rogue 奖励总权重超过可表示范围。";
+            if (rogueWeight * Math.Max(policy.SelectedUpgradeWeightMultiplier, policy.UnlockedComboWeightMultiplier) > int.MaxValue)
+                error = "Rogue 奖励有效总权重超过可表示范围。";
             if (rogueCount < 4) error = "Rogue 奖励少于四项。";
             return error == null && ProjectAugmentConfig.Validate(out error);
         }

@@ -339,6 +339,18 @@
         "MobClearChance": {
           "min": 0,
           "max": 1
+        },
+        "MaxConsecutiveMobMisses": {
+          "min": 0,
+          "max": 1000
+        },
+        "SelectedUpgradeWeightMultiplier": {
+          "min": 1,
+          "max": 16
+        },
+        "UnlockedComboWeightMultiplier": {
+          "min": 1,
+          "max": 16
         }
       }
     },
@@ -518,16 +530,38 @@
     },
     "CfgHomeShop": {
       "fields": {
-        "ID": { "required": true },
-        "Name": { "required": true },
-        "DefinitionId": { "ref": "CfgItemDefinitions", "required": true },
-        "Quality": { "min": 0, "max": 5 },
-        "ItemLevel": { "min": 1 },
-        "RequiredLevel": { "min": 1 },
-        "PriceGold": { "min": 1 },
-        "StockLimit": { "min": -1 },
-        "ItemSeed": { "min": 0 },
-        "SortOrder": { "min": 0 }
+        "ID": {
+          "required": true
+        },
+        "Name": {
+          "required": true
+        },
+        "DefinitionId": {
+          "ref": "CfgItemDefinitions",
+          "required": true
+        },
+        "Quality": {
+          "min": 0,
+          "max": 5
+        },
+        "ItemLevel": {
+          "min": 1
+        },
+        "RequiredLevel": {
+          "min": 1
+        },
+        "PriceGold": {
+          "min": 1
+        },
+        "StockLimit": {
+          "min": -1
+        },
+        "ItemSeed": {
+          "min": 0
+        },
+        "SortOrder": {
+          "min": 0
+        }
       }
     },
     "CfgAdvancedAffixes": {
@@ -552,6 +586,35 @@
         },
         "ValueMax": {
           "min": 0
+        }
+      }
+    },
+    "CfgCombatFeedback": {
+      "fields": {
+        "ID": {
+          "required": true
+        },
+        "EventKind": {
+          "min": 0,
+          "max": 10
+        },
+        "DefinitionID": {
+          "min": 0
+        },
+        "Text": {
+          "required": true
+        },
+        "ColorR": {
+          "min": 0,
+          "max": 1
+        },
+        "ColorG": {
+          "min": 0,
+          "max": 1
+        },
+        "ColorB": {
+          "min": 0,
+          "max": 1
         }
       }
     }

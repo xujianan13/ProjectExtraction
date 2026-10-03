@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using GameLogic.Gameplay.Combat;
+using GameLogic.Project;
 using UnityEngine;
 
 namespace GameLogic.Gameplay.Expedition
@@ -17,14 +18,16 @@ namespace GameLogic.Gameplay.Expedition
         private const float HitLifetime = 0.25f;
         private const float FlashLifetime = 0.13f;
         private static readonly int ColorId = Shader.PropertyToID("_Color");
-        private static readonly Color NormalColor = new Color(1f, 0.91f, 0.75f);
-        private static readonly Color CriticalColor = new Color(1f, 0.67f, 0.14f);
-        private static readonly Color DodgeColor = new Color(0.5f, 0.88f, 1f);
         private readonly Transform root;
         private readonly Camera camera;
         private readonly CombatFeedbackAssets assets;
         private readonly List<CombatActorSnapshot> actors = new(32);
         private readonly List<CombatTelegraphSnapshot> telegraphs = new(16);
+        private readonly List<CombatBuffSnapshot> buffs = new(16);
+        private readonly Dictionary<int, StatusView> statuses = new();
+        private readonly Stack<StatusView> statusPool = new();
+        private readonly List<int> staleStatuses = new(16);
+        private readonly Dictionary<int, int> statusRows = new();
         private readonly Dictionary<int, HealthView> health = new();
         private readonly List<int> staleHealth = new(32);
         private readonly TextView[] textPool = new TextView[TextCapacity];
@@ -43,6 +46,13 @@ namespace GameLogic.Gameplay.Expedition
             public GameObject Object;
             public UnityEngine.UI.Image Fill;
             public float FillWidth;
+            public bool Seen;
+        }
+
+        private sealed class StatusView
+        {
+            public GameObject Object;
+            public UnityEngine.UI.Text Label;
             public bool Seen;
         }
 
@@ -96,21 +106,22 @@ namespace GameLogic.Gameplay.Expedition
         }
 
         /// <summary>
-        /// 显示已确认的伤害或闪避事件。
+        /// 显示已确认的伤害、闪避或实际治疗事件。
         /// </summary>
         /// <param name="fact">已确认的战斗事件。</param>
         public void Present(CombatEvent fact)
         {
             if (disposed || fact.RoomId != roomId) return;
-            if (fact.Kind != CombatEventKind.Damage && fact.Kind != CombatEventKind.Dodged) return;
-            Vector3 position = fact.Position + Vector3.up * 1.8f;
-            bool dodged = fact.Kind == CombatEventKind.Dodged;
-            ShowText(position, dodged ? "闪避" : fact.IsCritical ? "暴击 " + Mathf.CeilToInt(fact.Value) : Mathf.CeilToInt(fact.Value).ToString(),
-                dodged ? DodgeColor : fact.IsCritical ? CriticalColor : NormalColor, fact.IsCritical && !dodged);
-            if (dodged || fact.Value <= 0f) return;
-            ShowHit(fact.Position + Vector3.up * 0.95f);
-            if (models != null && models.TryGetValue(fact.TargetActorId, out GameObject model) && model != null && model.activeInHierarchy)
-                Flash(fact.TargetActorId, model);
+            var style = ProjectCombatFeedbackConfig.Event(fact);
+            if (style == null || fact.Kind == CombatEventKind.Heal && fact.Value <= 0f) return;
+            string value = fact.Value.ToString("0.##", System.Globalization.CultureInfo.InvariantCulture);
+            string caption = style.Text.Replace("{value}", value);
+            ShowText(fact.Position + Vector3.up * 1.8f, caption, ProjectCombatFeedbackConfig.Color(style),
+                fact.Kind == CombatEventKind.Damage && fact.IsCritical);
+            if (fact.Kind != CombatEventKind.Damage || fact.Value <= 0f) return;
+            if (style.ShowHit) ShowHit(fact.Position + Vector3.up * 0.95f);
+            if (style.ShowFlash && models != null && models.TryGetValue(fact.TargetActorId, out GameObject model) &&
+                model != null && model.activeInHierarchy) Flash(fact.TargetActorId, model);
         }
 
         /// <summary>
@@ -165,6 +176,7 @@ namespace GameLogic.Gameplay.Expedition
                 Release(health[id].Object);
                 health.Remove(id);
             }
+            UpdateStatuses(world, roomId);
             UpdateTransient();
             UpdateTelegraphs(world, roomId);
         }
@@ -177,9 +189,85 @@ namespace GameLogic.Gameplay.Expedition
             if (disposed) return;
             disposed = true;
             ClearTransient();
+            ClearStatuses(true);
             foreach (HealthView view in health.Values) Release(view.Object);
             health.Clear();
             Release(root.gameObject);
+        }
+
+        /// <summary>
+        /// 按当前房间真实 Buff 快照刷新角色血条附近的状态标签。
+        /// </summary>
+        /// <param name="world">提供只读状态快照的战斗世界。</param>
+        /// <param name="currentRoom">当前可见房间编号。</param>
+        private void UpdateStatuses(CombatWorld world, int currentRoom)
+        {
+            if (world != null) world.GetBuffsSnapshot(buffs);
+            else buffs.Clear();
+            foreach (StatusView view in statuses.Values) view.Seen = false;
+            statusRows.Clear();
+            foreach (CombatBuffSnapshot buff in buffs)
+            {
+                if (buff.RoomId != currentRoom || buff.RemainingTicks <= 0 || !health.TryGetValue(buff.ActorId, out HealthView owner)) continue;
+                var style = ProjectCombatFeedbackConfig.Status(buff.DefinitionId);
+                if (style == null || assets.DamageText == null) continue;
+                if (!statuses.TryGetValue(buff.InstanceId, out StatusView view))
+                {
+                    view = statusPool.Count > 0 ? statusPool.Pop() : CreateStatus();
+                    statuses.Add(buff.InstanceId, view);
+                }
+                statusRows.TryGetValue(buff.ActorId, out int row);
+                statusRows[buff.ActorId] = row + 1;
+                view.Seen = true;
+                view.Object.SetActive(true);
+                view.Object.transform.position = owner.Object.transform.position + Vector3.up * (0.27f + row * 0.21f);
+                FaceCamera(view.Object.transform);
+                if (view.Label != null)
+                {
+                    float seconds = Mathf.Max(0.1f, buff.RemainingTicks * CombatWorld.TickSeconds);
+                    view.Label.text = style.Text + " ×" + buff.Stacks + " " + seconds.ToString("0.0", System.Globalization.CultureInfo.InvariantCulture) + "s";
+                    view.Label.color = ProjectCombatFeedbackConfig.Color(style);
+                }
+            }
+            staleStatuses.Clear();
+            foreach (var pair in statuses)
+                if (!pair.Value.Seen) staleStatuses.Add(pair.Key);
+            foreach (int id in staleStatuses)
+            {
+                StatusView view = statuses[id];
+                statuses.Remove(id);
+                view.Object.SetActive(false);
+                statusPool.Push(view);
+            }
+        }
+
+        /// <summary>
+        /// 创建使用现有飘字预制体的持续状态标签。
+        /// </summary>
+        /// <returns>可复用的状态标签。</returns>
+        private StatusView CreateStatus()
+        {
+            GameObject instance = UnityEngine.Object.Instantiate(assets.DamageText, root, false);
+            instance.name = "CombatStatus";
+            return new StatusView { Object = instance, Label = instance.transform.Find("Label")?.GetComponent<UnityEngine.UI.Text>() };
+        }
+
+        /// <summary>
+        /// 换房时归还状态标签，销毁时释放池中的全部对象。
+        /// </summary>
+        /// <param name="release">是否同时销毁状态标签对象。</param>
+        private void ClearStatuses(bool release)
+        {
+            foreach (StatusView view in statuses.Values)
+            {
+                view.Object.SetActive(false);
+                statusPool.Push(view);
+            }
+            statuses.Clear();
+            buffs.Clear();
+            if (!release) return;
+            foreach (StatusView view in statusPool) Release(view.Object);
+            statusPool.Clear();
         }
 
         /// <summary>
@@ -406,6 +494,7 @@ namespace GameLogic.Gameplay.Expedition
         /// </summary>
         private void ClearTransient()
         {
+            ClearStatuses(false);
             foreach (TextView view in textPool) if (view != null) { view.Active = false; view.Object.SetActive(false); }
             foreach (HitView view in hitPool) if (view != null) { view.Active = false; view.Object.SetActive(false); }
             foreach (TelegraphView view in telegraphPool) if (view != null) view.Object.SetActive(false);

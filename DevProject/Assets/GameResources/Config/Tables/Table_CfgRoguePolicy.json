@@ -1,5 +1,5 @@
 {
-  "schemaHash": "5846cd4c23311a009d56d0c7d972a0d5ae0efe85539e96819da06d96c466cc16",
+  "schemaHash": "aedd5f8fbfdfadf7e3bd3a19f792fac2ba0958466c453f6efc9e95a2a795fce3",
   "rows": [
     {
       "ID": 1,
@@ -7,7 +7,11 @@
       "ExtraChoiceEnabled": false,
       "MaxRefreshes": 1,
       "MobClearChance": 0.45,
-      "BossClearReward": true
+      "BossClearReward": true,
+      "FirstMobClearReward": true,
+      "MaxConsecutiveMobMisses": 2,
+      "SelectedUpgradeWeightMultiplier": 3,
+      "UnlockedComboWeightMultiplier": 2
     }
   ]
 }

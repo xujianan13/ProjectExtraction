@@ -10,6 +10,7 @@ namespace GameLogic.Gameplay.Expedition
     {
         private readonly float augmentBaseAttackRange;
         private readonly System.Random roomRewardRandom;
+        private RogueRoomRewardSchedule roomRewardSchedule;
         private readonly HashSet<int> rewardedRooms = new();
         private readonly Queue<string> roomRewardSources = new();
         private List<CombatAugmentDefinition> equipmentAugments = new();
@@ -117,10 +118,8 @@ namespace GameLogic.Gameplay.Expedition
         private void QueueRoomReward(LevelRoomState room)
         {
             if (!rewardedRooms.Add(room.RoomId)) return;
-            var policy = ProjectRulesConfig.RoguePolicy;
-            bool reward = room.Type == LevelRoomType.Boss ? policy.BossClearReward :
-                room.Type == LevelRoomType.Mob && roomRewardRandom.NextDouble() < policy.MobClearChance;
-            if (reward) roomRewardSources.Enqueue("clear:" + room.RoomId);
+            roomRewardSchedule ??= new RogueRoomRewardSchedule(ProjectRulesConfig.RoguePolicy, roomRewardRandom);
+            if (roomRewardSchedule.ShouldReward(room.Type)) roomRewardSources.Enqueue("clear:" + room.RoomId);
         }
 
         /// <summary>

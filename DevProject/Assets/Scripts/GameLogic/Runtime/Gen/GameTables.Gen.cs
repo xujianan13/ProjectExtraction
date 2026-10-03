@@ -51,6 +51,11 @@ namespace GameLogic.Tables
         public static CfgCombatEffectsTable CfgCombatEffects { get; private set; }
 
         /// <summary>
+        /// CfgCombatFeedback 配置表。
+        /// </summary>
+        public static CfgCombatFeedbackTable CfgCombatFeedback { get; private set; }
+
+        /// <summary>
         /// CfgCombatProjectiles 配置表。
         /// </summary>
         public static CfgCombatProjectilesTable CfgCombatProjectiles { get; private set; }
@@ -168,6 +173,7 @@ namespace GameLogic.Tables
             CfgCombatAugmentsTable nextCfgCombatAugments = await CfgCombatAugmentsTable.LoadAsync(resources, ct);
             CfgCombatBuffsTable nextCfgCombatBuffs = await CfgCombatBuffsTable.LoadAsync(resources, ct);
             CfgCombatEffectsTable nextCfgCombatEffects = await CfgCombatEffectsTable.LoadAsync(resources, ct);
+            CfgCombatFeedbackTable nextCfgCombatFeedback = await CfgCombatFeedbackTable.LoadAsync(resources, ct);
             CfgCombatProjectilesTable nextCfgCombatProjectiles = await CfgCombatProjectilesTable.LoadAsync(resources, ct);
             CfgCombatSkillsTable nextCfgCombatSkills = await CfgCombatSkillsTable.LoadAsync(resources, ct);
             CfgCombatTimelineNodesTable nextCfgCombatTimelineNodes = await CfgCombatTimelineNodesTable.LoadAsync(resources, ct);
@@ -196,6 +202,7 @@ namespace GameLogic.Tables
             CfgCombatAugments = nextCfgCombatAugments;
             CfgCombatBuffs = nextCfgCombatBuffs;
             CfgCombatEffects = nextCfgCombatEffects;
+            CfgCombatFeedback = nextCfgCombatFeedback;
             CfgCombatProjectiles = nextCfgCombatProjectiles;
             CfgCombatSkills = nextCfgCombatSkills;
             CfgCombatTimelineNodes = nextCfgCombatTimelineNodes;

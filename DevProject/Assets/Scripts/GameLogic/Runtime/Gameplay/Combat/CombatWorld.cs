@@ -351,7 +351,7 @@ namespace GameLogic.Gameplay.Combat
         }
 
         /// <summary>
-        /// 手动接纳一次战斗技能。
+        /// 手动接纳一次战斗技能；帧间调用的零帧效果在下一次时间轴阶段执行。
         /// </summary>
         /// <param name="actor">施法角色。</param>
         /// <param name="skillId">战斗技能编号。</param>

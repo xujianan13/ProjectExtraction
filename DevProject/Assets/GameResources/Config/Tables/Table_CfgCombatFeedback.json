@@ -1,0 +1,125 @@
+{
+  "schemaHash": "2d77efb5caf59b00b1ecfe65dfe508f558d8fec7891676441b2368fe941596e8",
+  "rows": [
+    {
+      "ID": "damage",
+      "EventKind": 1,
+      "DefinitionID": 0,
+      "Critical": false,
+      "Text": "{value}",
+      "ColorR": 1,
+      "ColorG": 0.91,
+      "ColorB": 0.75,
+      "ShowHit": true,
+      "ShowFlash": true
+    },
+    {
+      "ID": "critical",
+      "EventKind": 1,
+      "DefinitionID": 0,
+      "Critical": true,
+      "Text": "暴击 {value}",
+      "ColorR": 1,
+      "ColorG": 0.67,
+      "ColorB": 0.14,
+      "ShowHit": true,
+      "ShowFlash": true
+    },
+    {
+      "ID": "dodge",
+      "EventKind": 9,
+      "DefinitionID": 0,
+      "Critical": false,
+      "Text": "闪避",
+      "ColorR": 0.5,
+      "ColorG": 0.88,
+      "ColorB": 1,
+      "ShowHit": false,
+      "ShowFlash": false
+    },
+    {
+      "ID": "heal",
+      "EventKind": 10,
+      "DefinitionID": 0,
+      "Critical": false,
+      "Text": "+{value}",
+      "ColorR": 0.35,
+      "ColorG": 1,
+      "ColorB": 0.45,
+      "ShowHit": false,
+      "ShowFlash": false
+    },
+    {
+      "ID": "bleed_damage",
+      "EventKind": 1,
+      "DefinitionID": 1001,
+      "Critical": false,
+      "Text": "流血 {value}",
+      "ColorR": 1,
+      "ColorG": 0.35,
+      "ColorB": 0.4,
+      "ShowHit": false,
+      "ShowFlash": false
+    },
+    {
+      "ID": "critical_echo",
+      "EventKind": 1,
+      "DefinitionID": 1002,
+      "Critical": false,
+      "Text": "追伤 {value}",
+      "ColorR": 0.85,
+      "ColorG": 0.55,
+      "ColorB": 1,
+      "ShowHit": true,
+      "ShowFlash": false
+    },
+    {
+      "ID": "retaliation",
+      "EventKind": 1,
+      "DefinitionID": 1004,
+      "Critical": false,
+      "Text": "反击 {value}",
+      "ColorR": 1,
+      "ColorG": 0.65,
+      "ColorB": 0.35,
+      "ShowHit": true,
+      "ShowFlash": true
+    },
+    {
+      "ID": "periodic_status",
+      "EventKind": 6,
+      "DefinitionID": 1,
+      "Critical": false,
+      "Text": "持续伤害",
+      "ColorR": 1,
+      "ColorG": 0.45,
+      "ColorB": 0.4,
+      "ShowHit": false,
+      "ShowFlash": false
+    },
+    {
+      "ID": "speed_status",
+      "EventKind": 6,
+      "DefinitionID": 2,
+      "Critical": false,
+      "Text": "加速",
+      "ColorR": 0.4,
+      "ColorG": 0.85,
+      "ColorB": 1,
+      "ShowHit": false,
+      "ShowFlash": false
+    },
+    {
+      "ID": "bleed_status",
+      "EventKind": 6,
+      "DefinitionID": 1001,
+      "Critical": false,
+      "Text": "流血",
+      "ColorR": 1,
+      "ColorG": 0.35,
+      "ColorB": 0.4,
+      "ShowHit": false,
+      "ShowFlash": false
+    }
+  ]
+}

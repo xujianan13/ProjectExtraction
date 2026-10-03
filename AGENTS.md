@@ -21,6 +21,7 @@
 - [技能成长设计](docs/project/技能成长设计.md)、[主界面设计](docs/project/主界面设计.md)：角色技能点的局外提升、Home 顶部五项属性与底部仓库/技能入口。
 - [关卡内容首版实现](docs/project/关卡内容首版实现.md)：房间模板与固定内容计划、随机怪群、敌人多技能、特殊房间及可达性验证。
 - [搜打撤交互首版实现](docs/project/搜打撤交互首版实现.md)：局内换装、背包安全箱、固定商品商店和模态暂停。
+- [流派节奏与战斗状态反馈](docs/project/流派节奏与战斗状态反馈.md)：首次清房、连续未中奖保底、流派抽选倾斜，以及治疗和持续状态显示。
 - [局外金币商店首版实现](docs/project/局外金币商店首版实现.md)：固定商品、金币购买、等级门槛、库存与失败重试，以及死亡后补给循环的验证。
 - [高级词条与局内流派首版实现](docs/project/高级词条与局内流派首版实现.md)：高级词条冻结、战斗增益、Rogue 升级与兼容边界；本轮验证状态以该文档为准。
 - [关卡与地图设计](docs/project/关卡与地图设计.md)：随机连通地图、未清图自由往返、回访状态与撤离建议。
@@ -40,13 +41,13 @@
 - 主要属性确定为等级、经验、体力、金币、钻石。金币用于常规消费、购买物品，战利品可出售换金币；钻石为独立的高级货币，产出、价格与高级消费项目单独定义。消费使用固定币种，余额不足即交易失败。钻石来源/具体用途、出售细节和货币死亡政策仍待定。
 - 战斗属性包括 HP、攻击、防御、暴击值、暴击伤害、闪避、增伤、减伤；武器和护甲使用统一默认属性与随机词条。物品品质按普通/精良/优秀/史诗/传说/神器依次对应白/绿/蓝/紫/橙/红。公式、掉落权重与词条数为首版可调参数；第五阶段已接入七种高级词条战斗增益和八个局内流派奖励，具体范围与验证见[高级词条与局内流派首版实现](docs/project/高级词条与局内流派首版实现.md)。
 - 已新增 Home 五属性、仓库和技能界面、随机连通地图、Expedition 关卡场景及轻量 ECS 战斗首版；场景流程现由 ProjectRunCoordinator 接入 GameRoundFlow，包含入场/终局持久阶段、全局恢复与结果界面和返场确认。当前仍使用占位表现和原型数值，定向自动化验证已通过，完整设计及设备验收未完成。原始能力与历史验证见[首版代码实现与验证](docs/project/首版代码实现与验证.md)，新增流程边界见[场景流程首版实现与验证](docs/project/场景流程首版实现与验证.md)。尚未为本项目新增广告、付费、联网服务或微信 SDK。
-- Roguelike 三选一保留战利品房开箱入口，首次 Boss 清房必选，小怪房按配置概率抽取；暂停 ECS 模拟，选择一项临时属性、随机战利品或流派升级后恢复。刷新和第四项授权逻辑具备但默认关闭，尚无广告提供器。临时属性不写入局外技能或装备，物品沿用已有携出规则；中途选择不提供断点存档。
+- Roguelike 三选一保留战利品房开箱入口，首次 Boss 清房必选，小怪房按配置概率抽取，首次小怪清房必选，连续两次未中奖后下一次保底；已选未满级流派与满足前置的组合按配置提高抽选权重。暂停 ECS 模拟，选择一项临时属性、随机战利品或流派升级后恢复。刷新和第四项授权逻辑具备但默认关闭，尚无广告提供器。临时属性不写入局外技能或装备，物品沿用已有携出规则；中途选择不提供断点存档。
 - `DevProject/Assets/Scripts/GameFramework` 是框架唯一源码，当前不是已安装的 UPM 包；`DevProject/Packages` 保留 UniTask **2.5.11**、YooAsset **3.0.1-beta**、HybridCLR **8.12.0** 等模板依赖，渲染管线沿用模板。`GameFramework/package.json` 仅作未来包元数据。
 - `Assets/Resources/Framework.prefab`、`Assets/Scenes/Main.unity` 和 `Loading.unity` 属于固定宿主资产。`Assets/Scripts/Boot` 为固定启动层；`Assets/Scripts/GameLogic` 为热更游戏代码；`Assets/GameResources` 是 YooAsset `GamePackage` 的热更内容源。通用框架不得依赖项目玩法。
 - 关卡基础测试表现保留 14 个热更 Prefab：场景/房间位于 `GameResources/Scenes/Expedition`，角色、障碍和交互物位于 `GameResources/Gameplay/Expedition`，13 个材质位于 `GameResources/Art/Prototype/Materials`。由 `ExpeditionVisualAssets` 加载并随场景释放租约；角色为胶囊体，碰撞仍由 ECS 管理。资源生成入口为 `Tools/ProjectExtraction/Create Test Prefabs`，只补齐缺失资产；另增 4 个反馈 Prefab、3 个合成测试 WAV 和 2 个材质，由 `Create Combat Feedback` 补齐。目录和本轮验证状态见[测试资源与热更目录](docs/project/测试资源与热更目录.md)、[战斗反馈与角色碰撞](docs/project/战斗反馈与角色碰撞.md)。
-- 战斗反馈从 ECS 快照与事件驱动血条、伤害/暴击/闪避文字、命中闪光、下一伤害节点地面预警和短音效；预警飞弹只提示发射方向或出生目标范围，不表示完整弹道。角色 XZ 圆形占位、墙体扩半径保守矩形及移动扫掠由 ECS 负责；敌人使用障碍角点追击并在施法时停步，死者不阻挡。玩家死亡立即冻结并持久化结果，完成 0.6 秒倒下与 0.15 秒停留后进入结果页。本轮不含 NavMesh、动态拥挤避让或按墙裁剪预警；尚无真机与人工可视化验收。
+- 战斗反馈从 ECS 快照与事件驱动血条、伤害/暴击/闪避/实际治疗文字、流血/追伤/反击区分及 Buff 层数和剩余时间、命中闪光、下一伤害节点地面预警和短音效；预警飞弹只提示发射方向或出生目标范围，不表示完整弹道。角色 XZ 圆形占位、墙体扩半径保守矩形及移动扫掠由 ECS 负责；敌人使用障碍角点追击并在施法时停步，死者不阻挡。玩家死亡立即冻结并持久化结果，完成 0.6 秒倒下与 0.15 秒停留后进入结果页。本轮不含 NavMesh、动态拥挤避让或按墙裁剪预警；尚无真机与人工可视化验收。
 - `GameFramework.AnimatorPlayback` 是不依赖 GameLogic 的通用动画播放器，支持本地时间播放与外部进度采样；项目通过 `CombatCharacterAnimation` 读取 ECS 快照控制 Idle/Move/Attack/Hit/Death。四个测试角色使用原生 Animator，5 个动画片段和控制器位于 `GameResources/Art/Prototype/Animations`。动画不参与战斗伤害判定或 ECS 位移。
-- Excel 源表在 `config/excel`，当前包含 28 张项目内容表；工具在 `tool`。生成 JSON 位于 `GameResources/Config/Tables`，可重生 C# 位于 `GameLogic/Runtime/Gen`，扩展 partial 位于 `GameLogic/Runtime/Ext`。
+- Excel 源表在 `config/excel`，当前包含 29 张项目内容表；工具在 `tool`。生成 JSON 位于 `GameResources/Config/Tables`，可重生 C# 位于 `GameLogic/Runtime/Gen`，扩展 partial 位于 `GameLogic/Runtime/Ext`。
 
 - 关卡内容已扩展为 7 种布局、11 组候选怪群、3 类小怪和多技能 Boss；每房模板/怪群在开局抽定，回访复用 ECS 状态。敌人按生命阶段、距离、优先级和权重选技能，各技能独立冷却。配置和最新验证见[关卡内容首版实现](docs/project/关卡内容首版实现.md)。
 

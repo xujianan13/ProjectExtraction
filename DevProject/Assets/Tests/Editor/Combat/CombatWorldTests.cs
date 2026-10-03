@@ -78,6 +78,70 @@ namespace ProjectExtraction.Tests.Editor.Combat
         }
 
         /// <summary>
+        /// 验证帧间手动施法的零帧和一帧节点各执行一次。
+        /// </summary>
+        /// <param name="playerCasts">是否由玩家施法；否则由敌人施法。</param>
+        [TestCase(true)]
+        [TestCase(false)]
+        public void ManualCast_ZeroAndOneTickNodesExecuteOnce(bool playerCasts)
+        {
+            var catalog = new CombatCatalog();
+            var skill = new CombatSkillDefinition { CombatSkillId = 81, DurationTicks = 3, CooldownTicks = 3 };
+            var start = new CombatTimelineNode { Tick = 0 };
+            start.Effects.Add(new CombatEffectDefinition { Kind = CombatEffectKind.Cue, DefinitionId = 810 });
+            var next = new CombatTimelineNode { Tick = 1 };
+            next.Effects.Add(new CombatEffectDefinition { Kind = CombatEffectKind.Cue, DefinitionId = 811 });
+            skill.Nodes.Add(start);
+            skill.Nodes.Add(next);
+            catalog.Skills.Add(81, skill);
+            var world = new CombatWorld(catalog);
+            world.SetRoomBounds(1, new Rect(-10f, -10f, 20f, 20f));
+            var player = world.CreateActor(new CombatActorSpec { ActorId = 1, RoomId = 1, Team = 1, IsPlayer = true,
+                Position = Vector3.zero, MaxHealth = 100f, Radius = 0.3f });
+            var enemy = world.CreateActor(new CombatActorSpec { ActorId = 2, RoomId = 1, Team = 2,
+                Position = new Vector3(2f, 0f, 0f), MaxHealth = 100f, Radius = 0.3f });
+            Assert.That(world.TryStartSkill(playerCasts ? player : enemy, 81, default), Is.True);
+            world.Step();
+            var events = new List<CombatEvent>();
+            world.DrainEvents(events);
+            Assert.That(events.FindAll(item => item.Kind == CombatEventKind.Cue && item.DefinitionId == 810).Count, Is.EqualTo(1));
+            Assert.That(events.FindAll(item => item.Kind == CombatEventKind.Cue && item.DefinitionId == 811).Count, Is.EqualTo(1));
+            world.Step();
+            events.Clear();
+            world.DrainEvents(events);
+            Assert.That(events.FindAll(item => item.Kind == CombatEventKind.Cue).Count, Is.Zero);
+            world.Dispose();
+        }
+
+        /// <summary>
+        /// 验证玩家零帧节点尚未执行就换房时，取消后返场不会补发。
+        /// </summary>
+        [Test]
+        public void ManualCast_TransferBeforeStepCancelsZeroTickNode()
+        {
+            var catalog = new CombatCatalog();
+            var skill = new CombatSkillDefinition { CombatSkillId = 82, DurationTicks = 3, CooldownTicks = 3 };
+            var start = new CombatTimelineNode { Tick = 0 };
+            start.Effects.Add(new CombatEffectDefinition { Kind = CombatEffectKind.Cue, DefinitionId = 820 });
+            skill.Nodes.Add(start);
+            catalog.Skills.Add(82, skill);
+            var world = new CombatWorld(catalog);
+            world.SetRoomBounds(1, new Rect(-10f, -10f, 20f, 20f));
+            world.SetRoomBounds(2, new Rect(-10f, -10f, 20f, 20f));
+            var player = world.CreateActor(new CombatActorSpec { ActorId = 1, RoomId = 1, Team = 1, IsPlayer = true,
+                Position = Vector3.zero, MaxHealth = 100f, Radius = 0.3f });
+            Assert.That(world.TryStartSkill(player, 82, default), Is.True);
+            Assert.That(world.SetActiveRoom(2, player), Is.True);
+            world.Step();
+            Assert.That(world.SetActiveRoom(1, player), Is.True);
+            world.Step();
+            var events = new List<CombatEvent>();
+            world.DrainEvents(events);
+            Assert.That(events.Exists(item => item.Kind == CombatEventKind.Cue && item.DefinitionId == 820), Is.False);
+            world.Dispose();
+        }
+
+        /// <summary>
         /// 验证瞬时飞弹允许零速度并在目标点当次命中。
         /// </summary>
         [Test]

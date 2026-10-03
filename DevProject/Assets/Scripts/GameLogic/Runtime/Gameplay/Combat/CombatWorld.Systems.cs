@@ -366,7 +366,7 @@ namespace GameLogic.Gameplay.Combat
         }
 
         /// <summary>
-        /// 推进进行中施法的时间轴节点。
+        /// 按游标执行所有到期节点一次，包含帧间手动施法尚未执行的零帧效果。
         /// </summary>
         private void AdvanceCasts()
         {
@@ -386,7 +386,6 @@ namespace GameLogic.Gameplay.Combat
                 while (cast.NextNode < definition.Nodes.Count && definition.Nodes[cast.NextNode].Tick <= elapsed)
                 {
                     var node = definition.Nodes[cast.NextNode++];
-                    if (node.Tick != elapsed) continue;
                     foreach (var effect in node.Effects)
                     {
                         var target = effect.Kind == CombatEffectKind.SpawnProjectile ||

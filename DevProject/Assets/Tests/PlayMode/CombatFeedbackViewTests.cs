@@ -3,6 +3,8 @@ using System.Collections;
 using System.Collections.Generic;
 using GameLogic.Gameplay.Combat;
 using GameLogic.Gameplay.Expedition;
+using GameLogic.Project;
+using ProjectExtraction.Tests.Shared;
 using NUnit.Framework;
 using UnityEditor;
 using UnityEngine;
@@ -45,13 +47,21 @@ namespace MiniGame.Tests
         [UnityTest]
         public IEnumerator Feedback_UsesRealPrefabsAndSimulationTime()
         {
+            TestGameTables.LoadAll();
+            Assert.That(ProjectCombatFeedbackConfig.Validate(out string configurationError), Is.True, configurationError);
             CombatFeedbackAssets assets = LoadAssets();
             host = new GameObject("FeedbackTestHost");
             camera = new GameObject("FeedbackTestCamera").AddComponent<Camera>();
             playerModel = GameObject.CreatePrimitive(PrimitiveType.Capsule);
             enemyModel = GameObject.CreatePrimitive(PrimitiveType.Capsule);
             var models = new Dictionary<int, GameObject> { [1] = playerModel, [2] = enemyModel };
-            world = new CombatWorld(ProjectExtraction.Tests.Shared.TestCombatCatalog.CreatePrototype());
+            CombatCatalog catalog = TestCombatCatalog.CreatePrototype();
+            var healSkill = new CombatSkillDefinition { CombatSkillId = 9, DurationTicks = 2, CooldownTicks = 2, StartRange = 2f };
+            var healNode = new CombatTimelineNode { Tick = 0 };
+            healNode.Effects.Add(new CombatEffectDefinition { Kind = CombatEffectKind.Heal, DefinitionId = 1003, Value = 0.25f });
+            healSkill.Nodes.Add(healNode);
+            catalog.Skills.Add(healSkill.CombatSkillId, healSkill);
+            world = new CombatWorld(catalog);
             world.SetRoomBounds(1, new Rect(-20f, -20f, 40f, 40f));
             CombatEntityRef player = world.CreateActor(new CombatActorSpec
             {
@@ -112,6 +122,49 @@ namespace MiniGame.Tests
             Assert.That(health, Is.Not.Null);
             fill = health.transform.Find("Fill") as RectTransform;
             Assert.That(fill.sizeDelta.x, Is.GreaterThan(0f).And.LessThan(fullWidth));
+
+            Assert.That(world.ApplyBuff(player, 1, 2), Is.True);
+            view.Refresh(world, 1, models, 0.4d);
+            GameObject status = FindClone(feedbackRoot, "CombatStatus");
+            Assert.That(status, Is.Not.Null);
+            UnityEngine.UI.Text statusLabel = status.transform.Find("Label").GetComponent<UnityEngine.UI.Text>();
+            Assert.That(statusLabel.text, Does.Contain(ProjectCombatFeedbackConfig.Status(1).Text));
+            Assert.That(statusLabel.text, Does.Contain("×1"));
+            string pausedStatus = statusLabel.text;
+            view.Refresh(world, 2, models, 0.4d);
+            Assert.That(FindClone(feedbackRoot, "CombatStatus"), Is.Null, "换房时状态标签应消失");
+            view.Refresh(world, 1, models, 0.4d);
+            status = FindClone(feedbackRoot, "CombatStatus");
+            statusLabel = status.transform.Find("Label").GetComponent<UnityEngine.UI.Text>();
+            view.Refresh(world, 1, models, 0.4d);
+            Assert.That(statusLabel.text, Is.EqualTo(pausedStatus), "暂停时状态秒数不应减少");
+
+            float beforeHeal = damagedPlayer.Health;
+            Assert.That(world.TryStartSkill(player, 9, player), Is.True);
+            world.Step();
+            Assert.That(world.TryGetActor(player, out CombatActorSnapshot healedPlayer), Is.True);
+            var events = new List<CombatEvent>();
+            world.DrainEvents(events);
+            Assert.That(events.Exists(item => item.Kind == CombatEventKind.Heal), Is.True);
+            CombatEvent heal = events.Find(item => item.Kind == CombatEventKind.Heal);
+            Assert.That(heal.Value, Is.EqualTo(healedPlayer.Health - beforeHeal).Within(0.0001f));
+            int hitsBeforeHeal = ActiveClones(feedbackRoot, assets.Hit.name);
+            var beforeBlock = new MaterialPropertyBlock();
+            playerModel.GetComponent<Renderer>().GetPropertyBlock(beforeBlock);
+            Color beforeFlash = beforeBlock.GetColor(Shader.PropertyToID("_Color"));
+            view.Present(heal);
+            UnityEngine.UI.Text healLabel = System.Array.Find(feedbackRoot.GetComponentsInChildren<UnityEngine.UI.Text>(),
+                item => item.text == "+" + heal.Value.ToString("0.##", System.Globalization.CultureInfo.InvariantCulture));
+            Assert.That(healLabel, Is.Not.Null);
+            Assert.That(healLabel.color.g, Is.GreaterThan(healLabel.color.r));
+            Assert.That(ActiveClones(feedbackRoot, assets.Hit.name), Is.EqualTo(hitsBeforeHeal));
+            var afterBlock = new MaterialPropertyBlock();
+            playerModel.GetComponent<Renderer>().GetPropertyBlock(afterBlock);
+            Assert.That(afterBlock.GetColor(Shader.PropertyToID("_Color")), Is.EqualTo(beforeFlash));
+
+            for (int i = 0; i < 180; i++) world.Step();
+            view.Refresh(world, 1, models, 0.4d);
+            Assert.That(FindClone(feedbackRoot, "CombatStatus"), Is.Null, "过期 Buff 标签应消失");
             view.Present(new CombatEvent(CombatEventKind.Damage, world.TickIndex, 1, 2, 1, 0, 12f, Vector3.zero));
             Assert.That(ActiveClones(feedbackRoot, assets.DamageText.name), Is.GreaterThan(0));
             view.Refresh(world, 1, models, 0.4d);

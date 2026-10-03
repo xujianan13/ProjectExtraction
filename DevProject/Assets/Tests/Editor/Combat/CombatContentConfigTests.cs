@@ -7,7 +7,6 @@ namespace ProjectExtraction.Tests.Editor.Combat
     /// <summary>
     /// 使用真实导出表验证战斗目录构建和配置错误门禁。
     /// </summary>
-    [NonParallelizable]
     public sealed class CombatContentConfigTests
     {
         /// <summary>
