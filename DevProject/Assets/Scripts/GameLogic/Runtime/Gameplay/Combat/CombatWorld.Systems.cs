@@ -340,7 +340,7 @@ namespace GameLogic.Gameplay.Combat
         }
 
         /// <summary>
-        /// 查找范围内最近的敌对角色。
+        /// 查找范围内最近的敌对角色；玩家候选需可直视，敌人保留隔墙追击目标。
         /// </summary>
         /// <param name="sourceId">来源角色槽位。</param>
         /// <param name="range">最大查找距离。</param>
@@ -359,6 +359,7 @@ namespace GameLogic.Gameplay.Combat
                     candidate.Spec.Team == source.Spec.Team) continue;
                 var distance = (candidate.Position - source.Position).sqrMagnitude;
                 if (distance > bestDistance) continue;
+                if (source.Spec.IsPlayer && HasWallBetween(source.Spec.RoomId, source.Position, candidate.Position)) continue;
                 best = id;
                 bestDistance = distance;
             }
