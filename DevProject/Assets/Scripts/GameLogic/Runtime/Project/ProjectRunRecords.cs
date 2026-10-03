@@ -28,6 +28,7 @@ namespace GameLogic.Project
         public int AwardedKillExperience;
         public int ExtractionExperience;
         public int GoldSpent;
+        public ProjectRunStatistics Statistics;
         public List<ProjectItem> Items = new();
         public List<string> SafeItemIds = new();
 
@@ -38,6 +39,7 @@ namespace GameLogic.Project
         public ProjectRunOutcome Copy()
         {
             var copy = (ProjectRunOutcome)MemberwiseClone();
+            copy.Statistics = Statistics?.Copy();
             copy.Items = Items?.ConvertAll(item => item?.Copy());
             copy.SafeItemIds = SafeItemIds == null ? null : new List<string>(SafeItemIds);
             return copy;
@@ -116,6 +118,7 @@ namespace GameLogic.Project
             string.IsNullOrEmpty(outcome.RunId) && outcome.LevelId == 0 && outcome.Seed == 0 && outcome.RulesVersion == 0 &&
             outcome.Tick == 0 && outcome.ElapsedSeconds == 0 && !outcome.Extracted && !outcome.Abandoned && outcome.KillExperience == 0 &&
             outcome.AwardedKillExperience == 0 && outcome.ExtractionExperience == 0 && outcome.GoldSpent == 0 &&
+            (outcome.Statistics == null || outcome.Statistics.Version == 0 && ProjectRunStatistics.IsValid(outcome.Statistics)) &&
             (outcome.Items == null || outcome.Items.Count == 0) && (outcome.SafeItemIds == null || outcome.SafeItemIds.Count == 0);
 
         /// <summary>
@@ -457,6 +460,8 @@ namespace GameLogic.Project
                 outcome.AwardedKillExperience > outcome.KillExperience || outcome.ExtractionExperience < 0 || outcome.GoldSpent < 0 ||
                 (outcome.Extracted && outcome.Abandoned) || (!outcome.Extracted && outcome.ExtractionExperience != 0) ||
                 outcome.Items == null || outcome.SafeItemIds == null) return false;
+            error = "终局统计无效。";
+            if (!ProjectRunStatistics.IsValid(outcome.Statistics)) return false;
             var ids = new HashSet<string>();
             var equippedSlots = new HashSet<ProjectItemType>();
             error = "终局物品身份、词条或装备槽无效。";

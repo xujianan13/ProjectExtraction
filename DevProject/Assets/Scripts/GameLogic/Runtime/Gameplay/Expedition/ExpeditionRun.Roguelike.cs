@@ -63,6 +63,7 @@ namespace GameLogic.Gameplay.Expedition
         {
             if (!CanAcceptRogueInput || requestingRogueAccess) return false;
             if (!rogueChoices.TrySelect(offerId, revision, index, ApplyRogueReward)) return false;
+            statistics.RogueChoices++;
             ClearRogueInput();
             RogueMessage = "已获得奖励，继续探索。";
             PublishRogueChange();

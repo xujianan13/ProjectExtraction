@@ -80,13 +80,47 @@ namespace GameLogic.UI.Run
             }
             ProjectRunOutcome outcome = result.Outcome;
             title.text = outcome.Extracted ? "撤离成功" : outcome.Abandoned ? "已放弃本局" : "角色死亡";
-            summary.text = $"关卡 {outcome.LevelId}  ·  游玩 {Mathf.CeilToInt(outcome.ElapsedSeconds)} 秒\n" +
+            summary.text = $"关卡 {outcome.LevelId}  ·  有效游玩 {Mathf.CeilToInt(outcome.ElapsedSeconds)} 秒\n" +
                 $"等级 {result.LevelBefore} → {result.LevelAfter}  ·  经验 {result.ExperienceBefore} → {result.ExperienceAfter}\n" +
                 $"打怪经验 {outcome.AwardedKillExperience}  ·  撤离经验 {outcome.ExtractionExperience}\n" +
                 $"技能点 {result.SkillPointsBefore} → {result.SkillPointsAfter}  ·  金币 {result.GoldBefore} → {result.GoldAfter}";
+            AddRunDetails(result);
             AddSection("带回物品", result.RetainedItems);
             AddSection("丢失物品", result.LostItems);
             returnButton.interactable = coordinator != null && coordinator.CanReturn && !returning;
+        }
+
+        /// <summary>
+        /// 展示随终局冻结的表现及资产变化，旧记录不推测缺失数据。
+        /// </summary>
+        /// <param name="result">已保存的结算结果。</param>
+        private void AddRunDetails(ProjectRunResult result)
+        {
+            ProjectRunStatistics stats = result.Outcome.Statistics;
+            string performance = stats?.HasData == true
+                ? $"探索房间 {stats.VisitedRooms}/{stats.TotalRooms}  ·  清空战斗房 {stats.ClearedCombatRooms}\n" +
+                  $"击杀 {stats.EnemyKills}  ·  Boss房击杀 {stats.BossRoomKills}  ·  强化选择 {stats.RogueChoices}\n" +
+                  $"造成伤害 {stats.DamageDealt:0.#}  ·  承受伤害 {stats.DamageTaken:0.#}\n实际治疗 {stats.HealingReceived:0.#}"
+                : "这份历史结算未记录单局表现。";
+            AddDetailBlock("本局表现", performance);
+            ProjectRunEconomySummary economy = ProjectRunEconomy.Calculate(result);
+            string entry = economy.HasEntrySnapshot ? economy.EntrySellValue.ToString() : "历史结算未记录";
+            string change = economy.HasEntrySnapshot ? economy.NetAssetValue.ToString("+0;-0;0") : "无法计算";
+            AddDetailBlock("物品与支出", $"入场装备估值 {entry}\n携回物品估值 {economy.RetainedSellValue}  ·  丢失物品估值 {economy.LostSellValue}\n" +
+                $"本局购买支出 {result.Outcome.GoldSpent} 金币\n资产变化 {change}\n" +
+                "估值按物品出售价格计算，未自动兑换金币。\n资产变化 = 携回估值 − 入场估值 − 本局支出。");
+        }
+
+        /// <summary>
+        /// 向滚动区添加随可用宽度自动换行的结算说明。
+        /// </summary>
+        /// <param name="heading">区块标题。</param>
+        /// <param name="description">说明正文。</param>
+        private void AddDetailBlock(string heading, string description)
+        {
+            UnityEngine.UI.Text caption = ProjectUiFactory.Label(items, heading, 29, TextAnchor.MiddleLeft, Color.white);
+            ProjectUiFactory.Height(caption.rectTransform, 55f);
+            ProjectUiFactory.Label(items, description, 23, TextAnchor.UpperLeft, new Color(0.8f, 0.9f, 0.96f));
         }
 
         /// <summary>

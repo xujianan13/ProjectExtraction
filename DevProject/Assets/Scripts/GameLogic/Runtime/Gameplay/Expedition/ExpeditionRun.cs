@@ -93,6 +93,7 @@ namespace GameLogic.Gameplay.Expedition
             roomRewardRandom = new System.Random(maps.Seed ^ 0x53A4);
             random = new System.Random(maps.Seed ^ 0x5162);
             inventory.AddRange(items.ConvertAll(item => item.Copy()));
+            InitializeStatistics(items);
             ProjectCharacterStats attributes = ProjectEquipmentRules.Calculate(items, session.PowerRank, session.VitalityRank, session.AgilityRank);
             augmentBaseAttackRange = attributes.AttackRange;
             CombatCatalog catalog = CombatContentConfig.CreateCatalog(attributes.AttackRange);
@@ -276,12 +277,14 @@ namespace GameLogic.Gameplay.Expedition
             bool playerDied = false;
             foreach (CombatEvent fact in events)
             {
+                RecordStatistics(fact);
                 CombatEventPublished?.Invoke(fact);
                 if (fact.Kind == CombatEventKind.Death)
                 {
                     if (fact.TargetActorId == 1) playerDied = true;
                     else if (rewardedDeaths.Add(fact.TargetActorId) && enemyDefinitions.TryGetValue(fact.TargetActorId, out EnemyDefinition enemy))
                     {
+                        RecordEnemyKill(fact.RoomId);
                         KillExperience = (int)Math.Min(int.MaxValue, (long)KillExperience + enemy.ExperienceAt(LevelId));
                         if (random.NextDouble() < enemy.DropChance)
                             drops.Add(new ExpeditionDrop { RoomId = fact.RoomId, Position = fact.Position,
@@ -432,7 +435,8 @@ namespace GameLogic.Gameplay.Expedition
                 Extracted = extracted, KillExperience = KillExperience,
                 AwardedKillExperience = extracted || PrototypeRules.KeepKillExperienceOnDeath ? KillExperience : 0,
                 ExtractionExperience = extracted ? PrototypeRules.ExtractionExperience : 0,
-                GoldSpent = GoldSpent, Items = new List<ProjectItem>(), SafeItemIds = new List<string>(protectedItems)
+                GoldSpent = GoldSpent, Statistics = CaptureStatistics(),
+                Items = new List<ProjectItem>(), SafeItemIds = new List<string>(protectedItems)
             };
             foreach (ProjectItem item in inventory) outcome.Items.Add(item.Copy());
             outcome.SafeItemIds.Sort(StringComparer.Ordinal);
