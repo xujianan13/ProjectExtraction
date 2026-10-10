@@ -246,7 +246,7 @@ namespace GameLogic.UI.Warehouse
             filter == 2 && ProjectEquipmentRules.IsArmor(item.Type) || filter == 3 && item.Type == ProjectItemType.Item;
 
         /// <summary>
-        /// 在可滚动区域显示选中物品的属性和操作状态。
+        /// 在可滚动区域显示选中物品、同部位当前装备及穿脱前后的属性差值。
         /// </summary>
         /// <param name="item">当前选中的物品。</param>
         private void RefreshDetails(ProjectItem item)
@@ -258,23 +258,30 @@ namespace GameLogic.UI.Warehouse
                 ProjectUiFactory.Height(prompt.rectTransform, 64f);
                 return;
             }
-            UnityEngine.UI.Text heading = ProjectUiFactory.Label(detailsContent, ProjectEquipmentText.Title(item), 27,
+            UnityEngine.UI.Text heading = ProjectUiFactory.Label(detailsContent, "选中物品\n" + ProjectEquipmentText.Title(item), 27,
                 TextAnchor.MiddleLeft, ProjectEquipmentText.QualityColor(item));
-            ProjectUiFactory.Height(heading.rectTransform, 62f);
+            heading.gameObject.AddComponent<UnityEngine.UI.LayoutElement>().minHeight = 62f;
             string value = ProjectEquipmentText.Details(item);
             UnityEngine.UI.Text attributes = ProjectUiFactory.Label(detailsContent, value, 22, TextAnchor.UpperLeft, Color.white);
-            ProjectUiFactory.Height(attributes.rectTransform, ProjectEquipmentText.PreferredHeight(value));
+            attributes.gameObject.AddComponent<UnityEngine.UI.LayoutElement>().minHeight = 72f;
             if (item.Type != ProjectItemType.Item)
             {
+                string equipped = ProjectEquipmentText.EquippedDetails(item, session.Warehouse);
+                UnityEngine.UI.Text equippedText = ProjectUiFactory.Label(detailsContent, equipped, 22, TextAnchor.UpperLeft, Color.white);
+                equippedText.supportRichText = true;
+                equippedText.gameObject.AddComponent<UnityEngine.UI.LayoutElement>().minHeight = 72f;
                 string comparison;
-                if (session.TryGetEquipmentPreview(item.Id, out ProjectCharacterStats preview, out string error))
-                    comparison = "属性预览（当前 → " + (item.Equipped ? "卸下后" : "穿戴后") + "）\n" +
+                if (session.TryGetEquipmentPreview(item, out ProjectCharacterStats preview, out string error))
+                {
+                    string action = item.Equipped ? "卸下后" : item.RequiredLevel > session.Level ? "满足等级后穿戴" : "穿戴后";
+                    comparison = "属性预览（当前 → " + action + "）\n" +
                         ExpeditionEquipmentComparison.Format(session.CharacterStats, preview);
+                }
                 else
-                    comparison = item.RequiredLevel > session.Level ?
-                        $"属性预览不可用：需要等级 {item.RequiredLevel}，当前等级 {session.Level}。" : "属性预览不可用：" + error;
+                    comparison = "属性预览不可用：" + error;
                 UnityEngine.UI.Text comparisonText = ProjectUiFactory.Label(detailsContent, comparison, 22, TextAnchor.UpperLeft, Color.white);
-                ProjectUiFactory.Height(comparisonText.rectTransform, ProjectEquipmentText.PreferredHeight(comparison));
+                comparisonText.supportRichText = true;
+                comparisonText.gameObject.AddComponent<UnityEngine.UI.LayoutElement>().minHeight = 72f;
             }
             string status = item.Locked ? "已锁定：仅防出售，仍可穿戴；死亡/放弃仍会丢失" : "未锁定";
             UnityEngine.UI.Text sale = ProjectUiFactory.Label(detailsContent, $"出售可获 {item.SellGold} 金币 · {status}", 21,

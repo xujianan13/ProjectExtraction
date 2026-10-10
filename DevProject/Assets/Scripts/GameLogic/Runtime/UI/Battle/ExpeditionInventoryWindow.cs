@@ -179,20 +179,26 @@ namespace GameLogic.UI.Battle
         }
 
         /// <summary>
-        /// 显示物品基础属性、词条和角色属性对比。
+        /// 显示选中物品、同部位当前装备，以及穿脱后的角色属性差值。
         /// </summary>
         /// <param name="item">当前选中物品。</param>
         private void RefreshDetails(ProjectItem item)
         {
             ProjectUiFactory.Clear(details);
-            string text = item == null ? "选择物品查看属性和词条" : ProjectEquipmentText.ColoredTitle(item) + "\n" +
+            string text = item == null ? "选择物品查看属性和词条" : "选中物品\n" + ProjectEquipmentText.ColoredTitle(item) + "\n" +
                 ProjectEquipmentText.Details(item);
-            if (item != null && run.TryPreviewEquipment(item, out ProjectCharacterStats current, out ProjectCharacterStats preview))
-                text += "\n\n属性预览（当前 → " + (item.Equipped ? "卸下后" : "穿戴后") + "）\n" +
-                    ExpeditionEquipmentComparison.Format(current, preview);
+            if (item != null && item.Type != ProjectItemType.Item)
+            {
+                text += "\n\n" + ProjectEquipmentText.EquippedDetails(item, run.Inventory);
+                string action = item.Equipped ? "卸下后" : item.RequiredLevel > run.PlayerLevel ? "满足等级后穿戴" : "穿戴后";
+                if (run.IsProtected(item.Id)) text += "\n需先移出安全箱才能穿戴。";
+                if (run.TryPreviewEquipment(item, out ProjectCharacterStats current, out ProjectCharacterStats preview))
+                    text += "\n\n属性预览（当前 → " + action + "）\n" + ExpeditionEquipmentComparison.Format(current, preview);
+                else text += "\n\n属性预览暂不可用。";
+            }
             UnityEngine.UI.Text label = ProjectUiFactory.Label(details, text, 22, TextAnchor.UpperLeft, Color.white);
             label.supportRichText = true;
-            ProjectUiFactory.Height(label.rectTransform, ProjectEquipmentText.PreferredHeight(text, 90f) + 120f);
+            label.gameObject.AddComponent<UnityEngine.UI.LayoutElement>().minHeight = 90f;
         }
 
         /// <summary>

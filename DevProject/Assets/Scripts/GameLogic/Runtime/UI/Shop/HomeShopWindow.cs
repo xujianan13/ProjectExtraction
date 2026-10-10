@@ -136,7 +136,7 @@ namespace GameLogic.UI.Shop
         }
 
         /// <summary>
-        /// 显示本次商品的实际属性、售价和购买限制。
+        /// 显示商品与当前装备的详情、潜在换装属性、售价和购买限制。
         /// </summary>
         private void RefreshDetails()
         {
@@ -146,26 +146,37 @@ namespace GameLogic.UI.Shop
                 AddLabel(detailsContent, "选择商品查看详情", 23, Color.white, 64f);
                 return;
             }
-            AddLabel(detailsContent, ProjectEquipmentText.Title(selected.Item), 27,
-                ProjectEquipmentText.QualityColor(selected.Item), 62f);
-            string attributes = ProjectEquipmentText.Details(selected.Item);
-            AddLabel(detailsContent, attributes, 22, Color.white, ProjectEquipmentText.PreferredHeight(attributes));
+            ProjectItem item = selected.Item;
+            AddLabel(detailsContent, "选中商品\n" + ProjectEquipmentText.Title(item), 27, ProjectEquipmentText.QualityColor(item), 62f);
+            AddLabel(detailsContent, ProjectEquipmentText.Details(item), 22, Color.white, 72f);
+            if (item.Type != ProjectItemType.Item)
+            {
+                AddLabel(detailsContent, ProjectEquipmentText.EquippedDetails(item, session.Warehouse), 22, Color.white, 72f);
+                if (session.TryGetEquipmentPreview(item, out ProjectCharacterStats preview, out string error))
+                {
+                    string heading = item.RequiredLevel > session.Level ? $"满足等级 {item.RequiredLevel} 后的换装属性预览" : "在仓库装备后的属性预览";
+                    string comparison = heading + "\n" + ExpeditionEquipmentComparison.Format(session.CharacterStats, preview);
+                    AddLabel(detailsContent, comparison, 22, Color.white, 72f);
+                }
+                else AddLabel(detailsContent, error, 21, new Color(1f, 0.8f, 0.5f), 64f);
+            }
             string limit = string.IsNullOrEmpty(selected.UnavailableReason) ? "购买后放入仓库，可前往仓库装备。" : selected.UnavailableReason;
             AddLabel(detailsContent, $"价格 {selected.PriceGold} 金币\n{limit}", 21, new Color(0.85f, 0.92f, 0.96f), 90f);
         }
 
         /// <summary>
-        /// 创建具有明确高度的详情文本。
+        /// 创建由文本实际换行高度参与滚动布局的详情文本。
         /// </summary>
         /// <param name="parent">文本父节点。</param>
         /// <param name="value">显示内容。</param>
         /// <param name="size">字体大小。</param>
         /// <param name="color">字体颜色。</param>
-        /// <param name="height">布局高度。</param>
+        /// <param name="height">布局最小高度。</param>
         private static void AddLabel(RectTransform parent, string value, int size, Color color, float height)
         {
             UnityEngine.UI.Text label = ProjectUiFactory.Label(parent, value, size, TextAnchor.UpperLeft, color);
-            ProjectUiFactory.Height(label.rectTransform, height);
+            label.supportRichText = true;
+            label.gameObject.AddComponent<UnityEngine.UI.LayoutElement>().minHeight = height;
         }
 
         /// <summary>

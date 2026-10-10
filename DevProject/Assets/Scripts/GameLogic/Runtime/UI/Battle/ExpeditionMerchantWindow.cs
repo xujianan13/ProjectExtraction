@@ -137,20 +137,37 @@ namespace GameLogic.UI.Battle
         }
 
         /// <summary>
-        /// 展示商品属性、词条和装备属性对比。
+        /// 展示商品、同部位当前装备和属性差值，已购买商品使用背包中的穿戴状态。
         /// </summary>
         /// <param name="offer">当前选中商品。</param>
         private void RefreshDetails(ExpeditionMerchantOffer offer)
         {
             ProjectUiFactory.Clear(details);
             ProjectItem item = offer?.Item;
-            string text = item == null ? "选择商品查看详情" : ProjectEquipmentText.ColoredTitle(item) + "\n价格 " +
+            var inventory = run.Inventory;
+            if (item != null)
+            {
+                foreach (ProjectItem owned in inventory)
+                {
+                    if (owned.Id != item.Id) continue;
+                    item = owned;
+                    break;
+                }
+            }
+            string text = item == null ? "选择商品查看详情" : "选中商品\n" + ProjectEquipmentText.ColoredTitle(item) + "\n价格 " +
                 offer.Price + " 金币 · " + (offer.Sold ? "已售" : "可购买") + "\n" + ProjectEquipmentText.Details(item);
-            if (item != null && run.TryPreviewEquipment(item, out ProjectCharacterStats current, out ProjectCharacterStats preview))
-                text += "\n\n属性预览（当前 → 穿戴后）\n" + ExpeditionEquipmentComparison.Format(current, preview);
+            if (item != null && item.Type != ProjectItemType.Item)
+            {
+                text += "\n\n" + ProjectEquipmentText.EquippedDetails(item, inventory);
+                string action = item.Equipped ? "卸下后" : item.RequiredLevel > run.PlayerLevel ? "满足等级后穿戴" : "穿戴后";
+                if (run.IsProtected(item.Id)) text += "\n需先移出安全箱才能穿戴。";
+                if (run.TryPreviewEquipment(item, out ProjectCharacterStats current, out ProjectCharacterStats preview))
+                    text += "\n\n属性预览（当前 → " + action + "）\n" + ExpeditionEquipmentComparison.Format(current, preview);
+                else text += "\n\n属性预览暂不可用。";
+            }
             UnityEngine.UI.Text label = ProjectUiFactory.Label(details, text, 22, TextAnchor.UpperLeft, Color.white);
             label.supportRichText = true;
-            ProjectUiFactory.Height(label.rectTransform, ProjectEquipmentText.PreferredHeight(text, 90f) + 120f);
+            label.gameObject.AddComponent<UnityEngine.UI.LayoutElement>().minHeight = 90f;
         }
 
         /// <summary>

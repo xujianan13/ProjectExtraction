@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using System.Text;
 using GameLogic.Project;
 using GameLogic.Tables;
@@ -43,6 +44,28 @@ namespace GameLogic.UI.Common
             if (item == null) return string.Empty;
             string color = ColorUtility.ToHtmlStringRGB(QualityColor(item));
             return $"<color=#{color}>{Title(item)}</color>";
+        }
+
+        /// <summary>
+        /// 展示选中装备同部位的当前穿戴详情，便于直接比较基础属性和高级词条。
+        /// </summary>
+        /// <param name="selected">正在查看的物品快照。</param>
+        /// <param name="items">当前仓库或局内背包的权威物品快照。</param>
+        /// <returns>当前装备详情、已穿戴提示或空槽说明；普通物品返回空字符串。</returns>
+        public static string EquippedDetails(ProjectItem selected, IReadOnlyList<ProjectItem> items)
+        {
+            if (selected.Type == ProjectItemType.Item) return string.Empty;
+            string heading = "当前穿戴（" + TypeName(selected.Type) + "）\n";
+            foreach (ProjectItem equipped in items)
+            {
+                bool sameSlot = equipped.Type == selected.Type ||
+                    ProjectEquipmentRules.IsArmor(equipped.Type) && ProjectEquipmentRules.IsArmor(selected.Type);
+                if (!equipped.Equipped || !sameSlot) continue;
+                if (equipped.Id == selected.Id)
+                    return heading + ColoredTitle(equipped) + "\n选中装备已穿戴，属性预览展示卸下后的变化。";
+                return heading + ColoredTitle(equipped) + "\n" + Details(equipped);
+            }
+            return heading + "该部位未穿戴装备。";
         }
 
         /// <summary>

@@ -1,5 +1,6 @@
 using System.Text;
 using GameLogic.Project;
+using UnityEngine;
 
 namespace GameLogic.UI.Common
 {
@@ -9,7 +10,7 @@ namespace GameLogic.UI.Common
     public static class ExpeditionEquipmentComparison
     {
         /// <summary>
-        /// 逐项展示当前属性和装备操作后的预览值。
+        /// 逐项展示当前属性、装备操作后的预览值和带颜色的增减量。
         /// </summary>
         /// <param name="current">当前角色属性。</param>
         /// <param name="preview">预计操作后的角色属性。</param>
@@ -39,8 +40,22 @@ namespace GameLogic.UI.Common
         /// <param name="current">当前值。</param>
         /// <param name="preview">预览值。</param>
         /// <param name="unit">可选单位。</param>
-        private static void Add(StringBuilder text, string name, float current, float preview, string unit = "") =>
+        private static void Add(StringBuilder text, string name, float current, float preview, string unit = "")
+        {
+            current = Mathf.Round(current * 10f) / 10f;
+            preview = Mathf.Round(preview * 10f) / 10f;
             text.Append(name).Append(' ').Append(current.ToString("0.#")).Append(unit).Append(" → ")
-                .Append(preview.ToString("0.#")).Append(unit).AppendLine();
+                .Append(preview.ToString("0.#")).Append(unit);
+            float difference = Mathf.Round((preview - current) * 10f) / 10f;
+            if (difference == 0f) text.Append("（不变）");
+            else
+            {
+                string color = difference > 0f ? "#70E59C" : "#FF8585";
+                text.Append(" <color=").Append(color).Append(">（");
+                if (difference > 0f) text.Append('+');
+                text.Append(difference.ToString("0.#")).Append(unit == "%" ? " 个百分点" : unit).Append("）</color>");
+            }
+            text.AppendLine();
+        }
     }
 }
