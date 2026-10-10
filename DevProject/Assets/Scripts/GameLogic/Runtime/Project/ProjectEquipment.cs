@@ -146,7 +146,7 @@ namespace GameLogic.Project
         }
 
         /// <summary>
-        /// 按三类原型掉落权重和六品质权重生成物品。
+        /// 按默认掉落池的模板和品质权重生成物品。
         /// </summary>
         /// <param name="random">本局独立随机源。</param>
         /// <param name="level">掉落等级。</param>
@@ -176,7 +176,11 @@ namespace GameLogic.Project
             int roll = random.Next(total);
             foreach (CfgLootPoolRow row in eligible)
             {
-                if (roll < row.Weight) return CreateGenerated(random, level, RollQuality(random), ProjectRulesConfig.Item(row.DefinitionId));
+                if (roll < row.Weight)
+                {
+                    if (!TryRollQuality(random, poolId, out ProjectItemQuality quality)) return null;
+                    return CreateGenerated(random, level, quality, ProjectRulesConfig.Item(row.DefinitionId));
+                }
                 roll -= row.Weight;
             }
             return null;
@@ -225,7 +229,11 @@ namespace GameLogic.Project
             int roll = random.Next(total);
             foreach (CfgLootPoolRow row in eligible)
             {
-                if (roll < row.Weight) return CreateGenerated(random, level, RollQuality(random), ProjectRulesConfig.Item(row.DefinitionId));
+                if (roll < row.Weight)
+                {
+                    if (!TryRollQuality(random, ProjectRulesConfig.Profile.DefaultLootPoolID, out ProjectItemQuality quality)) return null;
+                    return CreateGenerated(random, level, quality, ProjectRulesConfig.Item(row.DefinitionId));
+                }
                 roll -= row.Weight;
             }
             return null;
@@ -288,21 +296,51 @@ namespace GameLogic.Project
                 ProjectRulesConfig.Item(ProjectRulesConfig.Profile.StarterDefinitionId));
 
         /// <summary>
-        /// 按表中品质权重抽取品质。
+        /// 按指定掉落池的品质权重抽取品质。
         /// </summary>
         /// <param name="random">随机源。</param>
-        /// <returns>抽取的品质。</returns>
-        private static ProjectItemQuality RollQuality(System.Random random)
+        /// <param name="poolId">掉落池身份。</param>
+        /// <param name="quality">抽取的品质。</param>
+        /// <returns>品质池完整且有正权重时为真。</returns>
+        private static bool TryRollQuality(System.Random random, string poolId, out ProjectItemQuality quality)
         {
-            int total = 0;
-            foreach (CfgQualitiesRow row in GameTables.CfgQualities.GetAll()) total += row.Weight;
-            int roll = random.Next(total);
-            foreach (CfgQualitiesRow row in GameTables.CfgQualities.GetAll())
+            quality = ProjectItemQuality.Common;
+            if (GameTables.CfgLootQualities == null)
             {
-                if (roll < row.Weight) return (ProjectItemQuality)row.ID;
+                GameEntry.Get<ILogModule>()?.Error("Equipment", "掉落品质表未加载。");
+                return false;
+            }
+            long total = 0;
+            var rows = new List<CfgLootQualitiesRow>();
+            var qualities = new HashSet<int>();
+            foreach (CfgLootQualitiesRow row in GameTables.CfgLootQualities.GetAll())
+            {
+                if (row == null || row.PoolID != poolId) continue;
+                if (!Enum.IsDefined(typeof(ProjectItemQuality), row.Quality) || row.Weight < 0 || !qualities.Add(row.Quality))
+                {
+                    GameEntry.Get<ILogModule>()?.Error("Equipment", "掉落池品质配置无效：" + poolId);
+                    return false;
+                }
+                if (row.Weight <= 0) continue;
+                rows.Add(row);
+                total += row.Weight;
+            }
+            if (qualities.Count != Enum.GetValues(typeof(ProjectItemQuality)).Length || total <= 0 || total > int.MaxValue)
+            {
+                GameEntry.Get<ILogModule>()?.Error("Equipment", "掉落池品质缺失或权重无效：" + poolId);
+                return false;
+            }
+            int roll = random.Next((int)total);
+            foreach (CfgLootQualitiesRow row in rows)
+            {
+                if (roll < row.Weight)
+                {
+                    quality = (ProjectItemQuality)row.Quality;
+                    return true;
+                }
                 roll -= row.Weight;
             }
-            return ProjectItemQuality.Common;
+            return false;
         }
 
         /// <summary>

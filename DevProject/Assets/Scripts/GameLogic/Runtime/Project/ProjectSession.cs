@@ -147,13 +147,7 @@ namespace GameLogic.Project
         {
             if (!CanEdit()) return Rejected("当前不能整理装备。");
             ProjectSaveData candidate = Candidate();
-            ProjectItem item = candidate.Warehouse.Find(value => value.Id == itemId);
-            if (item == null || item.Type == ProjectItemType.Item) return Rejected("请选择可穿戴的武器或装备。");
-            if (item.RequiredLevel > candidate.Level) return Rejected("角色等级不足，无法穿戴。");
-            bool equip = !item.Equipped;
-            foreach (ProjectItem other in candidate.Warehouse)
-                if (other.Type == item.Type || ProjectEquipmentRules.IsArmor(other.Type) && ProjectEquipmentRules.IsArmor(item.Type)) other.Equipped = false;
-            item.Equipped = equip;
+            if (!TryApplyEquipment(candidate, itemId, out bool equip, out string error)) return Rejected(error);
             return CommitAsync(candidate, equip ? "已穿戴。" : "已卸下。");
         }
 

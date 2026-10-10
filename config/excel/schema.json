@@ -240,6 +240,10 @@
         },
         "LayoutID": {
           "ref": "CfgRoomLayouts"
+        },
+        "LootLevel": {
+          "min": 1,
+          "max": 1000
         }
       }
     },
@@ -295,6 +299,10 @@
       "fields": {
         "ID": {
           "min": 1
+        },
+        "RunHistoryLimit": {
+          "min": 1,
+          "max": 100
         }
       }
     },
@@ -330,6 +338,22 @@
     },
     "CfgLootPool": {
       "fields": {}
+    },
+    "CfgLootQualities": {
+      "fields": {
+        "ID": {
+          "required": true
+        },
+        "PoolID": {
+          "required": true
+        },
+        "Quality": {
+          "ref": "CfgQualities"
+        },
+        "Weight": {
+          "min": 0
+        }
+      }
     },
     "CfgRoguePolicy": {
       "fields": {
@@ -591,10 +615,18 @@
     },
     "CfgGuide": {
       "fields": {
-        "ID": { "required": true },
-        "SortOrder": { "min": 0 },
-        "Title": { "required": true },
-        "Body": { "required": true }
+        "ID": {
+          "required": true
+        },
+        "SortOrder": {
+          "min": 0
+        },
+        "Title": {
+          "required": true
+        },
+        "Body": {
+          "required": true
+        }
       }
     },
     "CfgCombatFeedback": {

@@ -1,5 +1,5 @@
 {
-  "schemaHash": "e3c79fe306b475ae0fa4704f5495e5332d5b8755298b033f025252bea52b610f",
+  "schemaHash": "43336095ea505f58cba990f264ad6a55c07e04b617230f27e97cd7cd35b08cee",
   "rows": [
     {
       "ID": 1,
@@ -37,7 +37,8 @@
       "SupplyHourFirst": 0,
       "SupplyHourSecond": 12,
       "SupplyHourThird": 18,
-      "StarterQuality": 0
+      "StarterQuality": 0,
+      "RunHistoryLimit": 20
     }
   ]
 }

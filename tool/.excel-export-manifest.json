@@ -3,7 +3,7 @@
   "sources": [
     {
       "path": "config/excel/schema.json",
-      "sha256": "b0c8f870369ff0f37521ed2c8d6367e76a3b91a1a5c5b5b15c9218320c8b2472"
+      "sha256": "07ab0c8c1b24a3a812458c7dd6c41cb4f7dcf1241e9949e336d511dcaf494881"
     },
     {
       "path": "config/excel/CfgAdvancedAffixes.xlsx",
@@ -79,11 +79,15 @@
     },
     {
       "path": "config/excel/CfgLevels.xlsx",
-      "sha256": "60bf1440c6dd994bfcb5fd6a294f50edeeb8ceef0a7b8798c4506919ba72f135"
+      "sha256": "bec70680c65bc30b56cb62daf07b1874c1daa008955a448e00def424f95e8363"
     },
     {
       "path": "config/excel/CfgLootPool.xlsx",
       "sha256": "d3a75361a95a4f5fafb0746b37365e355495e5c85ad358fc32c1caee0aadb6ba"
+    },
+    {
+      "path": "config/excel/CfgLootQualities.xlsx",
+      "sha256": "150a11d3d890ed3baab4a48d14976061b3c82a6c1aa19bd5670c8ac37ec72357"
     },
     {
       "path": "config/excel/CfgObstacles.xlsx",
@@ -95,7 +99,7 @@
     },
     {
       "path": "config/excel/CfgProfile.xlsx",
-      "sha256": "d0ae22440758ee0538f831e06f6fc992758ab14d98d8d91ad8573ec0633b8e8c"
+      "sha256": "16287136f2e023d8b9eb044962c83e981caa77b00bdec37276f57bfd989fc1a2"
     },
     {
       "path": "config/excel/CfgQualities.xlsx",
@@ -1100,6 +1104,10 @@
         {
           "name": "LootPoolID",
           "type": "string"
+        },
+        {
+          "name": "LootLevel",
+          "type": "int"
         }
       ]
     },
@@ -1129,6 +1137,28 @@
         },
         {
           "name": "MaxLevel",
+          "type": "int"
+        }
+      ]
+    },
+    {
+      "name": "CfgLootQualities",
+      "source": "config/excel/CfgLootQualities.xlsx",
+      "fields": [
+        {
+          "name": "ID",
+          "type": "string"
+        },
+        {
+          "name": "PoolID",
+          "type": "string"
+        },
+        {
+          "name": "Quality",
+          "type": "int"
+        },
+        {
+          "name": "Weight",
           "type": "int"
         }
       ]
@@ -1347,6 +1377,10 @@
         },
         {
           "name": "StarterQuality",
+          "type": "int"
+        },
+        {
+          "name": "RunHistoryLimit",
           "type": "int"
         }
       ]
@@ -1857,11 +1891,11 @@
     },
     {
       "path": "DevProject/Assets/GameResources/Config/Tables/Table_CfgLevels.json",
-      "sha256": "8c3c1cf19aabf1a9d54b4867ddff6244c6b1f1ac7412e2b0a7d78ceee6932464"
+      "sha256": "a37cd1812bcdf8d4deccb63b6857b0039d75cae7cb6185cd6be287282292e4f2"
     },
     {
       "path": "DevProject/Assets/Scripts/GameLogic/Runtime/Gen/CfgLevels.Gen.cs",
-      "sha256": "34b9119917fe59f856dd300a54539a1fb5c867a24efa3522c529a4253bf13882"
+      "sha256": "2ea4a577310eedfbdd06d442656525a9b766b4da8b1b6aa8a6df9176bf768fca"
     },
     {
       "path": "DevProject/Assets/GameResources/Config/Tables/Table_CfgLootPool.json",
@@ -1870,6 +1904,14 @@
     {
       "path": "DevProject/Assets/Scripts/GameLogic/Runtime/Gen/CfgLootPool.Gen.cs",
       "sha256": "b82ca62ae112fb7c8d466a9d15ae73f068bd18bee62cc57ca5f6bf75c9b57d6b"
+    },
+    {
+      "path": "DevProject/Assets/GameResources/Config/Tables/Table_CfgLootQualities.json",
+      "sha256": "a8e2d6d826057271ee8cef802a47f82a5c6b761f03f1bb94d0a5a8bee6c0a09a"
+    },
+    {
+      "path": "DevProject/Assets/Scripts/GameLogic/Runtime/Gen/CfgLootQualities.Gen.cs",
+      "sha256": "bd057474861be2f96e5fb35bf6005dbed38dad90bb8055b42135867f590cae7d"
     },
     {
       "path": "DevProject/Assets/GameResources/Config/Tables/Table_CfgObstacles.json",
@@ -1889,11 +1931,11 @@
     },
     {
       "path": "DevProject/Assets/GameResources/Config/Tables/Table_CfgProfile.json",
-      "sha256": "9fb814053069c57fe0cf7f3665162cacf593c5c18ee797e371610b4bf75c2b7d"
+      "sha256": "bd4f5f65bbf9caed0536e1ec8ce63ba12f471457d2934785ebd9ed50fc2e3fb0"
     },
     {
       "path": "DevProject/Assets/Scripts/GameLogic/Runtime/Gen/CfgProfile.Gen.cs",
-      "sha256": "a3f88d4ec035134931d58845299303c713e9396024d422b0da07474d7f63e43a"
+      "sha256": "404214724b8b3c7afc0836a937b872487ca15fa21c1d93cbfc3d2da4291345ce"
     },
     {
       "path": "DevProject/Assets/GameResources/Config/Tables/Table_CfgQualities.json",
@@ -1953,7 +1995,7 @@
     },
     {
       "path": "DevProject/Assets/Scripts/GameLogic/Runtime/Gen/GameTables.Gen.cs",
-      "sha256": "42d367ada5ec3edfa7096335d0c7b95ede68028578d577f7ac89fb4a1600da27"
+      "sha256": "a11d92b9d63a9bd977aa5c8752e95bc02a62ea6307681cd5205e2108aa6df3d9"
     }
   ]
 }

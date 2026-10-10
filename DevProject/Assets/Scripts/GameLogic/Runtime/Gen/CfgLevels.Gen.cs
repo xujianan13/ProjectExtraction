@@ -77,6 +77,11 @@ namespace GameLogic.Tables
         /// LootPoolID 字段。
         /// </summary>
         public string LootPoolID;
+
+        /// <summary>
+        /// LootLevel 字段。
+        /// </summary>
+        public int LootLevel;
     }
 
     /// <summary>
@@ -113,7 +118,7 @@ namespace GameLogic.Tables
                 TextAsset asset = lease.Asset;
                 if (asset == null) throw new InvalidOperationException("配置表资源不可用：CfgLevels");
                 var envelope = JsonUtility.FromJson(asset.text, typeof(Envelope)) as Envelope;
-                if (envelope == null || envelope.schemaHash != "dd62edbbbfa6232c02384edf403824523b791184c28945638817161f6ed6d682" || envelope.rows == null)
+                if (envelope == null || envelope.schemaHash != "5bd34f59a8257df9afff66467beb455b089615418377157ff5a0272bff10de1e" || envelope.rows == null)
                     throw new InvalidOperationException("配置表结构不匹配：CfgLevels");
 
                 var table = new CfgLevelsTable();

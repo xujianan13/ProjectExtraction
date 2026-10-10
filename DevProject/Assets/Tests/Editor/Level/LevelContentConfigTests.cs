@@ -138,6 +138,33 @@ namespace GameLogic.Tests.Editor.Level
         }
 
         /// <summary>
+        /// 关卡编号与物品等级分离后，敌人掉落按物品等级筛选。
+        /// </summary>
+        [Test]
+        public void EnemyDropUsesLootLevelRatherThanLevelId()
+        {
+            var levels = new List<CfgLevelsRow>(GameTables.CfgLevels.GetAll());
+            var pools = new List<CfgLootPoolRow>(GameTables.CfgLootPool.GetAll());
+            var originalLootLevels = new List<int>();
+            var originalMinLevels = new List<int>();
+            foreach (CfgLevelsRow level in levels) originalLootLevels.Add(level.LootLevel);
+            foreach (CfgLootPoolRow pool in pools) originalMinLevels.Add(pool.MinLevel);
+            try
+            {
+                foreach (CfgLevelsRow level in levels) level.LootLevel = 6;
+                foreach (CfgLootPoolRow pool in pools) pool.MinLevel = 6;
+                Assert.That(LevelContentConfig.Validate(out string error), Is.True, error);
+                Assert.That(LevelContentConfig.TryGetLevel(3, out LevelDefinition resolved), Is.True);
+                Assert.That(resolved.LootLevel, Is.EqualTo(6));
+            }
+            finally
+            {
+                for (int index = 0; index < levels.Count; index++) levels[index].LootLevel = originalLootLevels[index];
+                for (int index = 0; index < pools.Count; index++) pools[index].MinLevel = originalMinLevels[index];
+            }
+        }
+
+        /// <summary>
         /// 关卡等级没有正权重可抽掉落项时拒绝内容配置。
         /// </summary>
         [Test]

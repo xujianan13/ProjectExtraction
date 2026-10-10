@@ -15,6 +15,10 @@ namespace GameLogic.Gameplay.Level
         public CfgLevelsRow Row { get; }
         public CfgRoomLayoutsRow Layout { get; }
         public int ID => Row.ID;
+        /// <summary>
+        /// 当前关卡生成物品时使用的掉落等级。
+        /// </summary>
+        public int LootLevel => Row.LootLevel;
         public string LootPoolID => Row.LootPoolID;
         public IReadOnlyList<LevelObstacle> Obstacles { get; }
 
@@ -112,15 +116,15 @@ namespace GameLogic.Gameplay.Level
             foreach (CfgLevelsRow row in GameTables.CfgLevels.GetAll())
             {
                 if (row.IsDefault) defaults++;
-                if (row.ID < 1 || row.ID > PrototypeRules.LegacySkillRankLimit || string.IsNullOrWhiteSpace(row.Name) ||
-                    string.IsNullOrWhiteSpace(row.Description) || row.RequiredLevel < 1 ||
+                if (row.ID < 1 || row.ID > PrototypeRules.LegacySkillRankLimit || row.LootLevel < 1 || row.LootLevel > 1000 ||
+                    string.IsNullOrWhiteSpace(row.Name) || string.IsNullOrWhiteSpace(row.Description) || row.RequiredLevel < 1 ||
                     row.GridWidth < 2 || row.GridHeight < 2 || (long)row.GridWidth * row.GridHeight < 6 ||
                     (long)row.GridWidth * row.GridHeight > 1000 ||
                     row.ExtraConnectionMin < 0 || row.ExtraConnectionMax < row.ExtraConnectionMin ||
                     row.ExtraConnectionMax > (row.GridWidth - 1) * (row.GridHeight - 1) ||
                     row.LootRoomCount < 0 || row.LootRoomCount > row.GridWidth * row.GridHeight - 3 ||
                     !Finite(row.ExtraExtractionChance) || row.ExtraExtractionChance < 0 || row.ExtraExtractionChance > 1 ||
-                    GameTables.CfgRoomLayouts.GetById(row.LayoutID) == null || !HasPool(row.LootPoolID, row.ID))
+                    GameTables.CfgRoomLayouts.GetById(row.LayoutID) == null || !HasPool(row.LootPoolID, row.LootLevel))
                 { error = "关卡配置无效：" + row.ID; return false; }
             }
             if (defaults != 1 || GameTables.CfgLevels.GetAll().Count == 0)
@@ -170,7 +174,8 @@ namespace GameLogic.Gameplay.Level
                     GameTables.CfgLevels.GetById(row.LevelID) == null ||
                     GameTables.CfgRoomLayouts.GetById(row.LayoutID) == null || row.Weight <= 0 ||
                     row.AllowedExits < 1 || row.AllowedExits > 15 || row.IsStart && type != LevelRoomType.Mob ||
-                    (type == LevelRoomType.Loot || type == LevelRoomType.Npc) && !HasPool(row.LootPoolID, row.LevelID) ||
+                    (type == LevelRoomType.Loot || type == LevelRoomType.Npc) &&
+                        !HasPool(row.LootPoolID, GameTables.CfgLevels.GetById(row.LevelID)?.LootLevel ?? 0) ||
                     type == LevelRoomType.Npc && (row.NpcPrice < 1 || row.NpcStock < 1) ||
                     (type == LevelRoomType.Mob || type == LevelRoomType.Boss) && string.IsNullOrWhiteSpace(row.EncounterPoolID) ||
                     (type == LevelRoomType.Npc || type == LevelRoomType.Loot) && !string.IsNullOrWhiteSpace(row.EncounterPoolID))

@@ -127,7 +127,9 @@ namespace GameLogic.Gameplay.Expedition
                     loot.Add(drop.Item.Id, item);
                 }
                 item.SetActive(true);
-                item.transform.position = drop.Position + Vector3.up * 0.5f;
+                bool selected = drop.Item.Id == run.SelectedLootId;
+                item.transform.localScale = Vector3.one * (selected ? 0.72f : 0.55f);
+                item.transform.position = drop.Position + Vector3.up * (selected ? 0.7f : 0.5f);
             }
             RefreshProjectiles();
             RefreshCues();

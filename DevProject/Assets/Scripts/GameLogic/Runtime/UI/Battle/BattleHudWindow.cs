@@ -18,14 +18,21 @@ namespace GameLogic.UI.Battle
         private ExpeditionRun run;
         private ProjectRunCoordinator coordinator;
         private UnityEngine.UI.Text interactionLabel;
+        private UnityEngine.UI.Text targetSummary;
+        private UnityEngine.UI.Button cycleButton;
         private UnityEngine.UI.Text status;
         private UnityEngine.UI.Text hint;
         private RectTransform map;
         private UnityEngine.UI.Button resumeChoice;
         private UnityEngine.UI.Button interactButton;
         private ExpeditionJoystick joystick;
+        private BattleHudLayout layout;
         private int mapRoom = -1;
         private int mapCleared = -1;
+        private int selectedMapRoomId = -1;
+        private string selectedInteractionId;
+        private string selectedMapDetail;
+        private LevelMinimapProjection mapProjection;
         private bool openingPanel;
         private ExpeditionPanelKind openedPanel;
 
@@ -49,7 +56,12 @@ namespace GameLogic.UI.Battle
             handle.sizeDelta = Vector2.one * 100f;
             handle.GetComponent<JoystickDiscGraphic>().raycastTarget = false;
             joystick.SetHandle(handle);
-            RectTransform actions = ProjectUiFactory.Vertical(content, "ControlActions", 12f);
+            RectTransform actions = ProjectUiFactory.Vertical(content, "ControlActions", 8f);
+            targetSummary = ProjectUiFactory.Label(actions, "附近暂无可交互目标", 22, TextAnchor.UpperLeft, Color.white);
+            ProjectUiFactory.Height(targetSummary.rectTransform, 170f);
+            cycleButton = ProjectUiFactory.ActionButton(actions, "切换目标 / Tab", CycleInteraction);
+            cycleButton.GetComponentInChildren<UnityEngine.UI.Text>().fontSize = 26;
+            ProjectUiFactory.Height((RectTransform)cycleButton.transform, 52f);
             actions.GetComponent<UnityEngine.UI.VerticalLayoutGroup>().childAlignment = TextAnchor.LowerCenter;
             interactButton = ProjectUiFactory.ActionButton(actions, "交互 / E", RequestInteraction);
             interactionLabel = interactButton.GetComponentInChildren<UnityEngine.UI.Text>();
@@ -67,7 +79,8 @@ namespace GameLogic.UI.Battle
             resumeChoice.GetComponentInChildren<UnityEngine.UI.Text>().fontSize = 30;
             ProjectUiFactory.Height((RectTransform)resumeChoice.transform, 90f);
             resumeChoice.gameObject.SetActive(false);
-            content.gameObject.AddComponent<BattleHudLayout>().Configure(header, map, stick, actions);
+            layout = content.gameObject.AddComponent<BattleHudLayout>();
+            layout.Configure(header, map, stick, actions);
         }
 
         /// <summary>
@@ -105,28 +118,105 @@ namespace GameLogic.UI.Battle
             run.World.TryGetActor(run.Player, out CombatActorSnapshot player);
             status.text = "生命 " + Mathf.CeilToInt(player.Health) + " / " + Mathf.CeilToInt(player.MaxHealth) +
                 "\n本局经验 " + run.KillExperience + " · 金币 " + run.AvailableGold;
-            hint.text = run.Message;
+            hint.text = string.IsNullOrEmpty(selectedMapDetail) ? run.Message : run.Message + "\n" + selectedMapDetail;
+            RefreshTarget();
             bool choosing = run.IsChoosingRogue && run.PendingRogueChoice != null;
-            resumeChoice.gameObject.SetActive(choosing);
+            if (resumeChoice.gameObject.activeSelf != choosing)
+            {
+                resumeChoice.gameObject.SetActive(choosing);
+                layout.Refresh();
+            }
             bool acceptsInput = run.CanAcceptPlayerInput;
             joystick.enabled = acceptsInput;
             if (!acceptsInput) joystick.ResetInput();
-            interactButton.interactable = acceptsInput;
+            interactButton.interactable = acceptsInput && run.HasInteraction;
+            cycleButton.interactable = acceptsInput && run.InteractionCount > 1;
             if (choosing)
             {
                 run.SetTouchMove(Vector2.zero);
             }
             interactionLabel.text = run.InteractionLabel;
+            LevelMinimapProjection projection = run.Maps.GetMinimapProjection();
             int cleared = 0;
-            foreach (LevelRoomState room in run.Maps.Rooms) if (room.IsCleared) cleared++;
+            foreach (LevelMinimapRoom room in projection.Rooms) if (room.IsCleared == true) cleared++;
+            if (mapRoom != run.Maps.CurrentRoomId)
+            {
+                selectedMapRoomId = -1;
+                selectedMapDetail = null;
+                hint.text = run.Message;
+            }
             if (mapRoom != run.Maps.CurrentRoomId || cleared != mapCleared)
             {
                 mapRoom = run.Maps.CurrentRoomId;
                 mapCleared = cleared;
-                RefreshMap(run.Maps.GetMinimapProjection());
+                RefreshMap(projection);
             }
             if (run.ActivePanel == ExpeditionPanelKind.None) openedPanel = ExpeditionPanelKind.None;
             else if (!openingPanel && openedPanel != run.ActivePanel) OpenActivePanelAsync(run.ActivePanel).Forget();
+        }
+
+        /// <summary>
+        /// 只在附近目标身份变化时读取掉落副本，其余目标显示单局说明。
+        /// </summary>
+        private void RefreshTarget()
+        {
+            string id = run.SelectedInteractionId;
+            if (selectedInteractionId != id)
+            {
+                selectedInteractionId = id;
+                if (run.TryGetInteractionItem(out ProjectItem item))
+                {
+                    targetSummary.text = ProjectEquipmentText.LootSummary(item);
+                    return;
+                }
+                targetSummary.text = string.Empty;
+            }
+            if (string.IsNullOrEmpty(run.SelectedLootId))
+                targetSummary.text = string.IsNullOrEmpty(run.InteractionDescription) ? "附近暂无可交互目标" : run.InteractionDescription;
+            else if (string.IsNullOrEmpty(targetSummary.text)) targetSummary.text = "目标信息暂不可用";
+        }
+
+        /// <summary>
+        /// 显示或取消投影中一个地图格点的已知详情。
+        /// </summary>
+        /// <param name="roomId">玩家可见投影中的地图标识。</param>
+        private void SelectMapRoom(int roomId)
+        {
+            if (mapProjection == null) return;
+            if (selectedMapRoomId == roomId)
+            {
+                selectedMapRoomId = -1;
+                selectedMapDetail = null;
+            }
+            else
+            {
+                bool found = false;
+                foreach (LevelMinimapRoom room in mapProjection.Rooms)
+                    if (room.RoomId == roomId)
+                    {
+                        selectedMapRoomId = roomId;
+                        selectedMapDetail = MinimapRoomDetail(room);
+                        found = true;
+                        break;
+                    }
+                if (!found) return;
+            }
+            hint.text = string.IsNullOrEmpty(selectedMapDetail) ? run.Message : run.Message + "\n" + selectedMapDetail;
+            RefreshMap(mapProjection);
+        }
+
+        /// <summary>
+        /// 仅从玩家可见投影字段生成地图详情。
+        /// </summary>
+        /// <param name="room">已过滤的地图格点。</param>
+        /// <returns>当前已知的地图说明。</returns>
+        private static string MinimapRoomDetail(LevelMinimapRoom room)
+        {
+            if (!room.IsVisited || !room.Type.HasValue) return $"地图 {room.RoomId}：未知区域";
+            string type = room.Type == LevelRoomType.Boss ? "首领房" : room.Type == LevelRoomType.Npc ? "商店" :
+                room.Type == LevelRoomType.Loot ? "战利品房" : "战斗房";
+            string state = room.IsCleared.HasValue ? room.IsCleared.Value ? " · 已清理" : " · 未清理" : string.Empty;
+            return $"地图 {room.RoomId}：{type}{state}" + (room.IsCurrent ? " · 当前所在" : string.Empty);
         }
 
         /// <summary>
@@ -135,6 +225,19 @@ namespace GameLogic.UI.Battle
         /// <param name="projection">已经过滤的信息投影。</param>
         private void RefreshMap(LevelMinimapProjection projection)
         {
+            mapProjection = projection;
+            if (selectedMapRoomId >= 0)
+            {
+                selectedMapDetail = null;
+                foreach (LevelMinimapRoom room in projection.Rooms)
+                    if (room.RoomId == selectedMapRoomId)
+                    {
+                        selectedMapDetail = MinimapRoomDetail(room);
+                        break;
+                    }
+                if (selectedMapDetail == null) selectedMapRoomId = -1;
+                hint.text = string.IsNullOrEmpty(selectedMapDetail) ? run.Message : run.Message + "\n" + selectedMapDetail;
+            }
             ProjectUiFactory.Clear(map);
             int minX = int.MaxValue, maxX = int.MinValue, minY = int.MaxValue, maxY = int.MinValue;
             var positions = new Dictionary<int, Vector2>();
@@ -156,6 +259,7 @@ namespace GameLogic.UI.Battle
             foreach (LevelMinimapRoom room in projection.Rooms)
             {
                 RectTransform cell = ProjectUiFactory.Panel(map, "Room_" + room.RoomId,
+                    room.RoomId == selectedMapRoomId ? new Color(0.7f, 0.55f, 0.2f) :
                     room.IsCurrent ? new Color(0.1f, 0.7f, 0.8f) : new Color(0.2f, 0.3f, 0.4f));
                 Vector2 center = positions[room.RoomId];
                 Place(cell, center - new Vector2(0.06f, 0.09f), center + new Vector2(0.06f, 0.09f));
@@ -163,6 +267,10 @@ namespace GameLogic.UI.Battle
                     room.Type == LevelRoomType.Loot ? "箱" : room.IsCleared == true ? "✓" : "战";
                 var label = ProjectUiFactory.Label(cell, caption, 18, TextAnchor.MiddleCenter, Color.white);
                 ProjectUiFactory.Stretch(label.rectTransform, 0);
+                int roomId = room.RoomId;
+                UnityEngine.UI.Button button = cell.gameObject.AddComponent<UnityEngine.UI.Button>();
+                button.targetGraphic = cell.GetComponent<UnityEngine.UI.Image>();
+                button.onClick.AddListener(() => SelectMapRoom(roomId));
             }
         }
 
@@ -246,6 +354,14 @@ namespace GameLogic.UI.Battle
             }
         }
 
+        /// <summary>
+        /// 在可操作时切换附近目标。
+        /// </summary>
+        private void CycleInteraction()
+        {
+            if (coordinator?.Phase == ProjectRunPhase.Playing && run?.CanAcceptPlayerInput == true && run.InteractionCount > 1)
+                run.CycleInteraction();
+        }
         /// <summary>
         /// 仅在本局游玩阶段提交交互请求。
         /// </summary>

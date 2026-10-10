@@ -24,6 +24,7 @@ namespace GameLogic.UI.Home
         private UnityEngine.UI.Button warehouseButton;
         private UnityEngine.UI.Button skillsButton;
         private UnityEngine.UI.Button shopButton;
+        private UnityEngine.UI.Button historyButton;
         private UnityEngine.UI.Button characterButton;
         private UnityEngine.UI.Button settingsButton;
         private UnityEngine.UI.Button guideButton;
@@ -103,6 +104,7 @@ namespace GameLogic.UI.Home
             warehouseButton = ProjectUiFactory.ActionButton(footer, "仓库", () => GameEntry.Get<IUIModule>().OpenWindowAsync(2101).Forget());
             skillsButton = ProjectUiFactory.ActionButton(footer, "技能", () => GameEntry.Get<IUIModule>().OpenWindowAsync(2102).Forget());
             shopButton = ProjectUiFactory.ActionButton(footer, "商店", () => GameEntry.Get<IUIModule>().OpenWindowAsync(ProjectServices.HomeShopWindow).Forget());
+            historyButton = ProjectUiFactory.ActionButton(footer, "战绩", () => OpenUtility(ProjectServices.RunHistoryWindow));
         }
 
         /// <summary>
@@ -121,6 +123,7 @@ namespace GameLogic.UI.Home
                 warehouseButton.interactable = false;
                 skillsButton.interactable = false;
                 shopButton.interactable = false;
+                historyButton.interactable = false;
                 characterButton.interactable = false;
                 settingsButton.interactable = false;
                 guideButton.interactable = false;
@@ -182,6 +185,7 @@ namespace GameLogic.UI.Home
             warehouseButton.interactable = canEdit;
             skillsButton.interactable = canEdit;
             shopButton.interactable = canEdit;
+            historyButton.interactable = canEdit;
             characterButton.interactable = canEdit;
             settingsButton.interactable = canEdit;
             guideButton.interactable = canEdit;

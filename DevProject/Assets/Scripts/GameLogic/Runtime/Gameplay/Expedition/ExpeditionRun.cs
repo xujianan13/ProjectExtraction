@@ -47,6 +47,10 @@ namespace GameLogic.Gameplay.Expedition
         public event Action<CombatEvent> CombatEventPublished;
         public string RunId { get; }
         public int LevelId { get; }
+        /// <summary>
+        /// 本局随机装备使用的配置等级，与关卡身份独立。
+        /// </summary>
+        public int LootLevel { get; }
         public int Seed => Maps.Seed;
         public LevelRunState Maps { get; }
         public CombatWorld World { get; }
@@ -86,6 +90,7 @@ namespace GameLogic.Gameplay.Expedition
             this.session = session;
             RunId = runId;
             LevelId = level.ID;
+            LootLevel = level.LootLevel;
             Maps = maps;
             rogueChoices = new RogueChoiceSession(runId, maps.Seed ^ 0x5247, roguePolicy);
             rogueAccessProvider = rogueAccess;
@@ -254,7 +259,9 @@ namespace GameLogic.Gameplay.Expedition
             Vector2 movement = input.GetVector2("Gameplay/Move");
             if (touchMove.sqrMagnitude > movement.sqrMagnitude) movement = touchMove;
             World.SetMove(Player, movement);
-            bool interact = interactionRequested || input.GetButton("Gameplay/Interact").PressedThisFrame;
+            if (input.GetButton("Gameplay/CycleInteraction").PressedThisFrame) CycleInteraction();
+            if (input.GetButton("Gameplay/Interact").PressedThisFrame) RequestInteraction();
+            bool interact = interactionRequested;
             World.Advance(deltaTime, () =>
             {
                 bool continueRunning = CompleteTick(interact);
@@ -288,7 +295,7 @@ namespace GameLogic.Gameplay.Expedition
                         KillExperience = (int)Math.Min(int.MaxValue, (long)KillExperience + enemy.ExperienceAt(LevelId));
                         if (random.NextDouble() < enemy.DropChance)
                             drops.Add(new ExpeditionDrop { RoomId = fact.RoomId, Position = fact.Position,
-                                Item = ProjectEquipmentRules.CreateLootFromPool(random, LevelId, enemy.DropPoolID) });
+                                Item = ProjectEquipmentRules.CreateLootFromPool(random, LootLevel, enemy.DropPoolID) });
                     }
                 }
                 else if (fact.Kind == CombatEventKind.RoomCleared && Maps.TryGetRoom(fact.RoomId, out LevelRoomState room))
@@ -373,7 +380,10 @@ namespace GameLogic.Gameplay.Expedition
         /// </summary>
         public void RequestInteraction()
         {
-            if (CanInteract) interactionRequested = true;
+            if (!CanInteract || !World.TryGetActor(Player, out CombatActorSnapshot player) || player.Dead) return;
+            UpdateInteractionLabel(player.Position);
+            requestedInteractionId = SelectedInteractionId;
+            interactionRequested = HasInteraction;
         }
 
         /// <summary>
@@ -453,6 +463,7 @@ namespace GameLogic.Gameplay.Expedition
             ActivePanel = ExpeditionPanelKind.None;
             roomRewardSources.Clear();
             StopRogueChoices();
+            ClearInteractionTargets();
             Changed?.Invoke();
             World.ClearPendingTime();
             touchMove = Vector2.zero;
@@ -473,57 +484,6 @@ namespace GameLogic.Gameplay.Expedition
             CombatEventPublished = null;
             RogueChoiceChanged = null;
             rogueLifetime.Dispose();
-        }
-
-        /// <summary>
-        /// 在操作前显示交互类型和商店价格。
-        /// </summary>
-        /// <param name="position">玩家权威位置。</param>
-        private void UpdateInteractionLabel(Vector3 position)
-        {
-            InteractionLabel = "交互 / E";
-            if (RoomView.TryGetExitNear(position, out _)) { InteractionLabel = "进入相邻地图 / E"; return; }
-            foreach (ExpeditionDrop drop in drops)
-                if (!drop.Collected && drop.RoomId == Maps.CurrentRoomId && (drop.Position - position).sqrMagnitude <= Layout.ObjectInteractionRadius * Layout.ObjectInteractionRadius)
-                { InteractionLabel = "拾取战利品 / E"; return; }
-            if (!RoomView.TryGetInteractionNear(position, out LevelInteractionKind kind)) return;
-            if (kind == LevelInteractionKind.Chest) InteractionLabel = "打开箱子 / E";
-            if (kind == LevelInteractionKind.Npc)
-            {
-                bool sold = CurrentRoom.TryGetNpcStock("relic", out int stock) && stock <= 0;
-                InteractionLabel = sold ? "商品已售罄" : "查看商店 / E";
-            }
-        }
-
-        /// <summary>
-        /// 执行靠近目标的单次交互，换图不受清怪状态限制。
-        /// </summary>
-        /// <param name="position">玩家权威位置。</param>
-        private void Interact(Vector3 position)
-        {
-            if (!CanInteract) return;
-            if (RoomView.TryGetExitNear(position, out RoomDirection direction)) { ChangeRoom(direction); return; }
-            foreach (ExpeditionDrop drop in drops)
-            {
-                if (drop.Collected || drop.RoomId != Maps.CurrentRoomId || (drop.Position - position).sqrMagnitude > Layout.ObjectInteractionRadius * Layout.ObjectInteractionRadius) continue;
-                drop.Collected = true;
-                inventory.Add(drop.Item);
-                Message = "拾取：" + drop.Item.Name;
-                return;
-            }
-            if (!RoomView.TryGetInteractionNear(position, out LevelInteractionKind kind)) { Message = "请靠近出口、战利品或 NPC。"; return; }
-            if (kind == LevelInteractionKind.Chest && !CurrentRoom.ChestOpened)
-            {
-                CurrentRoom.MarkChestOpened();
-                inventory.Add(ProjectEquipmentRules.CreateLootFromPool(random, LevelId, CurrentRoom.Plan.LootPoolID));
-                Message = "已打开箱子，获得一件战利品。";
-                TryBeginRogueChoice("chest:" + CurrentRoom.RoomId);
-            }
-            else if (kind == LevelInteractionKind.Npc)
-            {
-                TryOpenMerchant();
-            }
-            RoomView.Refresh();
         }
 
         /// <summary>
@@ -554,6 +514,7 @@ namespace GameLogic.Gameplay.Expedition
             }
             LevelRoomView previous = RoomView;
             RoomView = prepared;
+            ClearInteractionTargets();
             previous.Dispose();
             if (!SpawnRoomEnemies(room))
             {

@@ -111,6 +111,11 @@ namespace GameLogic.Tables
         public static CfgLootPoolTable CfgLootPool { get; private set; }
 
         /// <summary>
+        /// CfgLootQualities 配置表。
+        /// </summary>
+        public static CfgLootQualitiesTable CfgLootQualities { get; private set; }
+
+        /// <summary>
         /// CfgObstacles 配置表。
         /// </summary>
         public static CfgObstaclesTable CfgObstacles { get; private set; }
@@ -190,6 +195,7 @@ namespace GameLogic.Tables
             CfgItemDefinitionsTable nextCfgItemDefinitions = await CfgItemDefinitionsTable.LoadAsync(resources, ct);
             CfgLevelsTable nextCfgLevels = await CfgLevelsTable.LoadAsync(resources, ct);
             CfgLootPoolTable nextCfgLootPool = await CfgLootPoolTable.LoadAsync(resources, ct);
+            CfgLootQualitiesTable nextCfgLootQualities = await CfgLootQualitiesTable.LoadAsync(resources, ct);
             CfgObstaclesTable nextCfgObstacles = await CfgObstaclesTable.LoadAsync(resources, ct);
             CfgPlayerCombatTable nextCfgPlayerCombat = await CfgPlayerCombatTable.LoadAsync(resources, ct);
             CfgProfileTable nextCfgProfile = await CfgProfileTable.LoadAsync(resources, ct);
@@ -220,6 +226,7 @@ namespace GameLogic.Tables
             CfgItemDefinitions = nextCfgItemDefinitions;
             CfgLevels = nextCfgLevels;
             CfgLootPool = nextCfgLootPool;
+            CfgLootQualities = nextCfgLootQualities;
             CfgObstacles = nextCfgObstacles;
             CfgPlayerCombat = nextCfgPlayerCombat;
             CfgProfile = nextCfgProfile;

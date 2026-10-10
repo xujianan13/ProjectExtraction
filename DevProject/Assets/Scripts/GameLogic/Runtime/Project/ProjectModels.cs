@@ -167,6 +167,7 @@ namespace GameLogic.Project
         public int ActiveRulesVersion;
         public ProjectRunOutcome Outcome;
         public ProjectRunResult LastResult;
+        public List<ProjectRunHistoryEntry> RunHistory = new();
         public List<ProjectItem> Warehouse = new();
         public List<ProjectItem> EntryItems = new();
 
@@ -202,6 +203,7 @@ namespace GameLogic.Project
             copy.Preferences = Preferences?.Copy() ?? new ProjectPreferences();
             copy.Outcome = Outcome?.Copy();
             copy.LastResult = LastResult?.Copy();
+            copy.RunHistory = RunHistory?.ConvertAll(entry => entry?.Copy()) ?? new List<ProjectRunHistoryEntry>();
             return copy;
         }
 
@@ -234,6 +236,8 @@ namespace GameLogic.Project
             if (data.ActiveRunEntryCost < 0 || (string.IsNullOrEmpty(data.ActiveRunId) &&
                 (data.EntryItems.Count > 0 || data.ActiveRunEntryCost != 0))) return "入场托管状态无效。";
             if (!ProjectRunRecordRules.ValidateRecord(data, out string recordError)) return recordError;
+            string historyError = ProjectRunHistoryRules.Validate(data.RunHistory);
+            if (historyError != null) return historyError;
             return null;
         }
 

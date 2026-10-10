@@ -57,7 +57,7 @@ namespace GameLogic.Project
             error = null;
             if (GameTables.CfgProfile == null || GameTables.CfgSkills == null || GameTables.CfgItemDefinitions == null ||
                 GameTables.CfgQualities == null || GameTables.CfgAffixes == null || GameTables.CfgLootPool == null ||
-                GameTables.CfgRoguePolicy == null || GameTables.CfgRogueRewards == null)
+                GameTables.CfgLootQualities == null || GameTables.CfgRoguePolicy == null || GameTables.CfgRogueRewards == null)
             {
                 error = "局外玩法配置表未全部加载。";
                 return false;
@@ -68,7 +68,8 @@ namespace GameLogic.Project
                 p.GameUtcOffsetHours < -12 || p.GameUtcOffsetHours > 14 || p.SafeSlots < 0 ||
                 p.NpcItemPrice < 0 || p.ExtractionExperience < 0 || p.SkillPointsPerLevel < 0 ||
                 p.ExperienceBase <= 0 || p.ExperiencePerLevel < 0 ||
-                p.MaxLevel < 1 || p.MaxLevel > 1000 || p.StartingLevel < 1 || p.StartingLevel > p.MaxLevel || p.StartingExperience < 0 ||
+                p.RunHistoryLimit < 1 || p.RunHistoryLimit > 100 || p.MaxLevel < 1 || p.MaxLevel > 1000 ||
+                p.StartingLevel < 1 || p.StartingLevel > p.MaxLevel || p.StartingExperience < 0 ||
                 p.StartingGold < 0 || p.StartingDiamonds < 0 || p.StartingSkillPoints < 0 ||
                 !FiniteFloat(p.BaseMaxHealth) || !FiniteFloat(p.BaseCriticalDamage) ||
                 !FiniteFloat(p.BaseAttackRange) || !FiniteFloat(p.BaseMoveSpeed) ||
@@ -216,6 +217,38 @@ namespace GameLogic.Project
                 error = "默认掉落池为空。";
                 return false;
             }
+            var qualityByPool = new Dictionary<string, HashSet<int>>(StringComparer.Ordinal);
+            var qualityWeightsByPool = new Dictionary<string, long>(StringComparer.Ordinal);
+            foreach (CfgLootQualitiesRow row in GameTables.CfgLootQualities.GetAll())
+            {
+                if (row == null || string.IsNullOrWhiteSpace(row.ID) || string.IsNullOrWhiteSpace(row.PoolID) ||
+                    !poolWeights.ContainsKey(row.PoolID) || !Enum.IsDefined(typeof(ProjectItemQuality), row.Quality) ||
+                    row.Weight < 0 || Quality((ProjectItemQuality)row.Quality) == null)
+                {
+                    error = "掉落池品质引用或权重无效。";
+                    return false;
+                }
+                if (!qualityByPool.TryGetValue(row.PoolID, out HashSet<int> qualities))
+                {
+                    qualities = new HashSet<int>();
+                    qualityByPool.Add(row.PoolID, qualities);
+                }
+                if (!qualities.Add(row.Quality))
+                {
+                    error = "掉落池品质重复：" + row.PoolID + "/" + row.Quality;
+                    return false;
+                }
+                qualityWeightsByPool.TryGetValue(row.PoolID, out long weight);
+                qualityWeightsByPool[row.PoolID] = weight + row.Weight;
+            }
+            foreach (string poolId in poolWeights.Keys)
+                if (!qualityByPool.TryGetValue(poolId, out HashSet<int> qualities) ||
+                    qualities.Count != Enum.GetValues(typeof(ProjectItemQuality)).Length ||
+                    qualityWeightsByPool[poolId] <= 0 || qualityWeightsByPool[poolId] > int.MaxValue)
+                {
+                    error = "掉落池品质缺失或总权重无效：" + poolId;
+                    return false;
+                }
             for (int level = 1; level <= p.MaxLevel; level++)
                 if (!ProjectEquipmentRules.HasLoot(p.DefaultLootPoolID, level))
                 {

@@ -38,6 +38,8 @@
 
 ## 当前项目事实
 
+- 新增附近交互目标切换与摘要、仓库换装比较、小地图已知信息详情，以及最近 20 局战绩；随机掉落等级与品质按关卡/池配置。本轮范围和验证见[交互、奖励与战绩完善](docs/project/交互奖励与战绩完善.md)。
+
 - 单局表现与结算估值已接入；Editor 配置报告包含地图成长指标、掉落理论回收值与固定种子采样、NPC 收支和局外商品回收价。统计口径、旧档兼容和配置报告入口见[单局统计与数值评估](docs/project/单局统计与数值评估.md)。实际验证状态以该文档为准。
 
 - `DevProject` 使用 Unity **2022.3.62f2**，由源框架干净提交 `267f15313f997b703e90af351279e03bb82ea15e` 的 `Minimal` 模板创建。公司名 `MiniGameStudio` 和应用标识 `com.minigamestudio.projectextraction` 是可修改的开发占位。
@@ -52,7 +54,7 @@
 - 关卡基础测试表现保留 14 个热更 Prefab：场景/房间位于 `GameResources/Scenes/Expedition`，角色、障碍和交互物位于 `GameResources/Gameplay/Expedition`，13 个材质位于 `GameResources/Art/Prototype/Materials`。由 `ExpeditionVisualAssets` 加载并随场景释放租约；角色为胶囊体，碰撞仍由 ECS 管理。资源生成入口为 `Tools/ProjectExtraction/Create Test Prefabs`，只补齐缺失资产；另增 4 个反馈 Prefab、3 个合成测试 WAV 和 2 个材质，由 `Create Combat Feedback` 补齐。目录和本轮验证状态见[测试资源与热更目录](docs/project/测试资源与热更目录.md)、[战斗反馈与角色碰撞](docs/project/战斗反馈与角色碰撞.md)。
 - 战斗反馈从 ECS 快照与事件驱动血条、伤害/暴击/闪避/实际治疗文字、流血/追伤/反击区分及 Buff 层数和剩余时间、命中闪光、下一伤害节点地面预警和短音效；预警飞弹只提示发射方向或出生目标范围，不表示完整弹道。角色 XZ 圆形占位、墙体扩半径保守矩形及移动扫掠由 ECS 负责；敌人使用障碍角点追击并在施法时停步，死者不阻挡。玩家死亡立即冻结并持久化结果，完成 0.6 秒倒下与 0.15 秒停留后进入结果页。本轮不含 NavMesh、动态拥挤避让或按墙裁剪预警；尚无真机与人工可视化验收。
 - `GameFramework.AnimatorPlayback` 是不依赖 GameLogic 的通用动画播放器，支持本地时间播放与外部进度采样；项目通过 `CombatCharacterAnimation` 读取 ECS 快照控制 Idle/Move/Attack/Hit/Death。四个测试角色使用原生 Animator，5 个动画片段和控制器位于 `GameResources/Art/Prototype/Animations`。动画不参与战斗伤害判定或 ECS 位移。
-- Excel 源表在 `config/excel`，当前包含 30 张项目内容表；工具在 `tool`。生成 JSON 位于 `GameResources/Config/Tables`，可重生 C# 位于 `GameLogic/Runtime/Gen`，扩展 partial 位于 `GameLogic/Runtime/Ext`。
+- Excel 源表在 `config/excel`，当前包含 31 张项目内容表；工具在 `tool`。生成 JSON 位于 `GameResources/Config/Tables`，可重生 C# 位于 `GameLogic/Runtime/Gen`，扩展 partial 位于 `GameLogic/Runtime/Ext`。
 
 - 关卡内容已扩展为 9 种布局、17 组候选怪群、30 个房间模板、5 类小怪和多技能 Boss；每房模板/怪群在开局抽定，回访复用 ECS 状态。敌人按生命阶段、距离、优先级和权重选技能，各技能独立冷却。共 7 个物品模板（含 5 种武器），三种新武器具有攻击、范围或生命/防御取舍，并进入四类掉落池及局外金币商店。配置和最新验证见[近战内容与房间组合扩展](docs/project/近战内容与房间组合扩展.md)。
 
@@ -73,5 +75,5 @@
 
 - 项目以竖屏起步：PlayerSettings 为 Portrait；GameMain 在原生移动端启动完成后开放自动旋转，允许正竖屏和左右横屏。PC/Web 默认可调整窗口为 1080×1920。微信/WebGL 的宿主方向另行接入和验收。
 - 项目 Canvas 使用 ScaleWithScreenSize、1080×1920 参考尺寸和 0.5 宽高匹配，通过 IUIModule.TryConfigureCanvas 配置业务与反馈层；Home 前景与虚拟控件通过 GameSafeAreaFitter 适配安全区。新增 UI 使用锚点和布局组件，主 UI 使用 Page，模态弹窗使用 Modal；检查窄屏边界，不以固定像素坐标绑定布局。
-- 本机已安装 Windows、Android（SDK/NDK/JDK）与 WebGL 模块，缺 iOS 模块和微信 SDK。当前仅通过 Editor 验收，发布平台均需独立构建与设备验证。
+- 本机已安装 Windows、Android（SDK/NDK/JDK）与 WebGL 模块，缺 iOS 模块和微信 SDK。当前已通过 Editor 验收及 Android ARM64 离线 APK 构建/静态校验；尚无设备实测，其他发布平台仍需独立构建与设备验证。Android 入口与本轮结果见[Android 离线构建与验收](docs/project/Android离线构建与验收.md)。
 - 显示默认值入口为 `Tools/ProjectExtraction/Apply Display Defaults`；首次 Git 检出须 `npm ci --prefix tool` 并等待 Unity 编译，再 Prepare GamePackage。生成的 DLL.bytes 被忽略，不沿用历史平台程序集。

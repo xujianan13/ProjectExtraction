@@ -28,7 +28,7 @@ namespace GameLogic.Gameplay.Level
             foreach (SpawnDefinition spawn in GetSpawns(encounter.ID))
             {
                 CfgEnemiesRow enemy = GameTables.CfgEnemies.GetById(spawn.EnemyID);
-                if (!HasPool(enemy.DropPoolID, template.LevelID) ||
+                if (!HasPool(enemy.DropPoolID, definition.LootLevel) ||
                     enemy.BaseHealth + enemy.HealthPerLevel * template.LevelID > float.MaxValue ||
                     (long)enemy.ExperienceBase + (long)enemy.ExperiencePerLevel * template.LevelID > int.MaxValue)
                 { error = "关卡敌人没有该等级可抽取的掉落项：" + template.LevelID + "/" + enemy.ID; return false; }

@@ -21,7 +21,7 @@ namespace ProjectExtraction.Tests
         public void AllPoolsAndLevelsHaveNormalizedProbabilitiesAndCompleteSamples()
         {
             foreach (string poolId in PoolIds)
-                for (int level = 1; level <= 3; level++)
+                foreach (int level in new[] { 1, 3, 6 })
                 {
                     Assert.That(ProjectLootBalance.TryEvaluate(poolId, level, 2026, 128, out LootPoolEvaluation result, out string error),
                         Is.True, poolId + "/" + level + ": " + error);
@@ -64,16 +64,34 @@ namespace ProjectExtraction.Tests
             Assert.That(definitions.Length, Is.EqualTo(6));
             Assert.That(definitions.All(row => row.SellBase == 8 && row.SellPerLevel == 4 &&
                 row.SellRandomExclusive == 8 && row.SellPerQuality == 6), Is.True);
-            CfgQualitiesRow[] qualities = GameTables.CfgQualities.GetAll().ToArray();
-            double weightedQuality = qualities.Sum(row => (double)row.ID * row.Weight) / qualities.Sum(row => row.Weight);
             foreach (string poolId in PoolIds)
-                for (int level = 1; level <= 3; level++)
+                foreach (int level in new[] { 1, 3, 6 })
                 {
+                    CfgLootQualitiesRow[] qualities = GameTables.CfgLootQualities.GetAll().Where(row => row.PoolID == poolId).ToArray();
+                    double weightedQuality = qualities.Sum(row => (double)row.Quality * row.Weight) / qualities.Sum(row => row.Weight);
                     double expected = 8 + level * 4 + (8 - 1) / 2.0 + weightedQuality * 6;
                     Assert.That(ProjectLootBalance.TryEvaluate(poolId, level, 77, 64, out LootPoolEvaluation result, out string error),
                         Is.True, error);
                     Assert.That(result.expectedSellGold, Is.EqualTo(expected).Within(1e-10), poolId + "/" + level);
                 }
+        }
+
+        /// <summary>
+        /// 每个掉落池的品质分布使用各自权重。
+        /// </summary>
+        [Test]
+        public void PoolsUseTheirOwnQualityWeights()
+        {
+            foreach (string poolId in PoolIds)
+            {
+                Assert.That(ProjectLootBalance.TryEvaluate(poolId, 3, 19, 64, out LootPoolEvaluation result, out string error),
+                    Is.True, error);
+                CfgLootQualitiesRow[] configured = GameTables.CfgLootQualities.GetAll().Where(row => row.PoolID == poolId).ToArray();
+                double total = configured.Sum(row => row.Weight);
+                foreach (CfgLootQualitiesRow row in configured)
+                    Assert.That(result.qualities.Single(frequency => frequency.id == row.Quality.ToString()).expectedProbability,
+                        Is.EqualTo(row.Weight / total).Within(1e-10), poolId + "/" + row.Quality);
+            }
         }
 
         /// <summary>
@@ -152,8 +170,8 @@ namespace ProjectExtraction.Tests
                     .Where(row => row.PoolID == "default" && row.MinLevel <= 2 && row.MaxLevel >= 2 && row.Weight > 0).ToArray();
                 int totalWeight = eligible.Sum(row => row.Weight);
                 int duplicateWeight = eligible.Where(row => row.DefinitionId == expensive.ID).Sum(row => row.Weight);
-                CfgQualitiesRow[] qualities = GameTables.CfgQualities.GetAll().ToArray();
-                double qualityMean = qualities.Sum(row => (double)row.ID * row.Weight) / qualities.Sum(row => row.Weight);
+                CfgLootQualitiesRow[] qualities = GameTables.CfgLootQualities.GetAll().Where(row => row.PoolID == "default").ToArray();
+                double qualityMean = qualities.Sum(row => (double)row.Quality * row.Weight) / qualities.Sum(row => row.Weight);
                 double expected = eligible.Sum(row =>
                 {
                     CfgItemDefinitionsRow definition = GameTables.CfgItemDefinitions.GetById(row.DefinitionId);

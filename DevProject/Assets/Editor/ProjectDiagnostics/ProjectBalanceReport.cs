@@ -33,6 +33,7 @@ namespace MiniGame.Editor
         private sealed class Sample
         {
             public int levelId;
+            public int lootLevel;
             public int seed;
             public int rooms;
             public int enemies;
@@ -63,6 +64,7 @@ namespace MiniGame.Editor
         private sealed class LevelSummary
         {
             public int levelId;
+            public int lootLevel;
             public string name;
             public int requiredLevel;
             public int seedCount;
@@ -205,14 +207,14 @@ namespace MiniGame.Editor
                 {
                     if (!LevelContentConfig.TryGetLevel(row.ID, out LevelDefinition level))
                     { error = "关卡配置无法解析：" + row.ID; return false; }
-                    if (!TryEvaluatePools(row.ID, out var pools, out error)) return false;
+                    if (!TryEvaluatePools(level.LootLevel, out var pools, out error)) return false;
                     lootPools.AddRange(pools.Values);
                     int start = samples.Count;
                     for (int seed = FirstSeed; seed <= LastSeed; seed++)
                     {
                         if (!LevelGenerator.TryGenerate(seed, level, out LevelRunState run))
                         { error = "地图生成失败：level=" + row.ID + ", seed=" + seed; return false; }
-                        var sample = new Sample { levelId = row.ID, seed = seed, rooms = run.Rooms.Count,
+                        var sample = new Sample { levelId = row.ID, lootLevel = level.LootLevel, seed = seed, rooms = run.Rooms.Count,
                             extractionExperience = profile.ExtractionExperience };
                         foreach (LevelRoomState room in run.Rooms)
                         {
@@ -274,7 +276,7 @@ namespace MiniGame.Editor
         /// <summary>
         /// 按稳定顺序评估当前关卡能够抽取的全部掉落池。
         /// </summary>
-        /// <param name="level">关卡编号及物品生成等级。</param>
+        /// <param name="level">掉落物品等级。</param>
         /// <param name="pools">按池编号排序的评估结果。</param>
         /// <param name="error">失败原因。</param>
         /// <returns>全部池评估成功时为真。</returns>
@@ -306,7 +308,7 @@ namespace MiniGame.Editor
             int count = samples.Count - start;
             return new LevelSummary
             {
-                levelId = row.ID, name = row.Name, requiredLevel = row.RequiredLevel, seedCount = count,
+                levelId = row.ID, lootLevel = row.LootLevel, name = row.Name, requiredLevel = row.RequiredLevel, seedCount = count,
                 extractionExperience = ProjectRulesConfig.Profile.ExtractionExperience,
                 rooms = Measure(samples, start, s => s.rooms), enemies = Measure(samples, start, s => s.enemies),
                 bossRoomEnemies = Measure(samples, start, s => s.bossRoomEnemies), enemyHealth = Measure(samples, start, s => s.enemyHealth),
@@ -371,10 +373,12 @@ namespace MiniGame.Editor
                 AppendRange(csv, report.configSha256, level, "expectedMerchantNetGold", level.expectedMerchantNetGold);
                 AppendValue(csv, "summary", level.levelId, "", level.name, "extractionExperience", level.extractionExperience, report.configSha256);
                 AppendValue(csv, "summary", level.levelId, "", level.name, "requiredLevel", level.requiredLevel, report.configSha256);
+                AppendValue(csv, "summary", level.levelId, "", level.name, "lootLevel", level.lootLevel, report.configSha256);
             }
             foreach (Sample sample in report.samples)
             {
                 string seed = sample.seed.ToString(CultureInfo.InvariantCulture);
+                AppendValue(csv, "sample", sample.levelId, seed, "", "lootLevel", sample.lootLevel, report.configSha256);
                 AppendValue(csv, "sample", sample.levelId, seed, "", "rooms", sample.rooms, report.configSha256);
                 AppendValue(csv, "sample", sample.levelId, seed, "", "enemies", sample.enemies, report.configSha256);
                 AppendValue(csv, "sample", sample.levelId, seed, "", "bossRoomEnemies", sample.bossRoomEnemies, report.configSha256);

@@ -46,6 +46,27 @@ namespace GameLogic.UI.Common
         }
 
         /// <summary>
+        /// 生成战斗 HUD 使用的简短战利品摘要。
+        /// </summary>
+        /// <param name="item">已经复制的待拾取物品。</param>
+        /// <returns>品质、等级、价格和主要属性摘要。</returns>
+        public static string LootSummary(ProjectItem item)
+        {
+            if (item == null) return string.Empty;
+            var builder = new StringBuilder(Title(item));
+            builder.Append("\n等级 ").Append(item.RequiredLevel).Append(" · 售价 ").Append(item.SellGold).Append(" 金币");
+            int shown = 0;
+            foreach (ProjectAttributeValue attribute in ProjectEquipmentRules.GetItemAttributes(item))
+            {
+                if (attribute == null) continue;
+                builder.Append(shown == 0 ? "\n" : " · ").Append(ItemAttribute(attribute.Attribute, attribute.Value));
+                if (++shown == 2) break;
+            }
+            builder.Append("\n词条 ").Append(item.Affixes?.Count ?? 0).Append(" · 高级 ").Append(item.AdvancedAffixes?.Count ?? 0);
+            return builder.ToString();
+        }
+
+        /// <summary>
         /// 格式化角色最终属性。
         /// </summary>
         /// <param name="attribute">属性类别。</param>

@@ -19,6 +19,7 @@ namespace GameLogic.Project
         public const int GuideWindow = 2601;
         public const int TransitionWindow = 2300;
         public const int ResultWindow = 2301;
+        public const int RunHistoryWindow = 2302;
         public const int RogueChoiceWindow = 2500;
         public const int RogueOverviewWindow = 2501;
         public static ProjectRunCoordinator Coordinator { get; private set; }

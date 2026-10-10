@@ -264,6 +264,18 @@ namespace GameLogic.UI.Warehouse
             string value = ProjectEquipmentText.Details(item);
             UnityEngine.UI.Text attributes = ProjectUiFactory.Label(detailsContent, value, 22, TextAnchor.UpperLeft, Color.white);
             ProjectUiFactory.Height(attributes.rectTransform, ProjectEquipmentText.PreferredHeight(value));
+            if (item.Type != ProjectItemType.Item)
+            {
+                string comparison;
+                if (session.TryGetEquipmentPreview(item.Id, out ProjectCharacterStats preview, out string error))
+                    comparison = "属性预览（当前 → " + (item.Equipped ? "卸下后" : "穿戴后") + "）\n" +
+                        ExpeditionEquipmentComparison.Format(session.CharacterStats, preview);
+                else
+                    comparison = item.RequiredLevel > session.Level ?
+                        $"属性预览不可用：需要等级 {item.RequiredLevel}，当前等级 {session.Level}。" : "属性预览不可用：" + error;
+                UnityEngine.UI.Text comparisonText = ProjectUiFactory.Label(detailsContent, comparison, 22, TextAnchor.UpperLeft, Color.white);
+                ProjectUiFactory.Height(comparisonText.rectTransform, ProjectEquipmentText.PreferredHeight(comparison));
+            }
             string status = item.Locked ? "已锁定：仅防出售，仍可穿戴；死亡/放弃仍会丢失" : "未锁定";
             UnityEngine.UI.Text sale = ProjectUiFactory.Label(detailsContent, $"出售可获 {item.SellGold} 金币 · {status}", 21,
                 TextAnchor.MiddleLeft, new Color(0.8f, 0.9f, 0.96f));

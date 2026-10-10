@@ -66,13 +66,16 @@ namespace MiniGame.Editor
         /// <param name="target">宿主构建目标平台。</param>
         public static void Validate(BuildTarget target)
         {
+            string prepareAction = target == BuildTarget.Android ? "Prepare Android Player" : "Prepare Windows Player";
             string path = ResolveProjectPath(ManifestPath);
-            if (!File.Exists(path)) throw new BuildFailedException("缺少宿主 AOT 元数据清单，请重新执行 Prepare Windows Player。");
+            if (!File.Exists(path)) throw new BuildFailedException($"缺少宿主 AOT 元数据清单，请重新执行 {prepareAction}。");
             MetadataManifest manifest = JsonUtility.FromJson<MetadataManifest>(File.ReadAllText(path, Encoding.UTF8));
             string[] expected = ReadGeneratedAssemblyNames();
             if (manifest?.assemblies == null || manifest.hashes == null || !manifest.assemblies.SequenceEqual(expected) ||
                 manifest.hashes.Length != expected.Length)
-                throw new BuildFailedException("宿主 AOT 元数据清单与 HybridCLR 当前生成结果不一致，请重新准备。");
+                throw new BuildFailedException(target == BuildTarget.Android
+                    ? "宿主 AOT 元数据清单与 HybridCLR 当前生成结果不一致，请重新执行 Prepare Android Player。"
+                    : "宿主 AOT 元数据清单与 HybridCLR 当前生成结果不一致，请重新准备。");
 
             string sourceDirectory = ResolveProjectPath(SettingsUtil.GetAssembliesPostIl2CppStripDir(target));
             for (int index = 0; index < expected.Length; index++)
@@ -81,7 +84,9 @@ namespace MiniGame.Editor
                 string source = Path.Combine(sourceDirectory, expected[index]);
                 if (!File.Exists(asset) || !File.Exists(source) || !string.Equals(Hash(File.ReadAllBytes(asset)), manifest.hashes[index], StringComparison.Ordinal) ||
                     !string.Equals(Hash(File.ReadAllBytes(source)), manifest.hashes[index], StringComparison.Ordinal))
-                    throw new BuildFailedException($"宿主 AOT 元数据缺失或与裁剪程序集不一致：{expected[index]}。请重新准备。");
+                    throw new BuildFailedException(target == BuildTarget.Android
+                        ? $"宿主 AOT 元数据缺失或与裁剪程序集不一致：{expected[index]}。请重新执行 Prepare Android Player。"
+                        : $"宿主 AOT 元数据缺失或与裁剪程序集不一致：{expected[index]}。请重新准备。");
             }
         }
 

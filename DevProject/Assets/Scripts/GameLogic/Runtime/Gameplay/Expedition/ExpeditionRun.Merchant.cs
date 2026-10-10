@@ -80,7 +80,7 @@ namespace GameLogic.Gameplay.Expedition
                 if (room.Type != LevelRoomType.Npc) continue;
                 LevelRoomPlan plan = room.Plan;
                 if (plan == null || plan.NpcStock < 1 || plan.NpcPrice < 1 ||
-                    !ProjectEquipmentRules.HasLoot(plan.LootPoolID, LevelId))
+                    !ProjectEquipmentRules.HasLoot(plan.LootPoolID, LootLevel))
                 {
                     GameEntry.Get<ILogModule>()?.Error("Expedition", "NPC 房间商品配置不可用：" + room.RoomId);
                     return false;
@@ -89,7 +89,7 @@ namespace GameLogic.Gameplay.Expedition
                 var merchantRandom = new Random(unchecked((Seed * 397) ^ room.RoomId ^ 0x4D455243));
                 for (int index = 0; index < plan.NpcStock; index++)
                 {
-                    ProjectItem item = ProjectEquipmentRules.CreateLootFromPool(merchantRandom, LevelId, plan.LootPoolID);
+                    ProjectItem item = ProjectEquipmentRules.CreateLootFromPool(merchantRandom, LootLevel, plan.LootPoolID);
                     if (item == null)
                     {
                         GameEntry.Get<ILogModule>()?.Error("Expedition", "NPC 房间商品生成失败：" + room.RoomId + "/" + index);

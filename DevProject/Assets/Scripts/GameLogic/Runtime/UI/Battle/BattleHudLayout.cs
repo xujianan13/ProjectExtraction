@@ -12,6 +12,9 @@ namespace GameLogic.UI.Battle
         private RectTransform minimap;
         private RectTransform stick;
         private RectTransform actions;
+        private float[] baseActionHeights;
+        private UnityEngine.UI.Text[] actionLabels;
+        private int[] baseFontSizes;
 
         /// <summary>
         /// 绑定现有控件并按安全区实际尺寸布局。
@@ -27,6 +30,15 @@ namespace GameLogic.UI.Battle
             this.minimap = minimap;
             this.stick = stick;
             this.actions = actions;
+            baseActionHeights = new float[actions.childCount];
+            for (int index = 0; index < actions.childCount; index++)
+            {
+                UnityEngine.UI.LayoutElement element = actions.GetChild(index).GetComponent<UnityEngine.UI.LayoutElement>();
+                baseActionHeights[index] = element == null ? 0f : element.preferredHeight;
+            }
+            actionLabels = actions.GetComponentsInChildren<UnityEngine.UI.Text>(true);
+            baseFontSizes = new int[actionLabels.Length];
+            for (int index = 0; index < actionLabels.Length; index++) baseFontSizes[index] = actionLabels[index].fontSize;
             Refresh();
         }
 
@@ -48,8 +60,9 @@ namespace GameLogic.UI.Battle
             float diameter = Mathf.Clamp(Mathf.Min(width, height) * 0.25f, 180f, 280f);
             float mapSize = Mathf.Clamp(Mathf.Min(width * 0.29f, height * 0.25f), 160f, 300f);
             float actionWidth = Mathf.Min(330f, width * 0.38f);
-            float controlsHeight = 396f;
             bool landscape = width > height;
+            bool besideMap = landscape && width - padding - actionWidth >= width * 0.5f + mapSize * 0.5f + padding;
+            float controlsHeight = FitActions(height, mapSize, padding, besideMap);
             float headerWidth = landscape ? Mathf.Min(width * 0.42f, width * 0.5f - mapSize * 0.5f - padding * 2f) :
                 width - mapSize - padding * 3f;
             Pin(header, new Vector2(0f, 1f), new Vector2(padding, -padding), new Vector2(headerWidth, 214f));
@@ -57,6 +70,42 @@ namespace GameLogic.UI.Battle
                 landscape ? new Vector2(0f, -padding) : new Vector2(-padding, -padding), Vector2.one * mapSize);
             Pin(stick, Vector2.zero, new Vector2(padding, padding * 2f), Vector2.one * diameter);
             Pin(actions, Vector2.right, new Vector2(-padding, padding * 2f), new Vector2(actionWidth, controlsHeight));
+        }
+
+        /// <summary>
+        /// 按可见按钮的原始首选高度缩放操作区，避免小屏幕上压住小地图。
+        /// </summary>
+        /// <param name="height">安全区高度。</param>
+        /// <param name="mapSize">小地图边长。</param>
+        /// <param name="padding">边缘留白。</param>
+        /// <param name="besideMap">操作区是否可在地图右侧独立排布。</param>
+        /// <returns>操作区实际高度。</returns>
+        private float FitActions(float height, float mapSize, float padding, bool besideMap)
+        {
+            float sum = 0f;
+            int count = 0;
+            for (int index = 0; index < actions.childCount; index++)
+                if (actions.GetChild(index).gameObject.activeSelf) { sum += baseActionHeights[index]; count++; }
+            UnityEngine.UI.VerticalLayoutGroup group = actions.GetComponent<UnityEngine.UI.VerticalLayoutGroup>();
+            float spacing = (group == null ? 0f : group.spacing) * Mathf.Max(0, count - 1);
+            float available = besideMap ? height - padding * 3f : height - mapSize - padding * 4f;
+            float scale = sum > 0f ? Mathf.Clamp01((available - spacing) / sum) : 1f;
+            for (int index = 0; index < actions.childCount; index++)
+            {
+                UnityEngine.UI.LayoutElement element = actions.GetChild(index).GetComponent<UnityEngine.UI.LayoutElement>();
+                if (element == null) continue;
+                element.preferredHeight = baseActionHeights[index] * scale;
+                element.minHeight = element.preferredHeight;
+            }
+            for (int index = 0; index < actionLabels.Length; index++)
+            {
+                UnityEngine.UI.Text label = actionLabels[index];
+                label.fontSize = Mathf.Max(10, Mathf.RoundToInt(baseFontSizes[index] * scale));
+                label.resizeTextForBestFit = true;
+                label.resizeTextMinSize = 9;
+                label.resizeTextMaxSize = baseFontSizes[index];
+            }
+            return sum * scale + spacing;
         }
 
         /// <summary>

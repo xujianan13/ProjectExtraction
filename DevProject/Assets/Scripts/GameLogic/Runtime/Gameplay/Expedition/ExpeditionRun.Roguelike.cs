@@ -142,7 +142,7 @@ namespace GameLogic.Gameplay.Expedition
             }
             if (reward.Kind == RogueRewardKind.CombatAugment) return ApplyCombatAugmentReward(reward);
             if (reward.Kind != RogueRewardKind.RandomLoot) return false;
-            ProjectItem item = ProjectEquipmentRules.CreateLoot(rogueLootRandom, LevelId, reward.LootType);
+            ProjectItem item = ProjectEquipmentRules.CreateLoot(rogueLootRandom, LootLevel, reward.LootType);
             if (ProjectEquipmentRules.ValidateItem(item) != null) return false;
             inventory.Add(item);
             Message = "获得战利品：" + item.Name;

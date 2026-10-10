@@ -103,6 +103,7 @@ namespace GameLogic.Project
             ProjectSaveData data = JsonUtility.FromJson<ProjectSaveData>(json);
             if (data == null) return null;
             data.HomeShopPurchases ??= new List<ProjectHomeShopPurchase>();
+            data.RunHistory ??= new List<ProjectRunHistoryEntry>();
             if (data.Preferences == null || data.Preferences.Version == 0) data.Preferences = new ProjectPreferences();
             if (data.Stage != ProjectRunStage.OutcomeRecorded && EmptyOutcome(data.Outcome)) data.Outcome = null;
             if (EmptyResult(data.LastResult)) data.LastResult = null;
@@ -355,6 +356,11 @@ namespace GameLogic.Project
                 LevelBefore = data.Level, ExperienceBefore = data.Experience, SkillPointsBefore = data.SkillPoints,
                 HasSkillPointsRuleSnapshot = true, SkillPointsPerLevelApplied = PrototypeRules.SkillPointsPerLevel, GoldBefore = data.Gold
             };
+            if (!ProjectRunHistoryRules.Append(data, receipt, DateTimeOffset.UtcNow.ToUnixTimeSeconds(), ProjectRulesConfig.Profile.RunHistoryLimit))
+            {
+                error = "单局历史记录参数无效。";
+                return false;
+            }
             data.Warehouse.AddRange(retained);
             data.Gold -= outcome.GoldSpent;
             ProjectProfileRules.AddExperience(data, awarded);

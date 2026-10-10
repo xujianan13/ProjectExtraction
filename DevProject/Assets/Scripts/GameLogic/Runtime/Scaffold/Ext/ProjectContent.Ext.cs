@@ -54,7 +54,8 @@ namespace GameLogic.Scaffold
                 CreateProjectWindow<RogueChoiceWindow>(ProjectServices.RogueChoiceWindow, "RogueChoice", GameUILayers.Popup, true),
                 CreateProjectWindow<RogueOverviewWindow>(ProjectServices.RogueOverviewWindow, "RogueOverview", GameUILayers.Popup, true),
                 CreateProjectWindow<RunTransitionWindow>(2300, "RunTransition", GameUILayers.Guide, false, GameWindowScope.Global),
-                CreateProjectWindow<RunResultWindow>(2301, "RunResult", GameUILayers.Popup, false, GameWindowScope.Global)
+                CreateProjectWindow<RunResultWindow>(2301, "RunResult", GameUILayers.Popup, false, GameWindowScope.Global),
+                CreateProjectWindow<RunHistoryWindow>(ProjectServices.RunHistoryWindow, "RunHistory", GameUILayers.Popup, true)
             }, registry =>
             {
                 registry.Register<WarehouseWindow>(2101);
@@ -71,6 +72,7 @@ namespace GameLogic.Scaffold
                 registry.Register<RogueOverviewWindow>(ProjectServices.RogueOverviewWindow);
                 registry.Register<RunTransitionWindow>(2300);
                 registry.Register<RunResultWindow>(2301);
+                registry.Register<RunHistoryWindow>(ProjectServices.RunHistoryWindow);
             });
             projectUi = ui;
             GameEntry.ApplicationScope.Defer(() => { projectScenes = null; projectUi = null; });

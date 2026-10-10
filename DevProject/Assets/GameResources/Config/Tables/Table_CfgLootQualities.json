@@ -1,0 +1,149 @@
+{
+  "schemaHash": "322a1896691e4aa3411bbdf0c26057eccf541419bf9a57c73a54394bc8184105",
+  "rows": [
+    {
+      "ID": "default_0",
+      "PoolID": "default",
+      "Quality": 0,
+      "Weight": 60
+    },
+    {
+      "ID": "default_1",
+      "PoolID": "default",
+      "Quality": 1,
+      "Weight": 22
+    },
+    {
+      "ID": "default_2",
+      "PoolID": "default",
+      "Quality": 2,
+      "Weight": 10
+    },
+    {
+      "ID": "default_3",
+      "PoolID": "default",
+      "Quality": 3,
+      "Weight": 5
+    },
+    {
+      "ID": "default_4",
+      "PoolID": "default",
+      "Quality": 4,
+      "Weight": 2
+    },
+    {
+      "ID": "default_5",
+      "PoolID": "default",
+      "Quality": 5,
+      "Weight": 1
+    },
+    {
+      "ID": "merchant_0",
+      "PoolID": "merchant",
+      "Quality": 0,
+      "Weight": 60
+    },
+    {
+      "ID": "merchant_1",
+      "PoolID": "merchant",
+      "Quality": 1,
+      "Weight": 22
+    },
+    {
+      "ID": "merchant_2",
+      "PoolID": "merchant",
+      "Quality": 2,
+      "Weight": 10
+    },
+    {
+      "ID": "merchant_3",
+      "PoolID": "merchant",
+      "Quality": 3,
+      "Weight": 5
+    },
+    {
+      "ID": "merchant_4",
+      "PoolID": "merchant",
+      "Quality": 4,
+      "Weight": 2
+    },
+    {
+      "ID": "merchant_5",
+      "PoolID": "merchant",
+      "Quality": 5,
+      "Weight": 1
+    },
+    {
+      "ID": "treasure_0",
+      "PoolID": "treasure",
+      "Quality": 0,
+      "Weight": 45
+    },
+    {
+      "ID": "treasure_1",
+      "PoolID": "treasure",
+      "Quality": 1,
+      "Weight": 28
+    },
+    {
+      "ID": "treasure_2",
+      "PoolID": "treasure",
+      "Quality": 2,
+      "Weight": 16
+    },
+    {
+      "ID": "treasure_3",
+      "PoolID": "treasure",
+      "Quality": 3,
+      "Weight": 7
+    },
+    {
+      "ID": "treasure_4",
+      "PoolID": "treasure",
+      "Quality": 4,
+      "Weight": 3
+    },
+    {
+      "ID": "treasure_5",
+      "PoolID": "treasure",
+      "Quality": 5,
+      "Weight": 1
+    },
+    {
+      "ID": "boss_0",
+      "PoolID": "boss",
+      "Quality": 0,
+      "Weight": 20
+    },
+    {
+      "ID": "boss_1",
+      "PoolID": "boss",
+      "Quality": 1,
+      "Weight": 35
+    },
+    {
+      "ID": "boss_2",
+      "PoolID": "boss",
+      "Quality": 2,
+      "Weight": 25
+    },
+    {
+      "ID": "boss_3",
+      "PoolID": "boss",
+      "Quality": 3,
+      "Weight": 12
+    },
+    {
+      "ID": "boss_4",
+      "PoolID": "boss",
+      "Quality": 4,
+      "Weight": 6
+    },
+    {
+      "ID": "boss_5",
+      "PoolID": "boss",
+      "Quality": 5,
+      "Weight": 2
+    }
+  ]
+}

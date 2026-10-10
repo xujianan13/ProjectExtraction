@@ -40,6 +40,15 @@
           "processors": "",
           "interactions": "",
           "initialStateCheck": false
+        },
+        {
+          "name": "CycleInteraction",
+          "type": "Button",
+          "id": "a3a554b7-46a2-4dd7-bb8e-047d1d08acd6",
+          "expectedControlType": "Button",
+          "processors": "",
+          "interactions": "",
+          "initialStateCheck": false
         }
       ],
       "bindings": [
@@ -238,6 +247,28 @@
           "processors": "",
           "groups": "Gamepad",
           "action": "Interact",
+          "isComposite": false,
+          "isPartOfComposite": false
+        },
+        {
+          "name": "",
+          "id": "93768337-6fb6-48d0-be5b-484f229fd6d6",
+          "path": "<Keyboard>/tab",
+          "interactions": "",
+          "processors": "",
+          "groups": "KeyboardMouse",
+          "action": "CycleInteraction",
+          "isComposite": false,
+          "isPartOfComposite": false
+        },
+        {
+          "name": "",
+          "id": "38eed965-53f1-4b60-9fb8-906cf0000bd0",
+          "path": "<Gamepad>/leftShoulder",
+          "interactions": "",
+          "processors": "",
+          "groups": "Gamepad",
+          "action": "CycleInteraction",
           "isComposite": false,
           "isPartOfComposite": false
         }

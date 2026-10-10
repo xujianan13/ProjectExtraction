@@ -62,6 +62,7 @@ namespace MiniGame.Editor
                 sampleCount < 1 || sampleCount > MaxSamples)
             { error = "掉落评估参数无效：池身份、等级或样本数超出范围。"; return false; }
             if (GameTables.CfgLootPool == null || GameTables.CfgItemDefinitions == null || GameTables.CfgQualities == null ||
+                GameTables.CfgLootQualities == null ||
                 GameTables.CfgAffixes == null || GameTables.CfgAdvancedAffixes == null || GameTables.CfgCombatAugments == null ||
                 GameTables.CfgProfile == null || ProjectRulesConfig.Profile == null)
             { error = "掉落评估所需配置表未加载。"; return false; }
@@ -102,19 +103,23 @@ namespace MiniGame.Editor
             long totalQualityWeight = 0;
             long weightedQualityIds = 0;
             int affixCount = GameTables.CfgAffixes.GetAll().Count;
-            foreach (CfgQualitiesRow row in GameTables.CfgQualities.GetAll())
+            foreach (CfgLootQualitiesRow row in GameTables.CfgLootQualities.GetAll())
             {
-                if (row == null || !Enum.IsDefined(typeof(ProjectItemQuality), row.ID) || string.IsNullOrWhiteSpace(row.Name) ||
-                    row.Weight < 0 || row.AffixCount < 0 || row.AffixCount > affixCount || qualityWeights.ContainsKey(row.ID))
-                { error = "品质配置字段或枚举无效。"; return false; }
-                qualityWeights.Add(row.ID, row.Weight);
-                qualityNames.Add(row.ID, row.Name);
+                if (row == null) { error = "掉落池品质表包含空行。"; return false; }
+                if (row.PoolID != poolId) continue;
+                CfgQualitiesRow definition = ProjectRulesConfig.Quality((ProjectItemQuality)row.Quality);
+                if (definition == null || !Enum.IsDefined(typeof(ProjectItemQuality), row.Quality) ||
+                    string.IsNullOrWhiteSpace(definition.Name) || row.Weight < 0 ||
+                    definition.AffixCount < 0 || definition.AffixCount > affixCount || qualityWeights.ContainsKey(row.Quality))
+                { error = "掉落池品质配置字段、枚举或唯一性无效：" + poolId; return false; }
+                qualityWeights.Add(row.Quality, row.Weight);
+                qualityNames.Add(row.Quality, definition.Name);
                 totalQualityWeight += row.Weight;
-                weightedQualityIds += (long)row.ID * row.Weight;
+                weightedQualityIds += (long)row.Quality * row.Weight;
             }
             if (qualityWeights.Count != Enum.GetValues(typeof(ProjectItemQuality)).Length ||
                 totalQualityWeight <= 0 || totalQualityWeight > int.MaxValue)
-            { error = "品质配置不完整或权重无效。"; return false; }
+            { error = "掉落池品质配置不完整或权重无效：" + poolId; return false; }
 
             var definitionRows = new List<LootFrequency>();
             var qualityRows = new List<LootFrequency>();

@@ -1,5 +1,5 @@
 {
-  "schemaHash": "dd62edbbbfa6232c02384edf403824523b791184c28945638817161f6ed6d682",
+  "schemaHash": "5bd34f59a8257df9afff66467beb455b089615418377157ff5a0272bff10de1e",
   "rows": [
     {
       "ID": 1,
@@ -14,7 +14,8 @@
       "ExtraExtractionChance": 0.2,
       "LayoutID": 1,
       "IsDefault": true,
-      "LootPoolID": "default"
+      "LootPoolID": "default",
+      "LootLevel": 1
     },
     {
       "ID": 2,
@@ -29,7 +30,8 @@
       "ExtraExtractionChance": 0.2,
       "LayoutID": 1,
       "IsDefault": false,
-      "LootPoolID": "default"
+      "LootPoolID": "default",
+      "LootLevel": 3
     },
     {
       "ID": 3,
@@ -44,7 +46,8 @@
       "ExtraExtractionChance": 0.2,
       "LayoutID": 1,
       "IsDefault": false,
-      "LootPoolID": "default"
+      "LootPoolID": "default",
+      "LootLevel": 6
     }
   ]
 }
