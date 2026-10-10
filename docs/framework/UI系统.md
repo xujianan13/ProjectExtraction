@@ -26,6 +26,8 @@ await ui.CloseWindowAsync(window.Id, ct: ct);
 
 模态窗口配置 `useMask: true` 与黑色半透明 `maskColor`。遮罩会拦截窗口下方的 UGUI 指针事件；`closeOnOutsideClick: true` 时，点击未被当前窗口 UGUI 图形命中的区域会关闭顶层窗口。Prefab 的面板区域应由 `raycastTarget = true` 的 `Graphic` 覆盖，样例使用 `Panel` 上的 `Image`。多个模态窗口叠加时，遮罩随最高层窗口移动，关闭顶层后恢复下层遮罩。
 
+同一窗口同时启用遮罩与外点击时，同级顺序固定为遮罩、外点击区域、窗口内容。逐帧刷新在顺序正确时不重新设置父节点或同级索引，避免遮罩与窗口交换顺序造成闪烁和输入拦截。
+
 ## 通用反馈与游戏 UI 组件
 
 `IUIModule` 直接提供三类常用反馈：

@@ -318,6 +318,17 @@ namespace GameLogic.UI.Battle
                 kind == ExpeditionPanelKind.Pause ? ProjectServices.PauseWindow : ProjectServices.RogueOverviewWindow;
             try
             {
+                if (kind == ExpeditionPanelKind.ExtractionConfirmation)
+                {
+                    openedPanel = kind;
+                    var answer = await ui.ConfirmAsync("确认撤离？",
+                        "撤离后将结束本局，带回背包和安全箱中的全部物品，并获得撤离经验。是否现在撤离？",
+                        "确认撤离", "继续探索", scope.Token).SuppressCancellationThrow();
+                    if (answer.IsCanceled || !scope.IsActive || !ReferenceEquals(run, current) || current.ActivePanel != kind) return;
+                    if (answer.Result && current.TryConfirmExtraction()) return;
+                    current.ClosePanel(kind);
+                    return;
+                }
                 GameWindow opened = ui == null ? null : await ui.OpenWindowAsync(windowId, new GameWindowOpenArgs(current), scope.Token);
                 if (opened == null)
                 {

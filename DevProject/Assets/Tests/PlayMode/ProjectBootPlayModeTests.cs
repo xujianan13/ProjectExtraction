@@ -1,6 +1,7 @@
 #if UNITY_EDITOR
 using System;
 using System.Collections;
+using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using Cysharp.Threading.Tasks;
@@ -11,6 +12,7 @@ using GameLogic.Project;
 using GameLogic.UI.Home;
 using NUnit.Framework;
 using UnityEngine;
+using UnityEngine.EventSystems;
 using UnityEngine.InputSystem;
 using UnityEngine.InputSystem.LowLevel;
 using UnityEngine.SceneManagement;
@@ -60,8 +62,10 @@ namespace MiniGame.Tests
                 await WaitAsync(() => ui.OpenedWindows.Any(window => window.Id == entry.id && window.State == GameWindowState.Opened),
                     entry.label + "按钮未打开窗口。");
                 await UniTask.Yield();
-                AssertWindowLayout(ui.OpenedWindows.Single(window => window.Id == entry.id));
-                Assert.That(await ui.CloseWindowAsync(entry.id), Is.True);
+                GameWindow modal = ui.OpenedWindows.Single(window => window.Id == entry.id);
+                AssertWindowLayout(modal);
+                await AssertModalStableAndCloseAsync(modal);
+                await WaitAsync(() => !ui.OpenedWindows.Any(window => window.Id == entry.id), entry.label + "关闭按钮未关闭窗口。");
             }
             GameWindow resultWindow = await ui.OpenWindowAsync(ProjectServices.ResultWindow);
             Assert.That(resultWindow, Is.Not.Null);
@@ -116,6 +120,44 @@ namespace MiniGame.Tests
             Assert.That(await ProjectServices.Coordinator.ReturnHomeAsync(), Is.True);
             Assert.That(ProjectServices.Coordinator.CanStart, Is.True);
         });
+
+        /// <summary>
+        /// 连续多帧验证模态遮罩顺序与关闭按钮射线命中，并通过实际命中对象关闭窗口。
+        /// </summary>
+        /// <param name="window">待验证的模态窗口。</param>
+        /// <returns>层级稳定性及关闭交互的逐帧验证。</returns>
+        private static async UniTask AssertModalStableAndCloseAsync(GameWindow window)
+        {
+            await UniTask.NextFrame(PlayerLoopTiming.LastPostLateUpdate);
+            RectTransform root = window.RootTransform;
+            Transform mask = root.parent.Find("[WindowMask]");
+            Assert.That(mask, Is.Not.Null, window.Config.Name + "缺少模态遮罩。");
+            Assert.That(EventSystem.current, Is.Not.Null);
+            UnityEngine.UI.Button close = root.GetComponentsInChildren<UnityEngine.UI.Button>(false)
+                .Single(button => button.GetComponentInChildren<UnityEngine.UI.Text>().text == "关闭");
+            var pointer = new PointerEventData(EventSystem.current) { button = PointerEventData.InputButton.Left };
+            var hits = new List<RaycastResult>();
+            int maskIndex = mask.GetSiblingIndex();
+            int windowIndex = root.GetSiblingIndex();
+            GameObject clickTarget = null;
+            for (int frame = 0; frame < 12; frame++)
+            {
+                await UniTask.NextFrame(PlayerLoopTiming.LastPostLateUpdate);
+                Canvas.ForceUpdateCanvases();
+                Assert.That(mask.GetSiblingIndex(), Is.LessThan(root.GetSiblingIndex()), window.Config.Name + "遮罩盖住了窗口。");
+                Assert.That(mask.GetSiblingIndex(), Is.EqualTo(maskIndex), window.Config.Name + "遮罩顺序逐帧变化。");
+                Assert.That(root.GetSiblingIndex(), Is.EqualTo(windowIndex), window.Config.Name + "窗口顺序逐帧变化。");
+                var buttonRect = (RectTransform)close.transform;
+                pointer.position = RectTransformUtility.WorldToScreenPoint(null, buttonRect.TransformPoint(buttonRect.rect.center));
+                hits.Clear();
+                EventSystem.current.RaycastAll(pointer, hits);
+                Assert.That(hits, Is.Not.Empty);
+                clickTarget = ExecuteEvents.GetEventHandler<IPointerClickHandler>(hits[0].gameObject);
+                Assert.That(clickTarget, Is.SameAs(close.gameObject), window.Config.Name + "关闭按钮被其他图层拦截。");
+            }
+            Assert.That(close.IsInteractable(), Is.True);
+            ExecuteEvents.Execute(clickTarget, pointer, ExecuteEvents.pointerClickHandler);
+        }
 
         /// <summary>
         /// 验证真实窗口主操作在屏幕范围内，滚动视口有面积且 Home 三段互不重叠。

@@ -1086,16 +1086,6 @@ namespace GameFramework
             internal void Refresh(GameWindow maskWindow, GameWindow outsideWindow)
             {
                 if (_root == null) return;
-                if (maskWindow == null)
-                {
-                    _maskTransform.gameObject.SetActive(false);
-                }
-                else
-                {
-                    _maskImage.color = maskWindow.Config.MaskColor;
-                    PlaceBefore(_maskTransform, maskWindow.RootTransform);
-                }
-
                 if (outsideWindow == null)
                 {
                     _outsideTransform.gameObject.SetActive(false);
@@ -1103,6 +1093,17 @@ namespace GameFramework
                 else
                 {
                     PlaceBefore(_outsideTransform, outsideWindow.RootTransform);
+                }
+
+                if (maskWindow == null)
+                {
+                    _maskTransform.gameObject.SetActive(false);
+                }
+                else
+                {
+                    _maskImage.color = maskWindow.Config.MaskColor;
+                    RectTransform next = maskWindow == outsideWindow ? _outsideTransform : maskWindow.RootTransform;
+                    PlaceBefore(_maskTransform, next);
                 }
             }
 
@@ -1115,15 +1116,18 @@ namespace GameFramework
             }
 
             /// <summary>
-            /// 将交互层放在目标窗口的前一个同级位置。
+            /// 将交互层放在目标节点之前，顺序正确时保持层级不变。
             /// </summary>
             /// <param name="overlay">遮罩或点击区域。</param>
-            /// <param name="owner">窗口管理器。</param>
+            /// <param name="owner">目标窗口或其外部点击层。</param>
             private static void PlaceBefore(RectTransform overlay, RectTransform owner)
             {
-                overlay.SetParent(owner.parent, false);
-                overlay.gameObject.SetActive(true);
-                overlay.SetSiblingIndex(owner.GetSiblingIndex());
+                if (overlay.parent != owner.parent) overlay.SetParent(owner.parent, false);
+                int currentIndex = overlay.GetSiblingIndex();
+                int ownerIndex = owner.GetSiblingIndex();
+                int targetIndex = currentIndex < ownerIndex ? ownerIndex - 1 : ownerIndex;
+                if (currentIndex != targetIndex) overlay.SetSiblingIndex(targetIndex);
+                if (!overlay.gameObject.activeSelf) overlay.gameObject.SetActive(true);
             }
 
             /// <summary>

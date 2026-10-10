@@ -9,7 +9,7 @@ namespace GameLogic.Gameplay.Expedition
     /// <summary>
     /// 与应用暂停和强化选择分别管理的局内交互面板。
     /// </summary>
-    public enum ExpeditionPanelKind { None, Inventory, Merchant, RogueOverview, Pause }
+    public enum ExpeditionPanelKind { None, Inventory, Merchant, RogueOverview, Pause, ExtractionConfirmation }
 
     public sealed partial class ExpeditionRun
     {
@@ -57,6 +57,8 @@ namespace GameLogic.Gameplay.Expedition
         public void ClosePanel(ExpeditionPanelKind kind)
         {
             if (kind == ExpeditionPanelKind.None || ActivePanel != kind) return;
+            if (kind == ExpeditionPanelKind.ExtractionConfirmation)
+                Message = "继续探索；可在撤离点交互，或离开后重新进入，再次确认撤离。";
             SetActivePanel(ExpeditionPanelKind.None);
         }
 

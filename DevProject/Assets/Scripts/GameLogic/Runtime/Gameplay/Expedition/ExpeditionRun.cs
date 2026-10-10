@@ -310,8 +310,7 @@ namespace GameLogic.Gameplay.Expedition
             if (World.TryGetActor(Player, out CombatActorSnapshot player))
             {
                 UpdateInteractionLabel(player.Position);
-                if (RoomView.TryGetInteractionNear(player.Position, out LevelInteractionKind kind) && kind == LevelInteractionKind.Extraction)
-                { EndRun(true); return false; }
+                if (CheckExtractionEntry(player.Position)) return false;
                 BeginPendingRoomReward();
                 if (interact) Interact(player.Position);
             }

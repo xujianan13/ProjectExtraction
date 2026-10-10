@@ -435,43 +435,14 @@ namespace MiniGame.Tests
         }
 
         /// <summary>
-        /// 沿相邻出口进入实际撤离地图，由范围检测触发终局。
+        /// 沿相邻出口进入实际撤离地图，再通过真实确认框提交终局。
         /// </summary>
         /// <param name="run">本局运行对象。</param>
         /// <returns>等待结算结果的任务。</returns>
         private static async UniTask TriggerExtractionAsync(ExpeditionRun run)
         {
-            LevelRoomState target = run.Maps.Rooms.First(room => room.HasExtractionCandidate);
-            var previous = new Dictionary<int, int> { [run.CurrentRoom.RoomId] = 0 };
-            var queue = new Queue<int>();
-            queue.Enqueue(run.CurrentRoom.RoomId);
-            while (queue.Count > 0 && !previous.ContainsKey(target.RoomId))
-            {
-                int id = queue.Dequeue();
-                run.Maps.TryGetRoom(id, out LevelRoomState room);
-                foreach (int next in room.Exits.Values)
-                    if (!previous.ContainsKey(next)) { previous[next] = id; queue.Enqueue(next); }
-            }
-            var path = new Stack<int>();
-            for (int id = target.RoomId; id != run.CurrentRoom.RoomId; id = previous[id]) path.Push(id);
-            while (path.Count > 0)
-            {
-                int destination = path.Pop();
-                RoomDirection direction = run.CurrentRoom.Exits.First(pair => pair.Value == destination).Key;
-                var geometry = run.CurrentRoom.Plan.Definition.Layout;
-                float edge = (float)(geometry.HalfExtent - geometry.ExitCenterInset);
-                Vector3 position = direction == RoomDirection.North ? new Vector3(0, 0, edge) :
-                    direction == RoomDirection.South ? new Vector3(0, 0, -edge) :
-                    direction == RoomDirection.East ? new Vector3(edge, 0, 0) : new Vector3(-edge, 0, 0);
-                Assert.That(run.World.TrySetPosition(run.Player, position), Is.True);
-                run.RequestInteraction();
-                run.Advance(CombatWorld.TickSeconds);
-                Assert.That(run.CurrentRoom.RoomId, Is.EqualTo(destination));
-            }
-            target.MarkCleared();
-            var targetLayout = target.Plan.Definition.Layout;
-            Assert.That(run.World.TrySetPosition(run.Player, new Vector3((float)targetLayout.ExtractionX, 0, (float)targetLayout.ExtractionZ)), Is.True);
-            run.Advance(CombatWorld.TickSeconds);
+            await EnterExtractionConfirmationAsync(run);
+            await ClickExtractionConfirmationAsync("确认撤离");
             Assert.That(run.IsRunning, Is.False);
             await WaitForPhaseAsync(ProjectRunPhase.ResultsReady);
         }

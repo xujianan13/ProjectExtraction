@@ -9,7 +9,7 @@ namespace GameLogic.Gameplay.Expedition
 {
     public sealed partial class ExpeditionRun
     {
-        private enum InteractionTargetKind { Loot, Exit, Chest, Merchant }
+        private enum InteractionTargetKind { Loot, Exit, Chest, Merchant, Extraction }
 
         /// <summary>
         /// 同一房间内可以被明确选择的一次交互目标。
@@ -110,6 +110,9 @@ namespace GameLogic.Gameplay.Expedition
             if (CurrentRoom.Type == LevelRoomType.Npc)
                 AddInteractionTarget(new InteractionTarget { Id = "merchant:" + Maps.CurrentRoomId, Kind = InteractionTargetKind.Merchant },
                     position, new Vector3((float)layout.NpcX, 0, (float)layout.NpcZ), objectRadius);
+            if (CurrentRoom.IsExtractionVisible)
+                AddInteractionTarget(new InteractionTarget { Id = "extraction:" + Maps.CurrentRoomId, Kind = InteractionTargetKind.Extraction },
+                    position, new Vector3((float)layout.ExtractionX, 0, (float)layout.ExtractionZ), objectRadius);
             interactionTargets.Sort(CompareInteractionTargets);
             int retained = interactionTargets.FindIndex(value => value.Id == previous);
             selectedInteraction = retained >= 0 ? interactionTargets[retained] : interactionTargets.Count > 0 ? interactionTargets[0] : default;
@@ -179,6 +182,10 @@ namespace GameLogic.Gameplay.Expedition
                     InteractionLabel = "查看商店 / E";
                     InteractionDescription = "本局商店 · 查看商品后购买";
                     break;
+                case InteractionTargetKind.Extraction:
+                    InteractionLabel = "撤离 / E";
+                    InteractionDescription = "撤离点 · 确认后携出全部物品并结束本局";
+                    break;
             }
         }
 
@@ -193,6 +200,7 @@ namespace GameLogic.Gameplay.Expedition
             if (index < 0) { Message = "目标已离开交互范围，请重新选择。"; return; }
             InteractionTarget target = interactionTargets[index];
             if (target.Kind == InteractionTargetKind.Exit) { ChangeRoom(target.Direction); return; }
+            if (target.Kind == InteractionTargetKind.Extraction) { TryOpenExtractionConfirmation(); return; }
             if (target.Kind == InteractionTargetKind.Loot)
             {
                 target.Drop.Collected = true;
@@ -216,6 +224,7 @@ namespace GameLogic.Gameplay.Expedition
         /// </summary>
         private void ClearInteractionTargets()
         {
+            occupiedExtractionRoomId = -1;
             interactionTargets.Clear();
             selectedInteraction = default;
             requestedInteractionId = null;
