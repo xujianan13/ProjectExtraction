@@ -1,5 +1,7 @@
 # 小游戏平台存档 SDK 接入模板
 
+本目录描述通用平台存档端口。ProjectExtraction 当前采用 [v2](../../../../docs/project/v2/README.md)，项目接入与验收边界见[工程配置与平台接入](../../../../docs/project/v2/工程配置与平台接入.md)；微信 SDK 尚未接入，下文示例类不代表已经存在的项目适配器。
+
 小游戏即使导出为 WebGL，也应将 `HotUpdateBootSettings.SaveBackend` 设为 `PlatformSdk`，并在 Boot 启动前设置 `HotUpdateBootstrap.PlatformSaveStore = new WeChatSaveStore()` 或 `new DouyinSaveStore()`。Boot 会将它包装为 `new PlatformSaveBackend(store)`。`store` 必须实现 `GameFramework.IPlatformSaveStore`；未注入时初始化返回 `Unsupported`，不会显示保存成功。
 
 ## 微信与抖音适配步骤

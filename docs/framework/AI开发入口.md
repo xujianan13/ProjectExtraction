@@ -1,5 +1,7 @@
 # AI 开发入口
 
+ProjectExtraction 的当前玩法开发从 [v2 项目文档](../project/v2/README.md)开始，模块与阶段要求见[模块职责与开发验收](../project/v2/模块职责与开发验收.md)。本文提供通用框架调用与模板复用指南；下文 Demo、默认三关等内容属于框架样例，不是本项目 v2 的玩法或验收状态。
+
 按任务检索当前已注册模块及准确签名，从 [框架 API 索引](api/README.md) 开始；所有权与退出顺序见 [API 生命周期约定](api/生命周期约定.md)，可编译调用见 [ApiRecipes.cs](../../DevProject/Assets/Tests/PlayMode/ApiRecipes.cs)。
 
 新项目先按[新项目复用](新项目复用.md)选择 `-Template Minimal` 纯净起点或默认 `-Template Demo` 三关演示。`Minimal` 保留固定 Main/Loading、Boot 热更、输入与 GamePackage，首次导入生成空 `Main` 玩法、`Home` Page 窗口及 Prefab 模式的 `Home` 逻辑首场景；空 Excel 源目录可生成可编译入口，不携带三关演示或 PlayerSave 业务。
