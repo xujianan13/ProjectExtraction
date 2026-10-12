@@ -56,6 +56,7 @@ namespace GameLogic.Scaffold
                 CreateProjectWindow<RegionExitWindow>(ProjectServices.RegionExitWindow, "RegionExit", GameUILayers.Popup, true),
                 CreateProjectWindow<BossLootChoiceWindow>(ProjectServices.BossLootWindow, "BossLoot", GameUILayers.Popup, true),
                 CreateProjectWindow<DeathChoiceWindow>(ProjectServices.DeathChoiceWindow, "DeathChoice", GameUILayers.Popup, true),
+                CreateProjectWindow<ChestLootWindow>(ProjectServices.ChestLootWindow, "ChestLoot", GameUILayers.Popup, true),
                 CreateProjectWindow<RogueChoiceWindow>(ProjectServices.RogueChoiceWindow, "RogueChoice", GameUILayers.Popup, true),
                 CreateProjectWindow<RogueOverviewWindow>(ProjectServices.RogueOverviewWindow, "RogueOverview", GameUILayers.Popup, true),
                 CreateProjectWindow<RunTransitionWindow>(2300, "RunTransition", GameUILayers.Guide, false, GameWindowScope.Global),
@@ -78,6 +79,7 @@ namespace GameLogic.Scaffold
                 registry.Register<RegionExitWindow>(ProjectServices.RegionExitWindow);
                 registry.Register<BossLootChoiceWindow>(ProjectServices.BossLootWindow);
                 registry.Register<DeathChoiceWindow>(ProjectServices.DeathChoiceWindow);
+                registry.Register<ChestLootWindow>(ProjectServices.ChestLootWindow);
                 registry.Register<RogueChoiceWindow>(ProjectServices.RogueChoiceWindow);
                 registry.Register<RogueOverviewWindow>(ProjectServices.RogueOverviewWindow);
                 registry.Register<RunTransitionWindow>(2300);

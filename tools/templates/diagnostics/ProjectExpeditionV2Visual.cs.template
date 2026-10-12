@@ -101,6 +101,7 @@ namespace MiniGame.Tests
                     failures.Add("HUD 小地图没有位于安全区右上方。");
                 CheckVisualOverlap(mapBounds, actionBounds, "HUD 小地图与操作区", failures);
                 CheckVisualOverlap(stickBounds, actionBounds, "HUD 摇杆与操作区", failures);
+                await CaptureChestLootVisualAsync(run, directory, prefix, width, height, record, failures);
                 ClickButton(hud, "背包");
                 GameWindow inventory = await WaitForWindowAsync(ProjectServices.ExpeditionInventoryWindow);
                 await SettleVisualLayoutAsync();
@@ -217,6 +218,66 @@ namespace MiniGame.Tests
                 File.AppendAllText(record, failures.Count == 0 ? "LayoutChecks=PASS\n" : string.Join("\n", failures) + "\n");
                 Assert.That(failures, Is.Empty, string.Join("\n", failures));
             }
+        }
+
+        /// <summary>
+        /// 通过真实开箱展示已获得物品，核对默认详情、物品切换及关闭后的继续探索。
+        /// </summary>
+        /// <param name="run">当前运行单局。</param>
+        /// <param name="directory">截图输出目录。</param>
+        /// <param name="prefix">截图文件名前缀。</param>
+        /// <param name="width">实际屏幕宽度。</param>
+        /// <param name="height">实际屏幕高度。</param>
+        /// <param name="record">布局记录文件。</param>
+        /// <param name="failures">布局失败集合。</param>
+        /// <returns>开箱详情及布局检查完成任务。</returns>
+        private static async UniTask CaptureChestLootVisualAsync(ExpeditionRun run, string directory, string prefix,
+            int width, int height, string record, List<string> failures)
+        {
+            Assert.That(run.World.TryGetActor(run.Player, out CombatActorSnapshot player), Is.True);
+            RegionChestPlan chest = run.CurrentRegion.Plan.Chests.First();
+            int before = run.Inventory.Count;
+            Assert.That(run.World.TrySetPosition(run.Player, chest.Position), Is.True);
+            run.Advance(CombatWorld.TickSeconds);
+            await WaitRunSavedAsync(run);
+            for (int attempt = 0; attempt < run.InteractionCount && run.SelectedInteractionId != chest.Id; attempt++) run.CycleInteraction();
+            Assert.That(run.SelectedInteractionId, Is.EqualTo(chest.Id));
+            run.RequestInteraction();
+            run.Advance(CombatWorld.TickSeconds);
+            await WaitRunSavedAsync(run);
+            GameWindow loot = await WaitForWindowAsync(ProjectServices.ChestLootWindow);
+            Assert.That(run.ActivePanel, Is.EqualTo(ExpeditionPanelKind.ChestLoot));
+            Assert.That(run.Inventory.Count, Is.EqualTo(before + chest.Items.Count));
+            Assert.That(run.ChestLootItems.Select(item => item.Id), Is.EqualTo(chest.Items.Select(item => item.Id)));
+            await SettleVisualLayoutAsync();
+            Text title = loot.Root.GetComponentsInChildren<Text>(false).Single(item => item.name == "DetailTitle");
+            Assert.That(title.text, Does.Contain(chest.Items[0].Name));
+            Assert.That(loot.Root.GetComponentsInChildren<Text>(false).Any(item => item.text.Contains("已放入背包")), Is.True);
+            long tick = run.World.TickIndex;
+            run.Advance(0.5f);
+            Assert.That(run.World.TickIndex, Is.EqualTo(tick));
+            CheckVisualButtons(loot, record, failures, "继续探索");
+            CheckVisualRect(FindVisualRect(loot, "ChestLootPanel"), "ChestLoot/Panel", record, failures);
+            Rect items = CheckVisualRect(FindVisualRect(loot, "Items"), "ChestLoot/Items", record, failures);
+            Rect details = CheckVisualRect(FindVisualRect(loot, "Details"), "ChestLoot/Details", record, failures);
+            CheckVisualOverlap(items, details, "开箱物品列表与详情", failures);
+            await CaptureVisualScreenshotAsync(directory, prefix + "-chest-loot", width, height);
+            if (chest.Items.Count > 1)
+            {
+                loot.Root.GetComponentsInChildren<Button>(false).Single(item => item.name == "ChestLootItem_" + chest.Items[1].Id).onClick.Invoke();
+                await SettleVisualLayoutAsync();
+                Assert.That(loot.Root.GetComponentsInChildren<Text>(false).Single(item => item.name == "DetailTitle").text,
+                    Does.Contain(chest.Items[1].Name));
+            }
+            ClickButton(loot, "继续探索");
+            await WaitForAsync(() => run.ActivePanel == ExpeditionPanelKind.None &&
+                GameEntry.Get<IUIModule>().OpenedWindows.All(item => item.Id != ProjectServices.ChestLootWindow));
+            Assert.That(run.ChestLootItems, Is.Empty);
+            Assert.That(run.World.TrySetPosition(run.Player, player.Position), Is.True);
+            run.Advance(CombatWorld.TickSeconds);
+            Assert.That(run.World.TickIndex, Is.GreaterThan(tick));
+            await WaitRunSavedAsync(run);
+            File.AppendAllText(record, "ChestLoot: Items=" + chest.Items.Count + "; DefaultDetails=True; Paused=True; Closed=True; Resumed=True\n");
         }
 
         /// <summary>

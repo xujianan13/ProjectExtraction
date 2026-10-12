@@ -9,10 +9,17 @@ namespace GameLogic.Gameplay.Expedition
     /// <summary>
     /// 与应用暂停和强化选择分别管理的局内交互面板。
     /// </summary>
-    public enum ExpeditionPanelKind { None, Inventory, Merchant, RogueOverview, Pause, ExtractionConfirmation, Map, DeathChoice }
+    public enum ExpeditionPanelKind { None, Inventory, Merchant, RogueOverview, Pause, ExtractionConfirmation, Map, DeathChoice, ChestLoot }
 
     public sealed partial class ExpeditionRun
     {
+        private readonly List<ProjectItem> chestLootItems = new();
+
+        /// <summary>
+        /// 最近一次已保存开箱的实际收获副本，仅在获得物品面板期间保留。
+        /// </summary>
+        public IReadOnlyList<ProjectItem> ChestLootItems => chestLootItems.ConvertAll(item => item.Copy());
+
         public ExpeditionPanelKind ActivePanel { get; private set; }
         public int PlayerLevel => session.Level;
         public bool CanManageInventory => ActivePanel == ExpeditionPanelKind.Inventory && CanManagePanel;
@@ -67,6 +74,7 @@ namespace GameLogic.Gameplay.Expedition
         /// <param name="kind">新的面板状态。</param>
         private void SetActivePanel(ExpeditionPanelKind kind)
         {
+            if (ActivePanel == ExpeditionPanelKind.ChestLoot && kind != ExpeditionPanelKind.ChestLoot) chestLootItems.Clear();
             ActivePanel = kind;
             touchMove = Vector2.zero;
             interactionRequested = false;

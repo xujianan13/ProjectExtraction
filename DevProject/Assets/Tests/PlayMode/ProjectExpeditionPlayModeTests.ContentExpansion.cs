@@ -84,6 +84,12 @@ namespace MiniGame.Tests
             run.Advance(CombatWorld.TickSeconds);
             await WaitRunSavedAsync(run);
             foreach (ProjectItem item in fixtures) Assert.That(run.Inventory.Count(value => value.Id == item.Id), Is.EqualTo(1));
+            await WaitForWindowAsync(ProjectServices.ChestLootWindow);
+            IUIModule ui = GameEntry.Get<IUIModule>();
+            Assert.That(await ui.CloseWindowAsync(ProjectServices.ChestLootWindow), Is.True);
+            await WaitForAsync(() => run.ActivePanel == ExpeditionPanelKind.None &&
+                ui.OpenedWindows.All(window => window.Id != ProjectServices.ChestLootWindow));
+            Assert.That(run.ChestLootItems, Is.Empty);
             Assert.That(run.World.TrySetPosition(run.Player, run.CurrentRegion.Plan.EntryPosition), Is.True);
             return run;
         }

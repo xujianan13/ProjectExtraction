@@ -1,5 +1,5 @@
 # 用法：关闭此项目 Unity 后执行 ./tools/diagnose-v2.ps1 -Mode Visual 或 -Mode Persistence。
-# Visual 保留图形设备并输出 16 张截图；Persistence 使用无图形模式。两者都只临时导入对应诊断模板。
+# Visual 保留图形设备并输出 18 张截图；Persistence 使用无图形模式。两者都只临时导入对应诊断模板。
 param(
     [ValidateSet('Visual', 'Persistence')][string]$Mode = 'Visual',
     [string]$EditorPath = 'D:\Program Files\Unity\Editor\2022.3.62f2\Editor\Unity.exe'

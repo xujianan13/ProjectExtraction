@@ -20,6 +20,7 @@ namespace GameLogic.Project
         public const int RegionExitWindow = 2205;
         public const int BossLootWindow = 2206;
         public const int DeathChoiceWindow = 2207;
+        public const int ChestLootWindow = 2208;
         public const int CollectionWindow = 2401;
         public const int SettingsWindow = 2600;
         public const int GuideWindow = 2601;

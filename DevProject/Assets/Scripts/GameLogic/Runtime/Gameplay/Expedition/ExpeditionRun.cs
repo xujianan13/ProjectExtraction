@@ -357,6 +357,7 @@ namespace GameLogic.Gameplay.Expedition
             stopped = true;
             IsRunning = false;
             ActivePanel = ExpeditionPanelKind.None;
+            chestLootItems.Clear();
             ClearInteractionTargets();
             ClearPlayerInput();
             Changed?.Invoke();

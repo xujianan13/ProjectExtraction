@@ -246,6 +246,7 @@ namespace GameLogic.UI.Battle
                 kind == ExpeditionPanelKind.Pause ? ProjectServices.PauseWindow :
                 kind == ExpeditionPanelKind.Map ? ProjectServices.ExpeditionMapWindow :
                 kind == ExpeditionPanelKind.DeathChoice ? ProjectServices.DeathChoiceWindow :
+                kind == ExpeditionPanelKind.ChestLoot ? ProjectServices.ChestLootWindow :
                 kind == ExpeditionPanelKind.ExtractionConfirmation ? ProjectServices.RegionExitWindow : ProjectServices.RogueOverviewWindow;
             try
             {

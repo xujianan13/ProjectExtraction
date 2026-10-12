@@ -156,15 +156,22 @@ namespace GameLogic.Gameplay.Expedition
             RegionChestState state = CurrentRegion.Chests.Find(value => value.Id == target.Id);
             if (chest == null || state == null) return;
             if (!state.Opened && !CurrentRegion.TryOpenChest(chest.Id)) return;
-            int received = 0;
+            var received = new List<ProjectItem>();
             foreach (ProjectItem item in chest.Items)
             {
                 if (state.ClaimedItemIds.Contains(item.Id)) continue;
                 if (!CurrentRegion.TryClaimChestItem(chest.Id, item.Id)) { HandleFault("宝箱物品归属异常。"); return; }
                 inventory.Add(item.Copy());
-                received++;
+                received.Add(item.Copy());
             }
-            SaveMutation("已领取宝箱中的 " + received + " 件物品。", () => UpdateInteractionLabel(position));
+            SaveMutation("已领取宝箱中的 " + received.Count + " 件物品。", () =>
+            {
+                if (stopped || !IsRunning || !IsReady) return;
+                UpdateInteractionLabel(position);
+                if (received.Count == 0) return;
+                chestLootItems.AddRange(received);
+                SetActivePanel(ExpeditionPanelKind.ChestLoot);
+            });
         }
 
         /// <summary>
