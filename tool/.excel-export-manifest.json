@@ -3,7 +3,7 @@
   "sources": [
     {
       "path": "config/excel/schema.json",
-      "sha256": "07ab0c8c1b24a3a812458c7dd6c41cb4f7dcf1241e9949e336d511dcaf494881"
+      "sha256": "00bc14d57c4bbc36aafd58ace143f2deea431259ea80281aab3fb9cbfdb32016"
     },
     {
       "path": "config/excel/CfgAdvancedAffixes.xlsx",
@@ -15,7 +15,27 @@
     },
     {
       "path": "config/excel/CfgAssets.xlsx",
-      "sha256": "a3fb153c132dd6ee147f1f91956dc10b9435e25e5ce1ef104b7577cbf8c2abad"
+      "sha256": "839bf82f3e32f8b3ddf80c5927d6bdddade9b538dd836f559eff7739a459c5b4"
+    },
+    {
+      "path": "config/excel/CfgBosses.xlsx",
+      "sha256": "fbe7fc2ddaca62a0283686b8a56c0d7d16704947aeeb6524400484c069f638fd"
+    },
+    {
+      "path": "config/excel/CfgBossRewards.xlsx",
+      "sha256": "a8c033e9aabf47458fc7ba5b7b91638ab1ee426b1b7fd7f4fe83a8dc185e331a"
+    },
+    {
+      "path": "config/excel/CfgChestPool.xlsx",
+      "sha256": "ea5fab804e52dae2bcf7ecbb6279b921ef2d3c8c883726fc67f2a7599fc1b0da"
+    },
+    {
+      "path": "config/excel/CfgCollectionAchievements.xlsx",
+      "sha256": "c27c87a3cb8d579571b2c87ab4058bf8a3d0a47c5d188615a62c0d72fb21e07c"
+    },
+    {
+      "path": "config/excel/CfgCollections.xlsx",
+      "sha256": "cd5b68187dadedd2b20e9900bf448a371a63862a1aca145a6afd8701da62aa79"
     },
     {
       "path": "config/excel/CfgCombatAnimationCues.xlsx",
@@ -54,20 +74,28 @@
       "sha256": "0c8ff44141e21ad78b79d6939580921380f81aef576208fd74e4baadfe39e5f2"
     },
     {
+      "path": "config/excel/CfgDisplay.xlsx",
+      "sha256": "6053a17e51c2be1f57db6e9e70e4cdf9b2804e7979796e3acff391474d4ef850"
+    },
+    {
+      "path": "config/excel/CfgElitePool.xlsx",
+      "sha256": "a2e71943c634d1b5ee6520ce29fecd20488c162ae3a931e13a5153e9d6d799ec"
+    },
+    {
       "path": "config/excel/CfgEncounters.xlsx",
-      "sha256": "b486706de36d21619a35d0abe2cdd807620fcf5e216b40eb3918c6d2dbd713d0"
+      "sha256": "3158935a0ba14620afa717d2e4a09f7789b9a767eee62b9815c3deb7e31e2f42"
     },
     {
       "path": "config/excel/CfgEnemies.xlsx",
-      "sha256": "20c2628e7d739e133c2efc91e7c010c87a14e9bc5e51893a418092ee6115be0b"
+      "sha256": "aa6c3c97b1c746c4a3566ffd8085efe5baccd8e56224206c51e0f77ac304adf5"
     },
     {
       "path": "config/excel/CfgEnemySkills.xlsx",
-      "sha256": "ce2dd4df8a558f8b15e0b49989e5103cc7ab3eb80acd0cbb045cfd694737a1c6"
+      "sha256": "562895cf7d7159e346f7edfa1bc81511afea9267e0b9baa2af13ac48e72fc558"
     },
     {
       "path": "config/excel/CfgGuide.xlsx",
-      "sha256": "8ff3260a70a8647f9e90ed3367090939429a5e8d20e368dec6ebca9def57c154"
+      "sha256": "5ceb708e1461d9a915bee0dfccd6ecfadbab7c26f25113d3fd2ddee444cf797e"
     },
     {
       "path": "config/excel/CfgHomeShop.xlsx",
@@ -75,23 +103,23 @@
     },
     {
       "path": "config/excel/CfgItemDefinitions.xlsx",
-      "sha256": "f153bf467a956e7350f613129cf34302470b31b74289059d73d534e8e884f009"
+      "sha256": "d6fe0433972176cf3aca11bc45bcf109b0dfc1aceeb588516f6c0caff5d501e8"
     },
     {
       "path": "config/excel/CfgLevels.xlsx",
-      "sha256": "bec70680c65bc30b56cb62daf07b1874c1daa008955a448e00def424f95e8363"
+      "sha256": "461c7da5947cf9a028f3c658ee9495bb5a4ac10865627d0d875da9a647806356"
     },
     {
       "path": "config/excel/CfgLootPool.xlsx",
-      "sha256": "d3a75361a95a4f5fafb0746b37365e355495e5c85ad358fc32c1caee0aadb6ba"
+      "sha256": "604d2146e66f8d373b9e1e5f7fd58cb569eb505d2f4b81901ead06384ef2b87e"
     },
     {
       "path": "config/excel/CfgLootQualities.xlsx",
-      "sha256": "150a11d3d890ed3baab4a48d14976061b3c82a6c1aa19bd5670c8ac37ec72357"
+      "sha256": "23f4bb539ce0676ed6bf0b22ad67301de24ba8d8e54345938277975f02f58a86"
     },
     {
-      "path": "config/excel/CfgObstacles.xlsx",
-      "sha256": "3ca1b99111266a4bc043612a6f9f7e9d10ce208c24c0d9b22606a5eab3b93d95"
+      "path": "config/excel/CfgNpcPool.xlsx",
+      "sha256": "592b1f4cbdf3b26f642e19336d77a612920737f187bf9be06239e40c32b04bb3"
     },
     {
       "path": "config/excel/CfgPlayerCombat.xlsx",
@@ -99,27 +127,43 @@
     },
     {
       "path": "config/excel/CfgProfile.xlsx",
-      "sha256": "16287136f2e023d8b9eb044962c83e981caa77b00bdec37276f57bfd989fc1a2"
+      "sha256": "f74928975209990c1ebddab35b167c63e61000280c88f179fd60229e47d0de3d"
     },
     {
       "path": "config/excel/CfgQualities.xlsx",
       "sha256": "224b99f0a6e0348ba79fcfbe0aaed09045fc5d93024b69ed9a65c913d2f8c0c7"
     },
     {
+      "path": "config/excel/CfgRegionContent.xlsx",
+      "sha256": "15cd6acdd4024a8e52fbd3b7971bd57f91c76bc6006e1e150eab9e67d0d77aa1"
+    },
+    {
+      "path": "config/excel/CfgRegionMaps.xlsx",
+      "sha256": "c6cad3901884a62a50cd75c1c891bd7964d3e187d1f757427fe7d95ae28d7fd5"
+    },
+    {
+      "path": "config/excel/CfgRespawnRules.xlsx",
+      "sha256": "feea51235b701541aa1767cd08ee82433fa3b9ddda73c4c9dc358318c1bddc1e"
+    },
+    {
       "path": "config/excel/CfgRoguePolicy.xlsx",
-      "sha256": "ccfdcc52d8e6c915444cc076fbb527196ae56eae6a9fb5b76f392c019a2e6cd2"
+      "sha256": "d1fe4c16d2becec09e80cfd87ec077d6d550bd93c2afacf3b3fa61e70d2a6ada"
+    },
+    {
+      "path": "config/excel/CfgRoguePools.xlsx",
+      "sha256": "f016b0afd022c6aaa938e57d46e6e0d15c012ea9d2e1ec8ead4c6d1d23f2f01e"
+    },
+    {
+      "path": "config/excel/CfgRogueProgress.xlsx",
+      "sha256": "f32b752337d41115d8243346b31e6d3fda206dc869705caa91036807774cba3f"
     },
     {
       "path": "config/excel/CfgRogueRewards.xlsx",
-      "sha256": "ccff9cb914f002f0f7ef535d5efbf17432d9dc0bdd3d8c2d75f99c4f88088e2b"
+      "sha256": "07305bb2d250fe4b9f6fb2550bb81624f477d01132617f2e0db21063749b264f"
     },
     {
-      "path": "config/excel/CfgRoomLayouts.xlsx",
-      "sha256": "860205454faa8aeefe25d43fde12ee13c8c097f1a2366c649844361b172e8c34"
-    },
-    {
-      "path": "config/excel/CfgRoomTemplates.xlsx",
-      "sha256": "e7b1992f7967dfa04f8f79f96ea85f988b31e410cc0730604b020f2d780ec449"
+      "path": "config/excel/CfgRunPersistence.xlsx",
+      "sha256": "2ab47b35c5dcf4bc6c08a41651f04e6bd7c54984c1962e514ebc561e4684976e"
     },
     {
       "path": "config/excel/CfgSkills.xlsx",
@@ -127,10 +171,34 @@
     },
     {
       "path": "config/excel/CfgSpawns.xlsx",
-      "sha256": "3e7d51fe956f7fce4023ac315fb69d1d69f0418a4848cd61725e257cfd36f25b"
+      "sha256": "2fe2793acc362dfd201a628037e3293cc92937d163e74f20b27ce6e3f2f4fa3c"
     }
   ],
   "resources": [
+    {
+      "path": "DevProject/Assets/GameResources/Scenes/Expedition/Regions/Geometry_RG_AncientCrossroads.json",
+      "sha256": "e2c44c2571640a6b320fbf78ab86147f7e91090761f227e3914073f18a52622d"
+    },
+    {
+      "path": "DevProject/Assets/GameResources/Scenes/Expedition/Regions/Geometry_RG_FinalArena.json",
+      "sha256": "56a5894ac51f48d18eb70b41aae6517ff3d15a01251086531871f2ab58478d05"
+    },
+    {
+      "path": "DevProject/Assets/GameResources/Scenes/Expedition/Regions/Geometry_RG_ShatteredCourtyard.json",
+      "sha256": "6fe1f647c3bafbbf164ad6e2907c02dc99c85844767b678ebcf384ae42f0b45d"
+    },
+    {
+      "path": "DevProject/Assets/GameResources/Scenes/Expedition/Regions/Minimap_RG_AncientCrossroads.png",
+      "sha256": "18919d6519dc903acb6234dabcce53482def87fb524566737a4c07b019550993"
+    },
+    {
+      "path": "DevProject/Assets/GameResources/Scenes/Expedition/Regions/Minimap_RG_FinalArena.png",
+      "sha256": "5b3d3c6697d7b93db42b907094ea175690a75c371158215d6c15bc3037d669e8"
+    },
+    {
+      "path": "DevProject/Assets/GameResources/Scenes/Expedition/Regions/Minimap_RG_ShatteredCourtyard.png",
+      "sha256": "a4c28ca003a6ad8b1953bbcf8e84c41cecf87048497f33f4ad942bdf2c1f515e"
+    },
     {
       "path": "DevProject/Assets/GameResources/Gameplay/Expedition/Feedback/PF_CombatDamageText.prefab",
       "sha256": "4ba196ff2a647afc1620c1f67565da363b3d3b8497e20678f5ce175d48623f99"
@@ -160,14 +228,6 @@
       "sha256": "945d3555543551fb1cb608acfe08ff69ace0431116ee2da06963e0476376d8ad"
     },
     {
-      "path": "DevProject/Assets/GameResources/Gameplay/Expedition/Markers/PF_TestExit.prefab",
-      "sha256": "3950b7f7bb8d36452cb00c2e03db5cf492f869bc622a9a9632bf84266220391a"
-    },
-    {
-      "path": "DevProject/Assets/GameResources/Gameplay/Expedition/Markers/PF_TestExtraction.prefab",
-      "sha256": "60c00e5ac2bfd6a1e0a548e9a11ff5fafce28b04f7a1716a7e1a723f8b07ee20"
-    },
-    {
       "path": "DevProject/Assets/GameResources/Gameplay/Expedition/Loot/PF_TestLoot.prefab",
       "sha256": "6124455b4bda3d42f8b539b6a07ec4f7a73f8db03468904061ba815431d0ec49"
     },
@@ -180,10 +240,6 @@
       "sha256": "7386003d98dae3583caf0c4cbb21d259b67dcb262c9acff304a247f555d614cf"
     },
     {
-      "path": "DevProject/Assets/GameResources/Gameplay/Expedition/Environment/PF_TestObstacle.prefab",
-      "sha256": "2318d31e25bde77d5eb22b97e3e176c428ca052410496c6d97f256ca11e94515"
-    },
-    {
       "path": "DevProject/Assets/GameResources/Gameplay/Expedition/Characters/PF_TestPlayer.prefab",
       "sha256": "25b21d850a4bd19bf6fc54829432748b567ca2cb54438965de44165a81abf6c5"
     },
@@ -192,12 +248,16 @@
       "sha256": "1c95f68842e8423ed6062d36547f16c68ed388c3fdf3fcc67ccc975b6f1b3620"
     },
     {
-      "path": "DevProject/Assets/GameResources/Gameplay/Expedition/Environment/PF_TestWall.prefab",
-      "sha256": "7e921f6abfa82dfc7b60f925330fa4df137e048d81eba637fd42e2055725992b"
+      "path": "DevProject/Assets/GameResources/Scenes/Expedition/Regions/RG_AncientCrossroads.prefab",
+      "sha256": "e9f3e726a43c9ea7f4457bfdc91799ce4f8b7ca34b9cc6bb761592e79c46295d"
     },
     {
-      "path": "DevProject/Assets/GameResources/Scenes/Expedition/Rooms/RM_Prototype.prefab",
-      "sha256": "daa6636a85a07dc360a10a216b0d5d2bc3a92df4c1c0366ed7215ab5fe78d836"
+      "path": "DevProject/Assets/GameResources/Scenes/Expedition/Regions/RG_FinalArena.prefab",
+      "sha256": "e701f32b6bc146645dc0eaef05c33dee04e0c187140f86d16421f5965928704f"
+    },
+    {
+      "path": "DevProject/Assets/GameResources/Scenes/Expedition/Regions/RG_ShatteredCourtyard.prefab",
+      "sha256": "67c1d77638f287a348ee3a767a8c794e499b35c4355511faf9b1a3a20d85967d"
     },
     {
       "path": "DevProject/Assets/GameResources/Scenes/Expedition/SC_Expedition.prefab",
@@ -280,6 +340,196 @@
         {
           "name": "Address",
           "type": "string"
+        }
+      ]
+    },
+    {
+      "name": "CfgBosses",
+      "source": "config/excel/CfgBosses.xlsx",
+      "fields": [
+        {
+          "name": "ID",
+          "type": "int"
+        },
+        {
+          "name": "Name",
+          "type": "string"
+        },
+        {
+          "name": "EnemyID",
+          "type": "int"
+        },
+        {
+          "name": "MapID",
+          "type": "int"
+        },
+        {
+          "name": "PoolID",
+          "type": "string"
+        },
+        {
+          "name": "Weight",
+          "type": "int"
+        },
+        {
+          "name": "MinLevel",
+          "type": "int"
+        },
+        {
+          "name": "MaxLevel",
+          "type": "int"
+        },
+        {
+          "name": "RewardID",
+          "type": "int"
+        },
+        {
+          "name": "WeaknessDescription",
+          "type": "string"
+        },
+        {
+          "name": "CollectionPreviewIDs",
+          "type": "string[]"
+        }
+      ]
+    },
+    {
+      "name": "CfgBossRewards",
+      "source": "config/excel/CfgBossRewards.xlsx",
+      "fields": [
+        {
+          "name": "ID",
+          "type": "int"
+        },
+        {
+          "name": "Rounds",
+          "type": "int"
+        },
+        {
+          "name": "EquipmentPoolID",
+          "type": "string"
+        },
+        {
+          "name": "CollectionIDs",
+          "type": "string[]"
+        },
+        {
+          "name": "EquipmentWeight",
+          "type": "int"
+        },
+        {
+          "name": "CollectionWeight",
+          "type": "int"
+        },
+        {
+          "name": "MinQuality",
+          "type": "int"
+        },
+        {
+          "name": "MaxQuality",
+          "type": "int"
+        },
+        {
+          "name": "MinEquipmentCandidates",
+          "type": "int"
+        },
+        {
+          "name": "MinCollectionCandidates",
+          "type": "int"
+        },
+        {
+          "name": "AllowRepeatCollections",
+          "type": "bool"
+        }
+      ]
+    },
+    {
+      "name": "CfgChestPool",
+      "source": "config/excel/CfgChestPool.xlsx",
+      "fields": [
+        {
+          "name": "ID",
+          "type": "int"
+        },
+        {
+          "name": "PoolID",
+          "type": "string"
+        },
+        {
+          "name": "LootPoolID",
+          "type": "string"
+        },
+        {
+          "name": "ItemCount",
+          "type": "int"
+        },
+        {
+          "name": "Weight",
+          "type": "int"
+        }
+      ]
+    },
+    {
+      "name": "CfgCollectionAchievements",
+      "source": "config/excel/CfgCollectionAchievements.xlsx",
+      "fields": [
+        {
+          "name": "ID",
+          "type": "string"
+        },
+        {
+          "name": "Name",
+          "type": "string"
+        },
+        {
+          "name": "CollectionIDs",
+          "type": "string[]"
+        },
+        {
+          "name": "Attributes",
+          "type": "int[]"
+        },
+        {
+          "name": "Values",
+          "type": "number[]"
+        }
+      ]
+    },
+    {
+      "name": "CfgCollections",
+      "source": "config/excel/CfgCollections.xlsx",
+      "fields": [
+        {
+          "name": "ID",
+          "type": "string"
+        },
+        {
+          "name": "Name",
+          "type": "string"
+        },
+        {
+          "name": "Series",
+          "type": "string"
+        },
+        {
+          "name": "Source",
+          "type": "string"
+        },
+        {
+          "name": "SellGold",
+          "type": "int"
+        },
+        {
+          "name": "RequiredLevel",
+          "type": "int"
+        },
+        {
+          "name": "Quality",
+          "type": "int"
+        },
+        {
+          "name": "SafeAllowed",
+          "type": "bool"
         }
       ]
     },
@@ -746,8 +996,22 @@
       ]
     },
     {
-      "name": "CfgEncounters",
-      "source": "config/excel/CfgEncounters.xlsx",
+      "name": "CfgDisplay",
+      "source": "config/excel/CfgDisplay.xlsx",
+      "fields": [
+        {
+          "name": "ID",
+          "type": "int"
+        },
+        {
+          "name": "TargetFrameRate",
+          "type": "int"
+        }
+      ]
+    },
+    {
+      "name": "CfgElitePool",
+      "source": "config/excel/CfgElitePool.xlsx",
       "fields": [
         {
           "name": "ID",
@@ -758,8 +1022,34 @@
           "type": "string"
         },
         {
-          "name": "LayoutID",
+          "name": "EnemyID",
           "type": "int"
+        },
+        {
+          "name": "Weight",
+          "type": "int"
+        },
+        {
+          "name": "MinLevel",
+          "type": "int"
+        },
+        {
+          "name": "MaxLevel",
+          "type": "int"
+        }
+      ]
+    },
+    {
+      "name": "CfgEncounters",
+      "source": "config/excel/CfgEncounters.xlsx",
+      "fields": [
+        {
+          "name": "ID",
+          "type": "int"
+        },
+        {
+          "name": "PoolID",
+          "type": "string"
         },
         {
           "name": "MinLevel",
@@ -844,11 +1134,23 @@
           "type": "int"
         },
         {
-          "name": "DropChance",
+          "name": "Role",
+          "type": "int"
+        },
+        {
+          "name": "Defense",
           "type": "number"
         },
         {
-          "name": "DropPoolID",
+          "name": "VulnerableEffectIDs",
+          "type": "int[]"
+        },
+        {
+          "name": "VulnerabilityMultiplier",
+          "type": "number"
+        },
+        {
+          "name": "WeaknessDescription",
           "type": "string"
         }
       ]
@@ -1046,6 +1348,10 @@
         {
           "name": "RangeRandom",
           "type": "number"
+        },
+        {
+          "name": "CollectionID",
+          "type": "string"
         }
       ]
     },
@@ -1070,34 +1376,6 @@
           "type": "int"
         },
         {
-          "name": "GridWidth",
-          "type": "int"
-        },
-        {
-          "name": "GridHeight",
-          "type": "int"
-        },
-        {
-          "name": "ExtraConnectionMin",
-          "type": "int"
-        },
-        {
-          "name": "ExtraConnectionMax",
-          "type": "int"
-        },
-        {
-          "name": "LootRoomCount",
-          "type": "int"
-        },
-        {
-          "name": "ExtraExtractionChance",
-          "type": "number"
-        },
-        {
-          "name": "LayoutID",
-          "type": "int"
-        },
-        {
           "name": "IsDefault",
           "type": "bool"
         },
@@ -1107,6 +1385,30 @@
         },
         {
           "name": "LootLevel",
+          "type": "int"
+        },
+        {
+          "name": "RegionCount",
+          "type": "int"
+        },
+        {
+          "name": "BossPoolID",
+          "type": "string"
+        },
+        {
+          "name": "FinalBossPoolID",
+          "type": "string"
+        },
+        {
+          "name": "ContentID",
+          "type": "int"
+        },
+        {
+          "name": "SkillPoolID",
+          "type": "string"
+        },
+        {
+          "name": "ProgressRuleID",
           "type": "int"
         }
       ]
@@ -1164,32 +1466,32 @@
       ]
     },
     {
-      "name": "CfgObstacles",
-      "source": "config/excel/CfgObstacles.xlsx",
+      "name": "CfgNpcPool",
+      "source": "config/excel/CfgNpcPool.xlsx",
       "fields": [
         {
           "name": "ID",
           "type": "int"
         },
         {
-          "name": "LayoutID",
+          "name": "PoolID",
+          "type": "string"
+        },
+        {
+          "name": "LootPoolID",
+          "type": "string"
+        },
+        {
+          "name": "Price",
           "type": "int"
         },
         {
-          "name": "MinX",
-          "type": "number"
+          "name": "Stock",
+          "type": "int"
         },
         {
-          "name": "MinZ",
-          "type": "number"
-        },
-        {
-          "name": "MaxX",
-          "type": "number"
-        },
-        {
-          "name": "MaxZ",
-          "type": "number"
+          "name": "Weight",
+          "type": "int"
         }
       ]
     },
@@ -1432,6 +1734,128 @@
       ]
     },
     {
+      "name": "CfgRegionContent",
+      "source": "config/excel/CfgRegionContent.xlsx",
+      "fields": [
+        {
+          "name": "ID",
+          "type": "int"
+        },
+        {
+          "name": "MonsterGroupCount",
+          "type": "int"
+        },
+        {
+          "name": "EliteCount",
+          "type": "int"
+        },
+        {
+          "name": "ChestCount",
+          "type": "int"
+        },
+        {
+          "name": "NpcCount",
+          "type": "int"
+        },
+        {
+          "name": "MonsterPoolID",
+          "type": "string"
+        },
+        {
+          "name": "ElitePoolID",
+          "type": "string"
+        },
+        {
+          "name": "ChestPoolID",
+          "type": "string"
+        },
+        {
+          "name": "NpcPoolID",
+          "type": "string"
+        },
+        {
+          "name": "NormalRespawnID",
+          "type": "int"
+        },
+        {
+          "name": "EliteRespawnID",
+          "type": "int"
+        },
+        {
+          "name": "InteractionRadius",
+          "type": "number"
+        },
+        {
+          "name": "ReachabilityGridSpacing",
+          "type": "number"
+        },
+        {
+          "name": "ReachabilityMaxCells",
+          "type": "int"
+        },
+        {
+          "name": "MaxSpawnSlots",
+          "type": "int"
+        }
+      ]
+    },
+    {
+      "name": "CfgRegionMaps",
+      "source": "config/excel/CfgRegionMaps.xlsx",
+      "fields": [
+        {
+          "name": "ID",
+          "type": "int"
+        },
+        {
+          "name": "Version",
+          "type": "string"
+        },
+        {
+          "name": "PrefabAddress",
+          "type": "string"
+        },
+        {
+          "name": "GeometryAddress",
+          "type": "string"
+        },
+        {
+          "name": "MinimapAddress",
+          "type": "string"
+        },
+        {
+          "name": "Name",
+          "type": "string"
+        }
+      ]
+    },
+    {
+      "name": "CfgRespawnRules",
+      "source": "config/excel/CfgRespawnRules.xlsx",
+      "fields": [
+        {
+          "name": "ID",
+          "type": "int"
+        },
+        {
+          "name": "DelaySeconds",
+          "type": "number"
+        },
+        {
+          "name": "WarningSeconds",
+          "type": "number"
+        },
+        {
+          "name": "SafeDistance",
+          "type": "number"
+        },
+        {
+          "name": "ExperienceMultiplier",
+          "type": "number"
+        }
+      ]
+    },
+    {
       "name": "CfgRoguePolicy",
       "source": "config/excel/CfgRoguePolicy.xlsx",
       "fields": [
@@ -1452,27 +1876,51 @@
           "type": "int"
         },
         {
-          "name": "MobClearChance",
-          "type": "number"
-        },
-        {
-          "name": "BossClearReward",
-          "type": "bool"
-        },
-        {
-          "name": "FirstMobClearReward",
-          "type": "bool"
-        },
-        {
-          "name": "MaxConsecutiveMobMisses",
-          "type": "int"
-        },
-        {
           "name": "SelectedUpgradeWeightMultiplier",
           "type": "int"
         },
         {
           "name": "UnlockedComboWeightMultiplier",
+          "type": "int"
+        }
+      ]
+    },
+    {
+      "name": "CfgRoguePools",
+      "source": "config/excel/CfgRoguePools.xlsx",
+      "fields": [
+        {
+          "name": "ID",
+          "type": "string"
+        },
+        {
+          "name": "PoolID",
+          "type": "string"
+        },
+        {
+          "name": "RewardID",
+          "type": "string"
+        }
+      ]
+    },
+    {
+      "name": "CfgRogueProgress",
+      "source": "config/excel/CfgRogueProgress.xlsx",
+      "fields": [
+        {
+          "name": "ID",
+          "type": "int"
+        },
+        {
+          "name": "NormalContribution",
+          "type": "int"
+        },
+        {
+          "name": "EliteContribution",
+          "type": "int"
+        },
+        {
+          "name": "Threshold",
           "type": "int"
         }
       ]
@@ -1506,10 +1954,6 @@
           "type": "number"
         },
         {
-          "name": "LootType",
-          "type": "int"
-        },
-        {
           "name": "Weight",
           "type": "int"
         },
@@ -1536,121 +1980,27 @@
       ]
     },
     {
-      "name": "CfgRoomLayouts",
-      "source": "config/excel/CfgRoomLayouts.xlsx",
+      "name": "CfgRunPersistence",
+      "source": "config/excel/CfgRunPersistence.xlsx",
       "fields": [
         {
           "name": "ID",
           "type": "int"
         },
         {
-          "name": "HalfExtent",
-          "type": "number"
-        },
-        {
-          "name": "WallHeight",
-          "type": "number"
-        },
-        {
-          "name": "WallThickness",
-          "type": "number"
-        },
-        {
-          "name": "ExitHalfWidth",
-          "type": "number"
-        },
-        {
-          "name": "SpawnInset",
-          "type": "number"
-        },
-        {
-          "name": "ExitCenterInset",
-          "type": "number"
-        },
-        {
-          "name": "ExitInteractionRadius",
-          "type": "number"
-        },
-        {
-          "name": "ObjectInteractionRadius",
-          "type": "number"
-        },
-        {
-          "name": "ChestX",
-          "type": "number"
-        },
-        {
-          "name": "ChestZ",
-          "type": "number"
-        },
-        {
-          "name": "NpcX",
-          "type": "number"
-        },
-        {
-          "name": "NpcZ",
-          "type": "number"
-        },
-        {
-          "name": "ExtractionX",
-          "type": "number"
-        },
-        {
-          "name": "ExtractionZ",
-          "type": "number"
-        },
-        {
-          "name": "ObstacleHeight",
-          "type": "number"
-        }
-      ]
-    },
-    {
-      "name": "CfgRoomTemplates",
-      "source": "config/excel/CfgRoomTemplates.xlsx",
-      "fields": [
-        {
-          "name": "ID",
-          "type": "int"
-        },
-        {
-          "name": "LevelID",
-          "type": "int"
-        },
-        {
-          "name": "RoomType",
+          "name": "ConfigVersion",
           "type": "string"
         },
         {
-          "name": "IsStart",
-          "type": "bool"
-        },
-        {
-          "name": "LayoutID",
+          "name": "CheckpointTicks",
           "type": "int"
         },
         {
-          "name": "Weight",
+          "name": "MaxPendingTicks",
           "type": "int"
         },
         {
-          "name": "AllowedExits",
-          "type": "int"
-        },
-        {
-          "name": "EncounterPoolID",
-          "type": "string"
-        },
-        {
-          "name": "LootPoolID",
-          "type": "string"
-        },
-        {
-          "name": "NpcPrice",
-          "type": "int"
-        },
-        {
-          "name": "NpcStock",
+          "name": "MaxStateBytes",
           "type": "int"
         }
       ]
@@ -1763,11 +2113,51 @@
     },
     {
       "path": "DevProject/Assets/GameResources/Config/Tables/Table_CfgAssets.json",
-      "sha256": "4d586a6d85ca4a6fa6d32e99fcc924f982aecfc5b5e9882d6141cea229e9eb76"
+      "sha256": "0434195fc32eea275257c6ed85234b6d60fde2719ead28b97d761c60a9693f7f"
     },
     {
       "path": "DevProject/Assets/Scripts/GameLogic/Runtime/Gen/CfgAssets.Gen.cs",
       "sha256": "805463748a418b9edcb398fad8e45a9d79fd208a220317113779a4aae662229d"
+    },
+    {
+      "path": "DevProject/Assets/GameResources/Config/Tables/Table_CfgBosses.json",
+      "sha256": "78c769853382e4d8c670a8e4c87a80adab6bd9ce72caa8a76911f9035bd67490"
+    },
+    {
+      "path": "DevProject/Assets/Scripts/GameLogic/Runtime/Gen/CfgBosses.Gen.cs",
+      "sha256": "ca365085047eddcc24540c9f76ffdf9061cdc1cde29da6853b2768cf553a2677"
+    },
+    {
+      "path": "DevProject/Assets/GameResources/Config/Tables/Table_CfgBossRewards.json",
+      "sha256": "ad475670360808f4ece4fea49f362533f9d77c489bbf340b9973b675072d31f0"
+    },
+    {
+      "path": "DevProject/Assets/Scripts/GameLogic/Runtime/Gen/CfgBossRewards.Gen.cs",
+      "sha256": "195ffed3bebc7c4971412eae16e00a537fbad412184d2af46021aa5e3e474f55"
+    },
+    {
+      "path": "DevProject/Assets/GameResources/Config/Tables/Table_CfgChestPool.json",
+      "sha256": "2c2ec03e10e3b71eaee7eea42630e2b762cd328ba779d1120dcbda12e2bce62c"
+    },
+    {
+      "path": "DevProject/Assets/Scripts/GameLogic/Runtime/Gen/CfgChestPool.Gen.cs",
+      "sha256": "9e88a73ba61c551dc2ac8f4491ed546a3a5b32e1831c96350611f93974330d6d"
+    },
+    {
+      "path": "DevProject/Assets/GameResources/Config/Tables/Table_CfgCollectionAchievements.json",
+      "sha256": "fac71fe5caac4cad51c6dc73291cdf0cb0091cad3fe8f4f41e2019d4b67c7dd9"
+    },
+    {
+      "path": "DevProject/Assets/Scripts/GameLogic/Runtime/Gen/CfgCollectionAchievements.Gen.cs",
+      "sha256": "2077eca7d0b48e253be73bb45b86139f939b1bd8bca8a679969225e59b8d3157"
+    },
+    {
+      "path": "DevProject/Assets/GameResources/Config/Tables/Table_CfgCollections.json",
+      "sha256": "86b64e154fe0fbe8af9d863482cfdf26883596c548e04bcbd07d66fb2a54f73e"
+    },
+    {
+      "path": "DevProject/Assets/Scripts/GameLogic/Runtime/Gen/CfgCollections.Gen.cs",
+      "sha256": "4020cd496be4fe1da3005610ba752ff241feacd2951216133c841be1567035d4"
     },
     {
       "path": "DevProject/Assets/GameResources/Config/Tables/Table_CfgCombatAnimationCues.json",
@@ -1842,24 +2232,40 @@
       "sha256": "306873ed19f48d261b8d45d08866ebd99218387b52ced18f646121b3a8c8040c"
     },
     {
+      "path": "DevProject/Assets/GameResources/Config/Tables/Table_CfgDisplay.json",
+      "sha256": "67f4d1da4282829c4d21cdede0490bf7dcea2888debba89548c6d624d96cd1a3"
+    },
+    {
+      "path": "DevProject/Assets/Scripts/GameLogic/Runtime/Gen/CfgDisplay.Gen.cs",
+      "sha256": "e36494de8b4655c5cbd435cac466857deace9528978db44a94db1acdba978249"
+    },
+    {
+      "path": "DevProject/Assets/GameResources/Config/Tables/Table_CfgElitePool.json",
+      "sha256": "42e2fe183dff7347c75ebe62897a7cdbbb3760988ba4674c80b3e19525d6841d"
+    },
+    {
+      "path": "DevProject/Assets/Scripts/GameLogic/Runtime/Gen/CfgElitePool.Gen.cs",
+      "sha256": "ca48836ed1ae92333b50c20f0ead6ea6ec53230439e7029e26e10d56f5f5c0cf"
+    },
+    {
       "path": "DevProject/Assets/GameResources/Config/Tables/Table_CfgEncounters.json",
-      "sha256": "6de7cca052151e0c8103f127dc4d1ec5bdf715fc24b3137d3f8464c717c5b7d0"
+      "sha256": "bef175bde8f9322e5207cf3ecc7f358d182857dbb6fff4077e4ac7bc18654eec"
     },
     {
       "path": "DevProject/Assets/Scripts/GameLogic/Runtime/Gen/CfgEncounters.Gen.cs",
-      "sha256": "4f7a544667eac17accdff836f6356cd65523421ada507312e7154faf1997eb19"
+      "sha256": "53a37a206b04c1accca22076bc4ed75b00908a7403bba08513aa643494ed1cb8"
     },
     {
       "path": "DevProject/Assets/GameResources/Config/Tables/Table_CfgEnemies.json",
-      "sha256": "c2f947af5767abc59d33c23a1218701e406d03d39df1259ad0e29a6294f9b0bd"
+      "sha256": "05e930a464aa333c3a5c7e84e6021c416f8b4c2a563bdf06c0bd4d9918d3c351"
     },
     {
       "path": "DevProject/Assets/Scripts/GameLogic/Runtime/Gen/CfgEnemies.Gen.cs",
-      "sha256": "2d8830b8b798068eaf3057c71055d075fd087bd1319b76ab0ad0be0bbf21017a"
+      "sha256": "8e4ab94195f7d6427f441b38979aeb223f9b46b4c71c0a76e433492e7ab2ab45"
     },
     {
       "path": "DevProject/Assets/GameResources/Config/Tables/Table_CfgEnemySkills.json",
-      "sha256": "123be79c0a6295195a65fba9d1bd0e0453861e8e590eb0478859ebb02c5c1894"
+      "sha256": "85e7ac684a7642b19481854db764619a7b1830efd41b240f22e3928fdb1278b8"
     },
     {
       "path": "DevProject/Assets/Scripts/GameLogic/Runtime/Gen/CfgEnemySkills.Gen.cs",
@@ -1867,7 +2273,7 @@
     },
     {
       "path": "DevProject/Assets/GameResources/Config/Tables/Table_CfgGuide.json",
-      "sha256": "49ecd103a003a9ddfe3d2379cbd502a8c7f2ae4174610efa816834f9d093b4c7"
+      "sha256": "351728a172b3e8182fe6387af996f4a57f6a7d7b3a5b576ab4fcbd0912f1446c"
     },
     {
       "path": "DevProject/Assets/Scripts/GameLogic/Runtime/Gen/CfgGuide.Gen.cs",
@@ -1883,23 +2289,23 @@
     },
     {
       "path": "DevProject/Assets/GameResources/Config/Tables/Table_CfgItemDefinitions.json",
-      "sha256": "9efe8698e3166e28eaa9dc5f0737831ceb14df3fa98c3b080d1069a5db575214"
+      "sha256": "4c9ca5518baf7c9dfd0fa7ac7faa74edc44f1f9caf96b5644c37545fb358d8f8"
     },
     {
       "path": "DevProject/Assets/Scripts/GameLogic/Runtime/Gen/CfgItemDefinitions.Gen.cs",
-      "sha256": "37681e92bb560d4795803e473b91ddb2c4a9219ce991d0431b37f20ac19f0ce7"
+      "sha256": "af0f0662c777ad8dc2b9a26ab4f63c1beab7aed2796bbed540ed8250cc4e69e3"
     },
     {
       "path": "DevProject/Assets/GameResources/Config/Tables/Table_CfgLevels.json",
-      "sha256": "a37cd1812bcdf8d4deccb63b6857b0039d75cae7cb6185cd6be287282292e4f2"
+      "sha256": "07feafbcfa938cf66d1b6b9551e3ad7c10c658b21aeeddfbf9c7a80e0de37a8c"
     },
     {
       "path": "DevProject/Assets/Scripts/GameLogic/Runtime/Gen/CfgLevels.Gen.cs",
-      "sha256": "2ea4a577310eedfbdd06d442656525a9b766b4da8b1b6aa8a6df9176bf768fca"
+      "sha256": "c70ad901a6ebe4b7043b64138ce7dd69ec63c81a1609851936cc4f68ff9756c7"
     },
     {
       "path": "DevProject/Assets/GameResources/Config/Tables/Table_CfgLootPool.json",
-      "sha256": "d5a1715022dcc63f64a9e9bd29a4231137d50bd1c2d8a1cf3e3e697eb805c0e6"
+      "sha256": "4262079c551c682d404162fb3c1a76248ce6f7075742d2990d98d44cdd5e5746"
     },
     {
       "path": "DevProject/Assets/Scripts/GameLogic/Runtime/Gen/CfgLootPool.Gen.cs",
@@ -1907,19 +2313,19 @@
     },
     {
       "path": "DevProject/Assets/GameResources/Config/Tables/Table_CfgLootQualities.json",
-      "sha256": "a8e2d6d826057271ee8cef802a47f82a5c6b761f03f1bb94d0a5a8bee6c0a09a"
+      "sha256": "8710a0c43443aebd404d35501102efce2408001694c736f6a20616e4995a0ce7"
     },
     {
       "path": "DevProject/Assets/Scripts/GameLogic/Runtime/Gen/CfgLootQualities.Gen.cs",
       "sha256": "bd057474861be2f96e5fb35bf6005dbed38dad90bb8055b42135867f590cae7d"
     },
     {
-      "path": "DevProject/Assets/GameResources/Config/Tables/Table_CfgObstacles.json",
-      "sha256": "0abd73851d96fb7decea9b23eb6683b3c3b4b90d072397530fe76f8c43dcdfeb"
+      "path": "DevProject/Assets/GameResources/Config/Tables/Table_CfgNpcPool.json",
+      "sha256": "46eb5c6866bee1ac6279d2ca135deae7f416fe27a38ad0d19a0dd41d2f1f9633"
     },
     {
-      "path": "DevProject/Assets/Scripts/GameLogic/Runtime/Gen/CfgObstacles.Gen.cs",
-      "sha256": "7209a161c2e1c5c9443f9abbde5d24c4016ac936619331510c55956fd753054f"
+      "path": "DevProject/Assets/Scripts/GameLogic/Runtime/Gen/CfgNpcPool.Gen.cs",
+      "sha256": "c6b5a8e8ec03a17ca95ecfc610366a62046cab46fb0e8aefd4dfd4223c6d3cb6"
     },
     {
       "path": "DevProject/Assets/GameResources/Config/Tables/Table_CfgPlayerCombat.json",
@@ -1931,7 +2337,7 @@
     },
     {
       "path": "DevProject/Assets/GameResources/Config/Tables/Table_CfgProfile.json",
-      "sha256": "bd4f5f65bbf9caed0536e1ec8ce63ba12f471457d2934785ebd9ed50fc2e3fb0"
+      "sha256": "c7156c83eb32bbf04c97b1645da3e53857da1e634d1204fd527d155b8373980e"
     },
     {
       "path": "DevProject/Assets/Scripts/GameLogic/Runtime/Gen/CfgProfile.Gen.cs",
@@ -1946,36 +2352,68 @@
       "sha256": "046cc1f813057f026ee687eb52dea3a7fc978f00806193d2a2b99f3f1ead4031"
     },
     {
+      "path": "DevProject/Assets/GameResources/Config/Tables/Table_CfgRegionContent.json",
+      "sha256": "ffefc64cefb6b18698a5d5d34ec6e46e956b0e8e5305617d16e0819de7f5c49e"
+    },
+    {
+      "path": "DevProject/Assets/Scripts/GameLogic/Runtime/Gen/CfgRegionContent.Gen.cs",
+      "sha256": "7f9d1d11a86d9cbe32c6d663556ed27f68578d3b3464daedbc4c50147a552f54"
+    },
+    {
+      "path": "DevProject/Assets/GameResources/Config/Tables/Table_CfgRegionMaps.json",
+      "sha256": "73b1995446e96d57218de382bda4b904025c660c58ddb80b0932befdcb4261e7"
+    },
+    {
+      "path": "DevProject/Assets/Scripts/GameLogic/Runtime/Gen/CfgRegionMaps.Gen.cs",
+      "sha256": "f949c6d7adb6f81fdf4f57746fef677b80f5dfb06fb177ae7e59f7b868272646"
+    },
+    {
+      "path": "DevProject/Assets/GameResources/Config/Tables/Table_CfgRespawnRules.json",
+      "sha256": "4628f195b675469aa84536bfe39594371d1f232930a89c60e109171b770a9669"
+    },
+    {
+      "path": "DevProject/Assets/Scripts/GameLogic/Runtime/Gen/CfgRespawnRules.Gen.cs",
+      "sha256": "8063a81343635822d9dee0846d9a17d58477122166ddef11f6ffc95491a3d2d3"
+    },
+    {
       "path": "DevProject/Assets/GameResources/Config/Tables/Table_CfgRoguePolicy.json",
-      "sha256": "faf047a5eeff107ee7b4c9a649bd08d66c4ee44f0e683128bb01f512893f227b"
+      "sha256": "d197f2621ae5d6044928eaba6608f3b8b27fab3e80c4279fda846df7b8ac0fab"
     },
     {
       "path": "DevProject/Assets/Scripts/GameLogic/Runtime/Gen/CfgRoguePolicy.Gen.cs",
-      "sha256": "525847a0c2fdbdcf9a649251840d425833a06f3de20e6fb411124bf420ec9c0f"
+      "sha256": "0ef677ce6cb1beb966271edec3c1edc4a83163eb2a2386cd1fcc7361e5aa204a"
+    },
+    {
+      "path": "DevProject/Assets/GameResources/Config/Tables/Table_CfgRoguePools.json",
+      "sha256": "8339fbb590464425bbbc18cc1082c519d90ed53d8169f9f10d14709043cd5291"
+    },
+    {
+      "path": "DevProject/Assets/Scripts/GameLogic/Runtime/Gen/CfgRoguePools.Gen.cs",
+      "sha256": "1b37d5302a0d132ac8bb0016a82b45c8430940c9a30dfd5c90d6815d2a4ad36a"
+    },
+    {
+      "path": "DevProject/Assets/GameResources/Config/Tables/Table_CfgRogueProgress.json",
+      "sha256": "95965c8bb00b8dc68ae57f269f42f576386b2363f58a7f95a6a1d80c16bf0b22"
+    },
+    {
+      "path": "DevProject/Assets/Scripts/GameLogic/Runtime/Gen/CfgRogueProgress.Gen.cs",
+      "sha256": "364b6cdfc5225277d5ec053415ad26af6301feab87d5761390338e2f00910120"
     },
     {
       "path": "DevProject/Assets/GameResources/Config/Tables/Table_CfgRogueRewards.json",
-      "sha256": "d11d1170b2d04f520ea9fec1cd5c4dd23830042753023ff29ca930a19325e3d5"
+      "sha256": "549e8f59417ed02bb1f7ebab58e9de6a2bb137fdbac3aed008200636fa5c7880"
     },
     {
       "path": "DevProject/Assets/Scripts/GameLogic/Runtime/Gen/CfgRogueRewards.Gen.cs",
-      "sha256": "3116d29177a415d43471dc0e5e922f6647fc868b6181ad282568b1f2a9e1e8d0"
+      "sha256": "2b2162be391055d45a317c76963b766c523166c80924feb80febc46d65806e65"
     },
     {
-      "path": "DevProject/Assets/GameResources/Config/Tables/Table_CfgRoomLayouts.json",
-      "sha256": "56d6a416170519e9f31fb9e5b35fd647e6e64e5b43cce7979ae1cc0dfdef1d48"
+      "path": "DevProject/Assets/GameResources/Config/Tables/Table_CfgRunPersistence.json",
+      "sha256": "d0c8bbe7372611f18555bf47d5fe876a61a01633d26b7cdf5a827c5ac5de277e"
     },
     {
-      "path": "DevProject/Assets/Scripts/GameLogic/Runtime/Gen/CfgRoomLayouts.Gen.cs",
-      "sha256": "0916d711ce4bc83cadb887ea35e287c9f22b9f419cbdd19d0dd19e8b2a8cab89"
-    },
-    {
-      "path": "DevProject/Assets/GameResources/Config/Tables/Table_CfgRoomTemplates.json",
-      "sha256": "48bb769e9056e8bcb0068945490becf178cfb9eec599b6a04c0e245f526651bc"
-    },
-    {
-      "path": "DevProject/Assets/Scripts/GameLogic/Runtime/Gen/CfgRoomTemplates.Gen.cs",
-      "sha256": "c3f79f52083f065de741e00cf47d9912c0a5eddf71056490c21c087fe4221a93"
+      "path": "DevProject/Assets/Scripts/GameLogic/Runtime/Gen/CfgRunPersistence.Gen.cs",
+      "sha256": "9021512601a441e3624d4fce7d9c7b68fd009babd1c88c3113457b60a3034095"
     },
     {
       "path": "DevProject/Assets/GameResources/Config/Tables/Table_CfgSkills.json",
@@ -1987,7 +2425,7 @@
     },
     {
       "path": "DevProject/Assets/GameResources/Config/Tables/Table_CfgSpawns.json",
-      "sha256": "4761bb64ff4f855b3539de50109041e842b20df1d41b67f359fc3be7009516cd"
+      "sha256": "b9368b9b101f34e3a4422d325fa27c5f8924c7c5a734db48f0c2719d8b959034"
     },
     {
       "path": "DevProject/Assets/Scripts/GameLogic/Runtime/Gen/CfgSpawns.Gen.cs",
@@ -1995,7 +2433,7 @@
     },
     {
       "path": "DevProject/Assets/Scripts/GameLogic/Runtime/Gen/GameTables.Gen.cs",
-      "sha256": "a11d92b9d63a9bd977aa5c8752e95bc02a62ea6307681cd5205e2108aa6df3d9"
+      "sha256": "2a476766771cf4ec1585beb6cfe5d38b51c251c0b4541a602c5a4ba4b01f3b7f"
     }
   ]
 }

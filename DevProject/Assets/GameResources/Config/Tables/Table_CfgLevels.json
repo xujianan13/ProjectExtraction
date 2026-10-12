@@ -1,53 +1,50 @@
 {
-  "schemaHash": "5bd34f59a8257df9afff66467beb455b089615418377157ff5a0272bff10de1e",
+  "schemaHash": "28e1f5a855d542ab1d8f7b62b5aa626eff71f657b41feb80236599ea1ae99c32",
   "rows": [
     {
       "ID": 1,
       "Name": "荒野遗迹",
-      "Description": "探索相连区域，寻找战利品与撤离点",
+      "Description": "探索连续区域，完成尾王奖励后带回结束或继续深入",
       "RequiredLevel": 1,
-      "GridWidth": 5,
-      "GridHeight": 2,
-      "ExtraConnectionMin": 1,
-      "ExtraConnectionMax": 2,
-      "LootRoomCount": 2,
-      "ExtraExtractionChance": 0.2,
-      "LayoutID": 1,
       "IsDefault": true,
       "LootPoolID": "default",
-      "LootLevel": 1
+      "LootLevel": 1,
+      "RegionCount": 3,
+      "BossPoolID": "region",
+      "FinalBossPoolID": "final",
+      "ContentID": 1,
+      "SkillPoolID": "expedition",
+      "ProgressRuleID": 1
     },
     {
       "ID": 2,
       "Name": "深层遗迹",
-      "Description": "更强的敌人与更高等级的装备",
+      "Description": "探索连续区域，完成尾王奖励后带回结束或继续深入",
       "RequiredLevel": 3,
-      "GridWidth": 5,
-      "GridHeight": 2,
-      "ExtraConnectionMin": 1,
-      "ExtraConnectionMax": 2,
-      "LootRoomCount": 2,
-      "ExtraExtractionChance": 0.2,
-      "LayoutID": 1,
       "IsDefault": false,
       "LootPoolID": "default",
-      "LootLevel": 3
+      "LootLevel": 3,
+      "RegionCount": 3,
+      "BossPoolID": "region",
+      "FinalBossPoolID": "final",
+      "ContentID": 1,
+      "SkillPoolID": "expedition",
+      "ProgressRuleID": 1
     },
     {
       "ID": 3,
       "Name": "禁地",
-      "Description": "高风险区域",
+      "Description": "探索连续区域，完成尾王奖励后带回结束或继续深入",
       "RequiredLevel": 6,
-      "GridWidth": 5,
-      "GridHeight": 2,
-      "ExtraConnectionMin": 1,
-      "ExtraConnectionMax": 2,
-      "LootRoomCount": 2,
-      "ExtraExtractionChance": 0.2,
-      "LayoutID": 1,
       "IsDefault": false,
       "LootPoolID": "default",
-      "LootLevel": 6
+      "LootLevel": 6,
+      "RegionCount": 3,
+      "BossPoolID": "region",
+      "FinalBossPoolID": "final",
+      "ContentID": 1,
+      "SkillPoolID": "expedition",
+      "ProgressRuleID": 1
     }
   ]
 }

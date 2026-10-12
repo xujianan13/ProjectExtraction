@@ -99,7 +99,7 @@ namespace MiniGame.Tests
             first = Pointer(20, rect, Vector2.right * radius);
             ExecuteEvents.Execute<IPointerDownHandler>(joystick.gameObject, first, ExecuteEvents.pointerDownHandler);
             run.Advance(CombatWorld.TickSeconds);
-            Assert.That(run.TryBeginRogueChoice("joystick-test"), Is.True);
+            await EarnRogueChoiceAsync(run);
             Assert.That(joystick.enabled, Is.False);
             Assert.That(run.World.TryGetActor(run.Player, out CombatActorSnapshot choosing), Is.True);
             run.Advance(1f);

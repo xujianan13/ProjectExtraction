@@ -13,7 +13,6 @@ namespace MiniGame.Editor
         private const string Scenes = "Assets/GameResources/Scenes/Expedition";
         private const string Gameplay = "Assets/GameResources/Gameplay/Expedition";
         private const string Materials = "Assets/GameResources/Art/Prototype/Materials";
-        private const float TestRoomHalfExtent = 12f;
         private static readonly List<string> Created = new List<string>();
         private static readonly List<string> Skipped = new List<string>();
         private static readonly List<string> Failed = new List<string>();
@@ -27,42 +26,28 @@ namespace MiniGame.Editor
             Created.Clear();
             Skipped.Clear();
             Failed.Clear();
-            float roomHalfExtent = TestRoomHalfExtent;
-
-            EnsureFolder(Scenes + "/Rooms");
-            EnsureFolder(Gameplay + "/Environment");
             EnsureFolder(Gameplay + "/Characters");
             EnsureFolder(Gameplay + "/Interactables");
-            EnsureFolder(Gameplay + "/Markers");
             EnsureFolder(Gameplay + "/Loot");
             EnsureFolder(Gameplay + "/Effects");
             EnsureFolder(Materials);
 
-            Material floor = EnsureMaterial("MAT_TestFloor", new Color(0.36f, 0.4f, 0.44f));
-            Material wall = EnsureMaterial("MAT_TestWall", new Color(0.35f, 0.39f, 0.48f));
-            Material obstacle = EnsureMaterial("MAT_TestObstacle", new Color(0.48f, 0.43f, 0.34f));
             Material player = EnsureMaterial("MAT_TestPlayer", new Color(0.1f, 0.85f, 0.82f));
             Material enemy = EnsureMaterial("MAT_TestEnemy", new Color(0.9f, 0.2f, 0.24f));
             Material boss = EnsureMaterial("MAT_TestBoss", new Color(0.62f, 0.25f, 0.8f));
             Material npc = EnsureMaterial("MAT_TestNpc", new Color(0.18f, 0.44f, 0.92f));
             Material chest = EnsureMaterial("MAT_TestChest", new Color(0.92f, 0.7f, 0.18f));
-            Material exit = EnsureMaterial("MAT_TestExit", new Color(0.2f, 0.48f, 0.95f));
-            Material extraction = EnsureMaterial("MAT_TestExtraction", new Color(0.14f, 0.82f, 0.46f));
             Material loot = EnsureMaterial("MAT_TestLoot", Color.white);
             Material projectile = EnsureMaterial("MAT_TestProjectile", new Color(1f, 0.48f, 0.1f));
             Material meleeCue = EnsureMaterial("MAT_TestMeleeCue", Color.white);
 
             EnsureScenePrefab();
-            EnsureRoomPrefab(roomHalfExtent, floor);
-            EnsurePrimitivePrefab(Gameplay + "/Environment/PF_TestWall.prefab", PrimitiveType.Cube, wall);
-            EnsurePrimitivePrefab(Gameplay + "/Environment/PF_TestObstacle.prefab", PrimitiveType.Cube, obstacle);
+            if (!ProjectRegionAssetsBuilder.BuildAll()) Failed.Add("完整区域地图资源");
             EnsurePrimitivePrefab(Gameplay + "/Characters/PF_TestPlayer.prefab", PrimitiveType.Capsule, player);
             EnsurePrimitivePrefab(Gameplay + "/Characters/PF_TestEnemy.prefab", PrimitiveType.Capsule, enemy);
             EnsurePrimitivePrefab(Gameplay + "/Characters/PF_TestBoss.prefab", PrimitiveType.Capsule, boss);
             EnsurePrimitivePrefab(Gameplay + "/Characters/PF_TestNpc.prefab", PrimitiveType.Capsule, npc);
             EnsurePrimitivePrefab(Gameplay + "/Interactables/PF_TestChest.prefab", PrimitiveType.Cube, chest);
-            EnsurePrimitivePrefab(Gameplay + "/Markers/PF_TestExit.prefab", PrimitiveType.Cube, exit);
-            EnsurePrimitivePrefab(Gameplay + "/Markers/PF_TestExtraction.prefab", PrimitiveType.Cylinder, extraction);
             EnsurePrimitivePrefab(Gameplay + "/Loot/PF_TestLoot.prefab", PrimitiveType.Cube, loot);
             EnsurePrimitivePrefab(Gameplay + "/Effects/PF_TestProjectile.prefab", PrimitiveType.Sphere, projectile);
             EnsurePrimitivePrefab(Gameplay + "/Effects/PF_TestMeleeCue.prefab", PrimitiveType.Cube, meleeCue);
@@ -144,22 +129,6 @@ namespace MiniGame.Editor
             Light light = lightObject.AddComponent<Light>();
             light.type = LightType.Directional;
             light.intensity = 1.1f;
-            SavePrefab(root, path);
-        }
-
-        /// <summary>
-        /// 创建地板顶面位于零高度的房间预制体。
-        /// </summary>
-        /// <param name="halfExtent">运行时房间半边长。</param>
-        /// <param name="floorMaterial">地板材质。</param>
-        private static void EnsureRoomPrefab(float halfExtent, Material floorMaterial)
-        {
-            string path = Scenes + "/Rooms/RM_Prototype.prefab";
-            if (SkipExisting(path) || floorMaterial == null) return;
-            GameObject root = new GameObject("RM_Prototype");
-            GameObject floor = CreateMesh("Floor", PrimitiveType.Cube, floorMaterial, root.transform);
-            floor.transform.localPosition = new Vector3(0f, -0.15f, 0f);
-            floor.transform.localScale = new Vector3(halfExtent * 2f, 0.3f, halfExtent * 2f);
             SavePrefab(root, path);
         }
 

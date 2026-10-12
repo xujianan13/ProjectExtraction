@@ -34,26 +34,6 @@ namespace GameLogic.Tables
         public int MaxRefreshes;
 
         /// <summary>
-        /// MobClearChance 字段。
-        /// </summary>
-        public double MobClearChance;
-
-        /// <summary>
-        /// BossClearReward 字段。
-        /// </summary>
-        public bool BossClearReward;
-
-        /// <summary>
-        /// FirstMobClearReward 字段。
-        /// </summary>
-        public bool FirstMobClearReward;
-
-        /// <summary>
-        /// MaxConsecutiveMobMisses 字段。
-        /// </summary>
-        public int MaxConsecutiveMobMisses;
-
-        /// <summary>
         /// SelectedUpgradeWeightMultiplier 字段。
         /// </summary>
         public int SelectedUpgradeWeightMultiplier;
@@ -98,7 +78,7 @@ namespace GameLogic.Tables
                 TextAsset asset = lease.Asset;
                 if (asset == null) throw new InvalidOperationException("配置表资源不可用：CfgRoguePolicy");
                 var envelope = JsonUtility.FromJson(asset.text, typeof(Envelope)) as Envelope;
-                if (envelope == null || envelope.schemaHash != "aedd5f8fbfdfadf7e3bd3a19f792fac2ba0958466c453f6efc9e95a2a795fce3" || envelope.rows == null)
+                if (envelope == null || envelope.schemaHash != "4aadabb659afa15fc9d8f2af498334023617fbaea8e9ba95c4277746c2e691ed" || envelope.rows == null)
                     throw new InvalidOperationException("配置表结构不匹配：CfgRoguePolicy");
 
                 var table = new CfgRoguePolicyTable();

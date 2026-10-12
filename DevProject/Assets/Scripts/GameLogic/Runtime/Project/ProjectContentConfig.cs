@@ -13,12 +13,17 @@ namespace GameLogic.Project
     /// </summary>
     public static class ProjectContentConfig
     {
-        private static readonly string[] assetRoles = { "Scene", "Room", "Wall", "Obstacle", "Player", "Enemy", "Boss", "Npc",
-            "Chest", "Exit", "Extraction", "Loot", "Projectile", "MeleeCue", "HealthBar", "DamageText", "Hit", "Telegraph",
+        private static readonly string[] assetRoles = { "Scene", "Player", "Npc",
+            "Chest", "Loot", "Projectile", "MeleeCue", "HealthBar", "DamageText", "Hit", "Telegraph",
             "SwingSound", "HitSound", "CriticalSound" };
         private static int generation;
         public static bool IsReady { get; private set; }
         public static CfgPlayerCombatRow Player => GameTables.CfgPlayerCombat.GetById(1);
+
+        /// <summary>
+        /// 取得启动门禁已经验证的唯一显示配置。
+        /// </summary>
+        public static CfgDisplayRow Display => GameTables.CfgDisplay.GetById(1);
 
         /// <summary>
         /// 装载内容包内的全部表，再执行跨表业务校验，失败时禁止创建玩家会话。
@@ -50,12 +55,20 @@ namespace GameLogic.Project
         {
             if (!CombatContentConfig.Validate(out error) || !ProjectRulesConfig.Validate(out error) ||
                 !CombatEnemySkillConfig.Validate(out error)) return false;
+            CfgDisplayRow display = GameTables.CfgDisplay?.GetById(1);
+            if (display == null || GameTables.CfgDisplay.GetAll().Count != 1 || display.TargetFrameRate < 1 || display.TargetFrameRate > 240)
+            { error = "显示配置缺失、不是唯一规则或目标帧率超出 1 到 240。"; return false; }
             error = "项目资源绑定或玩家战斗表缺失。";
             if (GameTables.CfgAssets == null || GameTables.CfgPlayerCombat == null || Player == null ||
                 GameTables.CfgPlayerCombat.GetAll().Count != 1) return false;
             foreach (string role in assetRoles)
                 if (string.IsNullOrWhiteSpace(GameTables.CfgAssets.GetById(role)?.Address))
                 { error = "缺少项目资源绑定：" + role; return false; }
+            CfgRunPersistenceRow persistence = GameTables.CfgRunPersistence?.GetById(1);
+            if (persistence == null || GameTables.CfgRunPersistence.GetAll().Count != 1 ||
+                string.IsNullOrWhiteSpace(persistence.ConfigVersion) || persistence.CheckpointTicks <= 0 ||
+                persistence.MaxPendingTicks <= 0 || persistence.MaxStateBytes <= 0)
+            { error = "局次存档预算或配置版本无效。"; return false; }
             var player = Player;
             if (!Positive(player.Radius) || !Positive(player.ScaleX) || !Positive(player.ScaleY) || !Positive(player.ScaleZ) ||
                 double.IsNaN(player.SpawnX) || double.IsInfinity(player.SpawnX) || double.IsNaN(player.SpawnZ) ||

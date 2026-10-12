@@ -136,6 +136,8 @@ namespace GameLogic.Gameplay.Combat
                 throw new ArgumentOutOfRangeException(nameof(attackRange));
             if (!Validate(out string error)) throw new InvalidOperationException(error);
             var catalog = new CombatCatalog { InitialAttackRange = attackRange };
+            foreach (CfgCombatEffectsRow row in GameTables.CfgCombatEffects.GetAll())
+                if (row.Kind == (int)CombatEffectKind.Damage) catalog.DamageEffectIds.Add(row.DefinitionID);
             foreach (CfgCombatSkillsRow row in GameTables.CfgCombatSkills.GetAll())
                 catalog.Skills.Add(row.ID, new CombatSkillDefinition
                 {

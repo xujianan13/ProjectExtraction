@@ -94,14 +94,29 @@ namespace GameLogic.Tables
         public int ExperiencePerLevel;
 
         /// <summary>
-        /// DropChance 字段。
+        /// Role 字段。
         /// </summary>
-        public double DropChance;
+        public int Role;
 
         /// <summary>
-        /// DropPoolID 字段。
+        /// Defense 字段。
         /// </summary>
-        public string DropPoolID;
+        public double Defense;
+
+        /// <summary>
+        /// VulnerableEffectIDs 字段。
+        /// </summary>
+        public int[] VulnerableEffectIDs;
+
+        /// <summary>
+        /// VulnerabilityMultiplier 字段。
+        /// </summary>
+        public double VulnerabilityMultiplier;
+
+        /// <summary>
+        /// WeaknessDescription 字段。
+        /// </summary>
+        public string WeaknessDescription;
     }
 
     /// <summary>
@@ -138,7 +153,7 @@ namespace GameLogic.Tables
                 TextAsset asset = lease.Asset;
                 if (asset == null) throw new InvalidOperationException("配置表资源不可用：CfgEnemies");
                 var envelope = JsonUtility.FromJson(asset.text, typeof(Envelope)) as Envelope;
-                if (envelope == null || envelope.schemaHash != "b73905762056cbe2e95bca99a63483286fbac1aeb83f3e7578406589b5689ca7" || envelope.rows == null)
+                if (envelope == null || envelope.schemaHash != "d52633067a01b2c7d9f8082c9b838b4476232dd141911e45a0877ee2e31c4e03" || envelope.rows == null)
                     throw new InvalidOperationException("配置表结构不匹配：CfgEnemies");
 
                 var table = new CfgEnemiesTable();

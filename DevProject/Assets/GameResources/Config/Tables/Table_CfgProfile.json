@@ -24,7 +24,7 @@
       "BaseMaxHealth": 100,
       "BaseCriticalDamage": 1.5,
       "BaseAttackRange": 1.5,
-      "BaseMoveSpeed": 5,
+      "BaseMoveSpeed": 6.5,
       "UnarmedAttack": 10,
       "MaxAttributeValue": 1000000,
       "MaxAttackRange": 100,

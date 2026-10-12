@@ -34,7 +34,7 @@ namespace GameLogic.UI.Roguelike
             title = ProjectUiFactory.Label(layout, "选择本局强化", 38, TextAnchor.MiddleCenter, Color.white);
             ProjectUiFactory.Height(title.rectTransform, 72f);
             UnityEngine.UI.Text guidance = ProjectUiFactory.Label(layout,
-                "战斗已暂停。属性强化仅在本局生效；战利品遵循原有撤离与死亡规则。点击一项立即生效。",
+                "战斗已暂停。技能与属性强化仅在本局生效。选择一项后保存结果并继续探索。",
                 23, TextAnchor.MiddleLeft, new Color(0.82f, 0.91f, 0.95f));
             ProjectUiFactory.Height(guidance.rectTransform, 80f);
             UnityEngine.UI.ScrollRect scroll = ProjectUiFactory.Scroll(layout, "ChoiceCards", out cards);
@@ -57,11 +57,12 @@ namespace GameLogic.UI.Roguelike
             run = args.UserData as ExpeditionRun;
             busy = false;
             if (run == null) return;
-            run.RogueChoiceChanged += Refresh;
+            ExpeditionRun current = run;
+            current.RogueChoiceChanged += Refresh;
             OpenScope.Defer(() =>
             {
-                run.RogueChoiceChanged -= Refresh;
-                run = null;
+                current.RogueChoiceChanged -= Refresh;
+                if (ReferenceEquals(run, current)) run = null;
             });
             IInputModule input = GameEntry.Get<IInputModule>();
             if (input != null)
@@ -79,7 +80,7 @@ namespace GameLogic.UI.Roguelike
         {
             if (run == null || Root == null) return;
             RogueChoiceSnapshot choice = run.PendingRogueChoice;
-            if (!run.IsRunning || choice == null)
+            if (!run.IsRunning || !run.IsChoosingRogue && !run.IsSavingRun)
             {
                 if (State == GameWindowState.Opened) CloseSelfAsync().Forget();
                 return;
@@ -88,6 +89,13 @@ namespace GameLogic.UI.Roguelike
             message.text = run.RogueMessage;
             ProjectUiFactory.Clear(cards);
             ProjectUiFactory.Clear(actions);
+            if (choice == null)
+            {
+                title.text = "正在保存强化";
+                message.text = "保存完成后继续，操作暂不可用。";
+                actions.gameObject.SetActive(false);
+                return;
+            }
             string offerId = choice.OfferId;
             int revision = choice.Revision;
             foreach (RogueChoiceOption option in choice.Options)
@@ -95,16 +103,13 @@ namespace GameLogic.UI.Roguelike
                 int index = option.Index;
                 bool locked = option.IsExtra && !choice.ExtraUnlocked;
                 string caption = option.Reward.Title + "\n" + option.Reward.Description;
-                if (option.Reward.Kind != RogueRewardKind.RandomLoot)
-                {
-                    int current = option.Reward.Rank - 1;
-                    string limit = option.Reward.MaxRank > 0 ? " / " + option.Reward.MaxRank : string.Empty;
-                    caption += "\n当前 Lv." + current + " → 下一层 Lv." + option.Reward.Rank + limit;
-                }
+                int current = option.Reward.Rank - 1;
+                string limit = option.Reward.MaxRank > 0 ? " / " + option.Reward.MaxRank : string.Empty;
+                caption += "\n当前 Lv." + current + " → 下一层 Lv." + option.Reward.Rank + limit;
                 if (locked) caption += "\n第 4 项 · " +
                     (busy ? "正在确认授权" : run.CanRequestExtraRogueChoice ? "授权后可选择" : "尚未开放");
                 UnityEngine.UI.Button button = ProjectUiFactory.ActionButton(cards, caption, () => Choose(offerId, revision, index));
-                ProjectUiFactory.Height((RectTransform)button.transform, option.Reward.Kind == RogueRewardKind.RandomLoot ? 130f : 155f);
+                ProjectUiFactory.Height((RectTransform)button.transform, Mathf.Max(155f, ProjectEquipmentText.PreferredHeight(caption)));
                 button.interactable = !busy && !locked;
             }
             bool canUnlock = !choice.ExtraUnlocked && run.CanRequestExtraRogueChoice;
@@ -137,11 +142,7 @@ namespace GameLogic.UI.Roguelike
         {
             if (busy || run == null || !run.IsChoosingRogue) return;
             busy = true;
-            if (run.TryChooseRogue(offerId, revision, index))
-            {
-                CloseSelfAsync().Forget();
-                return;
-            }
+            run.TryChooseRogue(offerId, revision, index);
             busy = false;
             Refresh();
         }

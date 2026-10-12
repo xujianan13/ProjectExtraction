@@ -74,30 +74,6 @@
       "MaxLevel": 1000
     },
     {
-      "ID": "boss_weapon",
-      "PoolID": "boss",
-      "DefinitionId": "ruin_weapon",
-      "Weight": 4,
-      "MinLevel": 1,
-      "MaxLevel": 1000
-    },
-    {
-      "ID": "boss_armor",
-      "PoolID": "boss",
-      "DefinitionId": "ruin_armor",
-      "Weight": 16,
-      "MinLevel": 1,
-      "MaxLevel": 1000
-    },
-    {
-      "ID": "boss_item",
-      "PoolID": "boss",
-      "DefinitionId": "relic_part",
-      "Weight": 8,
-      "MinLevel": 1,
-      "MaxLevel": 1000
-    },
-    {
       "ID": "default_ruin_heavy_blade",
       "PoolID": "default",
       "DefinitionId": "ruin_heavy_blade",
@@ -170,26 +146,58 @@
       "MaxLevel": 1000
     },
     {
-      "ID": "boss_ruin_heavy_blade",
-      "PoolID": "boss",
+      "ID": "v2_boss_weapon",
+      "PoolID": "boss_equipment",
+      "DefinitionId": "ruin_weapon",
+      "Weight": 4,
+      "MinLevel": 1,
+      "MaxLevel": 1000
+    },
+    {
+      "ID": "v2_boss_armor",
+      "PoolID": "boss_equipment",
+      "DefinitionId": "ruin_armor",
+      "Weight": 16,
+      "MinLevel": 1,
+      "MaxLevel": 1000
+    },
+    {
+      "ID": "v2_boss_ruin_heavy_blade",
+      "PoolID": "boss_equipment",
       "DefinitionId": "ruin_heavy_blade",
       "Weight": 4,
       "MinLevel": 1,
       "MaxLevel": 1000
     },
     {
-      "ID": "boss_ruin_poleblade",
-      "PoolID": "boss",
+      "ID": "v2_boss_ruin_poleblade",
+      "PoolID": "boss_equipment",
       "DefinitionId": "ruin_poleblade",
       "Weight": 4,
       "MinLevel": 1,
       "MaxLevel": 1000
     },
     {
-      "ID": "boss_guard_blade",
-      "PoolID": "boss",
+      "ID": "v2_boss_guard_blade",
+      "PoolID": "boss_equipment",
       "DefinitionId": "guard_blade",
       "Weight": 4,
+      "MinLevel": 1,
+      "MaxLevel": 1000
+    },
+    {
+      "ID": "region_collection",
+      "PoolID": "region_chest",
+      "DefinitionId": "explorer_token",
+      "Weight": 1,
+      "MinLevel": 1,
+      "MaxLevel": 1000
+    },
+    {
+      "ID": "merchant_collection",
+      "PoolID": "merchant",
+      "DefinitionId": "explorer_token",
+      "Weight": 1,
       "MinLevel": 1,
       "MaxLevel": 1000
     }

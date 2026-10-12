@@ -24,11 +24,6 @@ namespace GameLogic.Tables
         public string PoolID;
 
         /// <summary>
-        /// LayoutID 字段。
-        /// </summary>
-        public int LayoutID;
-
-        /// <summary>
         /// MinLevel 字段。
         /// </summary>
         public int MinLevel;
@@ -78,7 +73,7 @@ namespace GameLogic.Tables
                 TextAsset asset = lease.Asset;
                 if (asset == null) throw new InvalidOperationException("配置表资源不可用：CfgEncounters");
                 var envelope = JsonUtility.FromJson(asset.text, typeof(Envelope)) as Envelope;
-                if (envelope == null || envelope.schemaHash != "0020e4965f2d667947fea34ef2dd3ca0c4f30930dda762579bdcb56a12faa785" || envelope.rows == null)
+                if (envelope == null || envelope.schemaHash != "df06a84ba72720e19db074881d52a0d702bc67f5c3f95b12354ab5f065e38616" || envelope.rows == null)
                     throw new InvalidOperationException("配置表结构不匹配：CfgEncounters");
 
                 var table = new CfgEncountersTable();

@@ -6,18 +6,6 @@
       "Address": "SC_Expedition"
     },
     {
-      "ID": "Room",
-      "Address": "RM_Prototype"
-    },
-    {
-      "ID": "Wall",
-      "Address": "PF_TestWall"
-    },
-    {
-      "ID": "Obstacle",
-      "Address": "PF_TestObstacle"
-    },
-    {
       "ID": "Player",
       "Address": "PF_TestPlayer"
     },
@@ -36,14 +24,6 @@
     {
       "ID": "Chest",
       "Address": "PF_TestChest"
-    },
-    {
-      "ID": "Exit",
-      "Address": "PF_TestExit"
-    },
-    {
-      "ID": "Extraction",
-      "Address": "PF_TestExtraction"
     },
     {
       "ID": "Loot",

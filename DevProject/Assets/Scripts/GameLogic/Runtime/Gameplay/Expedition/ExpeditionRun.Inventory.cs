@@ -9,7 +9,7 @@ namespace GameLogic.Gameplay.Expedition
     /// <summary>
     /// 与应用暂停和强化选择分别管理的局内交互面板。
     /// </summary>
-    public enum ExpeditionPanelKind { None, Inventory, Merchant, RogueOverview, Pause, ExtractionConfirmation }
+    public enum ExpeditionPanelKind { None, Inventory, Merchant, RogueOverview, Pause, ExtractionConfirmation, Map }
 
     public sealed partial class ExpeditionRun
     {
@@ -18,7 +18,7 @@ namespace GameLogic.Gameplay.Expedition
         public int SafeCapacity => PrototypeRules.SafeSlots;
         public bool CanManageInventory => ActivePanel == ExpeditionPanelKind.Inventory && CanManagePanel;
         public bool CanManageMerchant => ActivePanel == ExpeditionPanelKind.Merchant && CanManagePanel;
-        private bool CanManagePanel => IsRunning && IsReady && !paused && !IsChoosingRogue && !disposed && !stopped &&
+        private bool CanManagePanel => IsRunning && IsReady && !paused && !IsChoosingReward && !disposed && !stopped && !IsSavingRun &&
             !session.HasUncommittedSave && !GameEntry.IsInBackground && World.TryGetActor(Player, out var actor) && !actor.Dead;
 
         /// <summary>
@@ -58,7 +58,7 @@ namespace GameLogic.Gameplay.Expedition
         {
             if (kind == ExpeditionPanelKind.None || ActivePanel != kind) return;
             if (kind == ExpeditionPanelKind.ExtractionConfirmation)
-                Message = "继续探索；可在撤离点交互，或离开后重新进入，再次确认撤离。";
+                Message = "继续探索；区域出口仍可选择带回结束或深入下一区域。";
             SetActivePanel(ExpeditionPanelKind.None);
         }
 
@@ -85,7 +85,8 @@ namespace GameLogic.Gameplay.Expedition
         {
             if (!CanManageInventory) return false;
             ProjectItem item = inventory.Find(value => value.Id == itemId);
-            if (item == null || item.Type == ProjectItemType.Item) return ReportInventoryFailure("请选择武器或护甲。");
+            if (item == null || item.Type != ProjectItemType.Weapon && !ProjectEquipmentRules.IsArmor(item.Type))
+                return ReportInventoryFailure("请选择武器或护甲。");
             if (IsProtected(itemId)) return ReportInventoryFailure("请先将物品移出安全箱，再穿戴。");
             if (!item.Equipped && PlayerLevel < item.RequiredLevel) return ReportInventoryFailure("角色等级不足，暂时不能穿戴。");
             List<ProjectItem> proposed = CreateEquipmentProposal(item);
@@ -94,8 +95,7 @@ namespace GameLogic.Gameplay.Expedition
                 return ReportInventoryFailure("当前装备属性无法应用，请稍后重试。");
             bool equipped = !item.Equipped;
             for (int index = 0; index < inventory.Count; index++) inventory[index].Equipped = proposed[index].Equipped;
-            Message = (equipped ? "已装备：" : "已卸下：") + item.Name;
-            Changed?.Invoke();
+            SaveMutation((equipped ? "已装备：" : "已卸下：") + item.Name);
             return true;
         }
 
@@ -110,7 +110,8 @@ namespace GameLogic.Gameplay.Expedition
         {
             current = null;
             preview = null;
-            if (disposed || stopped || item == null || item.Type == ProjectItemType.Item || ProjectEquipmentRules.ValidateItem(item) != null) return false;
+            if (disposed || stopped || item == null || item.Type != ProjectItemType.Weapon && !ProjectEquipmentRules.IsArmor(item.Type) ||
+                ProjectEquipmentRules.ValidateItem(item) != null) return false;
             ProjectItem owned = inventory.Find(value => value.Id == item.Id);
             if (!World.TryPreviewBaseAttributes(Player, EquipmentSpec(inventory), out CombatActorSpec before) ||
                 !World.TryPreviewBaseAttributes(Player, EquipmentSpec(CreateEquipmentProposal(owned ?? item)), out CombatActorSpec after)) return false;
@@ -150,7 +151,7 @@ namespace GameLogic.Gameplay.Expedition
         /// <returns>仅填入战斗属性的配置值。</returns>
         private CombatActorSpec EquipmentSpec(IReadOnlyList<ProjectItem> items)
         {
-            ProjectCharacterStats stats = ProjectEquipmentRules.Calculate(items, session.PowerRank, session.VitalityRank, session.AgilityRank);
+            ProjectCharacterStats stats = session.CalculateCharacterStats(items);
             return new CombatActorSpec
             {
                 MaxHealth = stats.MaxHealth, Attack = stats.Attack, Defense = stats.Defense, CriticalRating = stats.CriticalRating,

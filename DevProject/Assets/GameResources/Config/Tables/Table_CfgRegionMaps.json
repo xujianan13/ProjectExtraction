@@ -1,0 +1,29 @@
+{
+  "schemaHash": "86cc8a5c97aefe79c8db133c8778a7042c26c8250b1b14d6808b21bda34907d6",
+  "rows": [
+    {
+      "ID": 1,
+      "Version": "v2-region-1",
+      "PrefabAddress": "RG_AncientCrossroads",
+      "GeometryAddress": "Geometry_RG_AncientCrossroads",
+      "MinimapAddress": "Minimap_RG_AncientCrossroads",
+      "Name": "远古十字遗迹"
+    },
+    {
+      "ID": 2,
+      "Version": "v2-region-1",
+      "PrefabAddress": "RG_ShatteredCourtyard",
+      "GeometryAddress": "Geometry_RG_ShatteredCourtyard",
+      "MinimapAddress": "Minimap_RG_ShatteredCourtyard",
+      "Name": "破碎庭院"
+    },
+    {
+      "ID": 3,
+      "Version": "v2-region-1",
+      "PrefabAddress": "RG_FinalArena",
+      "GeometryAddress": "Geometry_RG_FinalArena",
+      "MinimapAddress": "Minimap_RG_FinalArena",
+      "Name": "终战广场"
+    }
+  ]
+}

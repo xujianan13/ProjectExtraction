@@ -2,6 +2,7 @@ using System;
 using System.Collections;
 using System.IO;
 using System.Reflection;
+using System.Text.RegularExpressions;
 using GameLogic.Tables;
 using UnityEngine;
 
@@ -34,11 +35,16 @@ namespace ProjectExtraction.Tests.Shared
                 FieldInfo rowsField = tableType.GetField("rows", instanceFields);
                 FieldInfo byIdField = tableType.GetField("byId", instanceFields);
                 FieldInfo envelopeRowsField = envelopeType?.GetField("rows", instanceFields | BindingFlags.Public);
-                if (rowsField == null || byIdField == null || envelopeRowsField == null)
+                FieldInfo schemaField = envelopeType?.GetField("schemaHash", instanceFields | BindingFlags.Public);
+                if (rowsField == null || byIdField == null || envelopeRowsField == null || schemaField == null)
                     throw new InvalidOperationException("测试配置表生成结构不匹配：" + property.Name);
 
                 object envelope = JsonUtility.FromJson(File.ReadAllText(path), envelopeType);
-                Array rows = envelope == null ? null : envelopeRowsField.GetValue(envelope) as Array;
+                string generatedPath = Path.Combine(Application.dataPath, "Scripts", "GameLogic", "Runtime", "Gen", property.Name + ".Gen.cs");
+                Match schema = Regex.Match(File.ReadAllText(generatedPath), "envelope\\.schemaHash != \"([a-f0-9]{64})\"");
+                if (!schema.Success || envelope == null || (string)schemaField.GetValue(envelope) != schema.Groups[1].Value)
+                    throw new InvalidOperationException("测试配置表 schemaHash 与生成代码不匹配：" + property.Name);
+                Array rows = envelopeRowsField.GetValue(envelope) as Array;
                 if (rows == null) throw new InvalidOperationException("测试配置表 JSON 缺少 rows：" + path);
                 object table = Activator.CreateInstance(tableType);
                 rowsField.SetValue(table, rows);

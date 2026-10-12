@@ -16,6 +16,7 @@ namespace GameLogic.UI.Battle
     public sealed class BattleHudWindow : GameWindow
     {
         private ExpeditionRun run;
+        private ExpeditionRegionOverview finalBoss;
         private ProjectRunCoordinator coordinator;
         private UnityEngine.UI.Text interactionLabel;
         private UnityEngine.UI.Text targetSummary;
@@ -27,14 +28,16 @@ namespace GameLogic.UI.Battle
         private UnityEngine.UI.Button interactButton;
         private ExpeditionJoystick joystick;
         private BattleHudLayout layout;
-        private int mapRoom = -1;
-        private int mapCleared = -1;
-        private int selectedMapRoomId = -1;
+        private RegionMapWidget minimap;
+        private UnityEngine.UI.Button mapButton;
+        private UnityEngine.UI.Button bagButton;
+        private UnityEngine.UI.Button overviewButton;
+        private UnityEngine.UI.Button pauseButton;
         private string selectedInteractionId;
-        private string selectedMapDetail;
-        private LevelMinimapProjection mapProjection;
         private bool openingPanel;
         private ExpeditionPanelKind openedPanel;
+        private ExpeditionPanelKind requestedPanel;
+        private int panelVersion;
 
         /// <summary>
         /// 建立代码驱动的 HUD 层级，沿用框架的 Canvas 与 EventSystem。
@@ -45,9 +48,15 @@ namespace GameLogic.UI.Battle
             var header = ProjectUiFactory.Vertical(content, "Status", 5);
             status = ProjectUiFactory.Label(header, "", 34, TextAnchor.UpperLeft, Color.white);
             ProjectUiFactory.Height(status.rectTransform, 104f);
-            hint = ProjectUiFactory.Label(header, "", 28, TextAnchor.UpperLeft, Color.white);
+            hint = ProjectUiFactory.Label(header, "", 24, TextAnchor.UpperLeft, Color.white);
             ProjectUiFactory.Height(hint.rectTransform, 104f);
+            hint.resizeTextForBestFit = true;
+            hint.resizeTextMinSize = 16;
+            hint.resizeTextMaxSize = 24;
             map = ProjectUiFactory.Panel(content, "Minimap", new Color(0.04f, 0.07f, 0.1f, 0.7f));
+            mapButton = map.gameObject.AddComponent<UnityEngine.UI.Button>();
+            mapButton.targetGraphic = map.GetComponent<UnityEngine.UI.Image>();
+            mapButton.onClick.AddListener(OpenMap);
             RectTransform stick = CreateDisc(content, "MoveStick", new Color(0.1f, 0.25f, 0.35f, 0.72f));
             joystick = stick.gameObject.AddComponent<ExpeditionJoystick>();
             RectTransform handle = CreateDisc(stick, "Handle", new Color(0.3f, 0.72f, 0.82f, 0.9f));
@@ -67,14 +76,14 @@ namespace GameLogic.UI.Battle
             interactionLabel = interactButton.GetComponentInChildren<UnityEngine.UI.Text>();
             interactionLabel.fontSize = 32;
             ProjectUiFactory.Height((RectTransform)interactButton.transform, 90f);
-            var bagButton = ProjectUiFactory.ActionButton(actions, "背包 / 安全箱", OpenInventory);
+            bagButton = ProjectUiFactory.ActionButton(actions, "背包 / 安全箱", OpenInventory);
             bagButton.GetComponentInChildren<UnityEngine.UI.Text>().fontSize = 32;
             ProjectUiFactory.Height((RectTransform)bagButton.transform, 90f);
             RectTransform menuRow = ProjectUiFactory.Horizontal(actions, "MenuActions", 8f);
             ProjectUiFactory.Height(menuRow, 90f);
-            var overviewButton = ProjectUiFactory.ActionButton(menuRow, "强化总览", OpenRogueOverview);
+            overviewButton = ProjectUiFactory.ActionButton(menuRow, "本局总览", OpenRogueOverview);
             overviewButton.GetComponentInChildren<UnityEngine.UI.Text>().fontSize = 24;
-            ProjectUiFactory.ActionButton(menuRow, "暂停", OpenPause);
+            pauseButton = ProjectUiFactory.ActionButton(menuRow, "暂停", OpenPause);
             resumeChoice = ProjectUiFactory.ActionButton(actions, "继续选择强化", OpenPendingChoice);
             resumeChoice.GetComponentInChildren<UnityEngine.UI.Text>().fontSize = 30;
             ProjectUiFactory.Height((RectTransform)resumeChoice.transform, 90f);
@@ -91,6 +100,11 @@ namespace GameLogic.UI.Battle
         {
             run = args.UserData as ExpeditionRun;
             if (run == null) return;
+            var plans = run.GetRegionOverview();
+            finalBoss = plans[plans.Count - 1];
+            minimap = map.gameObject.AddComponent<RegionMapWidget>();
+            minimap.Configure(run, true);
+            minimap.Frame.GetComponent<UnityEngine.UI.Image>().raycastTarget = false;
             joystick.Bind(run.SetTouchMove, () => run.CanAcceptPlayerInput);
             run.Changed += Refresh;
             coordinator = ProjectServices.Coordinator;
@@ -104,6 +118,7 @@ namespace GameLogic.UI.Battle
                 joystick.Bind(null);
                 current.SetTouchMove(Vector2.zero);
                 current.ClosePanel(current.ActivePanel);
+                if (minimap != null) Object.Destroy(minimap);
                 if (ReferenceEquals(run, current)) run = null;
             });
             Refresh();
@@ -115,12 +130,23 @@ namespace GameLogic.UI.Battle
         private void Refresh()
         {
             if (run == null) return;
-            run.World.TryGetActor(run.Player, out CombatActorSnapshot player);
-            status.text = "生命 " + Mathf.CeilToInt(player.Health) + " / " + Mathf.CeilToInt(player.MaxHealth) +
-                "\n本局经验 " + run.KillExperience + " · 金币 " + run.AvailableGold;
-            hint.text = string.IsNullOrEmpty(selectedMapDetail) ? run.Message : run.Message + "\n" + selectedMapDetail;
+            if (requestedPanel != run.ActivePanel)
+            {
+                requestedPanel = run.ActivePanel;
+                panelVersion++;
+            }
+            if (!run.IsSavingRun)
+            {
+                run.World.TryGetActor(run.Player, out CombatActorSnapshot player);
+                status.text = (run.IsFinalRegion ? "最终场地" : "区域 " + (run.CurrentRegionIndex + 1) + " / " + run.RegionCount) + " · 生命 " + Mathf.CeilToInt(player.Health) + " / " + Mathf.CeilToInt(player.MaxHealth) +
+                    "\n强化进度 " + run.CurrentRogueProgress + " / " + run.NextRogueThreshold + " · 金币 " + run.AvailableGold;
+            }
+            hint.text = "最终 Boss：" + finalBoss.BossName + "\n" + finalBoss.Weakness + "\n" +
+                (run.IsRogueBuildComplete ? "本局技能构筑已完成。" : run.Message);
             RefreshTarget();
-            bool choosing = run.IsChoosingRogue && run.PendingRogueChoice != null;
+            bool choosing = run.IsChoosingReward;
+            resumeChoice.interactable = choosing && !run.IsSavingRun && (run.PendingRogueChoice != null || run.PendingBossChoice != null);
+            resumeChoice.GetComponentInChildren<UnityEngine.UI.Text>().text = run.PendingBossChoice != null ? "继续选择尾王战利品" : "继续选择强化";
             if (resumeChoice.gameObject.activeSelf != choosing)
             {
                 resumeChoice.gameObject.SetActive(choosing);
@@ -136,21 +162,9 @@ namespace GameLogic.UI.Battle
                 run.SetTouchMove(Vector2.zero);
             }
             interactionLabel.text = run.InteractionLabel;
-            LevelMinimapProjection projection = run.Maps.GetMinimapProjection();
-            int cleared = 0;
-            foreach (LevelMinimapRoom room in projection.Rooms) if (room.IsCleared == true) cleared++;
-            if (mapRoom != run.Maps.CurrentRoomId)
-            {
-                selectedMapRoomId = -1;
-                selectedMapDetail = null;
-                hint.text = run.Message;
-            }
-            if (mapRoom != run.Maps.CurrentRoomId || cleared != mapCleared)
-            {
-                mapRoom = run.Maps.CurrentRoomId;
-                mapCleared = cleared;
-                RefreshMap(projection);
-            }
+            bool controlsAvailable = acceptsInput && !run.IsSavingRun;
+            mapButton.interactable = bagButton.interactable = overviewButton.interactable = pauseButton.interactable = controlsAvailable;
+            minimap.Refresh();
             if (run.ActivePanel == ExpeditionPanelKind.None) openedPanel = ExpeditionPanelKind.None;
             else if (!openingPanel && openedPanel != run.ActivePanel) OpenActivePanelAsync(run.ActivePanel).Forget();
         }
@@ -177,110 +191,20 @@ namespace GameLogic.UI.Battle
         }
 
         /// <summary>
-        /// 显示或取消投影中一个地图格点的已知详情。
-        /// </summary>
-        /// <param name="roomId">玩家可见投影中的地图标识。</param>
-        private void SelectMapRoom(int roomId)
-        {
-            if (mapProjection == null) return;
-            if (selectedMapRoomId == roomId)
-            {
-                selectedMapRoomId = -1;
-                selectedMapDetail = null;
-            }
-            else
-            {
-                bool found = false;
-                foreach (LevelMinimapRoom room in mapProjection.Rooms)
-                    if (room.RoomId == roomId)
-                    {
-                        selectedMapRoomId = roomId;
-                        selectedMapDetail = MinimapRoomDetail(room);
-                        found = true;
-                        break;
-                    }
-                if (!found) return;
-            }
-            hint.text = string.IsNullOrEmpty(selectedMapDetail) ? run.Message : run.Message + "\n" + selectedMapDetail;
-            RefreshMap(mapProjection);
-        }
-
-        /// <summary>
-        /// 仅从玩家可见投影字段生成地图详情。
-        /// </summary>
-        /// <param name="room">已过滤的地图格点。</param>
-        /// <returns>当前已知的地图说明。</returns>
-        private static string MinimapRoomDetail(LevelMinimapRoom room)
-        {
-            if (!room.IsVisited || !room.Type.HasValue) return $"地图 {room.RoomId}：未知区域";
-            string type = room.Type == LevelRoomType.Boss ? "首领房" : room.Type == LevelRoomType.Npc ? "商店" :
-                room.Type == LevelRoomType.Loot ? "战利品房" : "战斗房";
-            string state = room.IsCleared.HasValue ? room.IsCleared.Value ? " · 已清理" : " · 未清理" : string.Empty;
-            return $"地图 {room.RoomId}：{type}{state}" + (room.IsCurrent ? " · 当前所在" : string.Empty);
-        }
-
-        /// <summary>
-        /// 显示地图方格及已知连线，不绘制撤离点或路线。
-        /// </summary>
-        /// <param name="projection">已经过滤的信息投影。</param>
-        private void RefreshMap(LevelMinimapProjection projection)
-        {
-            mapProjection = projection;
-            if (selectedMapRoomId >= 0)
-            {
-                selectedMapDetail = null;
-                foreach (LevelMinimapRoom room in projection.Rooms)
-                    if (room.RoomId == selectedMapRoomId)
-                    {
-                        selectedMapDetail = MinimapRoomDetail(room);
-                        break;
-                    }
-                if (selectedMapDetail == null) selectedMapRoomId = -1;
-                hint.text = string.IsNullOrEmpty(selectedMapDetail) ? run.Message : run.Message + "\n" + selectedMapDetail;
-            }
-            ProjectUiFactory.Clear(map);
-            int minX = int.MaxValue, maxX = int.MinValue, minY = int.MaxValue, maxY = int.MinValue;
-            var positions = new Dictionary<int, Vector2>();
-            foreach (LevelMinimapRoom room in projection.Rooms)
-            {
-                minX = Mathf.Min(minX, room.GridPosition.x); maxX = Mathf.Max(maxX, room.GridPosition.x);
-                minY = Mathf.Min(minY, room.GridPosition.y); maxY = Mathf.Max(maxY, room.GridPosition.y);
-            }
-            foreach (LevelMinimapRoom room in projection.Rooms)
-                positions[room.RoomId] = new Vector2((room.GridPosition.x - minX + 1f) / (maxX - minX + 2f),
-                    (room.GridPosition.y - minY + 1f) / (maxY - minY + 2f));
-            foreach (LevelMinimapConnection edge in projection.Connections)
-            {
-                Vector2 from = positions[edge.FromRoomId], to = positions[edge.ToRoomId];
-                RectTransform line = ProjectUiFactory.Panel(map, "Link", new Color(0.5f, 0.6f, 0.7f));
-                Place(line, Vector2.Min(from, to) - new Vector2(0.004f, 0.004f), Vector2.Max(from, to) + new Vector2(0.004f, 0.004f));
-                line.GetComponent<UnityEngine.UI.Image>().raycastTarget = false;
-            }
-            foreach (LevelMinimapRoom room in projection.Rooms)
-            {
-                RectTransform cell = ProjectUiFactory.Panel(map, "Room_" + room.RoomId,
-                    room.RoomId == selectedMapRoomId ? new Color(0.7f, 0.55f, 0.2f) :
-                    room.IsCurrent ? new Color(0.1f, 0.7f, 0.8f) : new Color(0.2f, 0.3f, 0.4f));
-                Vector2 center = positions[room.RoomId];
-                Place(cell, center - new Vector2(0.06f, 0.09f), center + new Vector2(0.06f, 0.09f));
-                string caption = !room.IsVisited ? "?" : room.Type == LevelRoomType.Boss ? "王" : room.Type == LevelRoomType.Npc ? "商" :
-                    room.Type == LevelRoomType.Loot ? "箱" : room.IsCleared == true ? "✓" : "战";
-                var label = ProjectUiFactory.Label(cell, caption, 18, TextAnchor.MiddleCenter, Color.white);
-                ProjectUiFactory.Stretch(label.rectTransform, 0);
-                int roomId = room.RoomId;
-                UnityEngine.UI.Button button = cell.gameObject.AddComponent<UnityEngine.UI.Button>();
-                button.targetGraphic = cell.GetComponent<UnityEngine.UI.Image>();
-                button.onClick.AddListener(() => SelectMapRoom(roomId));
-            }
-        }
-
-        /// <summary>
         /// 请求打开本局背包弹窗。
         /// </summary>
         private void OpenInventory()
         {
             if (coordinator?.Phase == ProjectRunPhase.Playing && run?.TryOpenInventory() == true)
                 run.SetTouchMove(Vector2.zero);
+        }
+
+        /// <summary>
+        /// 展开地图并交由地图面板管理独立暂停。
+        /// </summary>
+        private void OpenMap()
+        {
+            if (coordinator?.Phase == ProjectRunPhase.Playing && run?.TryOpenMap() == true) run.SetTouchMove(Vector2.zero);
         }
 
         /// <summary>
@@ -312,32 +236,24 @@ namespace GameLogic.UI.Battle
             openingPanel = true;
             ExpeditionRun current = run;
             LifetimeScope scope = OpenScope;
+            int version = panelVersion;
             IUIModule ui = GameEntry.Get<IUIModule>();
             int windowId = kind == ExpeditionPanelKind.Inventory ? ProjectServices.ExpeditionInventoryWindow :
                 kind == ExpeditionPanelKind.Merchant ? ProjectServices.ExpeditionMerchantWindow :
-                kind == ExpeditionPanelKind.Pause ? ProjectServices.PauseWindow : ProjectServices.RogueOverviewWindow;
+                kind == ExpeditionPanelKind.Pause ? ProjectServices.PauseWindow :
+                kind == ExpeditionPanelKind.Map ? ProjectServices.ExpeditionMapWindow :
+                kind == ExpeditionPanelKind.ExtractionConfirmation ? ProjectServices.RegionExitWindow : ProjectServices.RogueOverviewWindow;
             try
             {
-                if (kind == ExpeditionPanelKind.ExtractionConfirmation)
-                {
-                    openedPanel = kind;
-                    var answer = await ui.ConfirmAsync("确认撤离？",
-                        "撤离后将结束本局，带回背包和安全箱中的全部物品，并获得撤离经验。是否现在撤离？",
-                        "确认撤离", "继续探索", scope.Token).SuppressCancellationThrow();
-                    if (answer.IsCanceled || !scope.IsActive || !ReferenceEquals(run, current) || current.ActivePanel != kind) return;
-                    if (answer.Result && current.TryConfirmExtraction()) return;
-                    current.ClosePanel(kind);
-                    return;
-                }
                 GameWindow opened = ui == null ? null : await ui.OpenWindowAsync(windowId, new GameWindowOpenArgs(current), scope.Token);
                 if (opened == null)
                 {
-                    if (scope.IsActive && current.ActivePanel == kind) current.ClosePanel(kind);
+                    if (OwnsPanelRequest(current, scope, kind, version)) current.ClosePanel(kind);
                     return;
                 }
-                if (!scope.IsActive || !ReferenceEquals(run, current) || current.ActivePanel != kind)
+                if (!OwnsPanelRequest(current, scope, kind, version))
                 {
-                    await ui.CloseWindowAsync(windowId);
+                    if (opened.State == GameWindowState.Opened && current.ActivePanel != kind) await ui.CloseWindowAsync(windowId);
                     return;
                 }
                 if (opened.State != GameWindowState.Opened || opened.Root == null)
@@ -350,12 +266,12 @@ namespace GameLogic.UI.Battle
             }
             catch (System.OperationCanceledException)
             {
-                if (scope.IsActive && ReferenceEquals(run, current) && current.ActivePanel == kind) current.ClosePanel(kind);
+                if (OwnsPanelRequest(current, scope, kind, version)) current.ClosePanel(kind);
             }
             catch (System.Exception error)
             {
                 GameEntry.Get<ILogModule>()?.Error("BattleHud", "打开局内面板失败：" + error.Message);
-                if (scope.IsActive && ReferenceEquals(run, current) && current.ActivePanel == kind) current.ClosePanel(kind);
+                if (OwnsPanelRequest(current, scope, kind, version)) current.ClosePanel(kind);
             }
             finally
             {
@@ -364,6 +280,17 @@ namespace GameLogic.UI.Battle
                     openedPanel != current.ActivePanel) Refresh();
             }
         }
+
+        /// <summary>
+        /// 校验异步打开任务仍拥有当前面板请求，防止同类窗口重开后被旧任务关闭。
+        /// </summary>
+        /// <param name="current">打开任务绑定的单局。</param>
+        /// <param name="scope">发起任务的 HUD 打开作用域。</param>
+        /// <param name="kind">任务请求的面板类型。</param>
+        /// <param name="version">发起时的面板请求版本。</param>
+        /// <returns>同一作用域和单局的当前请求仍由此任务拥有时为真。</returns>
+        private bool OwnsPanelRequest(ExpeditionRun current, LifetimeScope scope, ExpeditionPanelKind kind, int version) =>
+            scope.IsActive && ReferenceEquals(run, current) && panelVersion == version && current.ActivePanel == kind;
 
         /// <summary>
         /// 在可操作时切换附近目标。
@@ -378,7 +305,7 @@ namespace GameLogic.UI.Battle
         /// </summary>
         private void RequestInteraction()
         {
-            if (coordinator?.Phase == ProjectRunPhase.Playing && run?.IsChoosingRogue == false) run.RequestInteraction();
+            if (coordinator?.Phase == ProjectRunPhase.Playing && run?.IsChoosingReward == false) run.RequestInteraction();
         }
 
         /// <summary>
@@ -386,9 +313,10 @@ namespace GameLogic.UI.Battle
         /// </summary>
         private void OpenPendingChoice()
         {
-            if (run == null || !run.IsChoosingRogue || run.PendingRogueChoice == null) return;
+            if (run == null || !run.IsChoosingReward || run.IsSavingRun) return;
             IUIModule ui = GameEntry.Get<IUIModule>();
-            if (ui != null) ui.OpenWindowAsync(ProjectServices.RogueChoiceWindow, new GameWindowOpenArgs(run)).Forget();
+            if (ui != null) ui.OpenWindowAsync(run.PendingBossChoice != null ? ProjectServices.BossLootWindow : ProjectServices.RogueChoiceWindow,
+                new GameWindowOpenArgs(run)).Forget();
         }
 
         /// <summary>

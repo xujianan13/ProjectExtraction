@@ -82,13 +82,14 @@ namespace GameLogic.UI.Run
                 details.text = "完成一局并成功保存结算后，这里会显示战绩。";
                 return;
             }
-            AddText(summaries, $"仅统计最近保留的 {history.Count} 局；撤离率分母包括死亡和放弃。", 86f);
+            AddText(summaries, $"仅统计最近保留的 {history.Count} 局；成功带回率分母包括死亡和放弃。", 86f);
             foreach (ProjectRunHistorySummary row in ProjectRunHistoryRules.Summarize(history))
             {
                 string net = row.NetAssetSampleCount == 0 ? "无法计算（有效样本 0）" :
                     $"{row.AverageNetAssetValue:+0.#;-0.#;0}（有效样本 {row.NetAssetSampleCount}）";
-                AddText(summaries, $"关卡 {row.LevelId}  ·  样本 {row.Count}  ·  撤离率 {(double)row.ExtractedCount / row.Count:P0}\n" +
-                    $"均耗时 {row.AverageElapsedSeconds:0.#} 秒  ·  净资产均值 {net}", 106f);
+                AddText(summaries, $"关卡 {row.LevelId} · 样本 {row.Count} · 成功带回率 {(double)row.ExtractedCount / row.Count:P0}\n" +
+                    $"提前带回 {row.EarlyExtractionCount} · 最终通关 {row.CompletedCount}（有效区域样本 {row.RegionStatsSampleCount}）\n" +
+                    $"均耗时 {row.AverageElapsedSeconds:0.#} 秒 · 净资产均值 {net}", 106f);
             }
             for (int index = history.Count - 1; index >= 0; index--)
             {
@@ -120,11 +121,7 @@ namespace GameLogic.UI.Run
             if (selected < 0 || selected >= history.Count) return;
             ProjectRunHistoryEntry entry = history[selected];
             ProjectRunStatistics stats = entry.Statistics;
-            string performance = stats?.HasData == true
-                ? $"房间 {stats.VisitedRooms}/{stats.TotalRooms} · 清房 {stats.ClearedCombatRooms} · 击杀 {stats.EnemyKills}\n" +
-                  $"Boss房击杀 {stats.BossRoomKills} · 三选一 {stats.RogueChoices}\n" +
-                  $"造成伤害 {stats.DamageDealt:0.#} · 承受伤害 {stats.DamageTaken:0.#} · 治疗 {stats.HealingReceived:0.#}"
-                : "本局未记录完整表现统计。";
+            string performance = stats?.HasData == true ? stats.Describe() : "本局未记录完整表现统计。";
             string entryValue = entry.HasNetAssetValue ? entry.EntrySellValue.ToString() : "未记录";
             string netValue = entry.HasNetAssetValue ? entry.NetAssetValue.ToString("+0;-0;0") : "无法计算（缺入场估值）";
             details.text = $"{OutcomeText(entry.Outcome)} · 关卡 {entry.LevelId} · {entry.ElapsedSeconds:0.#} 秒\n" +
@@ -151,7 +148,8 @@ namespace GameLogic.UI.Run
         /// </summary>
         /// <param name="outcome">终局类型。</param>
         /// <returns>中文终局名称。</returns>
-        private static string OutcomeText(ProjectRunHistoryOutcome outcome) => outcome == ProjectRunHistoryOutcome.Extracted ? "撤离" :
+        private static string OutcomeText(ProjectRunHistoryOutcome outcome) => outcome == ProjectRunHistoryOutcome.Completed ? "最终通关" :
+            outcome == ProjectRunHistoryOutcome.Extracted ? "成功带回" :
             outcome == ProjectRunHistoryOutcome.Abandoned ? "放弃" : "死亡";
     }
 }

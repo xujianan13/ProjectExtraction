@@ -33,7 +33,7 @@ namespace GameLogic.Gameplay.Combat
             preview = default;
             if (faulted || !IsValid(actor) || !actors.TryGetValue(actor.Id, out var state) ||
                 state.DeadPending || state.Health <= 0f || !ValidBaseAttributes(baseSpec)) return false;
-            preview = ComposeAttributes(state, baseSpec);
+            preview = CopySpec(ComposeAttributes(state, baseSpec));
             return true;
         }
 
@@ -47,7 +47,7 @@ namespace GameLogic.Gameplay.Combat
         {
             if (!TryPreviewBaseAttributes(actor, baseSpec, out var preview)) return false;
             var state = actors[actor.Id];
-            state.BaseSpec = baseSpec;
+            state.BaseSpec = CopySpec(baseSpec);
             state.Spec = preview;
             state.Health = Mathf.Min(state.Health, preview.MaxHealth);
             return true;

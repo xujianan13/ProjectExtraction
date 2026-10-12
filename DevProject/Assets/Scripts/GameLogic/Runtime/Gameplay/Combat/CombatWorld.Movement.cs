@@ -108,7 +108,7 @@ namespace GameLogic.Gameplay.Combat
                         wallNormal.sqrMagnitude > 0f && Vector3.Dot(motion, wallNormal) < 0f && t < hitT)
                     { hitT = t; normal = wallNormal; }
             var actorIds = new List<int>(actors.Keys);
-            actorIds.Sort();
+            SortEntityIds(actorIds);
             foreach (var id in actorIds)
             {
                 var other = actors[id];

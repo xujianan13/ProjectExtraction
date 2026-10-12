@@ -1,140 +1,39 @@
 {
-  "schemaHash": "0020e4965f2d667947fea34ef2dd3ca0c4f30930dda762579bdcb56a12faa785",
+  "schemaHash": "df06a84ba72720e19db074881d52a0d702bc67f5c3f95b12354ab5f065e38616",
   "rows": [
     {
       "ID": 1,
-      "PoolID": "start",
-      "LayoutID": 1,
+      "PoolID": "region",
       "MinLevel": 1,
-      "MaxLevel": 3,
+      "MaxLevel": 1000,
       "Weight": 1
     },
     {
       "ID": 2,
-      "PoolID": "mob_open",
-      "LayoutID": 1,
+      "PoolID": "region",
       "MinLevel": 1,
-      "MaxLevel": 3,
-      "Weight": 4
+      "MaxLevel": 1000,
+      "Weight": 1
     },
     {
       "ID": 3,
-      "PoolID": "mob_open",
-      "LayoutID": 1,
+      "PoolID": "region",
       "MinLevel": 1,
-      "MaxLevel": 3,
-      "Weight": 3
+      "MaxLevel": 1000,
+      "Weight": 1
     },
     {
       "ID": 4,
-      "PoolID": "mob_open",
-      "LayoutID": 1,
-      "MinLevel": 2,
-      "MaxLevel": 3,
-      "Weight": 2
+      "PoolID": "region",
+      "MinLevel": 1,
+      "MaxLevel": 1000,
+      "Weight": 1
     },
     {
       "ID": 5,
-      "PoolID": "mob_pillar",
-      "LayoutID": 2,
+      "PoolID": "region",
       "MinLevel": 1,
-      "MaxLevel": 3,
-      "Weight": 4
-    },
-    {
-      "ID": 6,
-      "PoolID": "mob_pillar",
-      "LayoutID": 2,
-      "MinLevel": 1,
-      "MaxLevel": 3,
-      "Weight": 3
-    },
-    {
-      "ID": 7,
-      "PoolID": "mob_pillar",
-      "LayoutID": 2,
-      "MinLevel": 2,
-      "MaxLevel": 3,
-      "Weight": 2
-    },
-    {
-      "ID": 8,
-      "PoolID": "mob_lane",
-      "LayoutID": 3,
-      "MinLevel": 1,
-      "MaxLevel": 3,
-      "Weight": 4
-    },
-    {
-      "ID": 9,
-      "PoolID": "mob_lane",
-      "LayoutID": 3,
-      "MinLevel": 1,
-      "MaxLevel": 3,
-      "Weight": 3
-    },
-    {
-      "ID": 10,
-      "PoolID": "mob_lane",
-      "LayoutID": 3,
-      "MinLevel": 2,
-      "MaxLevel": 3,
-      "Weight": 2
-    },
-    {
-      "ID": 11,
-      "PoolID": "boss",
-      "LayoutID": 4,
-      "MinLevel": 1,
-      "MaxLevel": 3,
-      "Weight": 1
-    },
-    {
-      "ID": 12,
-      "PoolID": "mob_cover",
-      "LayoutID": 8,
-      "MinLevel": 1,
-      "MaxLevel": 1,
-      "Weight": 1
-    },
-    {
-      "ID": 15,
-      "PoolID": "mob_stagger",
-      "LayoutID": 9,
-      "MinLevel": 1,
-      "MaxLevel": 1,
-      "Weight": 1
-    },
-    {
-      "ID": 13,
-      "PoolID": "mob_cover",
-      "LayoutID": 8,
-      "MinLevel": 2,
-      "MaxLevel": 2,
-      "Weight": 1
-    },
-    {
-      "ID": 16,
-      "PoolID": "mob_stagger",
-      "LayoutID": 9,
-      "MinLevel": 2,
-      "MaxLevel": 2,
-      "Weight": 1
-    },
-    {
-      "ID": 14,
-      "PoolID": "mob_cover",
-      "LayoutID": 8,
-      "MinLevel": 3,
-      "MaxLevel": 3,
-      "Weight": 1
-    },
-    {
-      "ID": 17,
-      "PoolID": "mob_stagger",
-      "LayoutID": 9,
-      "MinLevel": 3,
-      "MaxLevel": 3,
+      "MaxLevel": 1000,
       "Weight": 1
     }
   ]

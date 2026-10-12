@@ -1,6 +1,5 @@
 using System.Collections.Generic;
 using GameLogic.Gameplay.Combat;
-using GameLogic.Gameplay.Level;
 using GameLogic.Gameplay.Roguelike;
 using GameLogic.Project;
 
@@ -8,11 +7,7 @@ namespace GameLogic.Gameplay.Expedition
 {
     public sealed partial class ExpeditionRun
     {
-        private readonly float augmentBaseAttackRange;
-        private readonly System.Random roomRewardRandom;
-        private RogueRoomRewardSchedule roomRewardSchedule;
-        private readonly HashSet<int> rewardedRooms = new();
-        private readonly Queue<string> roomRewardSources = new();
+        private float augmentBaseAttackRange;
         private List<CombatAugmentDefinition> equipmentAugments = new();
 
         /// <summary>
@@ -111,23 +106,5 @@ namespace GameLogic.Gameplay.Expedition
             return true;
         }
 
-        /// <summary>
-        /// 首次清房时冻结奖励抽取结果，回访和重复事件不能再次抽奖。
-        /// </summary>
-        /// <param name="room">已确认清空敌人的房间。</param>
-        private void QueueRoomReward(LevelRoomState room)
-        {
-            if (!rewardedRooms.Add(room.RoomId)) return;
-            roomRewardSchedule ??= new RogueRoomRewardSchedule(ProjectRulesConfig.RoguePolicy, roomRewardRandom);
-            if (roomRewardSchedule.ShouldReward(room.Type)) roomRewardSources.Enqueue("clear:" + room.RoomId);
-        }
-
-        /// <summary>
-        /// 在终局仲裁之后展示清房奖励，成功创建才移出队列。
-        /// </summary>
-        private void BeginPendingRoomReward()
-        {
-            if (roomRewardSources.Count > 0 && TryBeginRogueChoice(roomRewardSources.Peek())) roomRewardSources.Dequeue();
-        }
     }
 }

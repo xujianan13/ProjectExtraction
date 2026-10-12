@@ -34,41 +34,6 @@ namespace GameLogic.Tables
         public int RequiredLevel;
 
         /// <summary>
-        /// GridWidth 字段。
-        /// </summary>
-        public int GridWidth;
-
-        /// <summary>
-        /// GridHeight 字段。
-        /// </summary>
-        public int GridHeight;
-
-        /// <summary>
-        /// ExtraConnectionMin 字段。
-        /// </summary>
-        public int ExtraConnectionMin;
-
-        /// <summary>
-        /// ExtraConnectionMax 字段。
-        /// </summary>
-        public int ExtraConnectionMax;
-
-        /// <summary>
-        /// LootRoomCount 字段。
-        /// </summary>
-        public int LootRoomCount;
-
-        /// <summary>
-        /// ExtraExtractionChance 字段。
-        /// </summary>
-        public double ExtraExtractionChance;
-
-        /// <summary>
-        /// LayoutID 字段。
-        /// </summary>
-        public int LayoutID;
-
-        /// <summary>
         /// IsDefault 字段。
         /// </summary>
         public bool IsDefault;
@@ -82,6 +47,36 @@ namespace GameLogic.Tables
         /// LootLevel 字段。
         /// </summary>
         public int LootLevel;
+
+        /// <summary>
+        /// RegionCount 字段。
+        /// </summary>
+        public int RegionCount;
+
+        /// <summary>
+        /// BossPoolID 字段。
+        /// </summary>
+        public string BossPoolID;
+
+        /// <summary>
+        /// FinalBossPoolID 字段。
+        /// </summary>
+        public string FinalBossPoolID;
+
+        /// <summary>
+        /// ContentID 字段。
+        /// </summary>
+        public int ContentID;
+
+        /// <summary>
+        /// SkillPoolID 字段。
+        /// </summary>
+        public string SkillPoolID;
+
+        /// <summary>
+        /// ProgressRuleID 字段。
+        /// </summary>
+        public int ProgressRuleID;
     }
 
     /// <summary>
@@ -118,7 +113,7 @@ namespace GameLogic.Tables
                 TextAsset asset = lease.Asset;
                 if (asset == null) throw new InvalidOperationException("配置表资源不可用：CfgLevels");
                 var envelope = JsonUtility.FromJson(asset.text, typeof(Envelope)) as Envelope;
-                if (envelope == null || envelope.schemaHash != "5bd34f59a8257df9afff66467beb455b089615418377157ff5a0272bff10de1e" || envelope.rows == null)
+                if (envelope == null || envelope.schemaHash != "28e1f5a855d542ab1d8f7b62b5aa626eff71f657b41feb80236599ea1ae99c32" || envelope.rows == null)
                     throw new InvalidOperationException("配置表结构不匹配：CfgLevels");
 
                 var table = new CfgLevelsTable();

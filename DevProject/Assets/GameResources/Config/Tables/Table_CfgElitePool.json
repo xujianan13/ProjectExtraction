@@ -1,0 +1,29 @@
+{
+  "schemaHash": "3dd3e799ce2c2bebd08e37d6358abe9917a4987facf5ede0eda17f6548e150ac",
+  "rows": [
+    {
+      "ID": 1,
+      "PoolID": "region",
+      "EnemyID": 7,
+      "Weight": 1,
+      "MinLevel": 1,
+      "MaxLevel": 1000
+    },
+    {
+      "ID": 2,
+      "PoolID": "region",
+      "EnemyID": 8,
+      "Weight": 1,
+      "MinLevel": 1,
+      "MaxLevel": 1000
+    },
+    {
+      "ID": 3,
+      "PoolID": "region",
+      "EnemyID": 9,
+      "Weight": 1,
+      "MinLevel": 1,
+      "MaxLevel": 1000
+    }
+  ]
+}

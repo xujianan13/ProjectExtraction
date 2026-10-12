@@ -531,6 +531,19 @@
       "signatures": ["SaveLoadResult<T> LoadResult { get; }", "event Action<SaveSessionStatus> StatusChanged;", "public SaveResult AcceptRecovery();", "public SaveResult Activate();", "public SaveResult BindSnapshot(Func<T> snapshot);", "public SaveResult MarkDirty();", "public SaveSessionStatus GetStatus();", "public UniTask<SaveFlushResult> FlushAsync(CancellationToken ct = default);", "public UniTask<SaveFlushResult> RetryAsync(CancellationToken ct = default);", "public UniTask<SaveResult> CloseAsync(CancellationToken ct = default);", "public void Dispose();", "public void OnBackground(bool background);", "public void Tick();"]
     },
     {
+      "task": "保存有序状态增量并恢复完整提交",
+      "symbol": "GameFramework.SaveStateJournal",
+      "source": "DevProject/Assets/Scripts/GameFramework/Runtime/Modules/Save/Repository/SaveStateJournal.cs",
+      "guide": "docs/framework/正式存档使用指南.md",
+      "recipe": "DevProject/Assets/Tests/PlayMode/ApiRecipes.cs",
+      "owner": "业务会话独占日志与 FIFO 提交队列",
+      "cancellation": "在途写入完成后再关闭后端",
+      "failure": "失败保留原候选并显式重试；检查 SaveResult",
+      "thread": "Unity 主线程",
+      "paused": "暂停时仍可完成已接纳的保存",
+      "signatures": ["bool HasPending { get; }", "bool IsBusy { get; }", "double LastCommitMilliseconds { get; set; }", "long LastPayloadBytes { get; set; }", "long Revision { get; }", "long TotalWrittenBytes { get; set; }", "public SaveStateJournal(ISaveBackend backend, string prefix, int checkpointInterval, int maxStateBytes);", "public UniTask<SaveJournalLoadResult> LoadAsync(string identity);", "public UniTask<SaveResult> CommitAsync(string identity, IReadOnlyList<SaveStateComponent> components);", "public UniTask<SaveResult> RetryAsync();"]
+    },
+    {
       "task": "管理单局进入、结算和返回菜单",
       "symbol": "GameFramework.GameRoundFlow",
       "source": "DevProject/Assets/Scripts/GameFramework/Runtime/Modules/Gameplay/Flow/GameRoundFlow.cs",
@@ -541,7 +554,7 @@
       "failure": "检查状态、错误和 bool 结果",
       "thread": "Unity 主线程",
       "paused": "按具体调用及模块文档",
-      "signatures": ["GameRoundState State { get; set; }", "Nullable<GameRoundResult> Result { get; set; }", "bool HasNextLevel { get; }", "bool IsBusy { get; }", "event Action<GameRoundState> StateChanged;", "int CurrentLevelId { get; set; }", "public GameRoundFlow(IGameRoundFactory factory, Func<GameRoundResult, CancellationToken, UniTask> saveResult = null);", "public UniTask<bool> CloseAsync(CancellationToken ct = default);", "public UniTask<bool> NextLevelAsync(CancellationToken ct = default);", "public UniTask<bool> RetryAsync(CancellationToken ct = default);", "public UniTask<bool> ReturnToMenuAsync(CancellationToken ct = default);", "public UniTask<bool> StartLevelAsync(int levelId, CancellationToken ct = default);", "public bool Pause();", "public bool Resume();", "public void CancelLoading();", "public void Dispose();", "string CurrentRoundId { get; set; }", "string Error { get; set; }"]
+      "signatures": ["GameRoundState State { get; set; }", "Nullable<GameRoundResult> Result { get; set; }", "bool HasNextLevel { get; }", "bool IsBusy { get; }", "event Action<GameRoundState> StateChanged;", "int CurrentLevelId { get; set; }", "public GameRoundFlow(IGameRoundFactory factory, Func<GameRoundResult, CancellationToken, UniTask> saveResult = null);", "public UniTask<bool> CloseAsync(CancellationToken ct = default);", "public UniTask<bool> NextLevelAsync(CancellationToken ct = default);", "public UniTask<bool> RestoreLevelAsync(int levelId, string roundId, CancellationToken ct = default);", "public UniTask<bool> RetryAsync(CancellationToken ct = default);", "public UniTask<bool> ReturnToMenuAsync(CancellationToken ct = default);", "public UniTask<bool> StartLevelAsync(int levelId, CancellationToken ct = default);", "public bool Pause();", "public bool Resume();", "public void CancelLoading();", "public void Dispose();", "string CurrentRoundId { get; set; }", "string Error { get; set; }"]
     }
   ]
 }

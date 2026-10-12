@@ -197,6 +197,7 @@ namespace GameLogic.UI.Common
             UnityEngine.UI.LayoutElement element = rect.GetComponent<UnityEngine.UI.LayoutElement>() ?? rect.gameObject.AddComponent<UnityEngine.UI.LayoutElement>();
             element.preferredHeight = height;
             element.minHeight = height;
+            element.flexibleHeight = 0f;
         }
 
         /// <summary>

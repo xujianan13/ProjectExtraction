@@ -20,12 +20,100 @@ namespace ProjectExtraction.Tests
             ProjectRunStatistics original = Statistics();
             ProjectRunStatistics copy = original.Copy();
             copy.EnemyKills = 8;
+            copy.NormalFirst.Progress = 999;
+            copy.NormalRespawn.Experience = 999;
+            copy.EliteFirst.Kills = 999;
+            copy.EliteRespawn.Progress = 999;
+            copy.Regions[0].EffectiveTicks = 999;
+            copy.Regions.Clear();
             Assert.AreEqual(3, original.EnemyKills);
+            Assert.AreEqual(2, original.NormalFirst.Progress);
+            Assert.AreEqual(0, original.NormalRespawn.Experience);
+            Assert.AreEqual(0, original.EliteFirst.Kills);
+            Assert.AreEqual(0, original.EliteRespawn.Progress);
+            Assert.AreEqual(120, original.Regions[0].EffectiveTicks);
+            Assert.AreEqual(2, original.Regions.Count);
             ProjectRunStatistics restored = JsonUtility.FromJson<ProjectRunStatistics>(JsonUtility.ToJson(original));
             Assert.IsTrue(restored.HasData);
             Assert.AreEqual(original.EntryItemSellValue, restored.EntryItemSellValue);
             Assert.AreEqual(original.DamageDealt, restored.DamageDealt);
             Assert.IsTrue(ProjectRunStatistics.IsValid(restored));
+            Assert.AreEqual(JsonUtility.ToJson(original), JsonUtility.ToJson(restored));
+        }
+
+        /// <summary>
+        /// 真实旧格式保留已有历史与入场估值，新维度明确未记录且不伪造分类零值。
+        /// </summary>
+        [Test]
+        public void VersionOneHistoryPreservesRecordedValuesAndMarksNewFieldsMissing()
+        {
+            const string oldJson = "{\"Version\":1,\"TotalRooms\":5,\"VisitedRooms\":3,\"ClearedCombatRooms\":2," +
+                "\"EnemyKills\":7,\"BossRoomKills\":1,\"RogueChoices\":2,\"EntryItemCount\":1,\"EntryItemSellValue\":50}";
+            ProjectRunStatistics old = JsonUtility.FromJson<ProjectRunStatistics>(oldJson);
+            Assert.IsTrue(ProjectRunStatistics.IsValid(old));
+            Assert.IsTrue(old.HasData);
+            Assert.IsFalse(old.HasRegionData);
+            ProjectSaveData data = Running("old-recorded-stats");
+            ProjectRunOutcome outcome = Outcome(data, true);
+            outcome.Statistics = old;
+            Assert.IsTrue(ProjectRunRecordRules.TryRecordOutcome(data, outcome, out string error), error);
+            Assert.IsTrue(ProjectRunRecordRules.TrySettleOutcome(data, out error), error);
+            data = RoundTrip(data);
+            ProjectRunHistoryEntry record = data.RunHistory[0];
+            Assert.AreEqual(7, record.Statistics.EnemyKills);
+            Assert.AreEqual(3, record.Statistics.VisitedRooms);
+            Assert.IsTrue(record.HasNetAssetValue);
+            Assert.IsTrue(ProjectRunEconomy.Calculate(data.LastResult).HasEntrySnapshot);
+            StringAssert.Contains("未记录", record.Statistics.Describe());
+            StringAssert.DoesNotContain("普通首次 击杀 0", record.Statistics.Describe());
+            ProjectRunHistorySummary summary = ProjectRunHistoryRules.Summarize(data.RunHistory)[0];
+            Assert.AreEqual(1, summary.ExtractedCount);
+            Assert.AreEqual(0, summary.RegionStatsSampleCount);
+            Assert.AreEqual(0, summary.EarlyExtractionCount);
+        }
+
+        /// <summary>
+        /// 最终领奖完成使用追加的通关枚举，仍正常携回全部物品和撤离经验并保持幂等。
+        /// </summary>
+        [Test]
+        public void FinalCompletionRemainsSuccessfulSettlementAndDistinctHistory()
+        {
+            ProjectSaveData data = Running("complete-v2");
+            ProjectRunOutcome outcome = Outcome(data, true);
+            ProjectRunStatistics statistics = Statistics();
+            statistics.RegionBossKills = 3;
+            statistics.FinalBossKills = 1;
+            statistics.FinalBossExperience = 123;
+            statistics.EnemyKills = 6;
+            statistics.BossLootRounds = 6;
+            statistics.Regions.Add(new ProjectRegionStatistics { RegionId = 3, RegionIndex = 2, Completed = true });
+            statistics.Regions.Add(new ProjectRegionStatistics { RegionId = 4, RegionIndex = 3, IsFinalRegion = true, Completed = true });
+            statistics.Regions[1].Completed = true;
+            outcome.Statistics = statistics;
+            outcome.KillExperience = outcome.AwardedKillExperience = 123;
+            outcome.ExtractionExperience = 15;
+            Assert.IsTrue(ProjectRunRecordRules.TryRecordOutcome(data, outcome, out string error), error);
+            Assert.IsTrue(ProjectRunRecordRules.TrySettleOutcome(data, out error), error);
+            data = RoundTrip(data);
+            Assert.IsTrue(data.LastResult.Outcome.Extracted);
+            Assert.AreEqual(outcome.Items.Count, data.LastResult.RetainedItems.Count);
+            Assert.IsEmpty(data.LastResult.LostItems);
+            Assert.AreEqual(15, data.LastResult.Outcome.ExtractionExperience);
+            Assert.AreEqual(ProjectRunHistoryOutcome.Completed, data.RunHistory[0].Outcome);
+            Assert.AreEqual(4, data.RunHistory[0].Statistics.CompletedRegions);
+            ProjectRunHistorySummary summary = ProjectRunHistoryRules.Summarize(data.RunHistory)[0];
+            Assert.AreEqual(1, summary.CompletedCount);
+            Assert.AreEqual(1, summary.ExtractedCount);
+            Assert.AreEqual(0, summary.EarlyExtractionCount);
+            string frozen = JsonUtility.ToJson(data);
+            Assert.IsTrue(ProjectRunRecordRules.TrySettleOutcome(data, out error), error);
+            Assert.AreEqual(frozen, JsonUtility.ToJson(data));
+            ProjectRunHistoryEntry invalid = data.RunHistory[0].Copy();
+            invalid.Outcome = ProjectRunHistoryOutcome.Extracted;
+            Assert.IsNotNull(ProjectRunHistoryRules.Validate(new[] { invalid }));
+            invalid.Outcome = ProjectRunHistoryOutcome.Completed;
+            invalid.Statistics.Regions[3].Completed = false;
+            Assert.IsNotNull(ProjectRunHistoryRules.Validate(new[] { invalid }));
         }
 
         /// <summary>
@@ -86,8 +174,11 @@ namespace ProjectExtraction.Tests
             outcome.Statistics = statistics;
             Action[] corrupt =
             {
-                () => statistics.Version = 2, () => statistics.TotalRooms = 0, () => statistics.VisitedRooms = 0,
-                () => statistics.VisitedRooms = 5, () => statistics.ClearedCombatRooms = 3,
+                () => statistics.Version = 3, () => statistics.TotalRegions = 0, () => statistics.Regions = null,
+                () => statistics.Regions[1].RegionIndex = 5, () => statistics.RegionBossKills = 3,
+                () => statistics.Regions[1].RegionId = 1, () => statistics.Regions[0].EffectiveTicks = -1,
+                () => statistics.NormalFirst.Kills = 1, () => statistics.NormalFirst.Experience = (long)int.MaxValue + 1,
+                () => statistics.RegionBossExperience = long.MaxValue, () => statistics.FinalBossExperience = long.MaxValue,
                 () => statistics.EnemyKills = -1, () => statistics.BossRoomKills = 4,
                 () => statistics.RogueChoices = -1, () => statistics.EntryItemCount = -1,
                 () => statistics.EntryItemSellValue = -1, () => statistics.EntryItemSellValue = long.MaxValue,
@@ -172,8 +263,13 @@ namespace ProjectExtraction.Tests
         /// <returns>包含入场快照的统计。</returns>
         private static ProjectRunStatistics Statistics() => new()
         {
-            Version = ProjectRunStatistics.CurrentVersion, TotalRooms = 4, VisitedRooms = 2,
-            ClearedCombatRooms = 1, EnemyKills = 3, BossRoomKills = 1, RogueChoices = 1,
+            Version = ProjectRunStatistics.CurrentVersion, TotalRegions = 4, EnemyKills = 3, RegionBossKills = 1, RogueChoices = 1,
+            NormalFirst = new ProjectEnemyLifeStatistics { Kills = 2, Progress = 2 },
+            Regions = new List<ProjectRegionStatistics>
+            {
+                new() { RegionId = 1, RegionIndex = 0, EffectiveTicks = 120, Completed = true },
+                new() { RegionId = 2, RegionIndex = 1, EffectiveTicks = 60 }
+            },
             EntryItemCount = 1, EntryItemSellValue = 50, DamageDealt = 12.5, DamageTaken = 4, HealingReceived = 2
         };
 

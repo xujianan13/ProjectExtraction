@@ -1,0 +1,45 @@
+{
+  "schemaHash": "42cd40e5a8a39503c69400c8f11252dcf3da849627361ab826a71a8a2e3d72b3",
+  "rows": [
+    {
+      "ID": "gate_sigil",
+      "Name": "守门者印记",
+      "Series": "ruin",
+      "Source": "区域尾王：遗迹守门者",
+      "SellGold": 80,
+      "RequiredLevel": 1,
+      "Quality": 3,
+      "SafeAllowed": true
+    },
+    {
+      "ID": "court_medal",
+      "Name": "庭院统领勋章",
+      "Series": "ruin",
+      "Source": "区域尾王：庭院双刃统领",
+      "SellGold": 80,
+      "RequiredLevel": 1,
+      "Quality": 3,
+      "SafeAllowed": true
+    },
+    {
+      "ID": "core_fragment",
+      "Name": "遗迹核心残片",
+      "Series": "ruin",
+      "Source": "关卡Boss：遗迹核心守望者",
+      "SellGold": 150,
+      "RequiredLevel": 1,
+      "Quality": 4,
+      "SafeAllowed": true
+    },
+    {
+      "ID": "explorer_token",
+      "Name": "旧日探索徽记",
+      "Series": "exploration",
+      "Source": "区域宝箱与商人",
+      "SellGold": 40,
+      "RequiredLevel": 1,
+      "Quality": 2,
+      "SafeAllowed": true
+    }
+  ]
+}

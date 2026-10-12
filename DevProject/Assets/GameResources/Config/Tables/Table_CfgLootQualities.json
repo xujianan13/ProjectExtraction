@@ -110,40 +110,46 @@
       "Weight": 1
     },
     {
-      "ID": "boss_0",
-      "PoolID": "boss",
+      "ID": "v2_boss_0",
+      "PoolID": "boss_equipment",
       "Quality": 0,
       "Weight": 20
     },
     {
-      "ID": "boss_1",
-      "PoolID": "boss",
+      "ID": "v2_boss_1",
+      "PoolID": "boss_equipment",
       "Quality": 1,
       "Weight": 35
     },
     {
-      "ID": "boss_2",
-      "PoolID": "boss",
+      "ID": "v2_boss_2",
+      "PoolID": "boss_equipment",
       "Quality": 2,
       "Weight": 25
     },
     {
-      "ID": "boss_3",
-      "PoolID": "boss",
+      "ID": "v2_boss_3",
+      "PoolID": "boss_equipment",
       "Quality": 3,
       "Weight": 12
     },
     {
-      "ID": "boss_4",
-      "PoolID": "boss",
+      "ID": "v2_boss_4",
+      "PoolID": "boss_equipment",
       "Quality": 4,
       "Weight": 6
     },
     {
-      "ID": "boss_5",
-      "PoolID": "boss",
+      "ID": "v2_boss_5",
+      "PoolID": "boss_equipment",
       "Quality": 5,
       "Weight": 2
+    },
+    {
+      "ID": "region_chest_2",
+      "PoolID": "region_chest",
+      "Quality": 2,
+      "Weight": 1
     }
   ]
 }

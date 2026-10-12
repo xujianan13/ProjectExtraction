@@ -11,13 +11,13 @@ MonoBehaviour:
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 185f6993d5150494d98da50e26cb1c25, type: 3}
   m_Name: BundleCollectorSetting
-  m_EditorClassIdentifier: 
+  m_EditorClassIdentifier:
   ShowPackageView: 0
   ShowEditorAlias: 0
   UniqueBundleName: 0
   Packages:
   - PackageName: GamePackage
-    PackageDesc: 
+    PackageDesc:
     EnableAddressable: 1
     SupportExtensionless: 1
     LocationToLower: 0
@@ -62,8 +62,8 @@ MonoBehaviour:
         AddressRuleName: AddressByFileName
         PackRuleName: PackDirectory
         FilterRuleName: CollectAll
-        AssetTags: 
-        UserData: 
+        AssetTags:
+        UserData:
     - GroupName: GameContent/Config
       GroupDesc: Managed by GamePackageBuildPipeline
       AssetTags: Startup
@@ -75,8 +75,8 @@ MonoBehaviour:
         AddressRuleName: AddressByFileName
         PackRuleName: PackDirectory
         FilterRuleName: CollectAll
-        AssetTags: 
-        UserData: 
+        AssetTags:
+        UserData:
     - GroupName: GameContent/Gameplay
       GroupDesc: Managed by GamePackageBuildPipeline
       AssetTags: Gameplay;Optional
@@ -88,8 +88,8 @@ MonoBehaviour:
         AddressRuleName: AddressByFileName
         PackRuleName: PackSeparately
         FilterRuleName: CollectAll
-        AssetTags: 
-        UserData: 
+        AssetTags:
+        UserData:
     - GroupName: GameContent/Input
       GroupDesc: Managed by GamePackageBuildPipeline
       AssetTags: Startup
@@ -101,8 +101,8 @@ MonoBehaviour:
         AddressRuleName: AddressByFileName
         PackRuleName: PackSeparately
         FilterRuleName: CollectAll
-        AssetTags: 
-        UserData: 
+        AssetTags:
+        UserData:
     - GroupName: GameContent/Scenes
       GroupDesc: Managed by GamePackageBuildPipeline
       AssetTags: Scenes;Optional
@@ -114,8 +114,8 @@ MonoBehaviour:
         AddressRuleName: AddressByFileName
         PackRuleName: PackSeparately
         FilterRuleName: CollectAll
-        AssetTags: 
-        UserData: 
+        AssetTags:
+        UserData:
     - GroupName: GameContent/UI
       GroupDesc: Managed by GamePackageBuildPipeline
       AssetTags: UI;Optional
@@ -127,5 +127,5 @@ MonoBehaviour:
         AddressRuleName: AddressByFileName
         PackRuleName: PackSeparately
         FilterRuleName: CollectAll
-        AssetTags: 
-        UserData: 
+        AssetTags:
+        UserData:

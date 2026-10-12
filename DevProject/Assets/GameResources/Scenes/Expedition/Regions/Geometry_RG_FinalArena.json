@@ -1,0 +1,87 @@
+{
+    "MapId": 3,
+    "Version": "v2-region-1",
+    "Bounds": {
+        "serializedVersion": "2",
+        "x": -24.0,
+        "y": -28.0,
+        "width": 48.0,
+        "height": 56.0
+    },
+    "NorthYawDegrees": 0.0,
+    "Obstacles": [
+        {
+            "Min": {
+                "x": -20.0,
+                "y": -12.0
+            },
+            "Max": {
+                "x": -15.0,
+                "y": 12.0
+            }
+        },
+        {
+            "Min": {
+                "x": 15.0,
+                "y": -12.0
+            },
+            "Max": {
+                "x": 20.0,
+                "y": 12.0
+            }
+        }
+    ],
+    "Anchors": [
+        {
+            "Id": "entry",
+            "Kind": 0,
+            "Tag": "",
+            "Position": {
+                "x": 0.0,
+                "y": 0.0,
+                "z": -20.0
+            },
+            "Capacity": 1
+        },
+        {
+            "Id": "boss",
+            "Kind": 5,
+            "Tag": "",
+            "Position": {
+                "x": 0.0,
+                "y": 0.0,
+                "z": 12.0
+            },
+            "Capacity": 1
+        },
+        {
+            "Id": "exit",
+            "Kind": 6,
+            "Tag": "",
+            "Position": {
+                "x": 0.0,
+                "y": 0.0,
+                "z": 22.0
+            },
+            "Capacity": 1
+        }
+    ],
+    "NoSpawnZones": [
+        {
+            "Center": {
+                "x": 0.0,
+                "y": 0.0,
+                "z": -20.0
+            },
+            "Radius": 6.0
+        },
+        {
+            "Center": {
+                "x": 0.0,
+                "y": 0.0,
+                "z": 22.0
+            },
+            "Radius": 6.0
+        }
+    ]
+}

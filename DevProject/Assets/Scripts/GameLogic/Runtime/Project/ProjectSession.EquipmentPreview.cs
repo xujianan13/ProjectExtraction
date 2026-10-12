@@ -21,7 +21,7 @@ namespace GameLogic.Project
             if (disposed || profile == null) return false;
             ProjectSaveData candidate = profile.Copy();
             if (!TryApplyEquipment(candidate, itemId, out _, out error)) return false;
-            preview = ProjectEquipmentRules.Calculate(candidate.Warehouse, candidate.PowerRank, candidate.VitalityRank, candidate.AgilityRank);
+            preview = CalculateCharacterStats(candidate.Warehouse);
             return true;
         }
 
@@ -47,7 +47,7 @@ namespace GameLogic.Project
                 if (error != null) return false;
             }
             error = "请选择可穿戴的武器或装备。";
-            if (selected.Type == ProjectItemType.Item) return false;
+            if (selected.Type == ProjectItemType.Item || selected.Type == ProjectItemType.Collection) return false;
             var candidates = profile.Warehouse.ConvertAll(value => value.Copy());
             ProjectItem candidate = candidates.Find(value => value.Id == selected.Id);
             bool equip = owned == null || !owned.Equipped;
@@ -60,7 +60,7 @@ namespace GameLogic.Project
                 if (other.Type == selected.Type || ProjectEquipmentRules.IsArmor(other.Type) && ProjectEquipmentRules.IsArmor(selected.Type))
                     other.Equipped = false;
             candidate.Equipped = equip;
-            preview = ProjectEquipmentRules.Calculate(candidates, profile.PowerRank, profile.VitalityRank, profile.AgilityRank);
+            preview = CalculateCharacterStats(candidates);
             error = null;
             return true;
         }
@@ -79,7 +79,7 @@ namespace GameLogic.Project
             error = "请选择可穿戴的武器或装备。";
             if (candidate?.Warehouse == null || string.IsNullOrEmpty(itemId)) return false;
             ProjectItem item = candidate.Warehouse.Find(value => value.Id == itemId);
-            if (item == null || item.Type == ProjectItemType.Item) return false;
+            if (item == null || item.Type == ProjectItemType.Item || item.Type == ProjectItemType.Collection) return false;
             error = "角色等级不足，无法穿戴。";
             if (item.RequiredLevel > candidate.Level) return false;
             equip = !item.Equipped;

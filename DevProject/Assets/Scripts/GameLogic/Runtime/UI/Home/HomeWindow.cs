@@ -26,6 +26,7 @@ namespace GameLogic.UI.Home
         private UnityEngine.UI.Button shopButton;
         private UnityEngine.UI.Button historyButton;
         private UnityEngine.UI.Button characterButton;
+        private UnityEngine.UI.Button collectionButton;
         private UnityEngine.UI.Button settingsButton;
         private UnityEngine.UI.Button guideButton;
         private ProjectSession session;
@@ -105,6 +106,7 @@ namespace GameLogic.UI.Home
             skillsButton = ProjectUiFactory.ActionButton(footer, "技能", () => GameEntry.Get<IUIModule>().OpenWindowAsync(2102).Forget());
             shopButton = ProjectUiFactory.ActionButton(footer, "商店", () => GameEntry.Get<IUIModule>().OpenWindowAsync(ProjectServices.HomeShopWindow).Forget());
             historyButton = ProjectUiFactory.ActionButton(footer, "战绩", () => OpenUtility(ProjectServices.RunHistoryWindow));
+            collectionButton = ProjectUiFactory.ActionButton(footer, "收藏", () => OpenUtility(ProjectServices.CollectionWindow));
         }
 
         /// <summary>
@@ -125,6 +127,7 @@ namespace GameLogic.UI.Home
                 shopButton.interactable = false;
                 historyButton.interactable = false;
                 characterButton.interactable = false;
+                collectionButton.interactable = false;
                 settingsButton.interactable = false;
                 guideButton.interactable = false;
                 return;
@@ -179,14 +182,18 @@ namespace GameLogic.UI.Home
             levelDetails.text = selected == null ? "暂无可选关卡" : selected.Description + (session.Level < selected.RequiredLevel ? "\n等级不足" : string.Empty);
             bool canStart = selected != null && session.Level >= selected.RequiredLevel && session.Stamina >= PrototypeRules.EntryCost &&
                 coordinator.CanStart && !session.IsBusy && !launching;
-            startButton.interactable = canStart;
-            bool canEdit = coordinator.Phase == ProjectRunPhase.HomeReady && !session.IsBusy && !launching;
+            bool canResume = coordinator.CanResume && !launching;
+            startButton.interactable = canStart || canResume;
+            startButton.GetComponentInChildren<UnityEngine.UI.Text>().text = canResume ? "继续上次关卡" : "出战";
+            if (canResume) levelDetails.text = "上次关卡尚未结束，将恢复原区域、生命、物品与奖励。继续不再消耗体力。";
+            bool canEdit = coordinator.Phase == ProjectRunPhase.HomeReady && !session.IsBusy && !launching && string.IsNullOrEmpty(session.ActiveRunId);
             supplyButton.interactable = canEdit;
             warehouseButton.interactable = canEdit;
             skillsButton.interactable = canEdit;
             shopButton.interactable = canEdit;
             historyButton.interactable = canEdit;
             characterButton.interactable = canEdit;
+            collectionButton.interactable = canEdit;
             settingsButton.interactable = canEdit;
             guideButton.interactable = canEdit;
             guideButton.GetComponentInChildren<UnityEngine.UI.Text>().text = session.Preferences.GuideVersion < 1 ? "新手指引" : "玩法帮助";
@@ -225,7 +232,7 @@ namespace GameLogic.UI.Home
             if (session == null || coordinator == null || session.IsBusy || launching || !startButton.interactable) return;
             launching = true;
             Refresh();
-            bool started = await coordinator.StartRunAsync(coordinator.SelectedLevelId);
+            bool started = coordinator.CanResume ? await coordinator.ResumeRunAsync() : await coordinator.StartRunAsync(coordinator.SelectedLevelId);
             if (Root == null || State != GameWindowState.Opened) return;
             launching = false;
             feedback.text = started ? "已开始出战" : coordinator.Message;

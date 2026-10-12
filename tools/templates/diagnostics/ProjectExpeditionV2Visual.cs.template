@@ -1,0 +1,390 @@
+using System;
+using System.Collections;
+using System.Collections.Generic;
+using System.IO;
+using System.Linq;
+using System.Reflection;
+using Cysharp.Threading.Tasks;
+using GameFramework;
+using GameLogic.Gameplay.Combat;
+using GameLogic.Gameplay.Expedition;
+using GameLogic.Gameplay.Level;
+using GameLogic.Project;
+using GameLogic.Scaffold;
+using NUnit.Framework;
+using UnityEngine;
+using UnityEngine.Rendering;
+using UnityEngine.TestTools;
+using UnityEngine.UI;
+
+namespace MiniGame.Tests
+{
+    /// <summary>
+    /// 显式启用后验证真实业务窗口的屏幕布局、地图暂停与截图产物。
+    /// </summary>
+    public sealed partial class ProjectExpeditionPlayModeTests
+    {
+        /// <summary>
+        /// 验证窄竖屏的真实主界面、收藏、战斗控件与区域地图。
+        /// </summary>
+        /// <returns>环境变量启用时执行的逐帧视觉测试。</returns>
+        [UnityTest]
+        public IEnumerator Visual_NarrowPortrait_RealWindowsAndMapPause()
+        {
+            if (Environment.GetEnvironmentVariable("PROJECT_V2_UI_CAPTURE") != "1") yield break;
+            yield return UniTask.ToCoroutine(() => CaptureVisualFlowAsync(360, 800, "portrait-360x800"));
+        }
+
+        /// <summary>
+        /// 验证横屏的真实主界面、收藏、战斗控件与区域地图。
+        /// </summary>
+        /// <returns>环境变量启用时执行的逐帧视觉测试。</returns>
+        [UnityTest]
+        public IEnumerator Visual_Landscape_RealWindowsAndMapPause()
+        {
+            if (Environment.GetEnvironmentVariable("PROJECT_V2_UI_CAPTURE") != "1") yield break;
+            yield return UniTask.ToCoroutine(() => CaptureVisualFlowAsync(1280, 720, "landscape-1280x720"));
+        }
+
+        /// <summary>
+        /// 在隔离存档中通过真实按钮逐个打开窗口并保存布局与画面证据。
+        /// </summary>
+        /// <param name="width">要求的实际屏幕宽度。</param>
+        /// <param name="height">要求的实际屏幕高度。</param>
+        /// <param name="prefix">截图与布局记录的文件名前缀。</param>
+        /// <returns>业务操作、布局检查及截图完成任务。</returns>
+        private static async UniTask CaptureVisualFlowAsync(int width, int height, string prefix)
+        {
+            Assert.That(SystemInfo.graphicsDeviceType, Is.Not.EqualTo(GraphicsDeviceType.Null),
+                "视觉验收需要有图形设备的 Unity，不能使用 -nographics。");
+            using (var resolution = new VisualResolutionScope(width, height))
+            {
+                await WaitForAsync(() => Screen.width == width && Screen.height == height);
+                string directory = Path.GetFullPath(Path.Combine(Application.dataPath, "..", "..", "Verification", "v2-ui"));
+                Directory.CreateDirectory(directory);
+                string record = Path.Combine(directory, prefix + "-layout.txt");
+                File.WriteAllText(record, "Screen=" + Screen.width + "x" + Screen.height + "; SafeArea=" + Screen.safeArea + "\n");
+                var failures = new List<string>();
+                await SetupRealHomeAsync(new MemorySaveBackend());
+                GameWindow home = await WaitForWindowAsync(ContentIds.HomeWindow);
+                await SettleVisualLayoutAsync();
+                await CaptureVisualScreenshotAsync(directory, prefix + "-home", width, height);
+                CheckVisualButtons(home, record, failures, "领取补给", "角色属性", "设置", "新手指引", "出战", "仓库", "技能", "商店", "战绩", "收藏");
+                CheckVisualRect(FindVisualRect(home, "Levels"), "Home/Levels", record, failures);
+
+                ClickButton(home, "收藏");
+                GameWindow collection = await WaitForWindowAsync(ProjectServices.CollectionWindow);
+                await SettleVisualLayoutAsync();
+                await CaptureVisualScreenshotAsync(directory, prefix + "-collection", width, height);
+                CheckVisualButtons(collection, record, failures, "关闭");
+                CheckVisualRect(FindVisualRect(collection, "Viewport"), "Collection/Viewport", record, failures);
+                ClickButton(collection, "关闭");
+                await WaitForAsync(() => GameEntry.Get<IUIModule>().OpenedWindows.All(item => item.Id != ProjectServices.CollectionWindow));
+
+                ClickButton(home, "出战");
+                await WaitForAsync(() => ProjectServices.Session.CurrentRun != null);
+                ExpeditionRun run = ProjectServices.Session.CurrentRun;
+                GameWindow hud = await WaitForWindowAsync(ProjectServices.BattleHudWindow);
+                await WaitRunSavedAsync(run);
+                await WaitForAsync(() => run.CanAcceptPlayerInput);
+                await SettleVisualLayoutAsync();
+                RegionMapMarker bossMarker = run.GetMapProjection().Markers.Single(item => item.Kind == RegionMapMarkerKind.Boss);
+                Assert.That(hud.Root.GetComponentsInChildren<Text>(false).Single(item => item.name == "Marker_" + bossMarker.Id).text,
+                    Is.EqualTo("▲"), "远处且未追踪的尾王应显示边缘指向。");
+                await CaptureVisualScreenshotAsync(directory, prefix + "-hud", width, height);
+                CheckVisualButtons(hud, record, failures, "切换目标 / Tab", "背包 / 安全箱", "本局总览", "暂停");
+                Button minimap = hud.Root.GetComponentsInChildren<Button>(false).Single(item => item.name == "Minimap");
+                Rect mapBounds = CheckVisualRect((RectTransform)minimap.transform, "HUD/Minimap", record, failures);
+                Rect stickBounds = CheckVisualRect(FindVisualRect(hud, "MoveStick"), "HUD/MoveStick", record, failures);
+                Rect actionBounds = CheckVisualRect(FindVisualRect(hud, "ControlActions"), "HUD/ControlActions", record, failures);
+                if (mapBounds.center.x <= Screen.safeArea.center.x || mapBounds.center.y <= Screen.safeArea.center.y)
+                    failures.Add("HUD 小地图没有位于安全区右上方。");
+                CheckVisualOverlap(mapBounds, actionBounds, "HUD 小地图与操作区", failures);
+                CheckVisualOverlap(stickBounds, actionBounds, "HUD 摇杆与操作区", failures);
+                Assert.That(minimap.interactable, Is.True);
+                minimap.onClick.Invoke();
+
+                GameWindow map = await WaitForWindowAsync(ProjectServices.ExpeditionMapWindow);
+                Assert.That(run.ActivePanel, Is.EqualTo(ExpeditionPanelKind.Map));
+                Assert.That(run.CanAcceptPlayerInput, Is.False);
+                long tick = run.World.TickIndex;
+                long effectiveTick = run.CurrentRegion.EffectiveTick;
+                run.Advance(0.5f);
+                await SettleVisualLayoutAsync();
+                Assert.That(run.World.TickIndex, Is.EqualTo(tick), "打开大地图后战斗仍在推进。");
+                Assert.That(run.CurrentRegion.EffectiveTick, Is.EqualTo(effectiveTick), "打开大地图后复活计时仍在推进。");
+                RawImage background = map.Root.GetComponentsInChildren<RawImage>(false).Single(item => item.texture == run.MapTexture);
+                Assert.That(background.texture.width, Is.GreaterThan(0));
+                Assert.That(background.texture.height, Is.GreaterThan(0));
+                map.Root.GetComponentsInChildren<Button>(false).Single(item => item.name == "Marker_" + bossMarker.Id).onClick.Invoke();
+                await SettleVisualLayoutAsync();
+                Assert.That(map.Root.GetComponentsInChildren<Text>(false).Any(item => item.text.Contains("直线距离")), Is.True);
+                await CaptureVisualScreenshotAsync(directory, prefix + "-map", width, height);
+                CheckVisualButtons(map, record, failures, "缩小", "放大", "全图", "定位玩家", "追踪目标", "取消追踪", "返回探索");
+                CheckVisualRect(FindVisualRect(map, "MapViewport"), "Map/Viewport", record, failures);
+                CheckVisualRect((RectTransform)background.transform, "Map/Texture", record, failures);
+                File.AppendAllText(record, "MapPause: WorldTick=" + tick + "; EffectiveTick=" + effectiveTick + "\n");
+                ClickButton(map, "定位玩家");
+                Assert.That(background.uvRect.width, Is.LessThan(1f));
+                RegionMapMarker playerMarker = run.GetMapProjection().Markers.Single(item => item.Kind == RegionMapMarkerKind.Player);
+                Assert.That(background.uvRect.Contains(RegionMapProjection.ProjectWorld(run.CurrentMap, playerMarker.Position).NormalizedPosition), Is.True);
+                ClickButton(map, "返回探索");
+                await WaitForAsync(() => run.ActivePanel == ExpeditionPanelKind.None);
+                run.Advance(CombatWorld.TickSeconds);
+                Assert.That(run.World.TickIndex, Is.GreaterThan(tick), "关闭大地图后战斗没有恢复。");
+                await WaitRunSavedAsync(run);
+                ClickButton(hud, "本局总览");
+                GameWindow overview = await WaitForWindowAsync(ProjectServices.RogueOverviewWindow);
+                await SettleVisualLayoutAsync();
+                await CaptureVisualScreenshotAsync(directory, prefix + "-overview", width, height);
+                CheckVisualButtons(overview, record, failures, "关闭");
+                CheckVisualRect(FindVisualRect(overview, "Viewport"), "Overview/Viewport", record, failures);
+                Assert.That(overview.Root.GetComponentsInChildren<Text>(false).Any(item => item.text.Contains("专属收藏预览")), Is.True);
+                ClickButton(overview, "关闭");
+                await WaitForAsync(() => run.ActivePanel == ExpeditionPanelKind.None);
+                await EnterExtractionConfirmationAsync(run);
+                GameWindow exit = await WaitForWindowAsync(ProjectServices.RegionExitWindow);
+                await SettleVisualLayoutAsync();
+                await CaptureVisualScreenshotAsync(directory, prefix + "-exit", width, height);
+                CheckVisualButtons(exit, record, failures, "带回结束", "继续下一区域", "留在本区");
+                CheckVisualRect(FindVisualRect(exit, "Viewport"), "Exit/Viewport", record, failures);
+                Assert.That(exit.Root.GetComponentsInChildren<Text>(false).Any(item => item.text.Contains("回收估值")), Is.True);
+                ClickButton(exit, "留在本区");
+                await WaitForAsync(() => run.ActivePanel == ExpeditionPanelKind.None);
+                File.AppendAllText(record, failures.Count == 0 ? "LayoutChecks=PASS\n" : string.Join("\n", failures) + "\n");
+                Assert.That(failures, Is.Empty, string.Join("\n", failures));
+            }
+        }
+
+        /// <summary>
+        /// 等待安全区、布局组件和 Canvas 完成真实逐帧更新。
+        /// </summary>
+        /// <returns>四帧布局稳定任务。</returns>
+        private static async UniTask SettleVisualLayoutAsync()
+        {
+            for (int frame = 0; frame < 4; frame++)
+            {
+                Canvas.ForceUpdateCanvases();
+                await UniTask.Yield(PlayerLoopTiming.LastPostLateUpdate);
+            }
+            Canvas.ForceUpdateCanvases();
+        }
+
+        /// <summary>
+        /// 捕获真实游戏屏幕，通过逐帧轮询等待文件，不依赖批处理下的帧末协程。
+        /// </summary>
+        /// <param name="directory">截图输出目录。</param>
+        /// <param name="name">不含扩展名的截图名称。</param>
+        /// <param name="width">期望的 PNG 像素宽度。</param>
+        /// <param name="height">期望的 PNG 像素高度。</param>
+        /// <returns>截图文件完整写入并检查尺寸的任务。</returns>
+        private static async UniTask CaptureVisualScreenshotAsync(string directory, string name, int width, int height)
+        {
+            await WaitForVisualRenderAsync();
+            Assert.That(Screen.width, Is.EqualTo(width));
+            Assert.That(Screen.height, Is.EqualTo(height));
+            string path = Path.Combine(directory, name + ".png");
+            if (File.Exists(path)) File.Delete(path);
+            ScreenCapture.CaptureScreenshot(path);
+            await WaitForAsync(() => File.Exists(path) && new FileInfo(path).Length > 32);
+            await SettleVisualLayoutAsync();
+            byte[] png = File.ReadAllBytes(path);
+            Assert.That(png.Take(8), Is.EqualTo(new byte[] { 137, 80, 78, 71, 13, 10, 26, 10 }), path);
+            Assert.That(ReadVisualPngInt(png, 16), Is.EqualTo(width), path);
+            Assert.That(ReadVisualPngInt(png, 20), Is.EqualTo(height), path);
+            Assert.That(png.Skip(png.Length - 8).Take(4), Is.EqualTo(new byte[] { 73, 69, 78, 68 }), "PNG 尚未完整写入：" + path);
+            var image = new Texture2D(2, 2, TextureFormat.RGBA32, false);
+            try
+            {
+                Assert.That(ImageConversion.LoadImage(image, png), Is.True, path);
+                Color32[] pixels = image.GetPixels32();
+                int placeholders = pixels.Count(pixel => pixel.r == 0 && pixel.g == 255 && pixel.b == 255);
+                Assert.That(placeholders, Is.LessThan(pixels.Length / 100), "画面仍包含大面积 cyan 着色器编译占位：" + path);
+            }
+            finally { UnityEngine.Object.Destroy(image); }
+            TestContext.Progress.WriteLine("UI screenshot: " + path);
+        }
+
+        /// <summary>
+        /// 等待已提交的着色器任务和真实渲染帧完成，避免把首次异步编译占位作为验收截图。
+        /// </summary>
+        /// <returns>当前画面可以捕获的任务。</returns>
+        private static async UniTask WaitForVisualRenderAsync()
+        {
+            await SettleVisualLayoutAsync();
+#if UNITY_EDITOR
+            float deadline = Time.realtimeSinceStartup + 60f;
+            while (UnityEditor.ShaderUtil.anythingCompiling && Time.realtimeSinceStartup < deadline) await UniTask.Yield();
+            Assert.That(UnityEditor.ShaderUtil.anythingCompiling, Is.False, "等待着色器编译完成超时。");
+#endif
+            await SettleVisualLayoutAsync();
+        }
+
+        /// <summary>
+        /// 读取 PNG 中采用网络字节序的整数。
+        /// </summary>
+        /// <param name="bytes">完整 PNG 内容。</param>
+        /// <param name="offset">整数起始字节位置。</param>
+        /// <returns>四字节整数值。</returns>
+        private static int ReadVisualPngInt(byte[] bytes, int offset) =>
+            (bytes[offset] << 24) | (bytes[offset + 1] << 16) | (bytes[offset + 2] << 8) | bytes[offset + 3];
+
+        /// <summary>
+        /// 查找窗口内具有唯一名称的真实布局节点。
+        /// </summary>
+        /// <param name="window">已经打开的业务窗口。</param>
+        /// <param name="name">布局节点名称。</param>
+        /// <returns>唯一且正在显示的矩形节点。</returns>
+        private static RectTransform FindVisualRect(GameWindow window, string name) =>
+            window.Root.GetComponentsInChildren<RectTransform>(false).Single(item => item.name == name);
+
+        /// <summary>
+        /// 检查关键按钮处于安全区内且互相没有覆盖，禁用按钮仍检查显示布局。
+        /// </summary>
+        /// <param name="window">已经打开的业务窗口。</param>
+        /// <param name="record">布局证据文件。</param>
+        /// <param name="failures">待最终汇总的布局失败。</param>
+        /// <param name="captions">需要检查的按钮完整文字。</param>
+        private static void CheckVisualButtons(GameWindow window, string record, List<string> failures, params string[] captions)
+        {
+            var bounds = new List<Rect>();
+            foreach (string caption in captions)
+            {
+                Button button = FindButton(window, caption);
+                Assert.That(button.gameObject.activeInHierarchy, Is.True, caption);
+                bounds.Add(CheckVisualRect((RectTransform)button.transform, window.Id + "/" + caption, record, failures));
+            }
+            for (int left = 0; left < bounds.Count; left++)
+                for (int right = left + 1; right < bounds.Count; right++)
+                    CheckVisualOverlap(bounds[left], bounds[right], captions[left] + "与" + captions[right], failures);
+        }
+
+        /// <summary>
+        /// 将真实矩形投影到屏幕，记录尺寸并检查其完全位于安全区内。
+        /// </summary>
+        /// <param name="rect">实际显示的矩形节点。</param>
+        /// <param name="name">诊断中使用的节点名称。</param>
+        /// <param name="record">布局证据文件。</param>
+        /// <param name="failures">待最终汇总的布局失败。</param>
+        /// <returns>矩形的屏幕像素边界。</returns>
+        private static Rect CheckVisualRect(RectTransform rect, string name, string record, List<string> failures)
+        {
+            Canvas canvas = rect.GetComponentInParent<Canvas>().rootCanvas;
+            Camera camera = canvas.renderMode == RenderMode.ScreenSpaceOverlay ? null : canvas.worldCamera;
+            var corners = new Vector3[4];
+            rect.GetWorldCorners(corners);
+            Vector2[] points = corners.Select(point => RectTransformUtility.WorldToScreenPoint(camera, point)).ToArray();
+            Rect bounds = Rect.MinMaxRect(points.Min(point => point.x), points.Min(point => point.y),
+                points.Max(point => point.x), points.Max(point => point.y));
+            File.AppendAllText(record, name + ": " + bounds + "\n");
+            Rect safe = Screen.safeArea;
+            if (float.IsNaN(bounds.xMin) || float.IsNaN(bounds.yMin) || bounds.width <= 1f || bounds.height <= 1f)
+                failures.Add(name + " 布局为空或尺寸无效：" + bounds);
+            if (bounds.xMin < safe.xMin - 1f || bounds.yMin < safe.yMin - 1f || bounds.xMax > safe.xMax + 1f || bounds.yMax > safe.yMax + 1f)
+                failures.Add(name + " 超出屏幕安全区：" + bounds + "; SafeArea=" + safe);
+            return bounds;
+        }
+
+        /// <summary>
+        /// 检查两个可操作区域是否存在超过浮点布局误差的实际重叠。
+        /// </summary>
+        /// <param name="left">第一个屏幕矩形。</param>
+        /// <param name="right">第二个屏幕矩形。</param>
+        /// <param name="name">两个区域的诊断名称。</param>
+        /// <param name="failures">待最终汇总的布局失败。</param>
+        private static void CheckVisualOverlap(Rect left, Rect right, string name, List<string> failures)
+        {
+            float width = Mathf.Min(left.xMax, right.xMax) - Mathf.Max(left.xMin, right.xMin);
+            float height = Mathf.Min(left.yMax, right.yMax) - Mathf.Max(left.yMin, right.yMin);
+            if (width > 1f && height > 1f) failures.Add(name + " 重叠 " + width + "×" + height + " 像素。");
+        }
+
+        /// <summary>
+        /// 为图形测试临时设置真实 GameView 固定分辨率，并在结束时恢复选择与移除自定义尺寸。
+        /// </summary>
+        private sealed class VisualResolutionScope : IDisposable
+        {
+#if UNITY_EDITOR
+            private readonly UnityEditor.EditorWindow gameView;
+            private readonly PropertyInfo selectedSize;
+            private readonly object group;
+            private readonly MethodInfo removeCustomSize;
+            private readonly int previousIndex;
+            private readonly int addedIndex;
+            private readonly bool previousAsyncCompilation;
+#else
+            private readonly int previousWidth = Screen.width;
+            private readonly int previousHeight = Screen.height;
+            private readonly FullScreenMode previousMode = Screen.fullScreenMode;
+#endif
+
+            /// <summary>
+            /// 通过本机 Editor 的固定分辨率接口设置屏幕，不以窗口缩放代替真实渲染尺寸。
+            /// </summary>
+            /// <param name="width">目标渲染宽度。</param>
+            /// <param name="height">目标渲染高度。</param>
+            public VisualResolutionScope(int width, int height)
+            {
+#if UNITY_EDITOR
+                const BindingFlags flags = BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.Static;
+                Assembly editor = typeof(UnityEditor.Editor).Assembly;
+                Type gameViewType = editor.GetType("UnityEditor.GameView", true);
+                Type sizesType = editor.GetType("UnityEditor.GameViewSizes", true);
+                Type sizeType = editor.GetType("UnityEditor.GameViewSize", true);
+                Type sizeKind = editor.GetType("UnityEditor.GameViewSizeType", true);
+                Type singleton = typeof(UnityEditor.ScriptableSingleton<>).MakeGenericType(sizesType);
+                object sizes = singleton.GetProperty("instance", flags).GetValue(null);
+                group = sizesType.GetProperty("currentGroup", flags).GetValue(sizes);
+                int builtins = (int)group.GetType().GetMethod("GetBuiltinCount", flags).Invoke(group, null);
+                removeCustomSize = group.GetType().GetMethod("RemoveCustomSize", flags);
+                gameView = UnityEditor.EditorWindow.GetWindow(gameViewType);
+                selectedSize = gameViewType.GetProperty("selectedSizeIndex", flags);
+                int restoreIndex = (int)selectedSize.GetValue(gameView);
+                int count = (int)group.GetType().GetMethod("GetTotalCount", flags).Invoke(group, null);
+                MethodInfo getSize = group.GetType().GetMethod("GetGameViewSize", flags);
+                PropertyInfo baseText = sizeType.GetProperty("baseText", flags);
+                for (int index = count - 1; index >= builtins; index--)
+                {
+                    object existing = getSize.Invoke(group, new object[] { index });
+                    if ((string)baseText.GetValue(existing) != "Project v2 UI capture") continue;
+                    selectedSize.SetValue(gameView, 0);
+                    if (restoreIndex == index) restoreIndex = 0;
+                    else if (restoreIndex > index) restoreIndex--;
+                    removeCustomSize.Invoke(group, new object[] { index });
+                }
+                previousIndex = restoreIndex;
+                selectedSize.SetValue(gameView, previousIndex);
+                addedIndex = (int)group.GetType().GetMethod("GetTotalCount", flags).Invoke(group, null);
+                object fixedSize = sizeType.GetConstructor(flags, null, new[] { sizeKind, typeof(int), typeof(int), typeof(string) }, null)
+                    .Invoke(new[] { Enum.Parse(sizeKind, "FixedResolution"), (object)width, height, "Project v2 UI capture" });
+                group.GetType().GetMethod("AddCustomSize", flags).Invoke(group, new[] { fixedSize });
+                selectedSize.SetValue(gameView, addedIndex);
+                gameView.Show();
+                gameView.Repaint();
+                previousAsyncCompilation = UnityEditor.ShaderUtil.allowAsyncCompilation;
+                UnityEditor.ShaderUtil.allowAsyncCompilation = false;
+#else
+                Screen.SetResolution(width, height, FullScreenMode.Windowed);
+#endif
+            }
+
+            /// <summary>
+            /// 恢复测试前的显示分辨率与 Editor 自定义尺寸列表。
+            /// </summary>
+            public void Dispose()
+            {
+#if UNITY_EDITOR
+                try
+                {
+                    selectedSize.SetValue(gameView, previousIndex);
+                    removeCustomSize.Invoke(group, new object[] { addedIndex });
+                    gameView.Repaint();
+                }
+                finally { UnityEditor.ShaderUtil.allowAsyncCompilation = previousAsyncCompilation; }
+#else
+                Screen.SetResolution(previousWidth, previousHeight, previousMode);
+#endif
+            }
+        }
+    }
+}

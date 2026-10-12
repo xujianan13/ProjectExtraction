@@ -8,7 +8,7 @@ namespace GameLogic.Project
     /// <summary>
     /// 仓库互斥展示分类。
     /// </summary>
-    public enum ProjectItemType { Weapon = 0, Equipment = 1, Item = 2, Armor = 3 }
+    public enum ProjectItemType { Weapon = 0, Equipment = 1, Item = 2, Armor = 3, Collection = 4 }
 
     /// <summary>
     /// 独立物品实例；随机数值只在生成时写入。
@@ -18,6 +18,7 @@ namespace GameLogic.Project
     {
         public string Id;
         public string DefinitionId;
+        public string CollectionId;
         public string Name;
         public ProjectItemType Type;
         public int RequiredLevel;
@@ -165,11 +166,14 @@ namespace GameLogic.Project
         public int ActiveLevelId;
         public int ActiveSeed;
         public int ActiveRulesVersion;
+        public int ActiveRunVersion;
         public ProjectRunOutcome Outcome;
         public ProjectRunResult LastResult;
         public List<ProjectRunHistoryEntry> RunHistory = new();
         public List<ProjectItem> Warehouse = new();
         public List<ProjectItem> EntryItems = new();
+        public List<string> CollectedCollectionIds = new();
+        public List<string> AchievedCollectionIds = new();
 
         /// <summary>
         /// 创建新档和唯一的新手武器。
@@ -199,6 +203,8 @@ namespace GameLogic.Project
             var copy = (ProjectSaveData)MemberwiseClone();
             copy.Warehouse = Warehouse.ConvertAll(item => item.Copy());
             copy.EntryItems = EntryItems.ConvertAll(item => item.Copy());
+            copy.CollectedCollectionIds = new List<string>(CollectedCollectionIds);
+            copy.AchievedCollectionIds = new List<string>(AchievedCollectionIds);
             copy.HomeShopPurchases = HomeShopPurchases?.ConvertAll(purchase => purchase?.Copy()) ?? new List<ProjectHomeShopPurchase>();
             copy.Preferences = Preferences?.Copy() ?? new ProjectPreferences();
             copy.Outcome = Outcome?.Copy();
@@ -223,6 +229,8 @@ namespace GameLogic.Project
                 return "技能等级无效。";
             string preferenceError = ProjectPreferences.Validate(data.Preferences);
             if (preferenceError != null) return preferenceError;
+            string collectionError = ProjectCollectionRules.ValidateSavedState(data);
+            if (collectionError != null) return collectionError;
             var shopIds = new HashSet<string>(StringComparer.Ordinal);
             foreach (ProjectHomeShopPurchase purchase in data.HomeShopPurchases)
                 if (purchase == null || string.IsNullOrWhiteSpace(purchase.Id) || purchase.Count < 1 || !shopIds.Add(purchase.Id))
@@ -283,7 +291,8 @@ namespace GameLogic.Project
         public static bool TryRecoverInterruptedRun(ProjectSaveData candidate, string reason)
         {
             if (candidate == null || string.IsNullOrEmpty(candidate.ActiveRunId) || candidate.Outcome != null ||
-                candidate.Stage == ProjectRunStage.OutcomeRecorded) return false;
+                candidate.Stage == ProjectRunStage.OutcomeRecorded ||
+                candidate.ActiveRunVersion == 2 && candidate.Stage == ProjectRunStage.Running) return false;
             int cost = candidate.ActiveRunEntryCost > 0 ? candidate.ActiveRunEntryCost : PrototypeRules.LegacyEntryCost;
             if (candidate.Stamina > int.MaxValue - cost) return false;
             foreach (ProjectItem item in candidate.EntryItems) candidate.Warehouse.Add(item.Copy());
@@ -296,6 +305,7 @@ namespace GameLogic.Project
             candidate.ActiveLevelId = 0;
             candidate.ActiveSeed = 0;
             candidate.ActiveRulesVersion = 0;
+            candidate.ActiveRunVersion = 0;
             candidate.LastResult = null;
             candidate.LastRunSummary = string.IsNullOrWhiteSpace(reason) ?
                 "关卡异常中断：已退回入场装备与体力，未结算战利品。" :

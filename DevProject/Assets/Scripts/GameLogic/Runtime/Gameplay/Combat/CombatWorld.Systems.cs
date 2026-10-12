@@ -15,7 +15,7 @@ namespace GameLogic.Gameplay.Combat
         private void MoveActorsAndDisplacements()
         {
             var actorIds = new List<int>(actors.Keys);
-            actorIds.Sort();
+            SortEntityIds(actorIds);
             foreach (var id in actorIds)
             {
                 var actor = actors[id];
@@ -27,7 +27,7 @@ namespace GameLogic.Gameplay.Combat
                 MoveActor(id, actor, motion);
             }
             var moveIds = new List<int>(displacements.Keys);
-            moveIds.Sort();
+            SortEntityIds(moveIds);
             foreach (var id in moveIds)
             {
                 var move = displacements[id];
@@ -93,7 +93,7 @@ namespace GameLogic.Gameplay.Combat
             var castIds = new List<int>();
             foreach (var pair in casts)
                 if (pair.Value.Owner == owner) castIds.Add(pair.Key);
-            castIds.Sort();
+            SortEntityIds(castIds);
             foreach (var id in castIds)
             {
                 casts.Remove(id);
@@ -121,7 +121,7 @@ namespace GameLogic.Gameplay.Combat
                 }
             }
             var buffIds = new List<int>(buffs.Keys);
-            buffIds.Sort();
+            SortEntityIds(buffIds);
             foreach (var id in buffIds)
             {
                 var buff = buffs[id];
@@ -145,7 +145,7 @@ namespace GameLogic.Gameplay.Combat
         private void PulseBuffs()
         {
             var buffIds = new List<int>(buffs.Keys);
-            buffIds.Sort();
+            SortEntityIds(buffIds);
             foreach (var id in buffIds)
             {
                 var buff = buffs[id];
@@ -212,8 +212,9 @@ namespace GameLogic.Gameplay.Combat
             if (!actors.TryGetValue(ownerId, out var actor)) return;
             actor.MoveBonus = 0f;
             actor.RangeBonus = 0f;
-            foreach (var buff in buffs.Values)
+            foreach (int id in OrderedEntityIds(buffs.Keys))
             {
+                var buff = buffs[id];
                 if (buff.Owner != ownerId || buff.Removed || !catalog.Buffs.TryGetValue(buff.BuffId, out var definition)) continue;
                 actor.MoveBonus += definition.MoveSpeedAddPerStack * buff.Stacks;
                 actor.RangeBonus += definition.AttackRangeAddPerStack * buff.Stacks;
@@ -226,7 +227,7 @@ namespace GameLogic.Gameplay.Combat
         private void AutoCombat()
         {
             var actorIds = new List<int>(actors.Keys);
-            actorIds.Sort();
+            SortEntityIds(actorIds);
             foreach (var id in actorIds)
             {
                 var source = actors[id];
@@ -351,7 +352,7 @@ namespace GameLogic.Gameplay.Combat
             var best = 0;
             var bestDistance = range * range;
             var actorIds = new List<int>(actors.Keys);
-            actorIds.Sort();
+            SortEntityIds(actorIds);
             foreach (var id in actorIds)
             {
                 var candidate = actors[id];
@@ -372,7 +373,7 @@ namespace GameLogic.Gameplay.Combat
         private void AdvanceCasts()
         {
             var castIds = new List<int>(casts.Keys);
-            castIds.Sort();
+            SortEntityIds(castIds);
             foreach (var id in castIds)
             {
                 if (!casts.TryGetValue(id, out var cast)) continue;
@@ -525,11 +526,10 @@ namespace GameLogic.Gameplay.Combat
                         TrySpawnProjectileInternal(Ref(command.Source), effect.LinkedId, command.Target,
                             command.Position, command.Direction, null, false, command.Offense, command.RangeDelta,
                             command.RangeMultiplier, command.PassiveDerived, command.InstigatorActorId);
-                    else if (projectiles.TryGetValue(command.Source, out var parentProjectile) &&
-                             IsValid(parentProjectile.Source))
+                    else if (projectiles.TryGetValue(command.Source, out var parentProjectile))
                         TrySpawnProjectileInternal(parentProjectile.Source, effect.LinkedId, command.Target,
                             command.Position, command.Direction, command.Position, true, command.Offense, command.RangeDelta,
-                            command.RangeMultiplier, command.PassiveDerived, command.InstigatorActorId);
+                            command.RangeMultiplier, command.PassiveDerived, command.InstigatorActorId, parentProjectile);
                     break;
                 case CombatEffectKind.ApplyBuff:
                     if (!catalog.Buffs.TryGetValue(effect.LinkedId, out var buffDefinition) || !ValidBuff(buffDefinition))
@@ -567,7 +567,7 @@ namespace GameLogic.Gameplay.Combat
             var sourceTeam = hasActorSource ? source.Spec.Team : projectile.SourceTeam;
             var effect = command.Definition;
             var actorIds = new List<int>(actors.Keys);
-            actorIds.Sort();
+            SortEntityIds(actorIds);
             foreach (var id in actorIds)
             {
                 var target = actors[id];
@@ -605,6 +605,9 @@ namespace GameLogic.Gameplay.Combat
             damage *= 100d / (100d + target.Spec.Defense);
             damage *= 1d - target.Spec.DamageReduction;
             damage *= offense.DamageMultiplier;
+            if (target.Spec.DamageVulnerabilities != null)
+                foreach (var vulnerability in target.Spec.DamageVulnerabilities)
+                    if (vulnerability.EffectId == effect.DefinitionId) { damage *= vulnerability.Multiplier; break; }
             float actual = (float)Math.Min(target.Health, Math.Min(float.MaxValue, Math.Max(0d, damage)));
             if (actual > 0f) target.HitClock = GetBuffClock(target);
             target.Health -= actual;
@@ -802,7 +805,7 @@ namespace GameLogic.Gameplay.Combat
         private void PublishDeathsAndCleanup()
         {
             var actorIds = new List<int>(actors.Keys);
-            actorIds.Sort();
+            SortEntityIds(actorIds);
             foreach (var id in actorIds)
             {
                 var actor = actors[id];
@@ -814,7 +817,7 @@ namespace GameLogic.Gameplay.Combat
                 var buffIds = new List<int>();
                 foreach (var pair in buffs)
                     if (pair.Value.Owner == id) buffIds.Add(pair.Key);
-                buffIds.Sort();
+                SortEntityIds(buffIds);
                 foreach (var buffId in buffIds) RemoveBuff(buffId, false);
                 events.Add(new CombatEvent(CombatEventKind.Death, TickIndex, actor.Spec.RoomId, actor.LastInstigatorActorId,
                     actor.Spec.ActorId, ++nextDeathId, 0f, actor.Position));
@@ -831,7 +834,7 @@ namespace GameLogic.Gameplay.Combat
             var projectileIds = new List<int>();
             foreach (var pair in projectiles)
                 if (pair.Value.Terminal) projectileIds.Add(pair.Key);
-            projectileIds.Sort();
+            SortEntityIds(projectileIds);
             foreach (var id in projectileIds) { projectiles.Remove(id); Release(id); }
         }
     }

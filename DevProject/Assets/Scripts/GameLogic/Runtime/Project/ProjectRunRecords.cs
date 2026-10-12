@@ -104,6 +104,8 @@ namespace GameLogic.Project
             if (data == null) return null;
             data.HomeShopPurchases ??= new List<ProjectHomeShopPurchase>();
             data.RunHistory ??= new List<ProjectRunHistoryEntry>();
+            data.CollectedCollectionIds ??= new List<string>();
+            data.AchievedCollectionIds ??= new List<string>();
             if (data.Preferences == null || data.Preferences.Version == 0) data.Preferences = new ProjectPreferences();
             if (data.Stage != ProjectRunStage.OutcomeRecorded && EmptyOutcome(data.Outcome)) data.Outcome = null;
             if (EmptyResult(data.LastResult)) data.LastResult = null;
@@ -196,7 +198,8 @@ namespace GameLogic.Project
             if (data == null || !Enum.IsDefined(typeof(ProjectRunStage), data.Stage)) return false;
             bool active = !string.IsNullOrEmpty(data.ActiveRunId);
             if (active != (data.Stage != ProjectRunStage.None)) return false;
-            if (!active && (data.ActiveLevelId != 0 || data.ActiveSeed != 0 || data.ActiveRulesVersion != 0 || data.Outcome != null)) return false;
+            if (!active && (data.ActiveLevelId != 0 || data.ActiveSeed != 0 || data.ActiveRulesVersion != 0 || data.ActiveRunVersion != 0 || data.Outcome != null)) return false;
+            if (active && data.ActiveRunVersion != 0 && data.ActiveRunVersion != 2) return false;
             if (active && data.ActiveRulesVersion != RulesVersion && data.ActiveRulesVersion != 0) return false;
             if (active && data.ActiveRulesVersion == RulesVersion && (data.ActiveLevelId < 1 ||
                 data.ActiveRunEntryCost <= 0)) return false;
@@ -263,6 +266,7 @@ namespace GameLogic.Project
             data.ActiveLevelId = levelId;
             data.ActiveSeed = seed;
             data.ActiveRulesVersion = RulesVersion;
+            data.ActiveRunVersion = 2;
             data.Stage = ProjectRunStage.Admitted;
             error = null;
             return true;
@@ -369,7 +373,9 @@ namespace GameLogic.Project
             receipt.SkillPointsAfter = data.SkillPoints;
             receipt.GoldAfter = data.Gold;
             data.LastSettledRunId = outcome.RunId;
-            data.LastRunSummary = outcome.Extracted ? "撤离成功，已带回物品。" : outcome.Abandoned ?
+            data.LastRunSummary = outcome.Extracted ? outcome.Statistics?.HasRegionData == true ?
+                outcome.Statistics.IsFinalCompletion ? "最终通关，已带回全部物品。" : "提前带回，已保留全部持有物品。" :
+                "撤离成功，已带回物品。" : outcome.Abandoned ?
                 "已放弃本局，已保留安全箱物品，体力不退还。" : "角色死亡，已保留安全箱物品。";
             data.LastResult = receipt;
             data.EntryItems.Clear();
@@ -378,6 +384,7 @@ namespace GameLogic.Project
             data.ActiveLevelId = 0;
             data.ActiveSeed = 0;
             data.ActiveRulesVersion = 0;
+            data.ActiveRunVersion = 0;
             data.Outcome = null;
             data.Stage = ProjectRunStage.None;
             error = null;

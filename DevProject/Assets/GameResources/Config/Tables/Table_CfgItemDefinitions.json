@@ -1,5 +1,5 @@
 {
-  "schemaHash": "c2132299cf53353545d63915e825fe5dbbbd0c3bcac69b175beb24f4d10af725",
+  "schemaHash": "7de05865f383b2f5272341f80f2e4aca033683f413d42e4f1d616fc8339b0aee",
   "rows": [
     {
       "ID": "starter_weapon",
@@ -21,7 +21,8 @@
       "DefenseRandomMin": 0,
       "DefenseRandomExclusive": 0,
       "RangeBase": 1.9,
-      "RangeRandom": 0
+      "RangeRandom": 0,
+      "CollectionID": ""
     },
     {
       "ID": "ruin_weapon",
@@ -43,7 +44,8 @@
       "DefenseRandomMin": 0,
       "DefenseRandomExclusive": 0,
       "RangeBase": 1.6,
-      "RangeRandom": 0.5
+      "RangeRandom": 0.5,
+      "CollectionID": ""
     },
     {
       "ID": "ruin_armor",
@@ -65,7 +67,8 @@
       "DefenseRandomMin": 1,
       "DefenseRandomExclusive": 4,
       "RangeBase": 0,
-      "RangeRandom": 0
+      "RangeRandom": 0,
+      "CollectionID": ""
     },
     {
       "ID": "relic_part",
@@ -87,7 +90,8 @@
       "DefenseRandomMin": 0,
       "DefenseRandomExclusive": 0,
       "RangeBase": 0,
-      "RangeRandom": 0
+      "RangeRandom": 0,
+      "CollectionID": ""
     },
     {
       "ID": "ruin_heavy_blade",
@@ -109,7 +113,8 @@
       "DefenseRandomMin": 0,
       "DefenseRandomExclusive": 0,
       "RangeBase": 1.35,
-      "RangeRandom": 0.2
+      "RangeRandom": 0.2,
+      "CollectionID": ""
     },
     {
       "ID": "ruin_poleblade",
@@ -131,7 +136,8 @@
       "DefenseRandomMin": 0,
       "DefenseRandomExclusive": 0,
       "RangeBase": 2.65,
-      "RangeRandom": 0.35
+      "RangeRandom": 0.35,
+      "CollectionID": ""
     },
     {
       "ID": "guard_blade",
@@ -153,7 +159,100 @@
       "DefenseRandomMin": 1,
       "DefenseRandomExclusive": 3,
       "RangeBase": 1.65,
-      "RangeRandom": 0.25
+      "RangeRandom": 0.25,
+      "CollectionID": ""
+    },
+    {
+      "ID": "gate_sigil",
+      "Name": "守门者印记",
+      "Type": 4,
+      "StarterEquipped": false,
+      "SellBase": 80,
+      "SellPerLevel": 0,
+      "SellRandomExclusive": 0,
+      "SellPerQuality": 0,
+      "AttackBase": 0,
+      "AttackPerLevel": 0,
+      "AttackRandomExclusive": 0,
+      "HealthBase": 0,
+      "HealthPerLevel": 0,
+      "HealthRandomExclusive": 0,
+      "DefenseBase": 0,
+      "DefensePerLevel": 0,
+      "DefenseRandomMin": 0,
+      "DefenseRandomExclusive": 0,
+      "RangeBase": 0,
+      "RangeRandom": 0,
+      "CollectionID": "gate_sigil"
+    },
+    {
+      "ID": "court_medal",
+      "Name": "庭院统领勋章",
+      "Type": 4,
+      "StarterEquipped": false,
+      "SellBase": 80,
+      "SellPerLevel": 0,
+      "SellRandomExclusive": 0,
+      "SellPerQuality": 0,
+      "AttackBase": 0,
+      "AttackPerLevel": 0,
+      "AttackRandomExclusive": 0,
+      "HealthBase": 0,
+      "HealthPerLevel": 0,
+      "HealthRandomExclusive": 0,
+      "DefenseBase": 0,
+      "DefensePerLevel": 0,
+      "DefenseRandomMin": 0,
+      "DefenseRandomExclusive": 0,
+      "RangeBase": 0,
+      "RangeRandom": 0,
+      "CollectionID": "court_medal"
+    },
+    {
+      "ID": "core_fragment",
+      "Name": "遗迹核心残片",
+      "Type": 4,
+      "StarterEquipped": false,
+      "SellBase": 150,
+      "SellPerLevel": 0,
+      "SellRandomExclusive": 0,
+      "SellPerQuality": 0,
+      "AttackBase": 0,
+      "AttackPerLevel": 0,
+      "AttackRandomExclusive": 0,
+      "HealthBase": 0,
+      "HealthPerLevel": 0,
+      "HealthRandomExclusive": 0,
+      "DefenseBase": 0,
+      "DefensePerLevel": 0,
+      "DefenseRandomMin": 0,
+      "DefenseRandomExclusive": 0,
+      "RangeBase": 0,
+      "RangeRandom": 0,
+      "CollectionID": "core_fragment"
+    },
+    {
+      "ID": "explorer_token",
+      "Name": "旧日探索徽记",
+      "Type": 4,
+      "StarterEquipped": false,
+      "SellBase": 40,
+      "SellPerLevel": 0,
+      "SellRandomExclusive": 0,
+      "SellPerQuality": 0,
+      "AttackBase": 0,
+      "AttackPerLevel": 0,
+      "AttackRandomExclusive": 0,
+      "HealthBase": 0,
+      "HealthPerLevel": 0,
+      "HealthRandomExclusive": 0,
+      "DefenseBase": 0,
+      "DefensePerLevel": 0,
+      "DefenseRandomMin": 0,
+      "DefenseRandomExclusive": 0,
+      "RangeBase": 0,
+      "RangeRandom": 0,
+      "CollectionID": "explorer_token"
     }
   ]
 }

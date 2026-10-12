@@ -41,7 +41,7 @@ namespace GameLogic.Project
         }
 
         /// <summary>
-        /// 将已经确认的偏好应用到音频通道与 Unity 质量设置。
+        /// 将已经确认的偏好应用到音频通道、Unity 质量设置与项目目标帧率。
         /// </summary>
         public void Apply()
         {
@@ -53,6 +53,21 @@ namespace GameLogic.Project
             int level = QualityLevel < 0 ? defaultQualityLevel.Value : QualityLevel;
             if (level >= 0 && level < QualitySettings.names.Length && QualitySettings.GetQualityLevel() != level)
                 QualitySettings.SetQualityLevel(level, true);
+            ApplyFrameRate();
+        }
+
+        /// <summary>
+        /// 在画质切换后重新应用配置帧率，桌面仅在刷新率可整除时启用垂直同步。
+        /// </summary>
+        private static void ApplyFrameRate()
+        {
+            int target = ProjectContentConfig.Display.TargetFrameRate;
+            Application.targetFrameRate = target;
+            QualitySettings.vSyncCount = 0;
+            if (Application.isEditor || Application.isMobilePlatform || Application.platform == RuntimePlatform.WebGLPlayer) return;
+            double ratio = Screen.currentResolution.refreshRateRatio.value / target;
+            int divisor = (int)Math.Round(ratio);
+            if (divisor >= 1 && divisor <= 4 && Math.Abs(ratio - divisor) <= 0.01) QualitySettings.vSyncCount = divisor;
         }
     }
 }

@@ -840,6 +840,27 @@ public void OnBackground(bool background);
 public void Tick();
 ```
 
+## 保存有序状态增量并恢复完整提交 · SaveStateJournal
+
+辅助类型，不经 `GameEntry.Get<T>()` 获取。命名空间：`GameFramework`
+
+源码：[SaveStateJournal](../../../DevProject/Assets/Scripts/GameFramework/Runtime/Modules/Save/Repository/SaveStateJournal.cs) · 指南：[使用约定](../../../docs/framework/正式存档使用指南.md) · [可编译示例](../../../DevProject/Assets/Tests/PlayMode/ApiRecipes.cs)
+
+所有者：业务会话独占日志与 FIFO 提交队列；取消：在途写入完成后再关闭后端；失败：失败保留原候选并显式重试；检查 SaveResult；线程：Unity 主线程；暂停：暂停时仍可完成已接纳的保存。
+
+```csharp
+bool HasPending { get; }
+bool IsBusy { get; }
+double LastCommitMilliseconds { get; set; }
+long LastPayloadBytes { get; set; }
+long Revision { get; }
+long TotalWrittenBytes { get; set; }
+public SaveStateJournal(ISaveBackend backend, string prefix, int checkpointInterval, int maxStateBytes);
+public UniTask<SaveJournalLoadResult> LoadAsync(string identity);
+public UniTask<SaveResult> CommitAsync(string identity, IReadOnlyList<SaveStateComponent> components);
+public UniTask<SaveResult> RetryAsync();
+```
+
 ## 管理单局进入、结算和返回菜单 · GameRoundFlow
 
 辅助类型，不经 `GameEntry.Get<T>()` 获取。命名空间：`GameFramework`
@@ -858,6 +879,7 @@ int CurrentLevelId { get; set; }
 public GameRoundFlow(IGameRoundFactory factory, Func<GameRoundResult, CancellationToken, UniTask> saveResult = null);
 public UniTask<bool> CloseAsync(CancellationToken ct = default);
 public UniTask<bool> NextLevelAsync(CancellationToken ct = default);
+public UniTask<bool> RestoreLevelAsync(int levelId, string roundId, CancellationToken ct = default);
 public UniTask<bool> RetryAsync(CancellationToken ct = default);
 public UniTask<bool> ReturnToMenuAsync(CancellationToken ct = default);
 public UniTask<bool> StartLevelAsync(int levelId, CancellationToken ct = default);

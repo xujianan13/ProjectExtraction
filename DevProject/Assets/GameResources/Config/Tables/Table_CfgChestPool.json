@@ -1,0 +1,19 @@
+{
+  "schemaHash": "8ff74a4ebac4daa3bfecff2f4dc27267cfba280ebb90bba77d25164b1d215b39",
+  "rows": [
+    {
+      "ID": 1,
+      "PoolID": "region",
+      "LootPoolID": "treasure",
+      "ItemCount": 2,
+      "Weight": 3
+    },
+    {
+      "ID": 2,
+      "PoolID": "region",
+      "LootPoolID": "region_chest",
+      "ItemCount": 2,
+      "Weight": 1
+    }
+  ]
+}

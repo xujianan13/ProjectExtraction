@@ -112,6 +112,11 @@ namespace GameLogic.Tables
         /// RangeRandom 字段。
         /// </summary>
         public double RangeRandom;
+
+        /// <summary>
+        /// CollectionID 字段。
+        /// </summary>
+        public string CollectionID;
     }
 
     /// <summary>
@@ -148,7 +153,7 @@ namespace GameLogic.Tables
                 TextAsset asset = lease.Asset;
                 if (asset == null) throw new InvalidOperationException("配置表资源不可用：CfgItemDefinitions");
                 var envelope = JsonUtility.FromJson(asset.text, typeof(Envelope)) as Envelope;
-                if (envelope == null || envelope.schemaHash != "c2132299cf53353545d63915e825fe5dbbbd0c3bcac69b175beb24f4d10af725" || envelope.rows == null)
+                if (envelope == null || envelope.schemaHash != "7de05865f383b2f5272341f80f2e4aca033683f413d42e4f1d616fc8339b0aee" || envelope.rows == null)
                     throw new InvalidOperationException("配置表结构不匹配：CfgItemDefinitions");
 
                 var table = new CfgItemDefinitionsTable();

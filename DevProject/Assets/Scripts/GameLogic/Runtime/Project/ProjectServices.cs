@@ -15,6 +15,10 @@ namespace GameLogic.Project
         public const int ExpeditionInventoryWindow = 2201;
         public const int ExpeditionMerchantWindow = 2202;
         public const int PauseWindow = 2203;
+        public const int ExpeditionMapWindow = 2204;
+        public const int RegionExitWindow = 2205;
+        public const int BossLootWindow = 2206;
+        public const int CollectionWindow = 2401;
         public const int SettingsWindow = 2600;
         public const int GuideWindow = 2601;
         public const int TransitionWindow = 2300;

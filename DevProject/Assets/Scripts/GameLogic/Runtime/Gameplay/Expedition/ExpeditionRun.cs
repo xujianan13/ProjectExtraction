@@ -11,250 +11,218 @@ using UnityEngine;
 namespace GameLogic.Gameplay.Expedition
 {
     /// <summary>
-    /// 地面战利品记录，地图视图销毁不改变领取状态。
+    /// 地面战利品的唯一归属与领取记录。
     /// </summary>
+    [Serializable]
     public sealed class ExpeditionDrop
     {
         public int RoomId;
         public Vector3 Position;
         public ProjectItem Item;
         public bool Collected;
+
+        /// <summary>
+        /// 创建独立物品及地面状态副本。
+        /// </summary>
+        /// <returns>不共享物品的副本。</returns>
+        public ExpeditionDrop Copy() => new() { RoomId = RoomId, Position = Position, Item = Item.Copy(), Collected = Collected };
     }
 
     /// <summary>
-    /// 一局的地图、战斗和物品协调器，不复制 ECS 角色状态。
+    /// 同一关卡的区域计划、完整战斗、交互与奖励协调器。
     /// </summary>
     public sealed partial class ExpeditionRun : IDisposable
     {
         private readonly ProjectSession session;
         private readonly Dictionary<int, EnemyDefinition> enemyDefinitions = new();
-        private readonly Dictionary<int, LevelRoomLayout> roomLayouts = new();
-        private readonly System.Random random;
+        private readonly List<RegionGenerationRequest> regionRequests = new();
+        private readonly List<RegionRuntimeState> regions = new();
         private readonly List<CombatEvent> events = new();
-        private readonly HashSet<int> rewardedDeaths = new();
+        private readonly List<CombatActorSnapshot> actorSnapshots = new();
+        private readonly List<RegionSpawnRequest> spawnRequests = new();
         private readonly List<ProjectItem> inventory = new();
         private readonly HashSet<string> protectedItems = new();
         private readonly List<ExpeditionDrop> drops = new();
+        private PersistentRandom random;
         private bool disposed;
         private bool stopped;
         private bool paused;
         private bool interactionRequested;
+        private bool committing;
+        private int nextActorId = 2;
         private ExpeditionVisualAssets visualAssets;
         private Transform sceneParent;
         private Vector2 touchMove;
+        private ProjectRunOutcome pendingOutcome;
 
         public event Action Changed;
         public event Action<CombatEvent> CombatEventPublished;
         public string RunId { get; }
         public int LevelId { get; }
-        /// <summary>
-        /// 本局随机装备使用的配置等级，与关卡身份独立。
-        /// </summary>
         public int LootLevel { get; }
-        public int Seed => Maps.Seed;
-        public LevelRunState Maps { get; }
-        public CombatWorld World { get; }
-        public CombatEntityRef Player { get; }
-        public LevelRoomView RoomView { get; private set; }
-        public LevelRoomLayout Layout => roomLayouts[Maps.CurrentRoomId];
+        public int Seed { get; }
+        public int CurrentRegionIndex { get; private set; }
+        public int RegionCount => regionRequests.Count - 1;
+        public bool IsFinalRegion => CurrentRegionIndex == regionRequests.Count - 1;
+        public IReadOnlyList<RegionGenerationRequest> RegionRequests => regionRequests.ConvertAll(value => value.Copy());
+        public RegionRuntimeState CurrentRegion => regions.Find(value => value.Plan.Request.RegionIndex == CurrentRegionIndex);
+        public RegionMapDefinition CurrentMap { get; private set; }
+        public RegionMapView RegionView { get; private set; }
+        public CombatWorld World { get; private set; }
+        public CombatEntityRef Player { get; private set; }
         public bool IsReady { get; private set; }
         public bool IsRunning { get; private set; }
         public int KillExperience { get; private set; }
         public int GoldSpent { get; private set; }
         public int AvailableGold => session.Gold - GoldSpent;
-        private bool CanInteract => IsRunning && IsReady && !paused && ActivePanel == ExpeditionPanelKind.None && !IsChoosingRogue && !disposed && !stopped && !session.HasUncommittedSave && !GameEntry.IsInBackground;
+        public bool IsSavingRun => committing || session.RunSaveInteractionBlocked;
+        private bool CanInteract => IsRunning && IsReady && !paused && ActivePanel == ExpeditionPanelKind.None && !IsChoosingReward &&
+            !disposed && !stopped && !IsSavingRun && !session.HasUncommittedSave && !GameEntry.IsInBackground;
         /// <summary>
-        /// 当前是否允许玩家输入，供局内触屏控件门禁使用。
+        /// 完整战斗帧只在保存队列未达到预算时继续推进，等待期间仍保留玩家输入。
         /// </summary>
+        private bool CanAdvance => CanInteract && !session.RunSaveBlocked;
         public bool CanAcceptPlayerInput => CanInteract;
-        public string Message { get; private set; } = "移动靠近敌人自动攻击；靠近出口或物品后交互。";
+        public string Message { get; private set; } = "击杀积累强化进度；击败区域尾王后可带回结束或继续深入。";
         public IReadOnlyList<ProjectItem> Inventory => inventory.ConvertAll(item => item.Copy());
         public IReadOnlyList<ExpeditionDrop> Drops => drops;
         public int SafeCount => protectedItems.Count;
         public string InteractionLabel { get; private set; } = "交互 / E";
-        public LevelRoomState CurrentRoom { get { Maps.TryGetRoom(Maps.CurrentRoomId, out LevelRoomState room); return room; } }
 
         /// <summary>
-        /// 创建一局纯逻辑状态和玩家实体，表现由战斗场景另行绑定。
+        /// 冻结整关Boss与地图身份，区域内容在首次绑定资源时生成。
         /// </summary>
-        /// <param name="session">局外唯一会话。</param>
-        /// <param name="runId">稳定单局身份。</param>
+        /// <param name="session">统一账号与保存会话。</param>
+        /// <param name="runId">本局稳定身份。</param>
         /// <param name="level">已经校验的关卡配置。</param>
-        /// <param name="maps">已经验证的连通地图。</param>
-        /// <param name="items">本局入场装备。</param>
-        /// <param name="roguePolicy">三选一扩展功能开关。</param>
-        /// <param name="rogueAccess">第四选项的外部授权提供器。</param>
-        private ExpeditionRun(ProjectSession session, string runId, LevelDefinition level, LevelRunState maps, List<ProjectItem> items,
-            RogueChoicePolicy roguePolicy, IRogueChoiceAccessProvider rogueAccess)
+        /// <param name="seed">整关初始随机种子。</param>
+        /// <param name="requests">开局冻结的区域请求。</param>
+        /// <param name="items">本局携入装备。</param>
+        /// <param name="roguePolicy">可选技能选择策略。</param>
+        /// <param name="rogueAccess">可选第四选项授权。</param>
+        private ExpeditionRun(ProjectSession session, string runId, LevelDefinition level, int seed,
+            List<RegionGenerationRequest> requests, List<ProjectItem> items, RogueChoicePolicy roguePolicy, IRogueChoiceAccessProvider rogueAccess)
         {
             this.session = session;
             RunId = runId;
             LevelId = level.ID;
             LootLevel = level.LootLevel;
-            Maps = maps;
-            rogueChoices = new RogueChoiceSession(runId, maps.Seed ^ 0x5247, roguePolicy);
-            rogueAccessProvider = rogueAccess;
-            rogueLootRandom = new System.Random(maps.Seed ^ 0x5291);
-            roomRewardRandom = new System.Random(maps.Seed ^ 0x53A4);
-            random = new System.Random(maps.Seed ^ 0x5162);
+            Seed = seed;
+            regionRequests.AddRange(requests.ConvertAll(value => value.Copy()));
+            random = new PersistentRandom(seed ^ 0x5162);
             inventory.AddRange(items.ConvertAll(item => item.Copy()));
             InitializeStatistics(items);
-            ProjectCharacterStats attributes = ProjectEquipmentRules.Calculate(items, session.PowerRank, session.VitalityRank, session.AgilityRank);
-            augmentBaseAttackRange = attributes.AttackRange;
-            CombatCatalog catalog = CombatContentConfig.CreateCatalog(attributes.AttackRange);
-            World = new CombatWorld(catalog, randomSeed: maps.Seed) { ErrorLogger = reason => GameEntry.Get<ILogModule>()?.Error("Combat", reason) };
-            foreach (LevelRoomState room in maps.Rooms)
-            {
-                var layout = new LevelRoomLayout(room.Plan.Definition);
-                roomLayouts.Add(room.RoomId, layout);
-                float extent = layout.HalfExtent - layout.WallThickness * 0.5f;
-                World.SetRoomBounds(room.RoomId, new Rect(-extent, -extent, extent * 2, extent * 2));
-                foreach (LevelObstacle obstacle in layout.Obstacles)
-                    World.AddObstacle(room.RoomId, Rect.MinMaxRect(obstacle.Min.x, obstacle.Min.y, obstacle.Max.x, obstacle.Max.y));
-            }
-            Player = World.CreateActor(new CombatActorSpec
-            {
-                ActorId = 1, RoomId = maps.StartRoomId, Team = 1, IsPlayer = true, Position = new Vector3((float)ProjectContentConfig.Player.SpawnX, 0, (float)ProjectContentConfig.Player.SpawnZ),
-                MaxHealth = attributes.MaxHealth, Attack = attributes.Attack, Defense = attributes.Defense,
-                CriticalRating = attributes.CriticalRating, CriticalDamage = attributes.CriticalDamage, DodgeChance = attributes.DodgeChance,
-                DamageIncrease = attributes.DamageIncrease, DamageReduction = attributes.DamageReduction, MoveSpeed = attributes.MoveSpeed,
-                Radius = (float)ProjectContentConfig.Player.Radius, AttackRange = attributes.AttackRange, BasicSkillId = ProjectContentConfig.Player.SkillID, AggroRange = 0
-            });
-            World.SetActiveRoom(maps.StartRoomId, Player);
+            CombatActorSpec spec = EquipmentSpec(items);
+            augmentBaseAttackRange = spec.AttackRange;
+            World = new CombatWorld(CombatContentConfig.CreateCatalog(augmentBaseAttackRange), randomSeed: seed)
+            { ErrorLogger = reason => GameEntry.Get<ILogModule>().Error("Combat", reason) };
+            spec.ActorId = 1;
+            spec.RoomId = requests[0].RegionId;
+            spec.Team = 1;
+            spec.IsPlayer = true;
+            spec.Radius = (float)ProjectContentConfig.Player.Radius;
+            spec.BasicSkillId = ProjectContentConfig.Player.SkillID;
+            Player = World.CreateActor(spec);
+            World.SetActiveRoom(requests[0].RegionId, Player);
+            InitializeRewardSessions(seed, level.Row.SkillPoolID, level.Row.ProgressRuleID, roguePolicy, rogueAccess);
         }
 
         /// <summary>
-        /// 生成关卡并准备可进入的单局，失败不扣体力。
+        /// 用新种子创建尚未入场的关卡，创建失败不扣体力。
         /// </summary>
-        /// <param name="session">项目会话。</param>
+        /// <param name="session">账号会话。</param>
         /// <param name="runId">单局身份。</param>
-        /// <param name="levelId">关卡配置。</param>
-        /// <param name="items">入场装备快照。</param>
-        /// <param name="run">创建成功的单局。</param>
-        /// <returns>图和战斗玩家均创建成功时为真。</returns>
+        /// <param name="levelId">关卡定义。</param>
+        /// <param name="items">入场装备。</param>
+        /// <param name="run">创建的单局。</param>
+        /// <returns>全部计划和玩家初始化成功时为真。</returns>
         public static bool TryCreate(ProjectSession session, string runId, int levelId, List<ProjectItem> items, out ExpeditionRun run) =>
             TryCreate(session, runId, levelId, Guid.NewGuid().GetHashCode(), items, out run);
 
         /// <summary>
-        /// 使用指定种子生成关卡并准备未激活单局。
+        /// 用指定种子冻结本关的全部区域Boss与对应资源。
         /// </summary>
-        /// <param name="session">项目会话。</param>
+        /// <param name="session">账号会话。</param>
         /// <param name="runId">单局身份。</param>
-        /// <param name="levelId">关卡配置。</param>
-        /// <param name="seed">本局随机种子。</param>
-        /// <param name="items">入场装备快照。</param>
-        /// <param name="run">创建成功的单局。</param>
-        /// <param name="roguePolicy">可选扩展配置，默认禁用刷新和第四选项。</param>
-        /// <param name="rogueAccess">可选的第四选项授权适配器。</param>
-        /// <returns>图和战斗玩家均创建成功时为真。</returns>
+        /// <param name="levelId">关卡定义。</param>
+        /// <param name="seed">确定性初始种子。</param>
+        /// <param name="items">入场装备。</param>
+        /// <param name="run">创建的单局。</param>
+        /// <param name="roguePolicy">可选技能选择策略。</param>
+        /// <param name="rogueAccess">可选第四选项授权。</param>
+        /// <returns>创建成功时为真。</returns>
         public static bool TryCreate(ProjectSession session, string runId, int levelId, int seed, List<ProjectItem> items, out ExpeditionRun run,
             RogueChoicePolicy roguePolicy = null, IRogueChoiceAccessProvider rogueAccess = null)
         {
             run = null;
             if (session == null || items == null || string.IsNullOrWhiteSpace(runId) ||
-                !LevelContentConfig.TryGetLevel(levelId, out LevelDefinition definition) ||
-                !LevelGenerator.TryGenerate(seed, definition, out LevelRunState maps)) return false;
-            var created = new ExpeditionRun(session, runId, definition, maps, items, roguePolicy, rogueAccess);
-            if (created.Player.Id == 0 || !created.InitializeEquipmentAugments() || !created.InitializeMerchants())
-            {
-                created.Dispose();
-                return false;
-            }
+                !LevelContentConfig.TryGetLevel(levelId, out LevelDefinition level) ||
+                !LevelContentConfig.TryCreateRegionRequests(runId, seed, level, out List<RegionGenerationRequest> requests, out _)) return false;
+            var created = new ExpeditionRun(session, runId, level, seed, requests, items, roguePolicy, rogueAccess);
+            if (created.Player.Id == 0 || !created.InitializeEquipmentAugments()) { created.Dispose(); return false; }
             run = created;
             return true;
         }
 
         /// <summary>
-        /// 场景进入后建立当前地图内容，回访不重生敌人。
+        /// 场景内容与界面建立后标记就绪，仍等待持久激活确认。
         /// </summary>
-        /// <param name="assets">场景作用域持有的关卡预制件。</param>
-        /// <param name="parent">可选的场景父节点。</param>
-        public void AttachScene(ExpeditionVisualAssets assets, Transform parent = null)
-        {
-            if (disposed || stopped || RoomView != null || assets == null) return;
-            visualAssets = assets;
-            sceneParent = parent;
-            RoomView = LevelRoomView.Create(CurrentRoom, assets, CurrentRoom.Plan.Definition, parent);
-            if (RoomView == null) return;
-            if (!SpawnRoomEnemies(CurrentRoom))
-            {
-                RoomView.Dispose();
-                RoomView = null;
-                Stop();
-                return;
-            }
-            Changed?.Invoke();
-        }
-
-        /// <summary>
-        /// 在地图、玩法和界面全部建立后声明场景就绪。
-        /// </summary>
-        /// <returns>场景内容完整且可以等待激活时为真。</returns>
+        /// <returns>地图完整时为真。</returns>
         public bool MarkReady()
         {
-            if (disposed || stopped || RoomView == null) return false;
+            if (disposed || stopped || RegionView == null) return false;
             IsReady = true;
             return true;
         }
 
         /// <summary>
-        /// 在入场 Running 记录确认后开放玩法模拟。
+        /// 完整初始修订与入场记录确认后开放模拟。
         /// </summary>
-        /// <returns>当前单局满足激活条件时为真。</returns>
+        /// <returns>单局已就绪时为真。</returns>
         public bool Activate()
         {
             if (disposed || stopped || !IsReady) return false;
             IsRunning = true;
             paused = false;
             World.ClearPendingTime();
+            PublishRewardState();
             return true;
         }
 
         /// <summary>
-        /// 暂停或恢复本局模拟，暂停时间不进入战斗累计器。
+        /// 调整应用暂停原因，并清除跨帧输入。
         /// </summary>
         /// <param name="value">是否暂停。</param>
         public void SetPaused(bool value)
         {
             if (disposed || stopped || paused == value) return;
             paused = value;
-            if (value)
-            {
-                touchMove = Vector2.zero;
-                interactionRequested = false;
-                World.ClearPendingTime();
-                World.SetMove(Player, Vector2.zero);
-            }
-            RogueChoiceChanged?.Invoke();
+            if (value) ClearPlayerInput();
+            PublishRewardState();
             Changed?.Invoke();
         }
 
         /// <summary>
-        /// 释放场景表现和地图视图，不释放单局战斗世界。
+        /// 释放场景表现；完整关卡状态由单局生命周期持有。
         /// </summary>
         public void DetachScene()
         {
-            Stop();
+            IsRunning = false;
             IsReady = false;
-            RoomView?.Dispose();
-            RoomView = null;
+            RegionView?.Dispose();
+            RegionView = null;
             visualAssets = null;
             sceneParent = null;
         }
 
         /// <summary>
-        /// 在唯一玩法更新入口推进模拟，每个完整 tick 后立即仲裁终局。
+        /// 从唯一循环推进有效战斗时间，每个完整逻辑帧形成独立保存候选。
         /// </summary>
-        /// <param name="deltaTime">本帧模拟秒数。</param>
+        /// <param name="deltaTime">当前帧真实经过秒数。</param>
         public void Advance(float deltaTime)
         {
             AdvanceDeathPresentation(deltaTime);
-            if (!IsRunning || !IsReady || paused || ActivePanel != ExpeditionPanelKind.None || IsChoosingRogue || disposed || RoomView == null || session.HasUncommittedSave || GameEntry.IsInBackground)
-            {
-                World.ClearPendingTime();
-                if (IsRunning && GameEntry.IsInBackground) SetPaused(true);
-                return;
-            }
+            if (!CanAdvance) { World.ClearPendingTime(); return; }
             IInputModule input = GameEntry.Get<IInputModule>();
             Vector2 movement = input.GetVector2("Gameplay/Move");
             if (touchMove.sqrMagnitude > movement.sqrMagnitude) movement = touchMove;
@@ -264,19 +232,19 @@ namespace GameLogic.Gameplay.Expedition
             bool interact = interactionRequested;
             World.Advance(deltaTime, () =>
             {
-                bool continueRunning = CompleteTick(interact);
+                bool proceed = CompleteTick(interact);
                 interact = false;
                 interactionRequested = false;
-                return continueRunning;
+                return proceed;
             });
-            if (World.Faulted && IsRunning) HandleFault("战斗世界异常，正在处理中断的单局。");
+            if (World.Faulted && IsRunning) HandleFault("战斗发生错误，已暂停并保留最近完整存档。");
         }
 
         /// <summary>
-        /// 处理一个完整 tick 的事实、终局和玩家交互。
+        /// 在同一边界消费死亡收益、个体复活与交互，并形成连续保存修订。
         /// </summary>
-        /// <param name="interact">该 tick 是否接收玩家交互。</param>
-        /// <returns>可以继续执行本帧剩余 tick 时为真。</returns>
+        /// <param name="interact">本帧是否提交一次交互。</param>
+        /// <returns>本帧之后仍可推进时为真。</returns>
         private bool CompleteTick(bool interact)
         {
             events.Clear();
@@ -286,96 +254,72 @@ namespace GameLogic.Gameplay.Expedition
             {
                 RecordStatistics(fact);
                 CombatEventPublished?.Invoke(fact);
-                if (fact.Kind == CombatEventKind.Death)
-                {
-                    if (fact.TargetActorId == 1) playerDied = true;
-                    else if (rewardedDeaths.Add(fact.TargetActorId) && enemyDefinitions.TryGetValue(fact.TargetActorId, out EnemyDefinition enemy))
-                    {
-                        RecordEnemyKill(fact.RoomId);
-                        KillExperience = (int)Math.Min(int.MaxValue, (long)KillExperience + enemy.ExperienceAt(LevelId));
-                        if (random.NextDouble() < enemy.DropChance)
-                            drops.Add(new ExpeditionDrop { RoomId = fact.RoomId, Position = fact.Position,
-                                Item = ProjectEquipmentRules.CreateLootFromPool(random, LootLevel, enemy.DropPoolID) });
-                    }
-                }
-                else if (fact.Kind == CombatEventKind.RoomCleared && Maps.TryGetRoom(fact.RoomId, out LevelRoomState room))
-                {
-                    room.MarkCleared();
-                    QueueRoomReward(room);
-                }
+                if (fact.Kind != CombatEventKind.Death) continue;
+                if (fact.TargetActorId == 1) { playerDied = true; continue; }
+                RegionSpawnSlotState slot = CurrentRegion.Slots.Find(value => value.CurrentActorId == fact.TargetActorId);
+                if (slot == null || !CurrentRegion.TryRecordDeath(slot.SlotId, fact.TargetActorId, slot.LifeSequence)) continue;
+                RegionSpawnSlotPlan plan = CurrentRegion.Plan.SpawnSlots.Find(value => value.SlotId == slot.SlotId);
+                EnemyDefinition enemy = enemyDefinitions[fact.TargetActorId];
+                float multiplier = slot.LifeSequence == 1 || plan.Kind == RegionEnemyKind.Boss ? 1f :
+                    (plan.Kind == RegionEnemyKind.Elite ? CurrentRegion.Plan.EliteRespawn : CurrentRegion.Plan.NormalRespawn).ExperienceMultiplier;
+                int previousExperience = KillExperience;
+                KillExperience = (int)Math.Min(int.MaxValue, (long)KillExperience + Mathf.FloorToInt(enemy.ExperienceAt(plan.EnemyLevel) * multiplier));
+                int gainedProgress = RecordProgressDeath(plan.Kind);
+                if (plan.Kind == RegionEnemyKind.Boss) QueueBossReward(CurrentRegion.Plan.Request.RegionId);
+                if (!CurrentRegion.TryConfirmDeathProcessed(slot.SlotId, slot.LifeSequence))
+                { HandleFault("死亡收益确认失败，已保留存档。"); return false; }
+                RecordEnemyKill(plan, slot.LifeSequence, KillExperience - previousExperience, gainedProgress);
             }
-            RoomView.Refresh();
-            if (World.Faulted) { HandleFault("战斗世界异常，正在处理中断的单局。"); return false; }
             if (playerDied) { EndRun(false); return false; }
+            CurrentRegion.AdvanceTick(EvaluateSpawnSafety);
+            if (!SpawnPendingEnemies(CurrentRegion, false)) { HandleFault("敌人复活状态创建失败。"); return false; }
+            if (TryBeginPendingReward()) return false;
             if (World.TryGetActor(Player, out CombatActorSnapshot player))
             {
                 UpdateInteractionLabel(player.Position);
-                if (CheckExtractionEntry(player.Position)) return false;
-                BeginPendingRoomReward();
                 if (interact) Interact(player.Position);
             }
+            if (!committing && IsRunning && !QueueTickSnapshot()) return false;
             Changed?.Invoke();
-            return IsRunning && !paused && ActivePanel == ExpeditionPanelKind.None && !IsChoosingRogue;
+            return CanAdvance;
         }
 
         /// <summary>
-        /// 冻结正常终局并请求统一流程接收。
+        /// 先冻结完整终局事实，随后由统一流程保存并结算。
         /// </summary>
-        /// <param name="extracted">是否成功撤离。</param>
+        /// <param name="extracted">是否正常带回物品。</param>
         private void EndRun(bool extracted)
         {
-            Stop();
-            Changed?.Invoke();
-            if (ProjectServices.Coordinator?.TryEndRun(this, extracted) != true)
-            {
-                string reason = "终局未被流程接收，正在处理中断的单局。";
-                GameEntry.Get<ILogModule>()?.Error("Expedition", reason);
-                RecoverAfterTickAsync(reason).Forget();
-            }
+            if (ProjectServices.Coordinator.TryEndRun(this, extracted)) return;
+            HandleFault("终局未被流程接受，请重试恢复本关。");
         }
 
         /// <summary>
-        /// 冻结故障状态，并在战斗调用栈退出后转交中断恢复。
+        /// 暂停故障状态，保持最近完整修订供同局恢复。
         /// </summary>
-        /// <param name="reason">可展示的故障原因。</param>
+        /// <param name="reason">玩家可读的故障说明。</param>
         private void HandleFault(string reason)
         {
-            Stop();
+            paused = true;
             Message = reason;
+            ClearPlayerInput();
             Changed?.Invoke();
-            RecoverAfterTickAsync(reason).Forget();
+            ProjectServices.Coordinator.RecoverInterruptedRunAsync(reason).Forget();
         }
 
         /// <summary>
-        /// 等待模拟调用栈退出后通知流程处理故障。
+        /// 提交触屏移动轴，暂停或非法输入时清空。
         /// </summary>
-        /// <param name="reason">故障原因。</param>
-        /// <returns>中断恢复任务。</returns>
-        private async UniTask RecoverAfterTickAsync(string reason)
-        {
-            await UniTask.Yield();
-            if (disposed || !ReferenceEquals(ProjectServices.Session?.CurrentRun, this) ||
-                ProjectServices.Session.ActiveRunId != RunId) return;
-            if (ProjectServices.Coordinator != null) await ProjectServices.Coordinator.RecoverInterruptedRunAsync(reason);
-        }
-
-        /// <summary>
-        /// 提交触屏移动轴，松手时传入零向量。
-        /// </summary>
-        /// <param name="axis">归一化摇杆输入。</param>
+        /// <param name="axis">归一化移动轴。</param>
         public void SetTouchMove(Vector2 axis)
         {
-            if (axis == Vector2.zero || float.IsNaN(axis.x) || float.IsInfinity(axis.x) || float.IsNaN(axis.y) || float.IsInfinity(axis.y))
-            {
-                touchMove = Vector2.zero;
-                return;
-            }
-            if (!CanInteract) return;
+            if (axis == Vector2.zero || !CanInteract || float.IsNaN(axis.x) || float.IsInfinity(axis.x) || float.IsNaN(axis.y) || float.IsInfinity(axis.y))
+            { touchMove = Vector2.zero; return; }
             touchMove = Vector2.ClampMagnitude(axis, 1);
         }
 
         /// <summary>
-        /// 将 UI 交互请求延迟到战斗 tick 收束之后。
+        /// 锁定按下时的具体目标，交互只在完整战斗帧后执行。
         /// </summary>
         public void RequestInteraction()
         {
@@ -386,188 +330,50 @@ namespace GameLogic.Gameplay.Expedition
         }
 
         /// <summary>
-        /// 切换战利品的安全箱保护，已穿戴物品须先卸下。
+        /// 清除输入与未推进时间，不改变应用或面板暂停原因。
         /// </summary>
-        /// <param name="itemId">本局物品实例身份。</param>
-        /// <returns>是否已经改变保护状态。</returns>
-        public bool ToggleSafe(string itemId)
+        private void ClearPlayerInput()
         {
-            if (!CanInteract && !CanManageInventory) return false;
-            ProjectItem item = inventory.Find(value => value.Id == itemId);
-            if (item == null) return ReportInventoryFailure("物品已不存在。");
-            if (item.Equipped) return ReportInventoryFailure("请先卸下装备，再放入安全箱。");
-            if (protectedItems.Remove(itemId))
-            {
-                Message = "已移回背包：" + item.Name;
-                Changed?.Invoke();
-                return true;
-            }
-            if (protectedItems.Count >= SafeCapacity) return ReportInventoryFailure("安全箱已满。");
-            protectedItems.Add(itemId);
-            Message = "已放入安全箱：" + item.Name;
-            Changed?.Invoke();
-            return true;
+            touchMove = Vector2.zero;
+            interactionRequested = false;
+            World.ClearPendingTime();
+            World.SetMove(Player, Vector2.zero);
         }
 
         /// <summary>
-        /// 查询物品当前是否受安全箱保护。
-        /// </summary>
-        /// <param name="itemId">物品实例身份。</param>
-        /// <returns>在安全箱中时为真。</returns>
-        public bool IsProtected(string itemId) => protectedItems.Contains(itemId);
-
-        /// <summary>
-        /// 生成正常撤离或死亡结算的物品计划。
-        /// </summary>
-        /// <param name="extracted">是否正常撤离。</param>
-        /// <returns>待携出的独立实例快照。</returns>
-        public IReadOnlyList<ProjectItem> GetRetainedItems(bool extracted)
-        {
-            var retained = new List<ProjectItem>();
-            foreach (ProjectItem item in inventory)
-                if (extracted || protectedItems.Contains(item.Id)) retained.Add(item.Copy());
-            return retained;
-        }
-
-        /// <summary>
-        /// 为已停止的单局创建独立的终局数据快照。
-        /// </summary>
-        /// <param name="extracted">是否成功撤离。</param>
-        /// <returns>包含全部持有物品和安全箱身份的终局快照。</returns>
-        public ProjectRunOutcome CreateOutcome(bool extracted)
-        {
-            if (!stopped || disposed) return null;
-            var outcome = new ProjectRunOutcome
-            {
-                RunId = RunId, LevelId = LevelId, Seed = Seed, RulesVersion = ProjectRunRecordRules.RulesVersion,
-                Tick = World.TickIndex, ElapsedSeconds = World.TickIndex * CombatWorld.TickSeconds,
-                Extracted = extracted, KillExperience = KillExperience,
-                AwardedKillExperience = extracted || PrototypeRules.KeepKillExperienceOnDeath ? KillExperience : 0,
-                ExtractionExperience = extracted ? PrototypeRules.ExtractionExperience : 0,
-                GoldSpent = GoldSpent, Statistics = CaptureStatistics(),
-                Items = new List<ProjectItem>(), SafeItemIds = new List<string>(protectedItems)
-            };
-            foreach (ProjectItem item in inventory) outcome.Items.Add(item.Copy());
-            outcome.SafeItemIds.Sort(StringComparer.Ordinal);
-            return outcome;
-        }
-
-        /// <summary>
-        /// 冻结战斗和输入，等待唯一结算结果。
+        /// 冻结战斗与输入，保留所有奖励事实供终局和异常恢复使用。
         /// </summary>
         public void Stop()
         {
             stopped = true;
             IsRunning = false;
             ActivePanel = ExpeditionPanelKind.None;
-            roomRewardSources.Clear();
-            StopRogueChoices();
             ClearInteractionTargets();
+            ClearPlayerInput();
             Changed?.Invoke();
-            World.ClearPendingTime();
-            touchMove = Vector2.zero;
-            interactionRequested = false;
         }
 
         /// <summary>
-        /// 销毁本局内容和战斗世界，不生成到期或死亡效果。
+        /// 释放关卡表现、授权等待和战斗世界，不重放任何效果。
         /// </summary>
         public void Dispose()
         {
             if (disposed) return;
-            disposed = true;
             Stop();
+            disposed = true;
             DetachScene();
             World.Dispose();
             Changed = null;
             CombatEventPublished = null;
-            RogueChoiceChanged = null;
-            rogueLifetime.Dispose();
+            DisposeRewardSessions();
         }
 
         /// <summary>
-        /// 在目标准备完成后一次提交地图、入口和战斗分区。
+        /// 根据本局生命身份取得配置定义，供表现读取名称与模型。
         /// </summary>
-        /// <param name="direction">当前出口方向。</param>
-        private void ChangeRoom(RoomDirection direction)
-        {
-            if (!CanInteract) return;
-            if (!Maps.TryGetDestination(direction, out int destination) || !Maps.TryGetRoom(destination, out LevelRoomState room)) return;
-            LevelRoomView prepared = LevelRoomView.Create(room, visualAssets, room.Plan.Definition, sceneParent);
-            if (prepared == null) { Message = "目标地图准备失败。"; return; }
-            RoomDirection entrySide = LevelGenerator.Opposite(direction);
-            Vector3 spawn = prepared.GetSpawnPosition(entrySide);
-            if (prepared.Layout.IsBlocked(spawn, (float)ProjectContentConfig.Player.Radius)) { prepared.Dispose(); Message = "目标入口不可用。"; return; }
-            if (!World.TryTransferActor(Player, destination, spawn))
-            {
-                prepared.Dispose();
-                Message = "目标入口被占用，请稍后重试。";
-                return;
-            }
-            if (!Maps.TryCommitTransition(destination))
-            {
-                prepared.Dispose();
-                Stop();
-                RecoverAfterTickAsync("地图切换失败，正在处理中断的单局。").Forget();
-                return;
-            }
-            LevelRoomView previous = RoomView;
-            RoomView = prepared;
-            ClearInteractionTargets();
-            previous.Dispose();
-            if (!SpawnRoomEnemies(room))
-            {
-                HandleFault("房间敌人创建失败，正在处理中断的单局。");
-                return;
-            }
-            Message = "进入地图 " + destination + "，可随时沿出口继续探索。";
-        }
-
-        /// <summary>
-        /// 首次激活战斗地图时创建其敌人实体。
-        /// </summary>
-        /// <param name="room">激活的地图。</param>
-        /// <returns>全部计划敌人创建成功，或无需再次创建时为真。</returns>
-        private bool SpawnRoomEnemies(LevelRoomState room)
-        {
-            if (room.EnemiesSpawned || (room.Type != LevelRoomType.Mob && room.Type != LevelRoomType.Boss)) return true;
-            int sequence = 0;
-            foreach (SpawnDefinition spawn in room.Plan.Spawns)
-            {
-                if (!LevelContentConfig.TryGetEnemy(spawn.EnemyID, out EnemyDefinition enemy))
-                {
-                    GameEntry.Get<ILogModule>()?.Error("Expedition", "房间计划引用的敌人不存在：" + spawn.EnemyID);
-                    return false;
-                }
-                for (int index = 0; index < spawn.Count; index++)
-                {
-                    int actorId = room.RoomId * 1000 + ++sequence;
-                    var entity = World.CreateActor(new CombatActorSpec
-                    {
-                        ActorId = actorId, RoomId = room.RoomId, Team = 2, Position = spawn.PositionAt(index),
-                        MaxHealth = enemy.HealthAt(LevelId), Attack = (float)enemy.Row.Attack, MoveSpeed = (float)enemy.Row.MoveSpeed,
-                        Radius = (float)enemy.Row.Radius, AttackRange = (float)enemy.Row.AttackRange,
-                        AggroRange = (float)enemy.Row.AggroRange, BasicSkillId = enemy.SkillID,
-                        EnemySkills = CombatEnemySkillConfig.Create(enemy.ID)
-                    });
-                    if (entity.Id == 0)
-                    {
-                        GameEntry.Get<ILogModule>()?.Error("Expedition", "房间计划敌人创建失败：" + room.RoomId + "/" + spawn.EnemyID);
-                        return false;
-                    }
-                    enemyDefinitions.Add(actorId, enemy);
-                }
-            }
-            room.MarkEnemiesSpawned();
-            return true;
-        }
-
-        /// <summary>
-        /// 根据实体身份取得本局敌人的内容定义，表现和奖励共用同一来源。
-        /// </summary>
-        /// <param name="actorId">战斗角色身份。</param>
+        /// <param name="actorId">全局递增角色身份。</param>
         /// <param name="definition">对应敌人定义。</param>
-        /// <returns>角色由配置刷怪创建时为真。</returns>
+        /// <returns>角色来自固定生成槽位时为真。</returns>
         public bool TryGetEnemyDefinition(int actorId, out EnemyDefinition definition) => enemyDefinitions.TryGetValue(actorId, out definition);
     }
 }

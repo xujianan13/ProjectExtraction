@@ -230,37 +230,28 @@
         "RequiredLevel": {
           "min": 1
         },
-        "GridWidth": {
-          "min": 1,
-          "max": 500
-        },
-        "GridHeight": {
-          "min": 1,
-          "max": 500
-        },
-        "LayoutID": {
-          "ref": "CfgRoomLayouts"
-        },
         "LootLevel": {
           "min": 1,
           "max": 1000
-        }
-      }
-    },
-    "CfgRoomLayouts": {
-      "fields": {
-        "ID": {
-          "min": 1
-        }
-      }
-    },
-    "CfgObstacles": {
-      "fields": {
-        "ID": {
-          "min": 1
         },
-        "LayoutID": {
-          "ref": "CfgRoomLayouts"
+        "RegionCount": {
+          "min": 1,
+          "max": 8
+        },
+        "BossPoolID": {
+          "required": true
+        },
+        "FinalBossPoolID": {
+          "required": true
+        },
+        "ContentID": {
+          "ref": "CfgRegionContent"
+        },
+        "SkillPoolID": {
+          "required": true
+        },
+        "ProgressRuleID": {
+          "ref": "CfgRogueProgress"
         }
       }
     },
@@ -269,15 +260,14 @@
         "ID": {
           "min": 1
         },
+        "EncounterID": {
+          "ref": "CfgEncounters"
+        },
         "EnemyID": {
           "ref": "CfgEnemies"
         },
         "Count": {
-          "min": 1,
-          "max": 999
-        },
-        "EncounterID": {
-          "ref": "CfgEncounters"
+          "min": 1
         }
       }
     },
@@ -292,6 +282,28 @@
         "PrefabAddress": {
           "required": true,
           "asset": true
+        },
+        "Role": {
+          "min": 0,
+          "max": 2
+        },
+        "Defense": {
+          "min": 0
+        },
+        "VulnerabilityMultiplier": {
+          "min": 1,
+          "max": 10
+        }
+      }
+    },
+    "CfgDisplay": {
+      "fields": {
+        "ID": {
+          "min": 1
+        },
+        "TargetFrameRate": {
+          "min": 1,
+          "max": 240
         }
       }
     },
@@ -313,7 +325,7 @@
       "fields": {
         "Type": {
           "min": 0,
-          "max": 3
+          "max": 4
         }
       }
     },
@@ -360,14 +372,6 @@
         "ID": {
           "min": 1
         },
-        "MobClearChance": {
-          "min": 0,
-          "max": 1
-        },
-        "MaxConsecutiveMobMisses": {
-          "min": 0,
-          "max": 1000
-        },
         "SelectedUpgradeWeightMultiplier": {
           "min": 1,
           "max": 16
@@ -387,10 +391,6 @@
         "Attribute": {
           "min": 0,
           "max": 7
-        },
-        "LootType": {
-          "min": 0,
-          "max": 3
         },
         "MaxRank": {
           "min": 0
@@ -433,35 +433,6 @@
         }
       }
     },
-    "CfgRoomTemplates": {
-      "fields": {
-        "ID": {
-          "min": 1
-        },
-        "LevelID": {
-          "ref": "CfgLevels"
-        },
-        "RoomType": {
-          "required": true
-        },
-        "LayoutID": {
-          "ref": "CfgRoomLayouts"
-        },
-        "Weight": {
-          "min": 1
-        },
-        "AllowedExits": {
-          "min": 1,
-          "max": 15
-        },
-        "NpcPrice": {
-          "min": 0
-        },
-        "NpcStock": {
-          "min": 0
-        }
-      }
-    },
     "CfgEncounters": {
       "fields": {
         "ID": {
@@ -469,9 +440,6 @@
         },
         "PoolID": {
           "required": true
-        },
-        "LayoutID": {
-          "ref": "CfgRoomLayouts"
         },
         "MinLevel": {
           "min": 1
@@ -655,6 +623,323 @@
         "ColorB": {
           "min": 0,
           "max": 1
+        }
+      }
+    },
+    "CfgRegionMaps": {
+      "fields": {
+        "ID": {
+          "min": 1
+        },
+        "Version": {
+          "required": true
+        },
+        "PrefabAddress": {
+          "required": true,
+          "asset": true
+        },
+        "GeometryAddress": {
+          "required": true,
+          "asset": true
+        },
+        "MinimapAddress": {
+          "required": true,
+          "asset": true
+        },
+        "Name": {
+          "required": true
+        }
+      }
+    },
+    "CfgRespawnRules": {
+      "fields": {
+        "ID": {
+          "min": 1
+        },
+        "DelaySeconds": {
+          "min": 1
+        },
+        "WarningSeconds": {
+          "min": 1
+        },
+        "SafeDistance": {
+          "min": 0
+        },
+        "ExperienceMultiplier": {
+          "min": 0
+        }
+      }
+    },
+    "CfgRegionContent": {
+      "fields": {
+        "ID": {
+          "min": 1
+        },
+        "MonsterGroupCount": {
+          "min": 0
+        },
+        "EliteCount": {
+          "min": 0
+        },
+        "ChestCount": {
+          "min": 0
+        },
+        "NpcCount": {
+          "min": 0
+        },
+        "NormalRespawnID": {
+          "ref": "CfgRespawnRules"
+        },
+        "EliteRespawnID": {
+          "ref": "CfgRespawnRules"
+        },
+        "InteractionRadius": {
+          "min": 0.1
+        },
+        "ReachabilityGridSpacing": {
+          "min": 0.25
+        },
+        "ReachabilityMaxCells": {
+          "min": 1
+        },
+        "MaxSpawnSlots": {
+          "min": 1
+        }
+      }
+    },
+    "CfgRogueProgress": {
+      "fields": {
+        "ID": {
+          "min": 1
+        },
+        "NormalContribution": {
+          "min": 0
+        },
+        "EliteContribution": {
+          "min": 0
+        },
+        "Threshold": {
+          "min": 1
+        }
+      }
+    },
+    "CfgRoguePools": {
+      "fields": {
+        "ID": {
+          "required": true
+        },
+        "PoolID": {
+          "required": true
+        },
+        "RewardID": {
+          "ref": "CfgRogueRewards"
+        }
+      }
+    },
+    "CfgElitePool": {
+      "fields": {
+        "ID": {
+          "min": 1
+        },
+        "PoolID": {
+          "required": true
+        },
+        "EnemyID": {
+          "ref": "CfgEnemies"
+        },
+        "Weight": {
+          "min": 1
+        },
+        "MinLevel": {
+          "min": 1
+        },
+        "MaxLevel": {
+          "min": 1
+        }
+      }
+    },
+    "CfgChestPool": {
+      "fields": {
+        "ID": {
+          "min": 1
+        },
+        "PoolID": {
+          "required": true
+        },
+        "LootPoolID": {
+          "required": true
+        },
+        "ItemCount": {
+          "min": 1
+        },
+        "Weight": {
+          "min": 1
+        }
+      }
+    },
+    "CfgNpcPool": {
+      "fields": {
+        "ID": {
+          "min": 1
+        },
+        "PoolID": {
+          "required": true
+        },
+        "LootPoolID": {
+          "required": true
+        },
+        "Price": {
+          "min": 0
+        },
+        "Stock": {
+          "min": 1
+        },
+        "Weight": {
+          "min": 1
+        }
+      }
+    },
+    "CfgBosses": {
+      "fields": {
+        "ID": {
+          "min": 1
+        },
+        "Name": {
+          "required": true
+        },
+        "EnemyID": {
+          "ref": "CfgEnemies"
+        },
+        "MapID": {
+          "ref": "CfgRegionMaps"
+        },
+        "PoolID": {
+          "required": true
+        },
+        "Weight": {
+          "min": 1
+        },
+        "MinLevel": {
+          "min": 1
+        },
+        "MaxLevel": {
+          "min": 1
+        },
+        "RewardID": {
+          "ref": "CfgBossRewards"
+        },
+        "CollectionPreviewIDs": {
+          "ref": "CfgCollections"
+        }
+      }
+    },
+    "CfgBossRewards": {
+      "fields": {
+        "ID": {
+          "min": 1
+        },
+        "Rounds": {
+          "min": 1,
+          "max": 20
+        },
+        "EquipmentPoolID": {
+          "required": true
+        },
+        "CollectionIDs": {
+          "ref": "CfgCollections"
+        },
+        "EquipmentWeight": {
+          "min": 1
+        },
+        "CollectionWeight": {
+          "min": 1
+        },
+        "MinQuality": {
+          "min": 0,
+          "max": 5
+        },
+        "MaxQuality": {
+          "min": 0,
+          "max": 5
+        },
+        "MinEquipmentCandidates": {
+          "min": 0,
+          "max": 3
+        },
+        "MinCollectionCandidates": {
+          "min": 0,
+          "max": 3
+        }
+      }
+    },
+    "CfgCollections": {
+      "fields": {
+        "ID": {
+          "required": true
+        },
+        "Name": {
+          "required": true
+        },
+        "Series": {
+          "required": true
+        },
+        "Source": {
+          "required": true
+        },
+        "SellGold": {
+          "min": 0
+        },
+        "RequiredLevel": {
+          "min": 1
+        },
+        "Quality": {
+          "min": 0,
+          "max": 5
+        }
+      }
+    },
+    "CfgCollectionAchievements": {
+      "fields": {
+        "ID": {
+          "required": true
+        },
+        "Name": {
+          "required": true
+        },
+        "CollectionIDs": {
+          "ref": "CfgCollections",
+          "required": true
+        },
+        "Attributes": {
+          "min": 0,
+          "max": 7,
+          "required": true
+        },
+        "Values": {
+          "min": 0,
+          "required": true
+        }
+      }
+    },
+    "CfgRunPersistence": {
+      "fields": {
+        "ID": {
+          "min": 1
+        },
+        "ConfigVersion": {
+          "required": true
+        },
+        "CheckpointTicks": {
+          "min": 1,
+          "max": 600
+        },
+        "MaxPendingTicks": {
+          "min": 1,
+          "max": 120
+        },
+        "MaxStateBytes": {
+          "min": 65536,
+          "max": 33554432
         }
       }
     }

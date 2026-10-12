@@ -62,6 +62,7 @@ namespace GameLogic.Project
         private ProjectRunOutcome frozenOutcome;
         private bool recoveryUiPending;
         private UniTaskCompletionSource<bool> saveWaiter;
+        private UniTaskCompletionSource<bool> saveBarrierCompletion;
         private Func<UniTask<ProjectOperationResult>> retrySave;
         private Func<UniTask<bool>> recovery;
         private bool busy;
@@ -71,6 +72,10 @@ namespace GameLogic.Project
         private bool closing;
         private bool applicationPaused;
         private int selectedLevelId = 1;
+        private bool resumable;
+        private bool runtimeSaveRecovery;
+        private int saveBarrierDepth;
+        private string newAdmissionRunId;
 
         public event Action Changed;
         public ProjectRunPhase Phase { get; private set; } = ProjectRunPhase.Restoring;
@@ -80,6 +85,9 @@ namespace GameLogic.Project
         public bool IsPaused => applicationPaused;
         public bool CanStart => !disposed && !closing && !busy && !retrying && Phase == ProjectRunPhase.HomeReady &&
             flow.State == GameRoundState.Menu && !flow.IsBusy && !session.IsBusy && HomeIsReady() && string.IsNullOrEmpty(session.ActiveRunId);
+        public bool CanResume => !disposed && !closing && !busy && !retrying && resumable && Phase == ProjectRunPhase.HomeReady &&
+            flow.State == GameRoundState.Menu && !flow.IsBusy && !session.HasUncommittedSave && session.ActiveRunVersion == 2 &&
+            !string.IsNullOrEmpty(session.ActiveRunId) && (session.RunStage == ProjectRunStage.Admitted || session.RunStage == ProjectRunStage.Running);
         public bool CanRetry => !disposed && !closing && !retrying && Phase == ProjectRunPhase.RecoveryRequired &&
             (saveWaiter != null || (!busy && recovery != null));
         public bool CanReturn => !disposed && !closing && !busy && !retrying && Phase == ProjectRunPhase.ResultsReady;
@@ -112,6 +120,7 @@ namespace GameLogic.Project
             this.session = session;
             flow = new GameRoundFlow(new ExpeditionRoundFactory(this), SaveResultAsync);
             flow.StateChanged += OnFlowChanged;
+            session.RunSaveFailed += OnRunSaveFailed;
         }
 
         /// <summary>
@@ -124,6 +133,7 @@ namespace GameLogic.Project
             busy = true;
             OperationId++;
             SetPhase(ProjectRunPhase.Restoring, "正在恢复游戏进度。");
+            resumable = false;
             try
             {
                 if (!await ShowTransitionAsync()) return Fail("无法打开流程界面。", InitializeAsync);
@@ -139,8 +149,7 @@ namespace GameLogic.Project
                 }
                 else if (!string.IsNullOrEmpty(session.ActiveRunId))
                 {
-                    ProjectOperationResult restored = await session.CompensateEntryAsync("上次游戏中断，采用开发期恢复策略");
-                    if (!restored.Success) return Fail(restored.Message, InitializeAsync);
+                    if (!await InspectActiveRunAsync()) return false;
                 }
                 if (session.LastResult != null && !session.LastResult.Viewed) return await ShowResultsAsync();
                 return await ReturnHomeCoreAsync();
@@ -157,6 +166,23 @@ namespace GameLogic.Project
         public async UniTask<bool> StartRunAsync(int levelId)
         {
             if (!CanStart) return false;
+            return await EnterRunAsync(levelId, false);
+        }
+
+        /// <summary>
+        /// 接续已经扣费的原关卡身份，不重复准入或生成新的运行种子。
+        /// </summary>
+        /// <returns>原关卡完整恢复并激活时为真。</returns>
+        public UniTask<bool> ResumeRunAsync() => CanResume ? EnterRunAsync(session.ActiveRunLevelId, true) : UniTask.FromResult(false);
+
+        /// <summary>
+        /// 统一新局和原局的资源加载、初始修订确认与激活。
+        /// </summary>
+        /// <param name="levelId">关卡身份。</param>
+        /// <param name="restoring">是否接续原活动身份。</param>
+        /// <returns>关卡已完整就绪并开放模拟时为真。</returns>
+        private async UniTask<bool> EnterRunAsync(int levelId, bool restoring)
+        {
             busy = true;
             cancelRequested = false;
             OperationId++;
@@ -169,23 +195,34 @@ namespace GameLogic.Project
                 await ui.CloseWindowAsync(2101);
                 await ui.CloseWindowAsync(2102);
                 await ui.CloseWindowAsync(ProjectServices.HomeShopWindow);
-                bool entered = await flow.StartLevelAsync(levelId, lifetime.Token);
+                bool entered = restoring ? await flow.RestoreLevelAsync(levelId, session.ActiveRunId, lifetime.Token) :
+                    await flow.StartLevelAsync(levelId, lifetime.Token);
                 if (!entered)
                 {
+                    if (restoring && !cancelRequested) return Fail(flow.Error ?? "原关卡恢复失败，存档已保留。", InitializeAsync);
                     await RecoverEntryCoreAsync(cancelRequested ? "取消入场" : flow.Error ?? "关卡加载失败");
                     return false;
                 }
                 if (disposed || closing || round?.Run == null || !round.Run.IsReady) return false;
                 SetPhase(ProjectRunPhase.Activating, "关卡已就绪，正在确认开始。");
+                if (!await SaveRunBoundaryAsync(round.Run, ProjectRunPhase.Activating)) return false;
                 if (!await SaveBarrierAsync(() => session.MarkRunningAsync(round.Run.RunId), ProjectRunPhase.Activating)) return false;
+                newAdmissionRunId = null;
                 await ui.CloseWindowAsync(ProjectServices.TransitionWindow);
-                if (!round.Run.Activate()) return Fail("关卡激活失败。", () => RecoverInterruptedRunAsync("激活失败"));
+                resumable = false;
+                busy = false;
                 SetPhase(ProjectRunPhase.Playing, "探索地图，寻找撤离点。");
-                if (applicationPaused || GameEntry.IsInBackground) await SetApplicationPausedAsync(true);
+                if (!round.Run.Activate()) return Fail("关卡激活失败。", () => RecoverInterruptedRunAsync("激活失败"));
+                if (Phase == ProjectRunPhase.Playing) round.Run.ResumePendingRewards();
+                if (Phase == ProjectRunPhase.Playing && (applicationPaused || GameEntry.IsInBackground)) await SetApplicationPausedAsync(true);
                 return true;
             }
             catch (Exception error) { return HandleError(error, () => RecoverInterruptedRunAsync("入场流程中断")); }
-            finally { busy = false; Changed?.Invoke(); }
+            finally
+            {
+                if (Phase != ProjectRunPhase.FreezingOutcome && Phase != ProjectRunPhase.Settling) busy = false;
+                Changed?.Invoke();
+            }
         }
 
         /// <summary>
@@ -215,9 +252,8 @@ namespace GameLogic.Project
             if (disposed || closing || busy || session.HasUncommittedSave || Phase != ProjectRunPhase.Playing || flow.State != GameRoundState.Playing ||
                 !ReferenceEquals(run, session.CurrentRun) || run.RunId != session.ActiveRunId) return false;
             run.Stop();
-            ProjectRunOutcome outcome = run.CreateOutcome(extracted);
+            ProjectRunOutcome outcome = run.CreateOutcome(extracted, abandoned);
             if (outcome == null) return false;
-            outcome.Abandoned = abandoned;
             frozenOutcome = outcome;
             busy = true;
             SetPhase(ProjectRunPhase.FreezingOutcome, extracted ? "已进入撤离点，正在记录本局结果。" :
@@ -238,6 +274,7 @@ namespace GameLogic.Project
             try
             {
                 await UniTask.Yield(PlayerLoopTiming.Update, lifetime.Token);
+                if (!await SaveRunBoundaryAsync(run, ProjectRunPhase.FreezingOutcome)) return;
                 if (!await SaveBarrierAsync(() => session.RecordOutcomeAsync(outcome), ProjectRunPhase.FreezingOutcome)) return;
                 if (!outcome.Extracted)
                     await UniTask.WaitUntil(() => disposed || closing || !ReferenceEquals(session.CurrentRun, run) || !run.IsPresentingDeath,
@@ -265,8 +302,11 @@ namespace GameLogic.Project
             try
             {
                 if (!await ShowTransitionAsync()) return Fail("无法打开结算界面。", ResumeRecordedOutcomeAsync);
-                if (session.RecordedOutcome == null && frozenOutcome != null && session.ActiveRunId == frozenOutcome.RunId &&
-                    !await SaveBarrierAsync(() => session.RecordOutcomeAsync(frozenOutcome), ProjectRunPhase.FreezingOutcome)) return false;
+                if (session.RecordedOutcome == null && frozenOutcome != null && session.ActiveRunId == frozenOutcome.RunId)
+                {
+                    if (session.CurrentRun != null && !await SaveRunBoundaryAsync(session.CurrentRun, ProjectRunPhase.FreezingOutcome)) return false;
+                    if (!await SaveBarrierAsync(() => session.RecordOutcomeAsync(frozenOutcome), ProjectRunPhase.FreezingOutcome)) return false;
+                }
                 return await CompleteRecordedOutcomeCoreAsync();
             }
             catch (Exception error) { return HandleError(error, ResumeRecordedOutcomeAsync); }
@@ -279,6 +319,7 @@ namespace GameLogic.Project
         /// <returns>是否可展示已保存结果。</returns>
         private async UniTask<bool> CompleteRecordedOutcomeCoreAsync()
         {
+            if (flow.State == GameRoundState.Paused && session.RecordedOutcome != null) flow.Resume();
             if (flow.State == GameRoundState.Failed && flow.Result.HasValue)
             {
                 if (!await flow.RetryAsync(lifetime.Token)) return Fail(flow.Error, ResumeRecordedOutcomeAsync);
@@ -352,7 +393,7 @@ namespace GameLogic.Project
             await GameEntry.Get<IUIModule>().CloseWindowAsync(ProjectServices.TransitionWindow);
             round = null;
             recovery = null;
-            SetPhase(ProjectRunPhase.HomeReady, session.LastRunSummary);
+            SetPhase(ProjectRunPhase.HomeReady, resumable ? "已恢复上次关卡，可以继续探索。" : session.LastRunSummary);
             return true;
         }
 
@@ -367,7 +408,7 @@ namespace GameLogic.Project
         }
 
         /// <summary>
-        /// 按明确的开发策略补偿未记录终局的中断。
+        /// 冻结故障世界并从最新完整持久修订接续原局，不退费或更换身份。
         /// </summary>
         /// <param name="reason">中断原因。</param>
         /// <returns>是否已恢复主界面。</returns>
@@ -380,26 +421,159 @@ namespace GameLogic.Project
             try
             {
                 await UniTask.Yield(PlayerLoopTiming.Update, lifetime.Token);
-                return await RecoverEntryCoreAsync(reason);
+                SetPhase(ProjectRunPhase.Restoring, reason + "，正在恢复原关卡。");
+                if (!await ShowTransitionAsync()) return Fail("无法打开恢复界面。", () => RecoverInterruptedRunAsync(reason));
+                if ((session.HasPendingRunSave || session.RunSaveBlocked) &&
+                    !await SaveBarrierAsync(RetryRunJournalOperationAsync, ProjectRunPhase.Restoring)) return false;
+                if (!await flow.ReturnToMenuAsync(lifetime.Token)) return Fail(flow.Error, () => RecoverInterruptedRunAsync(reason));
+                if (string.IsNullOrEmpty(session.ActiveRunId)) return await ReturnHomeCoreAsync();
+                if (!await InspectActiveRunAsync()) return false;
+                if (session.LastResult != null && !session.LastResult.Viewed) return await ShowResultsAsync();
+                SetPhase(ProjectRunPhase.HomeReady, "原关卡状态已恢复，正在接续探索。");
+                busy = false;
+                return await ResumeRunAsync();
             }
             catch (Exception error) { return HandleError(error, () => RecoverInterruptedRunAsync(reason)); }
-            finally { busy = false; Changed?.Invoke(); }
+            finally
+            {
+                if (Phase != ProjectRunPhase.FreezingOutcome && Phase != ProjectRunPhase.Settling) busy = false;
+                Changed?.Invoke();
+            }
         }
 
         /// <summary>
-        /// 退出半成品后补偿一次，随后恢复实际主界面。
+        /// 退出未激活资源，只有本轮取消的新准入可以退回，其余活动保持原档。
         /// </summary>
         /// <param name="reason">补偿原因。</param>
         /// <returns>是否完成补偿和返场。</returns>
         private async UniTask<bool> RecoverEntryCoreAsync(string reason)
         {
-            SetPhase(ProjectRunPhase.Restoring, reason + "，正在恢复入场资源。");
+            SetPhase(ProjectRunPhase.Restoring, reason + "，正在收束入场流程。");
             if (!await ShowTransitionAsync()) return Fail("无法打开恢复界面。", () => RecoverInterruptedRunAsync(reason));
             if (session.RecordedOutcome != null) return await CompleteRecordedOutcomeCoreAsync();
             if (!await flow.ReturnToMenuAsync(lifetime.Token)) return Fail(flow.Error ?? "资源退出失败。", () => RecoverInterruptedRunAsync(reason));
-            if (!string.IsNullOrEmpty(session.ActiveRunId) &&
-                !await SaveBarrierAsync(() => session.CompensateEntryAsync(reason), ProjectRunPhase.Restoring)) return false;
+            if (cancelRequested && newAdmissionRunId == session.ActiveRunId && session.RunStage == ProjectRunStage.Admitted)
+            {
+                string cancelledRunId = newAdmissionRunId;
+                if (!await SaveBarrierAsync(() => session.ActiveRunId == cancelledRunId ? session.CompensateEntryAsync(reason) :
+                    UniTask.FromResult(new ProjectOperationResult(true, "取消准入已确认。")), ProjectRunPhase.Restoring)) return false;
+                newAdmissionRunId = null;
+                resumable = false;
+            }
+            else if (!string.IsNullOrEmpty(session.ActiveRunId) && !await InspectActiveRunAsync()) return false;
             return await ReturnHomeCoreAsync();
+        }
+
+        /// <summary>
+        /// 检查完整活动状态，终局优先记录并结算，存活状态仅开放原局接续。
+        /// </summary>
+        /// <returns>活动完整修订兼容当前内容时为真。</returns>
+        private async UniTask<bool> InspectActiveRunAsync()
+        {
+            if (session.ActiveRunVersion != 2) return Fail("活动关卡版本尚未完成迁移，原存档已保留。", InitializeAsync);
+            ProjectRunSnapshotReadResult loaded = await session.ReadRunSnapshotAsync(session.ActiveRunId);
+            if (!loaded.Success || loaded.Missing || loaded.Snapshot.LevelId != session.ActiveRunLevelId)
+                return Fail(loaded.Error ?? "活动关卡完整状态缺失或关卡身份不匹配，原存档已保留。", InitializeAsync);
+            ExpeditionRunSnapshot snapshot = loaded.Snapshot;
+            if (snapshot.PendingOutcome != null)
+            {
+                frozenOutcome = snapshot.PendingOutcome.Copy();
+                if (!await SaveBarrierAsync(() => session.RecordOutcomeAsync(frozenOutcome), ProjectRunPhase.Restoring)) return false;
+                ProjectOperationResult settled = await session.SettleOutcomeAsync(session.ActiveRunId);
+                if (!settled.Success) return Fail(settled.Message, InitializeAsync);
+                resumable = false;
+                return true;
+            }
+            if (!ExpeditionRun.TryRestore(session, snapshot, out ExpeditionRun restored, out string error)) return Fail(error, InitializeAsync);
+            restored.Dispose();
+            selectedLevelId = snapshot.LevelId;
+            resumable = true;
+            return true;
+        }
+
+        /// <summary>
+        /// 保存同一完整候选，首次入队与以后重试分别执行，不增加重复修订。
+        /// </summary>
+        /// <param name="run">完整边界所属单局。</param>
+        /// <param name="resumePhase">确认后的继续阶段。</param>
+        /// <returns>该候选已经完整持久确认时为真。</returns>
+        internal UniTask<bool> SaveRunBoundaryAsync(ExpeditionRun run, ProjectRunPhase resumePhase)
+        {
+            if (!run.TryCaptureState(out ExpeditionRunSnapshot snapshot, out string error))
+                return UniTask.FromResult(Fail(error, () => RecoverInterruptedRunAsync("完整关卡快照失败")));
+            return SaveSnapshotBarrierAsync(snapshot, resumePhase);
+        }
+
+        /// <summary>
+        /// 排空已有帧后提交冻结候选，仅已接纳的候选允许按原修订重试。
+        /// </summary>
+        /// <param name="snapshot">进入屏障前冻结的完整业务候选。</param>
+        /// <param name="resumePhase">确认后的继续阶段。</param>
+        /// <returns>这份候选已经完整持久确认时为真。</returns>
+        internal UniTask<bool> SaveSnapshotBarrierAsync(ExpeditionRunSnapshot snapshot, ProjectRunPhase resumePhase)
+        {
+            bool attempted = false;
+            bool submitted = false;
+            return SaveBarrierAsync(async () =>
+            {
+                bool retry = attempted;
+                attempted = true;
+                if (!submitted)
+                {
+                    SaveResult drained = retry ? await session.RetryRunSaveAsync() : await session.WaitForRunSavesAsync();
+                    if (!drained.Success) return new ProjectOperationResult(false, drained.Message);
+                    submitted = session.TryCommitRunState(snapshot, out UniTask<SaveResult> receipt);
+                    SaveResult committed = await receipt;
+                    return new ProjectOperationResult(committed.Success, committed.Message);
+                }
+                return await RetryRunJournalOperationAsync();
+            }, resumePhase);
+        }
+
+        /// <summary>
+        /// 记录本轮新准入成功，取消只可退回这份尚未运行的扣费。
+        /// </summary>
+        /// <param name="runId">已经确认准入的单局身份。</param>
+        internal void MarkNewAdmission(string runId) => newAdmissionRunId = runId;
+
+        /// <summary>
+        /// 将单局日志的原候选重试转换为项目统一保存回执。
+        /// </summary>
+        /// <returns>同一候选的持久化结果。</returns>
+        private async UniTask<ProjectOperationResult> RetryRunJournalOperationAsync()
+        {
+            SaveResult result = await session.RetryRunSaveAsync();
+            return new ProjectOperationResult(result.Success, result.Message);
+        }
+
+        /// <summary>
+        /// 普通 tick 的异步保存失败只挂起一条恢复流程，关键保存自行处理其回执。
+        /// </summary>
+        private void OnRunSaveFailed()
+        {
+            if (disposed || closing || runtimeSaveRecovery || saveBarrierDepth != 0 || Phase != ProjectRunPhase.Playing) return;
+            runtimeSaveRecovery = true;
+            RecoverRuntimeSaveAsync().Forget();
+        }
+
+        /// <summary>
+        /// 等待玩家显式重试原 FIFO，确认后关闭恢复界面并接续同一运行对象。
+        /// </summary>
+        /// <returns>唯一普通 tick 保存恢复任务。</returns>
+        private async UniTask RecoverRuntimeSaveAsync()
+        {
+            bool attempted = false;
+            bool accepted = await SaveBarrierAsync(() =>
+            {
+                if (!attempted)
+                {
+                    attempted = true;
+                    return UniTask.FromResult(new ProjectOperationResult(false, session.RunSaveMessage));
+                }
+                return RetryRunJournalOperationAsync();
+            }, ProjectRunPhase.Playing);
+            runtimeSaveRecovery = false;
+            if (accepted && Phase == ProjectRunPhase.Playing) session.CurrentRun?.ResumePendingRewards();
         }
 
         /// <summary>
@@ -410,23 +584,39 @@ namespace GameLogic.Project
         /// <returns>保存是否已经确认。</returns>
         internal async UniTask<bool> SaveBarrierAsync(Func<UniTask<ProjectOperationResult>> save, ProjectRunPhase resumePhase)
         {
-            ProjectOperationResult result = await save();
-            if (result.Success) return !disposed && !closing;
+            while (saveBarrierCompletion != null)
+                if (!await saveBarrierCompletion.Task.AttachExternalCancellation(lifetime.Token)) return false;
             if (disposed || closing) return false;
-            var waiter = new UniTaskCompletionSource<bool>();
-            saveWaiter = waiter;
-            retrySave = save;
-            SetPhase(ProjectRunPhase.RecoveryRequired, result.Message);
-            EnsureRecoveryVisibleAsync().Forget();
+            var completion = new UniTaskCompletionSource<bool>();
+            saveBarrierCompletion = completion;
+            saveBarrierDepth++;
+            UniTaskCompletionSource<bool> waiter = null;
+            bool completed = false;
             try
             {
+                ProjectOperationResult result = await save();
+                if (result.Success) return completed = !disposed && !closing;
+                if (disposed || closing) return false;
+                waiter = new UniTaskCompletionSource<bool>();
+                saveWaiter = waiter;
+                retrySave = save;
+                SetPhase(ProjectRunPhase.RecoveryRequired, result.Message);
+                EnsureRecoveryVisibleAsync().Forget();
                 bool accepted = await waiter.Task.AttachExternalCancellation(lifetime.Token);
-                if (accepted && !disposed && !closing) SetPhase(resumePhase, "保存已确认，继续处理。");
-                return accepted && !disposed && !closing;
+                if (accepted && !disposed && !closing)
+                {
+                    if (resumePhase == ProjectRunPhase.Playing)
+                        await GameEntry.Get<IUIModule>().CloseWindowAsync(ProjectServices.TransitionWindow);
+                    if (!disposed && !closing) SetPhase(resumePhase, "保存已确认，继续处理。");
+                }
+                return completed = accepted && !disposed && !closing;
             }
             finally
             {
-                if (ReferenceEquals(saveWaiter, waiter)) { saveWaiter = null; retrySave = null; }
+                if (waiter != null && ReferenceEquals(saveWaiter, waiter)) { saveWaiter = null; retrySave = null; }
+                saveBarrierDepth--;
+                saveBarrierCompletion = null;
+                completion.TrySetResult(completed);
             }
         }
 
@@ -443,7 +633,12 @@ namespace GameLogic.Project
             {
                 if (saveWaiter != null)
                 {
-                    ProjectOperationResult saved = session.HasPendingSave ? await session.RetryPendingSaveAsync() : await retrySave();
+                    if (session.HasPendingSave)
+                    {
+                        ProjectOperationResult pending = await session.RetryPendingSaveAsync();
+                        if (!pending.Success) { Message = pending.Message; return false; }
+                    }
+                    ProjectOperationResult saved = await retrySave();
                     if (!saved.Success) { Message = saved.Message; return false; }
                     saveWaiter.TrySetResult(true);
                     return true;
@@ -470,8 +665,8 @@ namespace GameLogic.Project
         /// 暂停只影响实际游玩，终局保存不会被暂停状态阻塞。
         /// </summary>
         /// <param name="paused">应用是否处于后台。</param>
-        /// <returns>已经完成的暂停更新任务。</returns>
-        public UniTask SetApplicationPausedAsync(bool paused)
+        /// <returns>暂停与当前完整边界保存的执行任务。</returns>
+        public async UniTask SetApplicationPausedAsync(bool paused)
         {
             applicationPaused = paused;
             if (Phase == ProjectRunPhase.Playing)
@@ -479,9 +674,20 @@ namespace GameLogic.Project
                 if (paused && flow.State == GameRoundState.Playing) flow.Pause();
                 else if (!paused && flow.State == GameRoundState.Paused) flow.Resume();
                 session.CurrentRun?.SetPaused(paused);
+                if (paused && session.CurrentRun != null)
+                {
+                    UniTaskCompletionSource<bool> active = saveBarrierCompletion;
+                    if (active != null) await active.Task.AttachExternalCancellation(lifetime.Token);
+                    else await SaveRunBoundaryAsync(session.CurrentRun, ProjectRunPhase.Playing);
+                    if (Phase == ProjectRunPhase.Playing)
+                    {
+                        bool stillPaused = applicationPaused || GameEntry.IsInBackground;
+                        if (!stillPaused && flow.State == GameRoundState.Paused) flow.Resume();
+                        session.CurrentRun?.SetPaused(stillPaused);
+                    }
+                }
             }
             Changed?.Invoke();
-            return UniTask.CompletedTask;
         }
 
         /// <summary>
@@ -613,6 +819,12 @@ namespace GameLogic.Project
             closing = true;
             session.SetHomeEditable(false);
             saveWaiter?.TrySetResult(false);
+            SaveResult runSaved = await session.WaitForRunSavesAsync();
+            if (!runSaved.Success)
+            {
+                closing = false;
+                return Fail(runSaved.Message, () => RecoverInterruptedRunAsync("退出时原关卡尚未保存"));
+            }
             if (!await flow.CloseAsync())
             {
                 closing = false;
@@ -659,6 +871,7 @@ namespace GameLogic.Project
             saveWaiter?.TrySetResult(false);
             lifetime.Cancel();
             flow.StateChanged -= OnFlowChanged;
+            session.RunSaveFailed -= OnRunSaveFailed;
             flow.Dispose();
             lifetime.Dispose();
             Changed = null;

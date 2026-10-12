@@ -1,0 +1,74 @@
+{
+  "schemaHash": "23779207917135b9c84f0bd80ae580833b9d9cc30365750af12aba547912bc31",
+  "rows": [
+    {
+      "ID": "first_gate",
+      "Name": "守门者见证",
+      "CollectionIDs": [
+        "gate_sigil"
+      ],
+      "Attributes": [
+        0
+      ],
+      "Values": [
+        5
+      ]
+    },
+    {
+      "ID": "first_court",
+      "Name": "庭院见证",
+      "CollectionIDs": [
+        "court_medal"
+      ],
+      "Attributes": [
+        1
+      ],
+      "Values": [
+        1
+      ]
+    },
+    {
+      "ID": "first_core",
+      "Name": "核心见证",
+      "CollectionIDs": [
+        "core_fragment"
+      ],
+      "Attributes": [
+        2
+      ],
+      "Values": [
+        2
+      ]
+    },
+    {
+      "ID": "ruin_series",
+      "Name": "遗迹巡礼",
+      "CollectionIDs": [
+        "gate_sigil",
+        "court_medal",
+        "core_fragment"
+      ],
+      "Attributes": [
+        0,
+        1
+      ],
+      "Values": [
+        10,
+        2
+      ]
+    },
+    {
+      "ID": "first_explorer",
+      "Name": "探索者见证",
+      "CollectionIDs": [
+        "explorer_token"
+      ],
+      "Attributes": [
+        0
+      ],
+      "Values": [
+        3
+      ]
+    }
+  ]
+}

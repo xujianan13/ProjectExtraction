@@ -1,5 +1,5 @@
+using System;
 using System.Collections;
-using System.Collections.Generic;
 using System.Linq;
 using Cysharp.Threading.Tasks;
 using GameFramework;
@@ -9,7 +9,6 @@ using GameLogic.Gameplay.Level;
 using GameLogic.Project;
 using NUnit.Framework;
 using UnityEngine;
-using UnityEngine.EventSystems;
 using UnityEngine.TestTools;
 
 namespace MiniGame.Tests
@@ -17,267 +16,182 @@ namespace MiniGame.Tests
     public sealed partial class ProjectExpeditionPlayModeTests
     {
         /// <summary>
-        /// 进入撤离圈只暂停待确认，取消后留在圈内不重复提示，交互和重新进入均可再次确认。
+        /// 区域出口只在尾王全部领奖完成后开放，留在本区不重复发奖。
         /// </summary>
-        /// <returns>真实确认框、交互及范围变化的逐帧测试。</returns>
+        /// <returns>真实战斗、奖励与出口窗口验证任务。</returns>
         [UnityTest]
-        public IEnumerator ExtractionConfirmation_CancelKeepsRunAndReopensOnlyOnExplicitInteractionOrReentry() => UniTask.ToCoroutine(async () =>
+        public IEnumerator RegionExit_CancelKeepsWorldAndContinueDoesNotChargeAgain() => UniTask.ToCoroutine(async () =>
         {
             await SetupAsync(new MemorySaveBackend());
             Assert.That(await ProjectServices.Coordinator.StartRunAsync(1), Is.True);
-            ProjectSession session = ProjectServices.Session;
-            ExpeditionRun run = session.CurrentRun;
+            ExpeditionRun run = ProjectServices.Session.CurrentRun;
+            Assert.That(run.CurrentRegion.ExitEnabled, Is.False);
+            Assert.That(run.TryContinueRegion(), Is.False);
             await EnterExtractionConfirmationAsync(run);
-            Assert.That(run.IsRunning, Is.True);
-            Assert.That(ProjectServices.Coordinator.Phase, Is.EqualTo(ProjectRunPhase.Playing));
-            Assert.That(session.RunStage, Is.EqualTo(ProjectRunStage.Running));
-            Assert.That(session.RecordedOutcome, Is.Null);
-            Assert.That(session.LastResult, Is.Null);
-            Assert.That(run.CanAcceptPlayerInput, Is.False);
-            Assert.That(run.FeedbackPaused, Is.True);
+            int stamina = ProjectServices.Session.Stamina;
+            string identity = run.RunId;
+            int items = run.Inventory.Count;
+            int gold = ProjectServices.Session.Gold;
+            GameWindow exit = await WaitForWindowAsync(ProjectServices.RegionExitWindow);
+            string summary = exit.Root.GetComponentsInChildren<UnityEngine.UI.Text>(false)
+                .Single(value => value.name == "PendingReturnSummary").text;
+            StringAssert.Contains("待带回物品 " + items + " 件", summary);
+            StringAssert.Contains("回收估值 " + run.Inventory.Sum(value => (long)value.SellGold) + " 金币", summary);
+            StringAssert.Contains("尚未登记收藏", summary);
+            Assert.That(ProjectServices.Session.Gold, Is.EqualTo(gold), "查看带回估值不应兑现金币。");
             long tick = run.World.TickIndex;
-            run.SetTouchMove(Vector2.right);
             run.Advance(1f);
             Assert.That(run.World.TickIndex, Is.EqualTo(tick));
-
-            await ClickExtractionConfirmationAsync("继续探索");
+            await ClickExtractionConfirmationAsync("留在本区");
+            Assert.That(run.IsRunning && run.CurrentRegion.ExitEnabled, Is.True);
+            Assert.That(run.Inventory.Count, Is.EqualTo(items));
             Assert.That(run.ActivePanel, Is.EqualTo(ExpeditionPanelKind.None));
-            Assert.That(run.CanAcceptPlayerInput, Is.True);
-            Assert.That(run.FeedbackPaused, Is.False);
-            Assert.That(run.World.TryGetActor(run.Player, out CombatActorSnapshot before), Is.True);
-            run.Advance(CombatWorld.TickSeconds * 3);
-            await UniTask.Yield();
-            Assert.That(run.ActivePanel, Is.EqualTo(ExpeditionPanelKind.None));
-            Assert.That(GameObject.Find("Modal Dialog"), Is.Null, "取消后仍停在撤离圈内不能逐帧重新弹出。");
-            Assert.That(run.World.TryGetActor(run.Player, out CombatActorSnapshot after), Is.True);
-            Assert.That(after.Position, Is.EqualTo(before.Position), "进入确认时应清除尚未执行的移动输入。");
-            string extractionId = "extraction:" + run.CurrentRoom.RoomId;
-            for (int index = 0; index < run.InteractionCount && run.SelectedInteractionId != extractionId; index++) run.CycleInteraction();
-            Assert.That(run.SelectedInteractionId, Is.EqualTo(extractionId));
-            run.RequestInteraction();
-            run.Advance(CombatWorld.TickSeconds);
-            await WaitForExtractionConfirmationAsync();
-            Assert.That(run.ActivePanel, Is.EqualTo(ExpeditionPanelKind.ExtractionConfirmation));
-            await ClickExtractionConfirmationAsync("继续探索");
-
-            MoveOutsideExtraction(run);
-            run.Advance(CombatWorld.TickSeconds);
-            Assert.That(run.ActivePanel, Is.EqualTo(ExpeditionPanelKind.None));
-            MoveToExtractionCenter(run);
-            run.Advance(CombatWorld.TickSeconds);
-            await WaitForExtractionConfirmationAsync();
-            Assert.That(run.ActivePanel, Is.EqualTo(ExpeditionPanelKind.ExtractionConfirmation));
-            Assert.That(run.IsRunning, Is.True);
-            Assert.That(session.LastResult, Is.Null);
-            await ClickExtractionConfirmationAsync("继续探索");
+            await EnterExtractionConfirmationAsync(run);
+            await ClickExtractionConfirmationAsync("继续下一区域");
+            await WaitRunSavedAsync(run);
+            Assert.That(run.CurrentRegionIndex, Is.EqualTo(1));
+            Assert.That(run.RunId, Is.EqualTo(identity));
+            Assert.That(ProjectServices.Session.Stamina, Is.EqualTo(stamina));
+            Assert.That(run.Inventory.Count, Is.EqualTo(items));
+            Assert.That(run.CurrentRegion.ExitEnabled, Is.False);
+            Assert.That(run.TryContinueRegion(), Is.False);
         });
 
         /// <summary>
-        /// 真实撤离按钮只兑现一次终局，并保留安全箱与箱外装备以及完整撤离经验。
+        /// 带回结束兑现全部持有物，重试入口不会重复结算。
         /// </summary>
-        /// <returns>确认、持久结算和返场收益的逐帧测试。</returns>
+        /// <returns>真实终局和结果保存任务。</returns>
         [UnityTest]
-        public IEnumerator ExtractionConfirmation_ConfirmRetainsAllItemsAndAwardsExperienceOnce() => UniTask.ToCoroutine(async () =>
+        public IEnumerator RegionExit_ConfirmedReturnRetainsAllItemsOnce() => UniTask.ToCoroutine(async () =>
         {
-            ProjectSaveData initial = ProjectSaveData.CreateDefault();
-            ProjectItem armor = ProjectEquipmentRules.CreateEquipment(new System.Random(173), ProjectItemType.Armor, 1, ProjectItemQuality.Common);
-            armor.Equipped = true;
-            initial.Warehouse.Add(armor);
-            string starterId = initial.Warehouse.Single(item => item.Equipped && item.Type == ProjectItemType.Weapon).Id;
-            await SetupAsync(new MemorySaveBackend(), initial);
-            ProjectSession session = ProjectServices.Session;
+            await SetupAsync(new MemorySaveBackend());
             Assert.That(await ProjectServices.Coordinator.StartRunAsync(1), Is.True);
-            ExpeditionRun run = session.CurrentRun;
-            Assert.That(run.TryOpenInventory(), Is.True);
-            await WaitForWindowAsync(ProjectServices.ExpeditionInventoryWindow);
-            Assert.That(run.TryEquip(starterId), Is.True);
-            Assert.That(run.ToggleSafe(starterId), Is.True);
-            await GameEntry.Get<IUIModule>().CloseWindowAsync(ProjectServices.ExpeditionInventoryWindow);
+            ExpeditionRun run = ProjectServices.Session.CurrentRun;
             await EnterExtractionConfirmationAsync(run);
             string runId = run.RunId;
-            string[] retainedIds = run.Inventory.Select(item => item.Id).ToArray();
-            var expected = initial.Copy();
-            ProjectProfileRules.AddExperience(expected, run.KillExperience + PrototypeRules.ExtractionExperience);
-            await ClickExtractionConfirmationAsync("确认撤离");
-            Assert.That(run.TryConfirmExtraction(), Is.False, "按钮提交后的同一单局不能再次接受撤离确认。");
+            string[] expected = run.Inventory.Select(value => value.Id).ToArray();
+            await ClickExtractionConfirmationAsync("带回结束");
             await WaitForPhaseAsync(ProjectRunPhase.ResultsReady);
-            ProjectRunResult result = session.LastResult;
-            Assert.That(result.Outcome.RunId, Is.EqualTo(runId));
-            Assert.That(result.Outcome.Extracted, Is.True);
-            Assert.That(result.Outcome.Abandoned, Is.False);
-            Assert.That(result.Outcome.ExtractionExperience, Is.EqualTo(PrototypeRules.ExtractionExperience));
-            Assert.That(result.Outcome.SafeItemIds, Does.Contain(starterId));
-            Assert.That(result.RetainedItems.Select(item => item.Id), Is.EquivalentTo(retainedIds));
-            Assert.That(result.LostItems, Is.Empty);
-            Assert.That(session.Level, Is.EqualTo(expected.Level));
-            Assert.That(session.Experience, Is.EqualTo(expected.Experience));
-            Assert.That(session.Warehouse.Select(item => item.Id), Is.EquivalentTo(retainedIds));
-            Assert.That(session.RunHistory.Count(item => item.RunId == runId), Is.EqualTo(1));
+            Assert.That(ProjectServices.Session.LastResult.Outcome.Extracted, Is.True);
+            Assert.That(ProjectServices.Session.LastResult.RetainedItems.Select(value => value.Id), Is.EquivalentTo(expected));
+            Assert.That(ProjectServices.Session.LastResult.LostItems, Is.Empty);
+            Assert.That(ProjectServices.Session.RunHistory.Count(value => value.RunId == runId), Is.EqualTo(1));
             Assert.That(run.TryConfirmExtraction(), Is.False);
             Assert.That(await ProjectServices.Coordinator.ReturnHomeAsync(), Is.True);
-            Assert.That(run.TryConfirmExtraction(), Is.False);
-            Assert.That(session.Level, Is.EqualTo(expected.Level));
-            Assert.That(session.Experience, Is.EqualTo(expected.Experience));
-            Assert.That(session.Stamina, Is.EqualTo(initial.Stamina - PrototypeRules.EntryCost));
-            Assert.That(session.Warehouse.Select(item => item.Id), Is.EquivalentTo(retainedIds));
-            Assert.That(session.RunHistory.Count(item => item.RunId == runId), Is.EqualTo(1));
+            Assert.That(ProjectServices.Session.RunHistory.Count(value => value.RunId == runId), Is.EqualTo(1));
         });
 
         /// <summary>
-        /// 后台暂停和撤离位置失效时拒绝确认，失败的真实按钮不会产生终局。
+        /// 退出位置失效或应用后台时，即使面板仍存在也不允许带回。
         /// </summary>
-        /// <returns>应用生命周期、权威位置校验和确认框关闭的逐帧测试。</returns>
+        /// <returns>后台暂停与权威位置的验证任务。</returns>
         [UnityTest]
-        public IEnumerator ExtractionConfirmation_BackgroundAndInvalidPositionRejectSettlement() => UniTask.ToCoroutine(async () =>
+        public IEnumerator RegionExit_BackgroundAndDistanceRejectStaleConfirmation() => UniTask.ToCoroutine(async () =>
         {
             await SetupAsync(new MemorySaveBackend());
             Assert.That(await ProjectServices.Coordinator.StartRunAsync(1), Is.True);
-            ProjectSession session = ProjectServices.Session;
-            ExpeditionRun run = session.CurrentRun;
-            Assert.That(run.TryConfirmExtraction(), Is.False, "未打开确认面板时不能直接提交撤离。");
+            ExpeditionRun run = ProjectServices.Session.CurrentRun;
             await EnterExtractionConfirmationAsync(run);
-            long tick = run.World.TickIndex;
             await ProjectServices.Coordinator.SetApplicationPausedAsync(true);
             Assert.That(run.TryConfirmExtraction(), Is.False);
-            run.Advance(1f);
-            Assert.That(run.World.TickIndex, Is.EqualTo(tick));
-            Assert.That(run.ActivePanel, Is.EqualTo(ExpeditionPanelKind.ExtractionConfirmation));
-            Assert.That(session.RecordedOutcome, Is.Null);
             await ProjectServices.Coordinator.SetApplicationPausedAsync(false);
-            Assert.That(run.ActivePanel, Is.EqualTo(ExpeditionPanelKind.ExtractionConfirmation));
-            MoveOutsideExtraction(run);
-            Assert.That(run.TryConfirmExtraction(), Is.False, "面板打开期间也必须复核最新玩家位置。");
-            await ClickExtractionConfirmationAsync("确认撤离");
-            Assert.That(run.IsRunning, Is.True);
-            Assert.That(run.ActivePanel, Is.EqualTo(ExpeditionPanelKind.None));
-            Assert.That(ProjectServices.Coordinator.Phase, Is.EqualTo(ProjectRunPhase.Playing));
-            Assert.That(session.RecordedOutcome, Is.Null);
-            Assert.That(session.LastResult, Is.Null);
-            run.Advance(CombatWorld.TickSeconds);
-            MoveToExtractionCenter(run);
-            run.Advance(CombatWorld.TickSeconds);
-            await WaitForExtractionConfirmationAsync();
-            await ClickExtractionConfirmationAsync("继续探索");
+            Assert.That(run.World.TrySetPosition(run.Player, run.CurrentRegion.Plan.EntryPosition), Is.True);
+            Assert.That(run.TryConfirmExtraction(), Is.False);
+            Assert.That(ProjectServices.Session.RecordedOutcome, Is.Null);
+            await ClickExtractionConfirmationAsync("留在本区");
         });
 
         /// <summary>
-        /// 沿真实出口到达撤离地图，途中确认均取消，最终进入可见撤离圈并等待真实界面。
+        /// 通过真实伤害击败当前区域尾王，并逐轮领取已保存的候选。
         /// </summary>
-        /// <param name="run">本局运行对象。</param>
-        /// <returns>已经暂停并显示撤离确认的任务。</returns>
+        /// <param name="run">需要完成尾王的单局。</param>
+        /// <returns>尾王和全部奖励完成任务。</returns>
+        private static async UniTask CompleteRegionBossAsync(ExpeditionRun run)
+        {
+            if (run.CurrentRegion.BossRewardsCompleted) return;
+            RegionSpawnSlotPlan bossPlan = run.CurrentRegion.Plan.SpawnSlots.Single(value => value.Kind == RegionEnemyKind.Boss);
+            RegionSpawnSlotState bossSlot = run.CurrentRegion.Slots.Single(value => value.SlotId == bossPlan.SlotId);
+            Assert.That(run.World.TryFindActor(bossSlot.CurrentActorId, out CombatEntityRef boss), Is.True);
+            Assert.That(run.World.TryAddAttributeBonus(run.Player, CombatAttributeKind.Attack, 100000), Is.True);
+            Assert.That(run.World.TryAddAttributeBonus(run.Player, CombatAttributeKind.Defense, 100000), Is.True);
+            for (int tick = 0; tick < 600 && !run.CurrentRegion.BossDefeated; tick++)
+            {
+                await WaitRunSavedAsync(run);
+                if (run.PendingRogueChoice != null)
+                {
+                    var choice = run.PendingRogueChoice;
+                    Assert.That(run.TryChooseRogue(choice.OfferId, choice.Revision, 0), Is.True);
+                    continue;
+                }
+                Assert.That(TryPlacePlayerNearActor(run, boss), Is.True);
+                run.Advance(CombatWorld.TickSeconds);
+            }
+            Assert.That(run.CurrentRegion.BossDefeated, Is.True, run.Message);
+            for (int attempt = 0; attempt < 30 && run.IsRunning && !run.CurrentRegion.BossRewardsCompleted; attempt++)
+            {
+                await WaitRunSavedAsync(run);
+                if (run.PendingRogueChoice != null)
+                {
+                    var skill = run.PendingRogueChoice;
+                    Assert.That(run.TryChooseRogue(skill.OfferId, skill.Revision, 0), Is.True);
+                }
+                else if (run.PendingBossChoice != null)
+                {
+                    var loot = run.PendingBossChoice;
+                    Assert.That(run.TryChooseBoss(loot.OfferId, loot.Revision, 0), Is.True);
+                }
+                else await UniTask.Yield();
+            }
+            await WaitRunSavedAsync(run);
+            Assert.That(run.CurrentRegion.BossRewardsCompleted, Is.True, run.Message);
+        }
+
+        /// <summary>
+        /// 等待业务候选确认，拒绝把尚在保存的内存变化当作操作完成。
+        /// </summary>
+        /// <param name="run">当前单局。</param>
+        /// <returns>保存门禁释放任务。</returns>
+        private static async UniTask WaitRunSavedAsync(ExpeditionRun run)
+        {
+            await UniTask.WaitUntil(() => !run.IsSavingRun).Timeout(TimeSpan.FromSeconds(15));
+            Assert.That((await ProjectServices.Session.WaitForRunSavesAsync()).Success, Is.True);
+        }
+
+        /// <summary>
+        /// 到达已完成区域的出口并明确请求打开选择窗口。
+        /// </summary>
+        /// <param name="run">当前单局。</param>
+        /// <returns>出口窗口就绪任务。</returns>
         private static async UniTask EnterExtractionConfirmationAsync(ExpeditionRun run)
         {
-            LevelRoomState target = run.Maps.Rooms.First(room => room.HasExtractionCandidate);
-            var previous = new Dictionary<int, int> { [run.CurrentRoom.RoomId] = 0 };
-            var queue = new Queue<int>();
-            queue.Enqueue(run.CurrentRoom.RoomId);
-            while (queue.Count > 0 && !previous.ContainsKey(target.RoomId))
-            {
-                int id = queue.Dequeue();
-                run.Maps.TryGetRoom(id, out LevelRoomState room);
-                foreach (int next in room.Exits.Values)
-                    if (!previous.ContainsKey(next)) { previous[next] = id; queue.Enqueue(next); }
-            }
-            Assert.That(previous.ContainsKey(target.RoomId), Is.True);
-            var path = new Stack<int>();
-            for (int id = target.RoomId; id != run.CurrentRoom.RoomId; id = previous[id]) path.Push(id);
-            while (path.Count > 0)
-            {
-                if (run.ActivePanel == ExpeditionPanelKind.ExtractionConfirmation) await ClickExtractionConfirmationAsync("继续探索");
-                int destination = path.Pop();
-                RoomDirection direction = run.CurrentRoom.Exits.First(pair => pair.Value == destination).Key;
-                var layout = run.CurrentRoom.Plan.Definition.Layout;
-                float edge = (float)(layout.HalfExtent - layout.ExitCenterInset);
-                Vector3 position = direction == RoomDirection.North ? new Vector3(0, 0, edge) :
-                    direction == RoomDirection.South ? new Vector3(0, 0, -edge) :
-                    direction == RoomDirection.East ? new Vector3(edge, 0, 0) : new Vector3(-edge, 0, 0);
-                Assert.That(run.World.TrySetPosition(run.Player, position), Is.True);
-                run.RequestInteraction();
-                run.Advance(CombatWorld.TickSeconds);
-                Assert.That(run.CurrentRoom.RoomId, Is.EqualTo(destination));
-            }
-            target.MarkCleared();
-            if (run.ActivePanel != ExpeditionPanelKind.ExtractionConfirmation)
-            {
-                MoveToExtractionCenter(run);
-                run.Advance(CombatWorld.TickSeconds);
-            }
+            await CompleteRegionBossAsync(run);
+            await WaitRunSavedAsync(run);
+            MoveToExtractionCenter(run);
+            run.Advance(CombatWorld.TickSeconds);
+            run.RequestInteraction();
+            run.Advance(CombatWorld.TickSeconds);
+            await UniTask.WaitUntil(() => GameEntry.Get<IUIModule>().OpenedWindows.Any(value => value.Id == ProjectServices.RegionExitWindow))
+                .Timeout(TimeSpan.FromSeconds(10));
             Assert.That(run.ActivePanel, Is.EqualTo(ExpeditionPanelKind.ExtractionConfirmation));
-            await WaitForExtractionConfirmationAsync();
         }
 
         /// <summary>
-        /// 将角色放在当前房间配置的撤离点中心。
+        /// 将玩家移到当前区域的配置出口。
         /// </summary>
-        /// <param name="run">本局运行对象。</param>
-        private static void MoveToExtractionCenter(ExpeditionRun run)
-        {
-            var layout = run.CurrentRoom.Plan.Definition.Layout;
-            Assert.That(run.World.TrySetPosition(run.Player, new Vector3((float)layout.ExtractionX, 0, (float)layout.ExtractionZ)), Is.True);
-        }
+        /// <param name="run">当前单局。</param>
+        private static void MoveToExtractionCenter(ExpeditionRun run) =>
+            Assert.That(run.World.TrySetPosition(run.Player, run.CurrentRegion.Plan.ExitPosition), Is.True);
 
         /// <summary>
-        /// 选择一个合法出口作为圈外位置，避免依赖随机障碍布局中的固定空地。
+        /// 点击当前区域出口的真实按钮并等待窗口关闭。
         /// </summary>
-        /// <param name="run">本局运行对象。</param>
-        private static void MoveOutsideExtraction(ExpeditionRun run)
-        {
-            var layout = run.CurrentRoom.Plan.Definition.Layout;
-            float edge = (float)(layout.HalfExtent - layout.ExitCenterInset);
-            Vector3 center = new Vector3((float)layout.ExtractionX, 0, (float)layout.ExtractionZ);
-            foreach (RoomDirection direction in run.CurrentRoom.Exits.Keys)
-            {
-                Vector3 position = direction == RoomDirection.North ? new Vector3(0, 0, edge) :
-                    direction == RoomDirection.South ? new Vector3(0, 0, -edge) :
-                    direction == RoomDirection.East ? new Vector3(edge, 0, 0) : new Vector3(-edge, 0, 0);
-                if (Vector3.Distance(position, center) > (float)layout.ObjectInteractionRadius && run.World.TrySetPosition(run.Player, position)) return;
-            }
-            Assert.Fail("撤离地图应有至少一个可站立且位于撤离圈外的连通出口。");
-        }
-
-        /// <summary>
-        /// 等待撤离确认框并验证完整提示及两个选择按钮。
-        /// </summary>
-        /// <returns>已显示的通用确认层对象。</returns>
-        private static async UniTask<GameObject> WaitForExtractionConfirmationAsync()
-        {
-            await WaitForAsync(() => GameObject.Find("Modal Dialog") != null);
-            GameObject dialog = GameObject.Find("Modal Dialog");
-            string[] captions = dialog.GetComponentsInChildren<UnityEngine.UI.Text>(false).Select(text => text.text).ToArray();
-            Assert.That(captions, Does.Contain("确认撤离？"));
-            Assert.That(captions, Does.Contain("撤离后将结束本局，带回背包和安全箱中的全部物品，并获得撤离经验。是否现在撤离？"));
-            Assert.That(captions, Does.Contain("确认撤离"));
-            Assert.That(captions, Does.Contain("继续探索"));
-            return dialog;
-        }
-
-        /// <summary>
-        /// 点击真实撤离确认框的指定按钮并等待确认层销毁。
-        /// </summary>
-        /// <param name="caption">确认框按钮文字。</param>
-        /// <returns>等待本次确认界面完成的任务。</returns>
+        /// <param name="caption">带回结束、继续下一区域或留在本区。</param>
+        /// <returns>窗口操作完成任务。</returns>
         private static async UniTask ClickExtractionConfirmationAsync(string caption)
         {
-            GameObject dialog = await WaitForExtractionConfirmationAsync();
-            UnityEngine.UI.Button button = dialog.GetComponentsInChildren<UnityEngine.UI.Button>(false)
-                .Single(item => item.GetComponentInChildren<UnityEngine.UI.Text>().text == caption);
-            await UniTask.NextFrame(PlayerLoopTiming.LastPostLateUpdate);
-            Canvas.ForceUpdateCanvases();
-            Assert.That(EventSystem.current, Is.Not.Null);
-            var buttonRect = (RectTransform)button.transform;
-            var pointer = new PointerEventData(EventSystem.current)
-            {
-                button = PointerEventData.InputButton.Left,
-                position = RectTransformUtility.WorldToScreenPoint(null, buttonRect.TransformPoint(buttonRect.rect.center))
-            };
-            var hits = new List<RaycastResult>();
-            EventSystem.current.RaycastAll(pointer, hits);
-            Assert.That(hits, Is.Not.Empty);
-            GameObject clickTarget = ExecuteEvents.GetEventHandler<IPointerClickHandler>(hits[0].gameObject);
-            Assert.That(clickTarget, Is.SameAs(button.gameObject), "撤离确认按钮不能被其他图层拦截。");
-            Assert.That(button.IsInteractable(), Is.True);
-            ExecuteEvents.Execute(clickTarget, pointer, ExecuteEvents.pointerClickHandler);
-            await WaitForAsync(() => GameObject.Find("Modal Dialog") == null);
+            GameWindow window = GameEntry.Get<IUIModule>().OpenedWindows.Single(value => value.Id == ProjectServices.RegionExitWindow);
+            ClickButton(window, caption);
+            await UniTask.Yield();
         }
     }
 }

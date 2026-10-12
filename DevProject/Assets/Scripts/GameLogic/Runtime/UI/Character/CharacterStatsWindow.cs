@@ -70,7 +70,13 @@ namespace GameLogic.UI.Character
             Add(ProjectAttributeType.DodgeChance, stats.DodgeChance);
             Add(ProjectAttributeType.DamageIncrease, stats.DamageIncrease);
             Add(ProjectAttributeType.DamageReduction, stats.DamageReduction);
-            feedback.text = "属性由已装备物品与已学技能共同决定";
+            foreach (ProjectCollectionBonusSource source in session.CollectionBonusSources)
+            {
+                ProjectUiFactory.Label(list, "收藏成就 · " + source.Name, 25, TextAnchor.MiddleLeft, new Color(1f, 0.8f, 0.4f));
+                foreach (ProjectAttributeValue bonus in source.Attributes)
+                    ProjectUiFactory.Label(list, ProjectEquipmentText.FinalAttribute(bonus.Attribute, bonus.Value), 22, TextAnchor.MiddleLeft, Color.white);
+            }
+            feedback.text = "总属性包含装备、局外技能与已完成收藏成就";
         }
 
         /// <summary>

@@ -1,0 +1,13 @@
+{
+  "schemaHash": "37f3acebe773db1ff6af1ce7bc91011e9fbe65d60140dee639f9437ddba520c3",
+  "rows": [
+    {
+      "ID": 1,
+      "PoolID": "region",
+      "LootPoolID": "merchant",
+      "Price": 30,
+      "Stock": 3,
+      "Weight": 1
+    }
+  ]
+}

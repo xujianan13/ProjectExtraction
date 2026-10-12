@@ -1,12 +1,9 @@
-using System;
 using System.Collections;
-using System.Collections.Generic;
 using System.Linq;
 using Cysharp.Threading.Tasks;
 using GameFramework;
 using GameLogic.Gameplay.Combat;
 using GameLogic.Gameplay.Expedition;
-using GameLogic.Gameplay.Level;
 using GameLogic.Project;
 using NUnit.Framework;
 using UnityEngine;
@@ -14,99 +11,65 @@ using UnityEngine.TestTools;
 
 namespace MiniGame.Tests
 {
-    /// <summary>
-    /// 验证 NPC 商店拒绝交易时不消耗金币或商品。
-    /// </summary>
     public sealed partial class ProjectExpeditionPlayModeTests
     {
         /// <summary>
-        /// 余额不足时保留当前报价、库存和背包。
+        /// 金币不足的购买不改变已冻结物品、库存和支出。
         /// </summary>
-        /// <returns>真实 NPC 场景中的逐帧交易测试。</returns>
+        /// <returns>真实商店拒绝交易任务。</returns>
         [UnityTest]
-        public IEnumerator MerchantPurchase_InsufficientGoldPreservesOfferAndInventory() => UniTask.ToCoroutine(async () =>
+        public IEnumerator MerchantPurchase_InsufficientGoldKeepsFrozenStock() => UniTask.ToCoroutine(async () =>
         {
-            long now = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
-            var initial = new ProjectSaveData { Level = 1, Stamina = 100, Gold = 0, ClockUtc = now, RecoveryUtc = now };
+            ProjectSaveData initial = ProjectSaveData.CreateDefault();
+            initial.Gold = 0;
             await SetupAsync(new MemorySaveBackend(), initial);
-            using var scope = new LifetimeScope("MerchantInsufficientGold");
-            ExpeditionVisualAssets assets = await ExpeditionVisualAssets.LoadAsync(scope, GameEntry.Get<IResourceModule>());
-            Assert.That(ExpeditionRun.TryCreate(ProjectServices.Session, "merchant-poor-test", 1, 42,
-                new List<ProjectItem>(), out ExpeditionRun run), Is.True);
-            using var ownedRun = run;
-            run.AttachScene(assets);
-            Assert.That(run.MarkReady() && run.Activate(), Is.True);
-            LevelRoomState room = run.Maps.Rooms.Single(value => value.Type == LevelRoomType.Npc);
-            MoveToRoom(run, room.RoomId);
-            var geometry = room.Plan.Definition.Layout;
-            Assert.That(run.World.TrySetPosition(run.Player, new Vector3((float)geometry.NpcX, 0, (float)geometry.NpcZ)), Is.True);
-            run.RequestInteraction();
-            run.Advance(CombatWorld.TickSeconds);
-            Assert.That(run.ActivePanel, Is.EqualTo(ExpeditionPanelKind.Merchant));
-            ExpeditionMerchantOffer before = run.MerchantOffers.First();
-            string itemBefore = JsonUtility.ToJson(before.Item);
-            Assert.That(run.AvailableGold, Is.Zero);
-            Assert.That(run.TryPurchase(before.Id), Is.False);
+            Assert.That(await ProjectServices.Coordinator.StartRunAsync(1), Is.True);
+            ExpeditionRun run = ProjectServices.Session.CurrentRun;
+            await OpenRegionMerchantAsync(run);
+            var offer = run.MerchantOffers.First();
+            string frozen = JsonUtility.ToJson(offer.Item);
+            int count = run.Inventory.Count;
+            Assert.That(run.TryBuyMerchantOffer(offer.Id), Is.False);
             Assert.That(run.GoldSpent, Is.Zero);
-            Assert.That(run.AvailableGold, Is.Zero);
-            Assert.That(run.Inventory, Is.Empty);
+            Assert.That(run.Inventory.Count, Is.EqualTo(count));
             Assert.That(run.MerchantOffers.First().Sold, Is.False);
-            Assert.That(JsonUtility.ToJson(run.MerchantOffers.First().Item), Is.EqualTo(itemBefore));
-            Assert.That(!room.TryGetNpcStock("relic", out int stock) || stock == room.Plan.NpcStock, Is.True);
+            Assert.That(JsonUtility.ToJson(run.MerchantOffers.First().Item), Is.EqualTo(frozen));
         });
 
         /// <summary>
-        /// 应用后台和离开 NPC 后均拒绝面板上的报价。
+        /// 应用后台或离开商人后，旧面板报价仍会重新校验。
         /// </summary>
-        /// <returns>真实 NPC 场景中的逐帧交易测试。</returns>
+        /// <returns>暂停和位置失效交易任务。</returns>
         [UnityTest]
-        public IEnumerator MerchantPurchase_BackgroundOrAwayFromNpcPreservesOfferAndInventory() => UniTask.ToCoroutine(async () =>
+        public IEnumerator MerchantPurchase_BackgroundAndDistanceRejectTransaction() => UniTask.ToCoroutine(async () =>
         {
             await SetupAsync(new MemorySaveBackend());
-            using var scope = new LifetimeScope("MerchantPurchaseGuards");
-            ExpeditionVisualAssets assets = await ExpeditionVisualAssets.LoadAsync(scope, GameEntry.Get<IResourceModule>());
-            Assert.That(ExpeditionRun.TryCreate(ProjectServices.Session, "merchant-guard-test", 1, 42,
-                new List<ProjectItem>(), out ExpeditionRun run), Is.True);
-            using var ownedRun = run;
-            run.AttachScene(assets);
-            Assert.That(run.MarkReady() && run.Activate(), Is.True);
-            LevelRoomState room = run.Maps.Rooms.Single(value => value.Type == LevelRoomType.Npc);
-            MoveToRoom(run, room.RoomId);
-            var geometry = room.Plan.Definition.Layout;
-            Vector3 npcPosition = new Vector3((float)geometry.NpcX, 0, (float)geometry.NpcZ);
-            Assert.That(run.World.TrySetPosition(run.Player, npcPosition), Is.True);
+            Assert.That(await ProjectServices.Coordinator.StartRunAsync(1), Is.True);
+            ExpeditionRun run = ProjectServices.Session.CurrentRun;
+            await OpenRegionMerchantAsync(run);
+            var offer = run.MerchantOffers.First();
+            await ProjectServices.Coordinator.SetApplicationPausedAsync(true);
+            Assert.That(run.TryBuyMerchantOffer(offer.Id), Is.False);
+            await ProjectServices.Coordinator.SetApplicationPausedAsync(false);
+            Assert.That(run.World.TrySetPosition(run.Player, run.CurrentRegion.Plan.EntryPosition), Is.True);
+            Assert.That(run.TryBuyMerchantOffer(offer.Id), Is.False);
+            Assert.That(run.GoldSpent, Is.Zero);
+            Assert.That(run.MerchantOffers.First().Sold, Is.False);
+        });
+
+        /// <summary>
+        /// 在当前区域通过实际交互进入商店并等待访问状态保存。
+        /// </summary>
+        /// <param name="run">当前单局。</param>
+        /// <returns>商人面板可用任务。</returns>
+        private static async UniTask OpenRegionMerchantAsync(ExpeditionRun run)
+        {
+            Assert.That(run.World.TrySetPosition(run.Player, run.CurrentRegion.Plan.Npcs.First().Position), Is.True);
+            run.Advance(CombatWorld.TickSeconds);
             run.RequestInteraction();
             run.Advance(CombatWorld.TickSeconds);
+            await WaitRunSavedAsync(run);
             Assert.That(run.ActivePanel, Is.EqualTo(ExpeditionPanelKind.Merchant));
-            ExpeditionMerchantOffer offer = run.MerchantOffers.First();
-            int goldBefore = run.AvailableGold;
-            string itemBefore = JsonUtility.ToJson(offer.Item);
-
-            GameEntry.Bootstrap().SendMessage("OnApplicationPause", true);
-            try
-            {
-                Assert.That(GameEntry.IsInBackground, Is.True);
-                Assert.That(run.TryPurchase(offer.Id), Is.False);
-                Assert.That(run.GoldSpent, Is.Zero);
-                Assert.That(run.Inventory, Is.Empty);
-                Assert.That(run.MerchantOffers.First().Sold, Is.False);
-            }
-            finally
-            {
-                GameEntry.Bootstrap().SendMessage("OnApplicationPause", false);
-            }
-            Assert.That(GameEntry.IsInBackground, Is.False);
-            Vector3 farPosition = run.RoomView.GetSpawnPosition(room.Exits.Keys.First());
-            Assert.That((farPosition - npcPosition).sqrMagnitude,
-                Is.GreaterThan(run.Layout.ObjectInteractionRadius * run.Layout.ObjectInteractionRadius));
-            Assert.That(run.World.TrySetPosition(run.Player, farPosition), Is.True);
-            Assert.That(run.TryPurchase(offer.Id), Is.False);
-            Assert.That(run.GoldSpent, Is.Zero);
-            Assert.That(run.AvailableGold, Is.EqualTo(goldBefore));
-            Assert.That(run.Inventory, Is.Empty);
-            Assert.That(run.MerchantOffers.First().Sold, Is.False);
-            Assert.That(JsonUtility.ToJson(run.MerchantOffers.First().Item), Is.EqualTo(itemBefore));
-            Assert.That(!room.TryGetNpcStock("relic", out int stock) || stock == room.Plan.NpcStock, Is.True);
-        });
+        }
     }
 }

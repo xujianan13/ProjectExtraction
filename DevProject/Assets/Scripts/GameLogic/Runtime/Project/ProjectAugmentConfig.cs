@@ -113,21 +113,22 @@ namespace GameLogic.Project
         }
 
         /// <summary>
-        /// 检查奖励等级、可达前置和不会耗尽的基础候选池。
+        /// 检查技能奖励等级与可达前置，允许有限构筑自然耗尽。
         /// </summary>
         /// <param name="error">失败原因。</param>
         /// <returns>奖励组合合法时为真。</returns>
         private static bool ValidateRewards(out string error)
         {
             error = null;
-            int fallbackCount = 0;
+            int rootCount = 0;
             int augmentCount = 0;
             foreach (CfgRogueRewardsRow row in GameTables.CfgRogueRewards.GetAll())
             {
                 bool hasPrerequisite = !string.IsNullOrEmpty(row.PrerequisiteID);
-                if (row.MaxRank < 0 || row.PrerequisiteRank < 0 || hasPrerequisite != (row.PrerequisiteRank > 0))
+                if (!Enum.IsDefined(typeof(GameLogic.Gameplay.Roguelike.RogueRewardKind), row.Kind) ||
+                    row.MaxRank < 1 || row.PrerequisiteRank < 0 || hasPrerequisite != (row.PrerequisiteRank > 0))
                     return Fail("Rogue 等级或前置等级无效：" + row.ID, out error);
-                if (!hasPrerequisite && string.IsNullOrEmpty(row.ExclusiveGroup) && row.MaxRank == 0) fallbackCount++;
+                if (!hasPrerequisite) rootCount++;
                 if (row.Kind == 2)
                 {
                     augmentCount++;
@@ -152,7 +153,7 @@ namespace GameLogic.Project
                 }
             }
             if (augmentCount > 64) return Fail("Rogue 强化来源超过 ECS 容量。", out error);
-            if (fallbackCount < 4) return Fail("Rogue 需要至少四个无前置、无互斥且不限级的保底候选。", out error);
+            if (rootCount == 0) return Fail("Rogue 技能池缺少可达的初始强化。", out error);
             return true;
         }
 

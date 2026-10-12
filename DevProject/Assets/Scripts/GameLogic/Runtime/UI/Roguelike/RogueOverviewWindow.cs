@@ -8,7 +8,7 @@ using UnityEngine;
 namespace GameLogic.UI.Roguelike
 {
     /// <summary>
-    /// 只读展示本局已兑现强化及其等级的模态窗口。
+    /// 只读展示整关 Boss 地图计划、收藏目标及本局已兑现强化的模态窗口。
     /// </summary>
     public sealed class RogueOverviewWindow : GameWindow
     {
@@ -28,7 +28,7 @@ namespace GameLogic.UI.Roguelike
             ProjectUiFactory.Stretch(layout, 16f);
             RectTransform header = ProjectUiFactory.Horizontal(layout, "Header", 8f);
             ProjectUiFactory.Height(header, 68f);
-            UnityEngine.UI.Text title = ProjectUiFactory.Label(header, "本局强化总览", 34, TextAnchor.MiddleLeft, Color.white);
+            UnityEngine.UI.Text title = ProjectUiFactory.Label(header, "本局总览", 34, TextAnchor.MiddleLeft, Color.white);
             title.gameObject.AddComponent<UnityEngine.UI.LayoutElement>().flexibleWidth = 1f;
             UnityEngine.UI.Button close = ProjectUiFactory.ActionButton(header, "关闭", () => CloseSelfAsync().Forget());
             close.gameObject.AddComponent<UnityEngine.UI.LayoutElement>().preferredWidth = 110f;
@@ -65,7 +65,7 @@ namespace GameLogic.UI.Roguelike
         protected override void Show(GameWindowOpenArgs args) => Refresh();
 
         /// <summary>
-        /// 从只读快照刷新已获得强化列表。
+        /// 从只读计划与强化快照刷新关卡目标和已获得强化列表。
         /// </summary>
         private void Refresh()
         {
@@ -76,8 +76,19 @@ namespace GameLogic.UI.Roguelike
                 return;
             }
             var upgrades = run.RogueUpgrades;
-            summary.text = "已获得强化 " + upgrades.Count + " 种 · 随机战利品不计入此列表";
+            summary.text = "整关目标 · 已获强化 " + upgrades.Count + " 种";
             ProjectUiFactory.Clear(entries);
+            var plans = run.GetRegionOverview();
+            ExpeditionRegionOverview final = plans[plans.Count - 1];
+            AddOverviewEntry("最终 Boss：" + final.BossName + "\n场地：" + final.MapName + "\n弱点与应对：" + final.Weakness +
+                "\n专属收藏预览：" + string.Join("、", final.CollectionPreviews));
+            foreach (ExpeditionRegionOverview plan in plans)
+            {
+                string stage = plan.IsFinal ? "最终场地" : "区域 " + (plan.RegionIndex + 1);
+                string state = plan.IsCurrent ? "当前" : plan.IsPassed ? "已通过" : plan.IsGenerated ? "已探索" : "尚未进入";
+                AddOverviewEntry(stage + " · " + state + "\n地图：" + plan.MapName + "\nBoss：" + plan.BossName);
+            }
+            AddOverviewEntry("本局强化");
             if (upgrades.Count == 0)
             {
                 UnityEngine.UI.Text empty = ProjectUiFactory.Label(entries, "本局尚未获得强化", 24, TextAnchor.MiddleCenter, Color.white);
@@ -91,6 +102,16 @@ namespace GameLogic.UI.Roguelike
                 UnityEngine.UI.Text entry = ProjectUiFactory.Label(entries, caption, 24, TextAnchor.MiddleLeft, Color.white);
                 ProjectUiFactory.Height(entry.rectTransform, ProjectEquipmentText.PreferredHeight(caption, 112f) + 32f);
             }
+        }
+
+        /// <summary>
+        /// 将可换行的计划文字加入总览滚动区域，由布局根据实际宽度计算高度。
+        /// </summary>
+        /// <param name="text">玩家可读的计划或分区标题。</param>
+        private void AddOverviewEntry(string text)
+        {
+            UnityEngine.UI.Text entry = ProjectUiFactory.Label(entries, text, 24, TextAnchor.UpperLeft, Color.white);
+            entry.gameObject.AddComponent<UnityEngine.UI.LayoutElement>().minHeight = 42f;
         }
 
         /// <summary>

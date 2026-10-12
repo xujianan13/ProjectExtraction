@@ -79,7 +79,9 @@ namespace GameLogic.UI.Run
                 return;
             }
             ProjectRunOutcome outcome = result.Outcome;
-            title.text = outcome.Extracted ? "撤离成功" : outcome.Abandoned ? "已放弃本局" : "角色死亡";
+            title.text = outcome.Extracted ? outcome.Statistics?.IsFinalCompletion == true ? "最终通关" :
+                outcome.Statistics?.HasRegionData == true ? "提前带回成功" : "撤离成功（通关类型未记录）" :
+                outcome.Abandoned ? "已放弃本局" : "角色死亡";
             summary.text = $"关卡 {outcome.LevelId}  ·  有效游玩 {Mathf.CeilToInt(outcome.ElapsedSeconds)} 秒\n" +
                 $"等级 {result.LevelBefore} → {result.LevelAfter}  ·  经验 {result.ExperienceBefore} → {result.ExperienceAfter}\n" +
                 $"打怪经验 {outcome.AwardedKillExperience}  ·  撤离经验 {outcome.ExtractionExperience}\n" +
@@ -97,11 +99,7 @@ namespace GameLogic.UI.Run
         private void AddRunDetails(ProjectRunResult result)
         {
             ProjectRunStatistics stats = result.Outcome.Statistics;
-            string performance = stats?.HasData == true
-                ? $"探索房间 {stats.VisitedRooms}/{stats.TotalRooms}  ·  清空战斗房 {stats.ClearedCombatRooms}\n" +
-                  $"击杀 {stats.EnemyKills}  ·  Boss房击杀 {stats.BossRoomKills}  ·  强化选择 {stats.RogueChoices}\n" +
-                  $"造成伤害 {stats.DamageDealt:0.#}  ·  承受伤害 {stats.DamageTaken:0.#}\n实际治疗 {stats.HealingReceived:0.#}"
-                : "这份历史结算未记录单局表现。";
+            string performance = stats?.HasData == true ? stats.Describe() : "这份历史结算未记录单局表现。";
             AddDetailBlock("本局表现", performance);
             ProjectRunEconomySummary economy = ProjectRunEconomy.Calculate(result);
             string entry = economy.HasEntrySnapshot ? economy.EntrySellValue.ToString() : "历史结算未记录";

@@ -4,6 +4,7 @@ using System.IO;
 using System.Linq;
 using GameLogic.Gameplay.Expedition;
 using GameLogic.Gameplay.Level;
+using GameLogic.Tables;
 using NUnit.Framework;
 using UnityEditor;
 using UnityEngine;
@@ -19,16 +20,9 @@ namespace ProjectExtraction.Tests
         private static readonly Dictionary<string, string> Paths = new()
         {
             ["SC_Expedition"] = "Scenes/Expedition",
-            ["RM_Prototype"] = "Scenes/Expedition/Rooms",
-            ["PF_TestWall"] = "Gameplay/Expedition/Environment",
-            ["PF_TestObstacle"] = "Gameplay/Expedition/Environment",
             ["PF_TestPlayer"] = "Gameplay/Expedition/Characters",
-            ["PF_TestEnemy"] = "Gameplay/Expedition/Characters",
-            ["PF_TestBoss"] = "Gameplay/Expedition/Characters",
             ["PF_TestNpc"] = "Gameplay/Expedition/Characters",
             ["PF_TestChest"] = "Gameplay/Expedition/Interactables",
-            ["PF_TestExit"] = "Gameplay/Expedition/Markers",
-            ["PF_TestExtraction"] = "Gameplay/Expedition/Markers",
             ["PF_TestLoot"] = "Gameplay/Expedition/Loot",
             ["PF_TestProjectile"] = "Gameplay/Expedition/Effects",
             ["PF_TestMeleeCue"] = "Gameplay/Expedition/Effects"
@@ -40,10 +34,10 @@ namespace ProjectExtraction.Tests
         [Test]
         public void LocationsResolveToRealPrefabsWithHotUpdateDependencies()
         {
-            Assert.That(ExpeditionVisualAssets.Locations.Count, Is.EqualTo(14));
-            Assert.That(ExpeditionVisualAssets.Locations.Distinct().Count(), Is.EqualTo(14));
+            Assert.That(ExpeditionVisualAssets.Locations.Count, Is.EqualTo(Paths.Count));
+            Assert.That(ExpeditionVisualAssets.Locations.Distinct().Count(), Is.EqualTo(Paths.Count));
             CollectionAssert.AreEquivalent(Paths.Keys, ExpeditionVisualAssets.Locations);
-            foreach (string location in ExpeditionVisualAssets.Locations)
+            foreach (string location in VisualLocations())
             {
                 string path = PathFor(location);
                 Assert.That(AssetDatabase.LoadMainAssetAtPath(path), Is.TypeOf<GameObject>(), location);
@@ -63,7 +57,7 @@ namespace ProjectExtraction.Tests
         [Test]
         public void VisualPrefabsHaveIdentityRootsAndNoPhysicsOrScripts()
         {
-            foreach (string location in ExpeditionVisualAssets.Locations)
+            foreach (string location in VisualLocations())
             {
                 GameObject prefab = AssetDatabase.LoadAssetAtPath<GameObject>(PathFor(location));
                 Assert.That(prefab, Is.Not.Null, location);
@@ -84,7 +78,8 @@ namespace ProjectExtraction.Tests
                 }
             }
             Assert.That(AssetDatabase.LoadAssetAtPath<GameObject>(PathFor("SC_Expedition")).GetComponentInChildren<Camera>(true), Is.Not.Null);
-            foreach (string location in new[] { "PF_TestPlayer", "PF_TestEnemy", "PF_TestBoss", "PF_TestNpc" })
+            foreach (string location in GameTables.CfgEnemies.GetAll().Select(row => row.PrefabAddress)
+                .Concat(new[] { "PF_TestPlayer", "PF_TestNpc" }).Distinct())
             {
                 GameObject prefab = AssetDatabase.LoadAssetAtPath<GameObject>(PathFor(location));
                 MeshFilter mesh = prefab.GetComponentInChildren<MeshFilter>(true);
@@ -105,30 +100,64 @@ namespace ProjectExtraction.Tests
         }
 
         /// <summary>
-        /// 房间地板和障碍网格符合地图运行时尺寸坐标约定。
+        /// 每张正式区域地图的版本、底图、地板和障碍均匹配同源几何。
         /// </summary>
         [Test]
-        public void RoomFloorAndObstacleMatchLayoutDimensions()
+        public void RegionAssetsMatchConfiguredGeometryAndVersion()
         {
-            GameObject room = AssetDatabase.LoadAssetAtPath<GameObject>(PathFor("RM_Prototype"));
-            Transform floor = room.transform.Find("Floor");
-            Assert.That(floor, Is.Not.Null);
-            float span = PrototypeLevelConfig.RoomHalfExtent * 2f;
-            Assert.That(floor.localPosition, Is.EqualTo(new Vector3(0f, -0.15f, 0f)));
-            Assert.That(floor.localScale, Is.EqualTo(new Vector3(span, 0.3f, span)));
-            GameObject obstacle = AssetDatabase.LoadAssetAtPath<GameObject>(PathFor("PF_TestObstacle"));
-            Transform mesh = obstacle.transform.Find("Mesh");
-            Assert.That(mesh, Is.Not.Null);
-            Assert.That(mesh.localPosition, Is.EqualTo(Vector3.zero));
-            Assert.That(mesh.localScale, Is.EqualTo(Vector3.one));
-            Assert.That(mesh.GetComponent<MeshFilter>()?.sharedMesh.name, Is.EqualTo("Cube"));
+            Assert.That(GameTables.CfgRegionMaps.GetAll(), Is.Not.Empty);
+            foreach (CfgRegionMapsRow row in GameTables.CfgRegionMaps.GetAll())
+            {
+                string folder = Root + "/Scenes/Expedition/Regions/";
+                GameObject prefab = AssetDatabase.LoadAssetAtPath<GameObject>(folder + row.PrefabAddress + ".prefab");
+                TextAsset geometry = AssetDatabase.LoadAssetAtPath<TextAsset>(folder + row.GeometryAddress + ".json");
+                Texture2D minimap = AssetDatabase.LoadAssetAtPath<Texture2D>(folder + row.MinimapAddress + ".png");
+                Assert.That(prefab, Is.Not.Null, row.PrefabAddress);
+                Assert.That(geometry, Is.Not.Null, row.GeometryAddress);
+                Assert.That(minimap, Is.Not.Null, row.MinimapAddress);
+                RegionMapDefinition map = JsonUtility.FromJson<RegionMapDefinition>(geometry.text);
+                Assert.That(map.TryValidate(out string error), Is.True, error);
+                Assert.That(map.MapId, Is.EqualTo(row.ID));
+                Assert.That(map.Version, Is.EqualTo(row.Version));
+                Assert.That(prefab.transform.Find("RegionMap_" + map.MapId + "_" + map.Version), Is.Not.Null);
+                Assert.That(prefab.GetComponentsInChildren<Collider>(true), Is.Empty);
+                Assert.That(prefab.GetComponentsInChildren<Rigidbody>(true), Is.Empty);
+                Transform floor = prefab.transform.Find("Floor");
+                Assert.That(floor, Is.Not.Null);
+                Assert.That(floor.localPosition, Is.EqualTo(new Vector3(map.Bounds.center.x, -0.15f, map.Bounds.center.y)));
+                Assert.That(floor.localScale, Is.EqualTo(new Vector3(map.Bounds.width, 0.3f, map.Bounds.height)));
+                Assert.That(prefab.transform.Cast<Transform>().Count(child => child.name.StartsWith("Obstacle_", StringComparison.Ordinal)),
+                    Is.EqualTo(map.Obstacles.Count));
+                for (int index = 0; index < map.Obstacles.Count; index++)
+                {
+                    RegionMapObstacle obstacle = map.Obstacles[index];
+                    Transform visual = prefab.transform.Find("Obstacle_" + index);
+                    Assert.That(visual, Is.Not.Null);
+                    Vector2 center = (obstacle.Min + obstacle.Max) * 0.5f, size = obstacle.Max - obstacle.Min;
+                    Assert.That(visual.localPosition, Is.EqualTo(new Vector3(center.x, 1.5f, center.y)));
+                    Assert.That(visual.localScale, Is.EqualTo(new Vector3(size.x, 3f, size.y)));
+                }
+                Assert.That(minimap.width, Is.GreaterThan(0));
+                Assert.That(minimap.height, Is.GreaterThan(0));
+                var importer = (TextureImporter)AssetImporter.GetAtPath(folder + row.MinimapAddress + ".png");
+                Assert.That(importer.mipmapEnabled, Is.False);
+                Assert.That(importer.textureCompression, Is.EqualTo(TextureImporterCompression.Uncompressed));
+            }
         }
+
+        /// <summary>
+        /// 汇总公共表现与配置敌人的唯一地址。
+        /// </summary>
+        /// <returns>本关资源组使用的全部角色与反馈预制件地址。</returns>
+        private static IEnumerable<string> VisualLocations() => ExpeditionVisualAssets.Locations
+            .Concat(GameTables.CfgEnemies.GetAll().Select(row => row.PrefabAddress)).Distinct();
 
         /// <summary>
         /// 将运行时地址映射到约定热更预制体路径。
         /// </summary>
         /// <param name="location">唯一资源地址。</param>
         /// <returns>Assets 下的预制体路径。</returns>
-        private static string PathFor(string location) => Root + "/" + Paths[location] + "/" + location + ".prefab";
+        private static string PathFor(string location) => Root + "/" +
+            (Paths.TryGetValue(location, out string folder) ? folder : "Gameplay/Expedition/Characters") + "/" + location + ".prefab";
     }
 }

@@ -1,201 +1,83 @@
 using System.Collections;
-using System.Collections.Generic;
 using System.Linq;
 using Cysharp.Threading.Tasks;
 using GameFramework;
 using GameLogic.Gameplay.Combat;
 using GameLogic.Gameplay.Expedition;
-using GameLogic.Gameplay.Level;
 using GameLogic.Project;
-using GameLogic.Tables;
 using NUnit.Framework;
 using UnityEngine;
 using UnityEngine.TestTools;
 
 namespace MiniGame.Tests
 {
-    /// <summary>
-    /// 验证房间内容计划在实际资源、跨图、战斗和奖励中的连接。
-    /// </summary>
     public sealed partial class ProjectExpeditionPlayModeTests
     {
         /// <summary>
-        /// 未清怪时遍历全图，表现几何和敌人数量遵循计划，回访不重复生成。
+        /// 完整快照恢复同一地图、角色位置、生成计划和未购买库存。
         /// </summary>
-        /// <returns>包含真实房间资源的逐帧测试。</returns>
+        /// <returns>真实资源与恢复单局的验证任务。</returns>
         [UnityTest]
-        public IEnumerator RoomPlans_DriveGeometryAndSpawnsAcrossUnclearedRevisits() => UniTask.ToCoroutine(async () =>
+        public IEnumerator RegionState_RoundTripKeepsWorldPlanAndFrozenOffers() => UniTask.ToCoroutine(async () =>
         {
             await SetupAsync(new MemorySaveBackend());
-            using var scope = new LifetimeScope("RoomPlansIntegration");
-            ExpeditionVisualAssets assets = await ExpeditionVisualAssets.LoadAsync(scope, GameEntry.Get<IResourceModule>());
-            Assert.That(ExpeditionRun.TryCreate(ProjectServices.Session, "rooms-test", 1, 42,
-                new List<ProjectItem>(), out ExpeditionRun run), Is.True);
-            using var ownedRun = run;
-            using var presentation = new ExpeditionPresentation(run, assets);
-            run.AttachScene(assets, presentation.Root);
-            Assert.That(run.MarkReady() && run.Activate(), Is.True);
-            var actors = new List<CombatActorSnapshot>();
-            var identities = new Dictionary<int, CombatEntityRef[]>();
-            var plans = run.Maps.Rooms.ToDictionary(room => room.RoomId, room => room.Plan);
-            foreach (LevelRoomState room in run.Maps.Rooms)
+            Assert.That(await ProjectServices.Coordinator.StartRunAsync(1), Is.True);
+            ExpeditionRun run = ProjectServices.Session.CurrentRun;
+            run.SetTouchMove(Vector2.right);
+            run.Advance(CombatWorld.TickSeconds * 5);
+            run.SetTouchMove(Vector2.zero);
+            Assert.That(run.World.TryStartSkill(run.Player, 1, default), Is.True);
+            run.Advance(CombatWorld.TickSeconds);
+            await WaitRunSavedAsync(run);
+            Assert.That(run.TryCaptureState(out ExpeditionRunSnapshot snapshot, out string error), Is.True, error);
+            Assert.That(snapshot.World.Casts, Is.Not.Empty);
+            Assert.That(ExpeditionSnapshotCodec.TryEncode(snapshot, out var parts, out error), Is.True, error);
+            Assert.That(ExpeditionSnapshotCodec.TryDecode(parts, out var decoded, out error), Is.True, error);
+            Assert.That(ExpeditionRun.TryRestore(ProjectServices.Session, decoded, out ExpeditionRun restored, out error), Is.True, error);
+            using (restored)
             {
-                MoveToRoom(run, room.RoomId);
-                Assert.That(room.Plan, Is.SameAs(plans[room.RoomId]));
-                Assert.That(run.RoomView.Root.transform.Find("Floor").GetComponent<Renderer>().bounds.size.x,
-                    Is.EqualTo((float)room.Plan.Definition.Layout.HalfExtent * 2f).Within(0.001f));
-                Assert.That(run.Layout.Obstacles.Count, Is.EqualTo(room.Plan.Definition.Obstacles.Count));
-                Assert.That(run.RoomView.Root.transform.Cast<Transform>().Count(child => child.name == "Obstacle"),
-                    Is.EqualTo(room.Plan.Definition.Obstacles.Count));
-                run.World.GetActorsSnapshot(actors);
-                CombatActorSnapshot[] local = actors.Where(actor => actor.RoomId == room.RoomId && actor.ActorId != 1).ToArray();
-                Assert.That(local.Length, Is.EqualTo(room.Plan.Spawns.Sum(group => group.Count)));
-                identities.Add(room.RoomId, local.Select(actor => actor.Entity).ToArray());
-                Assert.That(room.IsCleared, Is.False, "无须清怪即可通行所有房间。");
+                using var scope = new LifetimeScope("RestoredRegionScene");
+                ExpeditionVisualAssets assets = await ExpeditionVisualAssets.LoadAsync(scope, GameEntry.Get<IResourceModule>());
+                restored.AttachScene(assets);
+                Assert.That(restored.TryCaptureState(out ExpeditionRunSnapshot attached, out error), Is.True, error);
+                Assert.That(JsonUtility.ToJson(attached.World), Is.EqualTo(JsonUtility.ToJson(snapshot.World)),
+                    "场景绑定不能清空恢复中的施法、位移或动画提示。");
+                Assert.That(restored.RunId, Is.EqualTo(run.RunId));
+                Assert.That(restored.World.TickIndex, Is.EqualTo(run.World.TickIndex));
+                Assert.That(JsonUtility.ToJson(restored.CurrentRegion.Plan), Is.EqualTo(JsonUtility.ToJson(run.CurrentRegion.Plan)));
+                Assert.That(restored.World.TryGetActor(restored.Player, out CombatActorSnapshot actual), Is.True);
+                Assert.That(run.World.TryGetActor(run.Player, out CombatActorSnapshot expected), Is.True);
+                Assert.That(actual.Position, Is.EqualTo(expected.Position));
+                Assert.That(actual.Health, Is.EqualTo(expected.Health));
+                Assert.That(restored.CurrentRegion.Plan.Npcs.SelectMany(value => value.Offers).Select(value => value.Item.Id),
+                    Is.EquivalentTo(run.CurrentRegion.Plan.Npcs.SelectMany(value => value.Offers).Select(value => value.Item.Id)));
             }
-            foreach (LevelRoomState room in run.Maps.Rooms.Reverse())
-            {
-                MoveToRoom(run, room.RoomId);
-                run.World.GetActorsSnapshot(actors);
-                CollectionAssert.AreEqual(identities[room.RoomId], actors.Where(actor => actor.RoomId == room.RoomId && actor.ActorId != 1)
-                    .Select(actor => actor.Entity).ToArray());
-            }
-            Assert.That(run.World.Faulted, Is.False);
         });
 
         /// <summary>
-        /// 商店预览不消耗金币，逐件购买后回访保留商品与售出状态。
+        /// 未领取的箱内完整物品已经冻结，开箱不触发技能候选且不能重复领取。
         /// </summary>
-        /// <returns>实际 NPC 交互验证任务。</returns>
+        /// <returns>真实宝箱与保存门禁验证任务。</returns>
         [UnityTest]
-        public IEnumerator RoomMerchant_UsesPlanPricePoolAndPersistentStock() => UniTask.ToCoroutine(async () =>
+        public IEnumerator RegionChest_UsesFrozenItemsAndDoesNotGrantSkillChoice() => UniTask.ToCoroutine(async () =>
         {
             await SetupAsync(new MemorySaveBackend());
-            using var scope = new LifetimeScope("MerchantRoomIntegration");
-            ExpeditionVisualAssets assets = await ExpeditionVisualAssets.LoadAsync(scope, GameEntry.Get<IResourceModule>());
-            Assert.That(ExpeditionRun.TryCreate(ProjectServices.Session, "merchant-test", 1, 42,
-                new List<ProjectItem>(), out ExpeditionRun run), Is.True);
-            using var ownedRun = run;
-            run.AttachScene(assets);
-            Assert.That(run.MarkReady() && run.Activate(), Is.True);
-            LevelRoomState room = run.Maps.Rooms.Single(value => value.Type == LevelRoomType.Npc);
-            MoveToRoom(run, room.RoomId);
-            var geometry = room.Plan.Definition.Layout;
-            Vector3 position = new Vector3((float)geometry.NpcX, 0, (float)geometry.NpcZ);
-            int goldBefore = run.AvailableGold;
-            Assert.That(goldBefore, Is.GreaterThanOrEqualTo(room.Plan.NpcPrice * room.Plan.NpcStock));
-            ExpeditionMerchantOffer[] planned = run.MerchantOffers.ToArray();
-            Assert.That(planned.Length, Is.EqualTo(room.Plan.NpcStock));
-            Assert.That(planned.All(offer => offer.Price == room.Plan.NpcPrice && !offer.Sold), Is.True);
-            Assert.That(run.World.TrySetPosition(run.Player, position), Is.True);
+            Assert.That(await ProjectServices.Coordinator.StartRunAsync(1), Is.True);
+            ExpeditionRun run = ProjectServices.Session.CurrentRun;
+            var chest = run.CurrentRegion.Plan.Chests.First();
+            int before = run.Inventory.Count;
+            Assert.That(run.World.TrySetPosition(run.Player, chest.Position), Is.True);
+            run.Advance(CombatWorld.TickSeconds);
             run.RequestInteraction();
             run.Advance(CombatWorld.TickSeconds);
-            Assert.That(run.ActivePanel, Is.EqualTo(ExpeditionPanelKind.Merchant));
-            Assert.That(run.GoldSpent, Is.Zero);
-            Assert.That(run.Inventory, Is.Empty);
-
-            string originalPreview = JsonUtility.ToJson(planned[0].Item);
-            ProjectItem mutablePreview = planned[0].Item;
-            mutablePreview.Name = "修改预览";
-            mutablePreview.Id = "修改身份";
-            mutablePreview.BaseAttributes.Clear();
-            mutablePreview.Affixes.Clear();
-            Assert.That(JsonUtility.ToJson(run.MerchantOffers[0].Item), Is.EqualTo(originalPreview));
-            for (int i = 0; i < planned.Length; i++)
-            {
-                Assert.That(run.TryPurchase(planned[i].Id), Is.True);
-                Assert.That(run.TryPurchase(planned[i].Id), Is.False, "已售商品不能重复扣费。");
-                Assert.That(run.GoldSpent, Is.EqualTo(room.Plan.NpcPrice * (i + 1)));
-                Assert.That(run.Inventory.Count, Is.EqualTo(i + 1));
-            }
-            Assert.That(run.Inventory.All(item => !item.Equipped), Is.True);
-            Assert.That(run.Inventory.All(item => GameTables.CfgLootPool.GetAll().Any(row =>
-                row.PoolID == room.Plan.LootPoolID && row.DefinitionId == item.DefinitionId)), Is.True);
-            Assert.That(room.TryGetNpcStock("relic", out int stock) && stock == 0, Is.True);
-            RoomDirection exitDirection = room.Exits.Keys.First();
-            float edge = (float)(geometry.HalfExtent - geometry.ExitCenterInset);
-            Vector3 exitPosition = exitDirection == RoomDirection.North ? new Vector3(0, 0, edge) :
-                exitDirection == RoomDirection.South ? new Vector3(0, 0, -edge) :
-                exitDirection == RoomDirection.East ? new Vector3(edge, 0, 0) : new Vector3(-edge, 0, 0);
-            Assert.That(run.World.TrySetPosition(run.Player, exitPosition), Is.True);
+            await WaitRunSavedAsync(run);
+            Assert.That(run.Inventory.Count, Is.EqualTo(before + chest.Items.Count));
+            foreach (var item in chest.Items) Assert.That(run.Inventory.Count(value => value.Id == item.Id), Is.EqualTo(1));
+            Assert.That(run.PendingRogueChoice, Is.Null);
             run.RequestInteraction();
             run.Advance(CombatWorld.TickSeconds);
-            Assert.That(run.CurrentRoom.RoomId, Is.EqualTo(room.RoomId), "商店未关闭时不能换图。");
-            run.ClosePanel(ExpeditionPanelKind.Merchant);
-            int neighbor = room.Exits.Values.First();
-            MoveToRoom(run, neighbor);
-            MoveToRoom(run, room.RoomId);
-            ExpeditionMerchantOffer[] revisited = run.MerchantOffers.ToArray();
-            CollectionAssert.AreEqual(planned.Select(offer => offer.Id).ToArray(), revisited.Select(offer => offer.Id).ToArray());
-            CollectionAssert.AreEqual(planned.Select(offer => JsonUtility.ToJson(offer.Item)).ToArray(),
-                revisited.Select(offer => JsonUtility.ToJson(offer.Item)).ToArray());
-            Assert.That(revisited.All(offer => offer.Sold), Is.True);
-            Assert.That(run.World.TrySetPosition(run.Player, position), Is.True);
-            run.RequestInteraction();
-            run.Advance(CombatWorld.TickSeconds);
-            Assert.That(run.ActivePanel, Is.EqualTo(ExpeditionPanelKind.Merchant), "售罄后仍可浏览商品。");
-            Assert.That(run.Inventory.Count, Is.EqualTo(room.Plan.NpcStock));
-            Assert.That(run.AvailableGold, Is.EqualTo(goldBefore - room.Plan.NpcPrice * room.Plan.NpcStock));
-            Assert.That(run.TryPurchase(revisited[0].Id), Is.False);
-        });
-
-        /// <summary>
-        /// Boss 死亡只生成一次必掉奖励，回访保留死亡、清房和奖励记录。
-        /// </summary>
-        /// <returns>实际战斗和跨图回访任务。</returns>
-        [UnityTest]
-        public IEnumerator RoomBoss_DropsOnceAndStaysDefeatedAfterRevisit() => UniTask.ToCoroutine(async () =>
-        {
-            await SetupAsync(new MemorySaveBackend());
-            using var scope = new LifetimeScope("BossRoomIntegration");
-            ExpeditionVisualAssets assets = await ExpeditionVisualAssets.LoadAsync(scope, GameEntry.Get<IResourceModule>());
-            Assert.That(ExpeditionRun.TryCreate(ProjectServices.Session, "boss-room-test", 1, 42,
-                new List<ProjectItem>(), out ExpeditionRun run), Is.True);
-            using var ownedRun = run;
-            run.AttachScene(assets);
-            Assert.That(run.MarkReady() && run.Activate(), Is.True);
-            LevelRoomState room = run.Maps.Rooms.Single(value => value.Type == LevelRoomType.Boss);
-            MoveToRoom(run, room.RoomId);
-            var actors = new List<CombatActorSnapshot>();
-            run.World.GetActorsSnapshot(actors);
-            CombatActorSnapshot boss = actors.Single(actor => actor.RoomId == room.RoomId && actor.ActorId != 1);
-            Assert.That(run.TryGetEnemyDefinition(boss.ActorId, out EnemyDefinition definition), Is.True);
-            Assert.That(CombatEnemySkillConfig.Create(definition.ID).Length, Is.GreaterThanOrEqualTo(3));
-            var basicCues = new HashSet<int>(GameTables.CfgCombatTimelineNodes.GetAll().Where(node => node.SkillID == definition.SkillID)
-                .SelectMany(node => node.EffectIDs).Select(id => GameTables.CfgCombatEffects.GetById(id))
-                .Where(effect => effect.Kind == (int)CombatEffectKind.Cue).Select(effect => effect.DefinitionID));
-            bool sawAdditionalSkill = false;
-            run.CombatEventPublished += fact =>
-            {
-                if (fact.ActorId == boss.ActorId && fact.Kind == CombatEventKind.Cue && !basicCues.Contains(fact.DefinitionId))
-                    sawAdditionalSkill = true;
-            };
-            Assert.That(run.World.TrySetPosition(run.Player, boss.Position - Vector3.forward * 2.5f), Is.True);
-            for (int tick = 0; tick < 10 && !sawAdditionalSkill; tick++) run.Advance(CombatWorld.TickSeconds);
-            Assert.That(sawAdditionalSkill, Is.True, "Boss 必须实际选择并执行附加近身技能。");
-            Assert.That(run.World.TryAddAttributeBonus(run.Player, CombatAttributeKind.Attack, 10000), Is.True);
-            Assert.That(run.World.TrySetPosition(run.Player, boss.Position - Vector3.forward * 1.5f), Is.True);
-            for (int tick = 0; tick < 120 && !room.IsCleared; tick++) run.Advance(CombatWorld.TickSeconds);
-            Assert.That(room.IsCleared, Is.True);
-            ExpeditionDrop reward = run.Drops.Single(drop => drop.RoomId == room.RoomId);
-            Assert.That(GameTables.CfgLootPool.GetAll().Any(row => row.PoolID == definition.DropPoolID &&
-                row.DefinitionId == reward.Item.DefinitionId), Is.True);
-            int experience = run.KillExperience;
-            Assert.That(run.IsChoosingRogue, Is.True, "Boss 首次清房必出三选一。");
-            long pausedTick = run.World.TickIndex;
-            run.Advance(1f);
-            Assert.That(run.World.TickIndex, Is.EqualTo(pausedTick));
-            var offer = run.PendingRogueChoice;
-            Assert.That(run.TryChooseRogue(offer.OfferId, offer.Revision, 0), Is.True);
-            MoveToRoom(run, room.Exits.Values.First());
-            MoveToRoom(run, room.RoomId);
-            Assert.That(room.IsCleared, Is.True);
-            Assert.That(run.Drops.Count(drop => drop.RoomId == room.RoomId), Is.EqualTo(1));
-            Assert.That(run.Drops.Single(drop => drop.RoomId == room.RoomId), Is.SameAs(reward));
-            Assert.That(run.KillExperience, Is.EqualTo(experience));
-            Assert.That(run.IsChoosingRogue, Is.False, "回访不重复发清房奖励。");
-            run.World.GetActorsSnapshot(actors);
-            Assert.That(actors.Any(actor => actor.RoomId == room.RoomId && actor.ActorId != 1 && !actor.Dead), Is.False);
+            await WaitRunSavedAsync(run);
+            Assert.That(run.Inventory.Count, Is.EqualTo(before + chest.Items.Count));
         });
     }
 }

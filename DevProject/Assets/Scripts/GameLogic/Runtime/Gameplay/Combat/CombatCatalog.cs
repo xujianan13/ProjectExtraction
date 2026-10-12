@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System;
 using UnityEngine;
 
 namespace GameLogic.Gameplay.Combat
@@ -11,6 +12,7 @@ namespace GameLogic.Gameplay.Combat
     /// <summary>
     /// 战斗效果的不可变配置候选。
     /// </summary>
+    [Serializable]
     public sealed class CombatEffectDefinition
     {
         public CombatEffectKind Kind;
@@ -111,6 +113,7 @@ namespace GameLogic.Gameplay.Combat
     /// <summary>
     /// 本局角色词条定义；世界接纳时复制定义及效果，调用方可复用原始对象。
     /// </summary>
+    [Serializable]
     public sealed class CombatAugmentDefinition
     {
         public string Id;
@@ -134,6 +137,11 @@ namespace GameLogic.Gameplay.Combat
         public readonly Dictionary<int, CombatSkillDefinition> Skills = new Dictionary<int, CombatSkillDefinition>();
         public readonly Dictionary<int, CombatProjectileDefinition> Projectiles = new Dictionary<int, CombatProjectileDefinition>();
         public readonly Dictionary<int, CombatBuffDefinition> Buffs = new Dictionary<int, CombatBuffDefinition>();
+
+        /// <summary>
+        /// 由配置装配层登记的合法伤害效果编号，包含动态词条使用的伤害定义。
+        /// </summary>
+        public readonly HashSet<int> DamageEffectIds = new HashSet<int>();
 
     }
 }

@@ -43,9 +43,9 @@ namespace GameLogic.Project
         /// <summary>
         /// 按已保存的穿戴与技能成长计算独立角色属性。
         /// </summary>
-        public ProjectCharacterStats CharacterStats => ProjectEquipmentRules.Calculate(profile.Warehouse, profile.PowerRank, profile.VitalityRank, profile.AgilityRank);
+        public ProjectCharacterStats CharacterStats => CalculateCharacterStats(profile.Warehouse);
         public string LastRunSummary => pending != null ? "保存未完成，请重试原操作。" : profile.LastRunSummary;
-        public bool IsBusy => saving || pending != null || !homeEditable || disposed;
+        public bool IsBusy => saving || profileSaveWaiting || pending != null || !homeEditable || disposed;
         public bool HasPendingSave => pending != null && !saving && !disposed;
 
         /// <summary>
@@ -58,6 +58,16 @@ namespace GameLogic.Project
         /// 当前持久化单局身份。
         /// </summary>
         public string ActiveRunId => profile.ActiveRunId;
+
+        /// <summary>
+        /// 当前活动局使用的玩法存档版本。
+        /// </summary>
+        public int ActiveRunVersion => profile.ActiveRunVersion;
+
+        /// <summary>
+        /// 当前活动局已经冻结的关卡身份。
+        /// </summary>
+        public int ActiveRunLevelId => profile.ActiveLevelId;
 
         /// <summary>
         /// 当前持久化单局阶段。
@@ -113,6 +123,15 @@ namespace GameLogic.Project
                 return null;
             }
             var session = new ProjectSession(opened.Session, opened.Session.LoadResult.Data);
+            string collectionError = ProjectCollectionRules.ValidateState(session.profile,
+                ProjectV2RewardConfig.CollectionDefinitions(), ProjectV2RewardConfig.CollectionAchievements(out _));
+            if (collectionError != null)
+            {
+                GameEntry.Get<ILogModule>().Error("ProjectSession", collectionError);
+                session.Dispose();
+                return null;
+            }
+            session.CreateRunJournal(GameEntry.Get<ISaveModule>().Backend);
             opened.Session.BindSnapshot(() => (session.pending ?? session.profile).Copy());
             opened.Session.AcceptRecovery();
             SaveResult activation = opened.Session.Activate();
@@ -227,7 +246,7 @@ namespace GameLogic.Project
         {
             run = null;
             error = "当前单局或存档事务尚未结束。";
-            if (disposed || saving || pending != null || CurrentRun != null || !string.IsNullOrEmpty(profile.ActiveRunId)) return false;
+            if (disposed || saving || profileSaveWaiting || pending != null || CurrentRun != null || !string.IsNullOrEmpty(profile.ActiveRunId)) return false;
             ProjectSaveData candidate = Candidate();
             ProjectLevelOption level = Array.Find(levels, value => value.Id == levelId);
             error = "关卡未解锁。";
@@ -252,7 +271,7 @@ namespace GameLogic.Project
         {
             if (run == null) return Rejected("缺少单局上下文。");
             ProjectSaveData candidate = Candidate();
-            if (!ProjectRunRecordRules.TryAdmit(candidate, run.RunId, run.LevelId, run.Maps.Seed,
+            if (!ProjectRunRecordRules.TryAdmit(candidate, run.RunId, run.LevelId, run.Seed,
                 candidate.Warehouse.FindAll(item => item.Equipped), out string error)) return Rejected(error);
             return CommitAsync(candidate, "入场记录已保存。");
         }
@@ -299,6 +318,8 @@ namespace GameLogic.Project
             if (profile.ActiveRunId != runId) return Rejected("结算不是当前单局。");
             ProjectSaveData candidate = Candidate();
             if (!ProjectRunRecordRules.TrySettleOutcome(candidate, out string error)) return Rejected(error);
+            if (!ProjectCollectionRules.RegisterRetainedItems(candidate, candidate.LastResult.RetainedItems,
+                ProjectV2RewardConfig.CollectionDefinitions(), ProjectV2RewardConfig.CollectionAchievements(out _), out error)) return Rejected(error);
             return CommitAsync(candidate, candidate.LastRunSummary);
         }
 
@@ -332,8 +353,17 @@ namespace GameLogic.Project
         /// <returns>原交易保存或返场结果。</returns>
         public async UniTask<ProjectOperationResult> RetryPendingSaveAsync()
         {
-            if (disposed || saving || pending == null) return new ProjectOperationResult(false, "没有可重试的保存。");
+            if (disposed || saving || profileSaveWaiting || pending == null) return new ProjectOperationResult(false, "没有可重试的保存。");
+            profileSaveWaiting = true;
+            SaveResult runSaved = await WaitForRunSavesAsync();
+            if (!runSaved.Success || disposed)
+            {
+                profileSaveWaiting = false;
+                Changed?.Invoke();
+                return new ProjectOperationResult(false, disposed ? "会话已结束。" : runSaved.Message);
+            }
             saving = true;
+            profileSaveWaiting = false;
             Changed?.Invoke();
             if (!pendingMarked)
             {
@@ -341,6 +371,7 @@ namespace GameLogic.Project
                 if (!marked.Success)
                 {
                     saving = false;
+                    StartRunSavePump();
                     GameEntry.Get<ILogModule>()?.Error("ProjectSession", marked.Message);
                     Changed?.Invoke();
                     return new ProjectOperationResult(false, "保存标记失败，请重试：" + marked.Message);
@@ -353,6 +384,7 @@ namespace GameLogic.Project
             catch (Exception error)
             {
                 saving = false;
+                StartRunSavePump();
                 GameEntry.Get<ILogModule>()?.Error("ProjectSession", "重试保存异常：" + error.Message);
                 Changed?.Invoke();
                 return new ProjectOperationResult(false, "保存失败，请重试：" + error.Message);
@@ -367,6 +399,7 @@ namespace GameLogic.Project
         {
             if (disposed) return;
             disposed = true;
+            DisposeRunPersistence();
             CurrentRun = null;
             saves.Dispose();
             Changed = null;
@@ -398,20 +431,30 @@ namespace GameLogic.Project
         /// <returns>持久化确认结果。</returns>
         private async UniTask<ProjectOperationResult> CommitAsync(ProjectSaveData candidate, string message, Action accepted = null)
         {
-            if (disposed || pending != null || saving) return new ProjectOperationResult(false, "上一操作尚未保存。");
+            if (disposed || pending != null || saving || profileSaveWaiting) return new ProjectOperationResult(false, "上一操作尚未保存。");
             string invalid = ProjectSaveData.Validate(candidate);
             if (invalid != null) return new ProjectOperationResult(false, invalid);
+            profileSaveWaiting = true;
+            SaveResult runSaved = await WaitForRunSavesAsync();
+            if (!runSaved.Success || disposed)
+            {
+                profileSaveWaiting = false;
+                Changed?.Invoke();
+                return new ProjectOperationResult(false, disposed ? "会话已结束。" : runSaved.Message);
+            }
             pending = candidate;
             pendingMessage = message;
             pendingAccepted = accepted;
             pendingMarked = false;
             pendingRevision = 0;
             saving = true;
+            profileSaveWaiting = false;
             Changed?.Invoke();
             SaveResult dirty = saves.MarkDirty();
             if (!dirty.Success)
             {
                 saving = false;
+                StartRunSavePump();
                 GameEntry.Get<ILogModule>()?.Error("ProjectSession", dirty.Message);
                 Changed?.Invoke();
                 return new ProjectOperationResult(false, "保存标记失败，请重试：" + dirty.Message);
@@ -422,6 +465,7 @@ namespace GameLogic.Project
             catch (Exception error)
             {
                 saving = false;
+                StartRunSavePump();
                 GameEntry.Get<ILogModule>()?.Error("ProjectSession", "保存异常：" + error.Message);
                 Changed?.Invoke();
                 return new ProjectOperationResult(false, "保存失败，请重试：" + error.Message);
@@ -436,6 +480,7 @@ namespace GameLogic.Project
         private ProjectOperationResult AcceptReceipt(SaveFlushResult receipt)
         {
             saving = false;
+            StartRunSavePump();
             if (disposed) return new ProjectOperationResult(false, "会话已结束。");
             if (pending == null || !ProjectProfileRules.CanAcceptSaveReceipt(pendingMarked, pendingRevision,
                 receipt.TargetRevision, receipt.SavedRevision, receipt.Result.Success))

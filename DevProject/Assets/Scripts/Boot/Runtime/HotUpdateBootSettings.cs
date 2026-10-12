@@ -23,9 +23,9 @@ namespace MiniGame.Boot
     }
 
     /// <summary>
-    /// 玩家存档的明确平台后端选择。
+    /// 玩家存档的平台后端与临时内存会话选择。
     /// </summary>
-    public enum SaveBackendMode { Auto, File, BrowserIndexedDb, PlatformSdk }
+    public enum SaveBackendMode { Auto, File, BrowserIndexedDb, PlatformSdk, Memory }
     /// <summary>
     /// 随宿主发布的 GamePackage 初始化配置。
     /// </summary>

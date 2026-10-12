@@ -164,6 +164,11 @@ namespace GameLogic.Project
         public static ProjectItem CreateLootFromPool(System.Random random, int level, string poolId)
         {
             if (random == null || level < 1 || level > PrototypeRules.LegacySkillRankLimit || string.IsNullOrWhiteSpace(poolId)) return null;
+            if (GameTables.CfgLootPool == null || GameTables.CfgItemDefinitions == null)
+            {
+                GameEntry.Get<ILogModule>()?.Error("Equipment", "掉落池或物品模板表未加载。");
+                return null;
+            }
             var eligible = new List<CfgLootPoolRow>();
             int total = 0;
             foreach (CfgLootPoolRow row in GameTables.CfgLootPool.GetAll())
@@ -178,8 +183,12 @@ namespace GameLogic.Project
             {
                 if (roll < row.Weight)
                 {
+                    CfgItemDefinitionsRow definition = ProjectRulesConfig.Item(row.DefinitionId);
+                    if (definition == null) return null;
+                    if (definition.Type == (int)ProjectItemType.Collection)
+                        return CreateGenerated(random, level, default, definition);
                     if (!TryRollQuality(random, poolId, out ProjectItemQuality quality)) return null;
-                    return CreateGenerated(random, level, quality, ProjectRulesConfig.Item(row.DefinitionId));
+                    return CreateGenerated(random, level, quality, definition);
                 }
                 roll -= row.Weight;
             }
@@ -231,8 +240,10 @@ namespace GameLogic.Project
             {
                 if (roll < row.Weight)
                 {
+                    CfgItemDefinitionsRow definition = ProjectRulesConfig.Item(row.DefinitionId);
+                    if (definition.Type == (int)ProjectItemType.Collection) return CreateGenerated(random, level, default, definition);
                     if (!TryRollQuality(random, ProjectRulesConfig.Profile.DefaultLootPoolID, out ProjectItemQuality quality)) return null;
-                    return CreateGenerated(random, level, quality, ProjectRulesConfig.Item(row.DefinitionId));
+                    return CreateGenerated(random, level, quality, definition);
                 }
                 roll -= row.Weight;
             }
@@ -286,6 +297,15 @@ namespace GameLogic.Project
                 !Enum.IsDefined(typeof(ProjectItemQuality), quality) || string.IsNullOrWhiteSpace(definitionId)) return null;
             return CreateGenerated(random, level, quality, ProjectRulesConfig.Item(definitionId));
         }
+
+        /// <summary>
+        /// 使用明确收藏定义创建实例，不进入装备模板或词条生成流程。
+        /// </summary>
+        /// <param name="random">调用方持有的物品随机源，收藏字段固定不额外抽取。</param>
+        /// <param name="definition">已经确定品质、系列与售价的收藏定义。</param>
+        /// <returns>独立收藏物品；定义无效时为空。</returns>
+        public static ProjectItem CreateConfiguredItem(System.Random random, ProjectCollectionDefinition definition) =>
+            ProjectCollectionRules.CreateItem(random, definition);
 
         /// <summary>
         /// 从初始模板生成新档装备。
@@ -354,6 +374,13 @@ namespace GameLogic.Project
         private static ProjectItem CreateGenerated(System.Random random, int level, ProjectItemQuality quality, CfgItemDefinitionsRow definition)
         {
             if (definition == null || random == null) return null;
+            if (definition.Type == (int)ProjectItemType.Collection)
+            {
+                ProjectCollectionDefinition collection = ProjectV2RewardConfig.Collection(definition.CollectionID);
+                ProjectItem retained = ProjectCollectionRules.CreateItem(random, collection);
+                if (retained != null) retained.DefinitionId = definition.ID;
+                return retained;
+            }
             int qualityIndex = (int)quality;
             var item = new ProjectItem
             {
@@ -459,8 +486,10 @@ namespace GameLogic.Project
         /// <param name="powerRank">力量技能等级。</param>
         /// <param name="vitalityRank">生存技能等级。</param>
         /// <param name="agilityRank">敏捷技能等级。</param>
+        /// <param name="persistentBonuses">已经完成收藏成就的独立属性来源。</param>
         /// <returns>用于战斗接入的独立角色属性。</returns>
-        public static ProjectCharacterStats Calculate(IReadOnlyList<ProjectItem> items, int powerRank, int vitalityRank, int agilityRank)
+        public static ProjectCharacterStats Calculate(IReadOnlyList<ProjectItem> items, int powerRank, int vitalityRank, int agilityRank,
+            IReadOnlyList<ProjectAttributeValue> persistentBonuses = null)
         {
             var stats = new ProjectCharacterStats
             {
@@ -483,6 +512,8 @@ namespace GameLogic.Project
             stats.Attack *= 1 + Math.Min(ProjectRulesConfig.Skill("power").MaxRank, Math.Max(0, powerRank)) * (float)ProjectRulesConfig.Skill("power").EffectPerRank;
             stats.MaxHealth += Math.Min(ProjectRulesConfig.Skill("vitality").MaxRank, Math.Max(0, vitalityRank)) * (float)ProjectRulesConfig.Skill("vitality").EffectPerRank;
             stats.MoveSpeed *= 1 + Math.Min(ProjectRulesConfig.Skill("agility").MaxRank, Math.Max(0, agilityRank)) * (float)ProjectRulesConfig.Skill("agility").EffectPerRank;
+            if (persistentBonuses != null)
+                foreach (ProjectAttributeValue bonus in persistentBonuses) Apply(stats, bonus);
             stats.MaxHealth = Math.Min((float)ProjectRulesConfig.Profile.MaxAttributeValue, Math.Max(1, stats.MaxHealth));
             stats.Attack = Math.Min((float)ProjectRulesConfig.Profile.MaxAttributeValue, Math.Max(0, stats.Attack));
             stats.Defense = Math.Min((float)ProjectRulesConfig.Profile.MaxAttributeValue, Math.Max(0, stats.Defense));
@@ -507,6 +538,8 @@ namespace GameLogic.Project
                 item.BonusHealth < 0 || item.BonusHealth > MaxAttributeValue ||
                 !Enum.IsDefined(typeof(ProjectItemType), item.Type) || !FiniteNonNegative(item.Damage) ||
                 item.Damage > MaxAttributeValue || !FiniteNonNegative(item.Range) || item.Range > MaxAttackRange) return "物品基础字段无效。";
+            if (item.Type == ProjectItemType.Collection) return ProjectCollectionRules.ValidateItem(item);
+            if (!string.IsNullOrEmpty(item.CollectionId)) return "非收藏物品不能携带收藏身份。";
             if (item.EquipmentVersion == 0)
             {
                 if (item.Quality != ProjectItemQuality.Common || item.Type == ProjectItemType.Armor ||

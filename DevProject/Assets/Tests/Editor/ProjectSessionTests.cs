@@ -1,11 +1,13 @@
 using System;
+using System.Collections.Generic;
 using GameLogic.Project;
 using NUnit.Framework;
+using UnityEngine;
 
 namespace ProjectExtraction.Tests
 {
     /// <summary>
-    /// 验证单局托管回退与保存修订号屏障。
+        /// 验证历史数据补偿、活动局保护与保存修订号屏障。
     /// </summary>
     public sealed class ProjectSessionTests
     {
@@ -23,10 +25,10 @@ namespace ProjectExtraction.Tests
         }
 
         /// <summary>
-        /// 异常回退只退原入场资源，不能重复退款，也不把未结算战利品写入仓库。
+        /// 历史旧局补偿只退原入场资源，不能重复退款或补造未结算战利品。
         /// </summary>
         [Test]
-        public void InterruptedRunRefundsOriginalEntryOnlyOnce()
+        public void LegacyInterruptedRunRefundsOriginalEntryOnlyOnce()
         {
             ProjectSaveData committed = ProjectSaveData.CreateDefault();
             ProjectItem original = committed.Warehouse[0].Copy();
@@ -59,10 +61,10 @@ namespace ProjectExtraction.Tests
         }
 
         /// <summary>
-        /// 旧存档没有记录扣费字段时，按原型入场费用回退。
+        /// 历史旧局没有记录扣费字段时，按冻结的旧版入场费用补偿。
         /// </summary>
         [Test]
-        public void LegacyActiveRunUsesPrototypeEntryCost()
+        public void LegacyActiveRunUsesFrozenLegacyEntryCost()
         {
             ProjectSaveData candidate = ProjectSaveData.CreateDefault();
             candidate.Warehouse.Clear();
@@ -71,8 +73,49 @@ namespace ProjectExtraction.Tests
             candidate.Stage = ProjectRunStage.Running;
             candidate.Stamina = 80;
             Assert.IsTrue(ProjectProfileRules.TryRecoverInterruptedRun(candidate, ""));
-            Assert.AreEqual(80 + PrototypeRules.EntryCost, candidate.Stamina);
+            Assert.AreEqual(80 + PrototypeRules.LegacyEntryCost, candidate.Stamina);
             Assert.IsNull(ProjectSaveData.Validate(candidate));
+        }
+
+        /// <summary>
+        /// v2 已运行局必须恢复原身份，不能通过中断补偿退体力或携入装备。
+        /// </summary>
+        [Test]
+        public void V2RunningRunCannotRefundOrClearItsIdentity()
+        {
+            ProjectSaveData data = ProjectSaveData.CreateDefault();
+            int stamina = data.Stamina;
+            var entry = new List<ProjectItem> { data.Warehouse[0].Copy() };
+            Assert.That(ProjectRunRecordRules.TryAdmit(data, "v2-running", 1, 19, entry, out string error), Is.True, error);
+            Assert.That(data.ActiveRunVersion, Is.EqualTo(2));
+            Assert.That(ProjectRunRecordRules.TryMarkRunning(data, "v2-running", out error), Is.True, error);
+            string running = JsonUtility.ToJson(data);
+            Assert.That(ProjectProfileRules.TryRecoverInterruptedRun(data, "运行日志恢复失败"), Is.False);
+            Assert.That(JsonUtility.ToJson(data), Is.EqualTo(running));
+            Assert.That(data.Stamina, Is.EqualTo(stamina - PrototypeRules.EntryCost));
+            Assert.That(ProjectRunRecordRules.TryAdmit(data, "new-run", 1, 20, entry, out error), Is.False);
+            Assert.That(JsonUtility.ToJson(data), Is.EqualTo(running));
+        }
+
+        /// <summary>
+        /// 尚未运行的新准入局可补偿一次，清理版本字段并保持原提交副本。
+        /// </summary>
+        [Test]
+        public void V2AdmittedCancellationCompensatesExactlyOnce()
+        {
+            ProjectSaveData data = ProjectSaveData.CreateDefault();
+            int stamina = data.Stamina;
+            string itemId = data.Warehouse[0].Id;
+            Assert.That(ProjectRunRecordRules.TryAdmit(data, "v2-admitted", 1, 21,
+                new[] { data.Warehouse[0].Copy() }, out string error), Is.True, error);
+            Assert.That(ProjectProfileRules.TryRecoverInterruptedRun(data, "取消首次入场"), Is.True);
+            Assert.That(data.Stamina, Is.EqualTo(stamina));
+            Assert.That(data.Warehouse.FindAll(item => item.Id == itemId).Count, Is.EqualTo(1));
+            Assert.That(data.ActiveRunVersion, Is.Zero);
+            Assert.That(data.Stage, Is.EqualTo(ProjectRunStage.None));
+            string compensated = JsonUtility.ToJson(data);
+            Assert.That(ProjectProfileRules.TryRecoverInterruptedRun(data, "重复取消"), Is.False);
+            Assert.That(JsonUtility.ToJson(data), Is.EqualTo(compensated));
         }
 
         /// <summary>
@@ -81,7 +124,7 @@ namespace ProjectExtraction.Tests
         [Test]
         public void EquipmentHealthBonusIsValidAndPersistedByCopy()
         {
-            var random = new Random(7);
+            var random = new System.Random(7);
             ProjectItem equipment = null;
             for (int i = 0; i < 20 && equipment == null; i++)
             {

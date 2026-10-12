@@ -1,4 +1,4 @@
-using System.Collections;
+﻿using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using Cysharp.Threading.Tasks;
@@ -23,8 +23,7 @@ namespace MiniGame.Tests
         public IEnumerator Inventory_EquipmentPreviewSafeCapacityAndPauseRemainConsistent() => UniTask.ToCoroutine(async () =>
         {
             await SetupAsync(new MemorySaveBackend());
-            using var scope = new LifetimeScope("InventoryIntegration");
-            ExpeditionVisualAssets assets = await ExpeditionVisualAssets.LoadAsync(scope, GameEntry.Get<IResourceModule>());
+
             var random = new System.Random(901);
             ProjectItem first = ProjectEquipmentRules.CreateEquipment(random, ProjectItemType.Weapon, 1, ProjectItemQuality.Common);
             ProjectItem next = ProjectEquipmentRules.CreateEquipment(random, ProjectItemType.Weapon, 1, ProjectItemQuality.Epic);
@@ -34,21 +33,20 @@ namespace MiniGame.Tests
             var items = new List<ProjectItem> { first, next, armor, locked };
             for (int index = 0; index <= PrototypeRules.SafeSlots; index++)
                 items.Add(ProjectEquipmentRules.CreateEquipment(random, ProjectItemType.Armor, 1, ProjectItemQuality.Common));
-            Assert.That(ExpeditionRun.TryCreate(ProjectServices.Session, "inventory-test", 1, 42, items, out ExpeditionRun run), Is.True);
-            using var ownedRun = run;
-            run.AttachScene(assets);
-            Assert.That(run.MarkReady() && run.Activate(), Is.True);
+            ExpeditionRun run = await StartWithEquipmentFixturesAsync(first, items.Skip(1).ToList());
+
             Assert.That(run.World.TryAddAttributeBonus(run.Player, CombatAttributeKind.Attack, 7), Is.True);
             Assert.That(run.TryOpenInventory(), Is.True);
             long tick = run.World.TickIndex;
             run.SetTouchMove(Vector2.right);
             run.Advance(1);
             Assert.That(run.World.TickIndex, Is.EqualTo(tick));
-            Assert.That(run.TryBeginRogueChoice("blocked-by-inventory"), Is.False);
+            Assert.That(run.CanAcceptPlayerInput, Is.False);
             Assert.That(run.TryPreviewEquipment(next, out var before, out var preview), Is.True);
             run.World.TryGetActor(run.Player, out var actorBefore);
             Assert.That(before.Attack, Is.EqualTo(actorBefore.Attack));
             Assert.That(run.TryEquip(next.Id), Is.True);
+            await WaitRunSavedAsync(run);
             run.World.TryGetActor(run.Player, out var actorAfter);
             Assert.That(actorAfter.Attack, Is.EqualTo(preview.Attack));
             Assert.That(run.Inventory.Single(item => item.Id == next.Id).Equipped, Is.True);
@@ -57,12 +55,18 @@ namespace MiniGame.Tests
             Assert.That(run.Inventory.Single(item => item.Id == next.Id).Equipped, Is.True);
             Assert.That(run.ToggleSafe(next.Id), Is.False, "穿戴中的装备不能放入安全箱。");
             Assert.That(run.TryEquip(armor.Id), Is.True);
+            await WaitRunSavedAsync(run);
             run.World.TryGetActor(run.Player, out var armored);
             Assert.That(armored.Health, Is.EqualTo(actorAfter.Health), "提高上限不能凭空恢复生命。");
             Assert.That(armored.MaxHealth, Is.GreaterThan(actorAfter.MaxHealth));
             Assert.That(run.ToggleSafe(first.Id), Is.True);
+            await WaitRunSavedAsync(run);
             Assert.That(run.TryEquip(first.Id), Is.False, "安全箱中的装备需要先取出。");
-            foreach (ProjectItem item in items.Skip(4).Take(run.SafeCapacity - 1)) Assert.That(run.ToggleSafe(item.Id), Is.True);
+            foreach (ProjectItem item in items.Skip(4).Take(run.SafeCapacity - 1))
+            {
+                Assert.That(run.ToggleSafe(item.Id), Is.True);
+                await WaitRunSavedAsync(run);
+            }
             Assert.That(run.ToggleSafe(items.Last().Id), Is.False);
             Assert.That(run.SafeCount, Is.EqualTo(run.SafeCapacity));
             ProjectItem snapshot = run.Inventory.Single(item => item.Id == next.Id);
@@ -79,11 +83,9 @@ namespace MiniGame.Tests
             run.SetPaused(false);
             run.Advance(CombatWorld.TickSeconds);
             Assert.That(run.World.TickIndex, Is.EqualTo(tick + 1));
-            Assert.That(run.TryBeginRogueChoice("after-inventory"), Is.True);
-            Assert.That(run.TryOpenInventory(), Is.False);
-            run.ClosePanel(ExpeditionPanelKind.Inventory);
-            run.Advance(1);
-            Assert.That(run.World.TickIndex, Is.EqualTo(tick + 1), "旧面板关闭不能结束三选一暂停。");
+            await WaitRunSavedAsync(run);
+            Assert.That(run.TryBeginRogueChoice("after-inventory"), Is.False, "任意来源不能伪造击杀资格。");
+            Assert.That(run.CanAcceptPlayerInput, Is.True);
         });
 
         /// <summary>
@@ -138,12 +140,7 @@ namespace MiniGame.Tests
             Assert.That(await ProjectServices.Coordinator.StartRunAsync(1), Is.True);
             ExpeditionRun run = ProjectServices.Session.CurrentRun;
             int balance = ProjectServices.Session.Gold;
-            LevelRoomState room = run.Maps.Rooms.Single(value => value.Type == LevelRoomType.Npc);
-            MoveToRoom(run, room.RoomId);
-            var geometry = room.Plan.Definition.Layout;
-            Assert.That(run.World.TrySetPosition(run.Player, new Vector3((float)geometry.NpcX, 0, (float)geometry.NpcZ)), Is.True);
-            run.RequestInteraction();
-            run.Advance(CombatWorld.TickSeconds);
+            await OpenRegionMerchantAsync(run);
             IUIModule ui = GameEntry.Get<IUIModule>();
             for (int frame = 0; frame < 60 && !ui.OpenedWindows.Any(window => window.Id == ProjectServices.ExpeditionMerchantWindow); frame++)
                 await UniTask.Yield();

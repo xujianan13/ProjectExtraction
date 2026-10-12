@@ -6,7 +6,7 @@ using Cysharp.Threading.Tasks;
 namespace GameFramework
 {
     /// <summary>
-    /// 仅供测试使用的进程内存存档后端。
+    /// 用于测试与临时玩法联调的进程内存存档后端，实例销毁后不保留记录。
     /// </summary>
     public sealed class MemorySaveBackend : ISaveBackend
     {

@@ -36,19 +36,34 @@ namespace GameLogic.Project
         }
 
         /// <summary>
-        /// 先持久化入场，再加载场景；返回时仍未开放模拟。
+        /// 新局先固化完整基线再扣费，恢复局接续原身份和完整状态；返回时仍未开放模拟。
         /// </summary>
         /// <param name="ct">框架加载取消令牌。</param>
         /// <returns>内容和 HUD 就绪后的加载任务。</returns>
         public async UniTask EnterAsync(CancellationToken ct)
         {
             ct.ThrowIfCancellationRequested();
-            if (!session.TryPrepareRun(runId, levelId, out ExpeditionRun created, out string error))
-                throw new InvalidOperationException(error);
+            ExpeditionRun created;
+            string error;
+            bool restored = session.ActiveRunId == runId && session.ActiveRunVersion == 2;
+            if (restored)
+            {
+                ProjectRunSnapshotReadResult saved = await session.ReadRunSnapshotAsync(runId);
+                if (!saved.Success || saved.Missing || saved.Snapshot.LevelId != levelId)
+                    throw new InvalidOperationException(saved.Error ?? "原单局完整状态缺失或关卡身份不匹配。");
+                if (!ExpeditionRun.TryRestore(session, saved.Snapshot, out created, out error)) throw new InvalidOperationException(error);
+            }
+            else if (!session.TryPrepareRun(runId, levelId, out created, out error)) throw new InvalidOperationException(error);
             Run = created;
             session.BindRun(created);
-            if (!await coordinator.SaveBarrierAsync(() => session.AdmitAsync(created), ProjectRunPhase.AdmissionSaving))
-                throw new OperationCanceledException(ct);
+            if (!restored)
+            {
+                if (!await coordinator.SaveRunBoundaryAsync(created, ProjectRunPhase.AdmissionSaving)) throw new OperationCanceledException(ct);
+                ct.ThrowIfCancellationRequested();
+                if (!await coordinator.SaveBarrierAsync(() => session.AdmitAsync(created), ProjectRunPhase.AdmissionSaving))
+                    throw new OperationCanceledException(ct);
+                coordinator.MarkNewAdmission(runId);
+            }
             ct.ThrowIfCancellationRequested();
             coordinator.SetPhase(ProjectRunPhase.LoadingExpedition, "正在加载地图、角色和战斗界面。");
             long operationId = coordinator.OperationId;

@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Threading;
 using UnityEngine;
+using GameLogic.Project;
 
 namespace GameLogic.Gameplay.Combat
 {
@@ -14,6 +15,7 @@ namespace GameLogic.Gameplay.Combat
         {
             public int Generation = 1;
             public bool Alive;
+            public long PersistentKey;
         }
 
         private sealed class ActorComponent
@@ -162,7 +164,7 @@ namespace GameLogic.Gameplay.Combat
         private static int nextWorldId;
         private readonly int worldId;
         private readonly CombatCatalog catalog;
-        private readonly System.Random random;
+        private PersistentRandom random;
         private readonly List<EntitySlot> slots = new List<EntitySlot> { new EntitySlot() };
         private readonly Stack<int> freeIds = new Stack<int>();
         private readonly Dictionary<int, ActorComponent> actors = new Dictionary<int, ActorComponent>();
@@ -187,6 +189,9 @@ namespace GameLogic.Gameplay.Combat
         private int activeRoomId;
         private int playerId;
         private bool faulted;
+        private bool stepping;
+        private long nextPersistentKey;
+        private int highestActorId;
 
         public const float TickSeconds = 1f / 60f;
         public long TickIndex { get; private set; }
@@ -202,7 +207,7 @@ namespace GameLogic.Gameplay.Combat
         public CombatWorld(CombatCatalog catalog, int randomSeed = 0)
         {
             this.catalog = catalog ?? throw new ArgumentNullException(nameof(catalog));
-            random = new System.Random(randomSeed);
+            random = new PersistentRandom(randomSeed);
             worldId = Interlocked.Increment(ref nextWorldId);
         }
 
@@ -244,7 +249,7 @@ namespace GameLogic.Gameplay.Combat
         /// <summary>
         /// 在指定地图创建角色，不生成关卡内容。
         /// </summary>
-        /// <param name="spec">角色初始数据。</param>
+        /// <param name="spec">角色初始数据；ActorId 必须按本局全局递增，回收的生命编号不得复用。</param>
         /// <returns>有效实体引用；参数无效时返回默认值。</returns>
         public CombatEntityRef CreateActor(CombatActorSpec spec)
         {
@@ -267,14 +272,17 @@ namespace GameLogic.Gameplay.Combat
                         skill.MinDistance < 0f || skill.MinDistance > skill.MaxDistance ||
                         !catalog.Skills.ContainsKey(skill.SkillId)) return default;
             }
+            if (!ValidDamageVulnerabilities(spec.DamageVulnerabilities)) return default;
             spec.CriticalDamage = spec.CriticalDamage == 0f ? 1.5f : Mathf.Max(1f, spec.CriticalDamage);
             spec.DodgeChance = Mathf.Min(0.75f, spec.DodgeChance);
             spec.DamageReduction = Mathf.Min(0.75f, spec.DamageReduction);
+            if (spec.ActorId <= highestActorId) return default;
             foreach (var actor in actors.Values)
                 if (actor.Spec.ActorId == spec.ActorId) return default;
             var entity = Allocate();
-            if (spec.EnemySkills != null) spec.EnemySkills = (CombatEnemySkillDefinition[])spec.EnemySkills.Clone();
+            spec = CopySpec(spec);
             actors.Add(entity.Id, new ActorComponent { Spec = spec, BaseSpec = spec, Position = spec.Position, Health = spec.MaxHealth });
+            highestActorId = spec.ActorId;
             if (spec.IsPlayer) playerId = entity.Id;
             if (activeRoomId == 0) activeRoomId = spec.RoomId;
             return entity;
@@ -391,20 +399,22 @@ namespace GameLogic.Gameplay.Combat
         public void Step()
         {
             if (faulted || activeRoomId == 0) return;
+            stepping = true;
             TickIndex++;
             remainingEffectBudget = 4096;
             roomTicks[activeRoomId] = GetRoomTick(activeRoomId) + 1;
             ExpireBuffsAndCooldowns();
-            if (!DrainEffects()) return;
+            if (!DrainEffects()) { stepping = false; return; }
             MoveActorsAndDisplacements();
             MoveProjectiles();
-            if (!DrainEffects()) return;
+            if (!DrainEffects()) { stepping = false; return; }
             PulseBuffs();
-            if (!DrainEffects()) return;
+            if (!DrainEffects()) { stepping = false; return; }
             AutoCombat();
             AdvanceCasts();
-            if (!DrainEffects()) return;
+            if (!DrainEffects()) { stepping = false; return; }
             PublishDeathsAndCleanup();
+            stepping = false;
         }
 
         /// <summary>
@@ -480,7 +490,7 @@ namespace GameLogic.Gameplay.Combat
             destination.Clear();
             ids.Clear();
             ids.AddRange(actors.Keys);
-            ids.Sort();
+            SortEntityIds(ids);
             foreach (var id in ids) destination.Add(MakeSnapshot(id, actors[id]));
             return destination.Count;
         }
@@ -508,6 +518,7 @@ namespace GameLogic.Gameplay.Combat
             var id = freeIds.Count > 0 ? freeIds.Pop() : slots.Count;
             if (id == slots.Count) slots.Add(new EntitySlot());
             slots[id].Alive = true;
+            slots[id].PersistentKey = ++nextPersistentKey;
             return new CombatEntityRef(worldId, id, slots[id].Generation);
         }
 

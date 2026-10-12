@@ -13,6 +13,7 @@ MonoBehaviour:
   m_Name: HotUpdateBootSettings
   m_EditorClassIdentifier: 
   playMode: 0
+  saveBackendMode: 4
   channel: default
   defaultHostServer: 
   fallbackHostServer: 

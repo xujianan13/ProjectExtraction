@@ -192,7 +192,27 @@ namespace GameFramework
         /// <param name="levelId">目标关卡标识。</param>
         /// <param name="ct">取消令牌。</param>
         /// <returns>是否成功进入关卡。</returns>
-        public async UniTask<bool> StartLevelAsync(int levelId, CancellationToken ct = default)
+        public UniTask<bool> StartLevelAsync(int levelId, CancellationToken ct = default) =>
+            EnterLevelAsync(levelId, Guid.NewGuid().ToString("N"), ct);
+
+        /// <summary>
+        /// 从菜单接续已保存的单局身份，具体状态恢复由关卡工厂负责。
+        /// </summary>
+        /// <param name="levelId">已保存的关卡标识。</param>
+        /// <param name="roundId">已经持久化的原单局标识。</param>
+        /// <param name="ct">取消令牌。</param>
+        /// <returns>原单局是否成功进入。</returns>
+        public UniTask<bool> RestoreLevelAsync(int levelId, string roundId, CancellationToken ct = default) =>
+            string.IsNullOrWhiteSpace(roundId) ? UniTask.FromResult(false) : EnterLevelAsync(levelId, roundId, ct);
+
+        /// <summary>
+        /// 以确定身份进入关卡并复用唯一的加载和资源退出流程。
+        /// </summary>
+        /// <param name="levelId">目标关卡标识。</param>
+        /// <param name="roundId">本次创建或恢复的单局标识。</param>
+        /// <param name="ct">取消令牌。</param>
+        /// <returns>是否成功进入关卡。</returns>
+        private async UniTask<bool> EnterLevelAsync(int levelId, string roundId, CancellationToken ct)
         {
             if (_closing || _busy || State != GameRoundState.Menu || ct.IsCancellationRequested) return false;
             try { if (!_factory.ContainsLevel(levelId)) return false; }
@@ -203,7 +223,7 @@ namespace GameFramework
             }
             Begin(ct);
             CurrentLevelId = levelId;
-            CurrentRoundId = Guid.NewGuid().ToString("N");
+            CurrentRoundId = roundId;
             Result = null;
             _saved = false;
             _sessionExited = false;

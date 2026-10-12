@@ -8,9 +8,12 @@ using Cysharp.Threading.Tasks;
 using GameFramework;
 using GameLogic;
 using GameLogic.Gameplay.Combat;
+using GameLogic.Gameplay.Level;
 using GameLogic.Project;
 using GameLogic.UI.Home;
 using NUnit.Framework;
+using ProjectExtraction.Tests.Shared;
+using UnityEditor;
 using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.InputSystem;
@@ -30,6 +33,53 @@ namespace MiniGame.Tests
         private bool started;
         private InputSettings previousInputSettings;
         private InputSettings testInputSettings;
+
+        /// <summary>
+        /// 真实宿主按项目配置使用内存后端，重启后不保留上次已确认的玩家偏好。
+        /// </summary>
+        /// <returns>两次真实启动与内存会话隔离的逐帧验证。</returns>
+        [UnityTest]
+        public IEnumerator MainScene_MemorySaveBackendResetsPreferencesOnRestart() => UniTask.ToCoroutine(async () =>
+        {
+            ScriptableObject bootSettings = Resources.Load<ScriptableObject>("HotUpdateBootSettings");
+            Assert.That(bootSettings, Is.Not.Null);
+            using var serializedSettings = new SerializedObject(bootSettings);
+            SerializedProperty backendMode = serializedSettings.FindProperty("saveBackendMode");
+            Assert.That(backendMode, Is.Not.Null);
+            Assert.That(backendMode.intValue, Is.EqualTo(4), "真实启动测试只允许项目内存后端配置，禁止接触磁盘存档。");
+            Assert.That(backendMode.enumNames[backendMode.enumValueIndex], Is.EqualTo("Memory"));
+            string firstStorageIdentity = null;
+            for (int launch = 0; launch < 2; launch++)
+            {
+                GameEntry.StopFramework();
+                Assert.That(GameEntry.HasHost, Is.False, "测试开始时不得存在其他框架宿主。");
+                GameEntry.Register<ISaveModule>(new SaveModule());
+                previousInputSettings = InputSystem.settings;
+                testInputSettings = UnityEngine.Object.Instantiate(previousInputSettings);
+                testInputSettings.backgroundBehavior = InputSettings.BackgroundBehavior.IgnoreFocus;
+                testInputSettings.editorInputBehaviorInPlayMode = InputSettings.EditorInputBehaviorInPlayMode.AllDeviceInputAlwaysGoesToGameView;
+                InputSystem.settings = testInputSettings;
+                started = true;
+                await SceneManager.LoadSceneAsync("Main", LoadSceneMode.Single);
+                await WaitAsync(() => GameMain.IsReady && ProjectServices.Coordinator?.CanStart == true &&
+                    !SceneManager.GetSceneByName("Loading").isLoaded, "内存会话启动未进入可出战的主界面。");
+                ISaveBackend backend = GameEntry.Get<ISaveModule>().Backend;
+                Assert.That(backend, Is.TypeOf<MemorySaveBackend>());
+                ProjectSession session = ProjectServices.Session;
+                Assert.That(session.Preferences.MusicVolume, Is.EqualTo(1f), "新内存会话不得读取上一次启动的偏好。");
+                if (launch == 0)
+                {
+                    firstStorageIdentity = backend.StorageIdentity;
+                    ProjectPreferences draft = session.Preferences;
+                    draft.MusicVolume = 0.3f;
+                    ProjectOperationResult saved = await session.UpdatePreferencesAsync(draft);
+                    Assert.That(saved.Success, Is.True, saved.Message);
+                    Assert.That(session.Preferences.MusicVolume, Is.EqualTo(0.3f));
+                    await TearDown().ToUniTask();
+                }
+                else Assert.That(backend.StorageIdentity, Is.Not.EqualTo(firstStorageIdentity));
+            }
+        });
 
         /// <summary>
         /// 加载实际启动场景，通过主界面出战，并验证真实输入、自动攻击和死亡返场。
@@ -78,7 +128,7 @@ namespace MiniGame.Tests
                 ProjectServices.Coordinator.Phase == ProjectRunPhase.Playing, "出战按钮未进入运行中的关卡。");
             var run = ProjectServices.Session.CurrentRun;
             Assert.That(run.IsReady, Is.True);
-            Assert.That(run.RoomView, Is.Not.Null);
+            Assert.That(run.RegionView, Is.Not.Null);
             Assert.That(ProjectServices.Session.Stamina, Is.EqualTo(stamina - PrototypeRules.EntryCost));
             Assert.That(ui.OpenedWindows.Any(window => window.Id == ProjectServices.BattleHudWindow), Is.True);
             Assert.That(run.World.TryGetActor(run.Player, out CombatActorSnapshot before), Is.True);
@@ -92,23 +142,19 @@ namespace MiniGame.Tests
             InputSystem.Update();
             await UniTask.Yield();
             Assert.That(run.World.TryGetActor(run.Player, out CombatActorSnapshot player), Is.True);
-            CombatEntityRef enemy = run.World.CreateActor(new CombatActorSpec
-            {
-                ActorId = 900001, RoomId = run.CurrentRoom.RoomId, Team = 2, Position = player.Position + Vector3.forward,
-                MaxHealth = 1000, Radius = 0.3f, MoveSpeed = 0, AttackRange = 0, AggroRange = 0
-            });
-            Assert.That(enemy.Id, Is.Not.Zero);
-            await WaitAsync(() => run.World.TryGetActor(enemy, out CombatActorSnapshot target) && target.Health < 1000,
+            RegionSpawnSlotState slot = run.CurrentRegion.Slots.First(value => value.Phase == RegionSpawnPhase.Alive);
+            Assert.That(run.World.TryFindActor(slot.CurrentActorId, out CombatEntityRef enemy), Is.True);
+            Assert.That(run.World.TryAddAttributeBonus(enemy, CombatAttributeKind.MaxHealth, 1000), Is.True);
+            Assert.That(run.World.TryGetActor(enemy, out CombatActorSnapshot enemyBefore), Is.True);
+            Assert.That(CombatTestPositioning.TryPlaceAdjacent(run.World, run.Player, enemy), Is.True);
+            await WaitAsync(() => run.World.TryGetActor(enemy, out CombatActorSnapshot target) && target.Health < enemyBefore.Health,
                 "正常玩法更新未触发范围内自动攻击伤害。", 5f);
             Assert.That(run.World.TickIndex, Is.GreaterThan(0));
             Assert.That(run.IsRunning, Is.True);
             Assert.That(run.World.TryGetActor(run.Player, out player), Is.True);
-            CombatEntityRef killer = run.World.CreateActor(new CombatActorSpec
-            {
-                ActorId = 900002, RoomId = run.CurrentRoom.RoomId, Team = 2, Position = player.Position + Vector3.back * 1.1f,
-                MaxHealth = 100000, Attack = 10000, Radius = 0.3f, MoveSpeed = 0, AttackRange = 2, AggroRange = 10, BasicSkillId = 2
-            });
-            Assert.That(killer.Id, Is.Not.Zero);
+            Assert.That(run.World.TryAddAttributeBonus(enemy, CombatAttributeKind.Attack, 100000), Is.True);
+            Assert.That(run.World.TryAddAttributeBonus(enemy, CombatAttributeKind.Defense, 100000), Is.True);
+            Assert.That(CombatTestPositioning.TryPlaceAdjacent(run.World, run.Player, enemy), Is.True);
             await WaitAsync(() => run.IsPresentingDeath, "真实宿主未启动死亡收尾。", 5f);
             long finalTick = run.World.TickIndex;
             Assert.That(run.IsRunning, Is.False);

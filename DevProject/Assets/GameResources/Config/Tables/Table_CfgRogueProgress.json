@@ -1,0 +1,11 @@
+{
+  "schemaHash": "e0158fc7609c5ec17b21e1ab544e7a53a745f8a3ce6155ee3e5a102a89fd495c",
+  "rows": [
+    {
+      "ID": 1,
+      "NormalContribution": 1,
+      "EliteContribution": 5,
+      "Threshold": 20
+    }
+  ]
+}

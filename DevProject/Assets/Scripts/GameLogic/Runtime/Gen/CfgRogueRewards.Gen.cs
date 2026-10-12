@@ -44,11 +44,6 @@ namespace GameLogic.Tables
         public double Amount;
 
         /// <summary>
-        /// LootType 字段。
-        /// </summary>
-        public int LootType;
-
-        /// <summary>
         /// Weight 字段。
         /// </summary>
         public int Weight;
@@ -113,7 +108,7 @@ namespace GameLogic.Tables
                 TextAsset asset = lease.Asset;
                 if (asset == null) throw new InvalidOperationException("配置表资源不可用：CfgRogueRewards");
                 var envelope = JsonUtility.FromJson(asset.text, typeof(Envelope)) as Envelope;
-                if (envelope == null || envelope.schemaHash != "f659aac90f790a1d174bd75751f777e65d4910f18454b7e25b9c74cf39294ba2" || envelope.rows == null)
+                if (envelope == null || envelope.schemaHash != "c9d2fba4ea410aca250123e058a6e6a0770eab46aa7c783d3746fa3151bc12f5" || envelope.rows == null)
                     throw new InvalidOperationException("配置表结构不匹配：CfgRogueRewards");
 
                 var table = new CfgRogueRewardsTable();

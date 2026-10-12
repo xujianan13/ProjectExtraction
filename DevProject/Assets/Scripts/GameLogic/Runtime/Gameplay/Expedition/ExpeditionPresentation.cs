@@ -21,8 +21,11 @@ namespace GameLogic.Gameplay.Expedition
         private readonly Dictionary<int, GameObject> actors = new();
         private readonly Dictionary<int, CombatCharacterAnimation> animations = new();
         private readonly HashSet<int> visibleActors = new();
-        private GameObject ambientRoom;
-        private AnimatorPlayback ambientAnimation;
+        private readonly List<int> staleActors = new();
+        private int presentedRegionId = -1;
+        private readonly Dictionary<string, GameObject> regionObjects = new();
+        private readonly List<AnimatorPlayback> ambientAnimations = new();
+        private readonly Dictionary<string, GameObject> warnings = new();
         private readonly Dictionary<string, GameObject> loot = new();
         private readonly List<CombatActorSnapshot> snapshots = new();
         private readonly Dictionary<CombatEntityRef, GameObject> projectiles = new();
@@ -74,7 +77,6 @@ namespace GameLogic.Gameplay.Expedition
             feedback = new CombatFeedbackView(root.transform, camera, assets.Feedback);
             feedbackAudio = new CombatFeedbackAudio();
             run.CombatEventPublished += PresentEvent;
-            Refresh();
         }
 
         /// <summary>
@@ -83,22 +85,27 @@ namespace GameLogic.Gameplay.Expedition
         public void Refresh()
         {
             if (disposed) return;
+            if (run.IsSavingRun)
+            {
+                feedbackAudio.Refresh(true, run.CurrentRegion.Plan.Request.RegionId);
+                return;
+            }
             visibleActors.Clear();
             run.World.GetActorsSnapshot(snapshots);
             foreach (CombatActorSnapshot snapshot in snapshots)
             {
-                if (snapshot.RoomId != run.Maps.CurrentRoomId || !run.World.TryGetAnimationSnapshot(snapshot.Entity, out var motion)) continue;
+                if (snapshot.RoomId != run.CurrentRegion.Plan.Request.RegionId || !run.World.TryGetAnimationSnapshot(snapshot.Entity, out var motion)) continue;
                 if (snapshot.Dead && snapshot.ActorId != 1 && motion.DeathElapsedTicks * CombatWorld.TickSeconds +
                     run.DeathPresentationElapsed >= CombatCharacterAnimation.DeathDurationTicks * CombatWorld.TickSeconds) continue;
                 if (!actors.TryGetValue(snapshot.ActorId, out GameObject actor))
                 {
                     bool isPlayer = snapshot.ActorId == 1;
                     run.TryGetEnemyDefinition(snapshot.ActorId, out EnemyDefinition enemy);
-                    GameObject prefab = isPlayer ? assets.Player : enemy != null ? assets.GetEnemy(enemy.ID) : assets.Enemy;
+                    GameObject prefab = isPlayer ? assets.Player : assets.GetEnemy(enemy.ID);
                     actor = CreateModel("Actor_" + snapshot.ActorId, prefab);
                     var player = ProjectContentConfig.Player;
                     actor.transform.localScale = isPlayer ? new Vector3((float)player.ScaleX, (float)player.ScaleY, (float)player.ScaleZ) :
-                        enemy != null ? enemy.ModelScale : Vector3.one;
+                        enemy.ModelScale;
                     actors.Add(snapshot.ActorId, actor);
                     animations.Add(snapshot.ActorId, new CombatCharacterAnimation(actor));
                 }
@@ -112,13 +119,20 @@ namespace GameLogic.Gameplay.Expedition
                     camera.orthographicSize = Mathf.Max(10, 7 / Mathf.Max(0.4f, camera.aspect));
                 }
             }
-            foreach (var pair in actors)
-                if (!visibleActors.Contains(pair.Key) && pair.Value.activeSelf) pair.Value.SetActive(false);
-            RefreshAmbientAnimation();
+            staleActors.Clear();
+            foreach (var pair in actors) if (!visibleActors.Contains(pair.Key)) staleActors.Add(pair.Key);
+            foreach (int actorId in staleActors)
+            {
+                animations[actorId].Dispose();
+                animations.Remove(actorId);
+                ReleaseObject(actors[actorId]);
+                actors.Remove(actorId);
+            }
+            RefreshRegionObjects();
             foreach (GameObject item in loot.Values) item.SetActive(false);
             foreach (ExpeditionDrop drop in run.Drops)
             {
-                if (drop.RoomId != run.Maps.CurrentRoomId || drop.Collected) continue;
+                if (drop.RoomId != run.CurrentRegion.Plan.Request.RegionId || drop.Collected) continue;
                 if (!loot.TryGetValue(drop.Item.Id, out GameObject item))
                 {
                     item = CreateModel("Loot_" + drop.Item.Id, assets.Loot);
@@ -133,8 +147,8 @@ namespace GameLogic.Gameplay.Expedition
             }
             RefreshProjectiles();
             RefreshCues();
-            feedback.Refresh(run.World, run.Maps.CurrentRoomId, actors, run.PresentationSeconds);
-            feedbackAudio.Refresh(run.FeedbackPaused, run.Maps.CurrentRoomId);
+            feedback.Refresh(run.World, run.CurrentRegion.Plan.Request.RegionId, actors, run.PresentationSeconds);
+            feedbackAudio.Refresh(run.FeedbackPaused, run.CurrentRegion.Plan.Request.RegionId);
         }
 
         /// <summary>
@@ -149,9 +163,10 @@ namespace GameLogic.Gameplay.Expedition
             feedbackAudio.Dispose();
             foreach (CombatCharacterAnimation animation in animations.Values) animation.Dispose();
             animations.Clear();
-            ambientAnimation?.Dispose();
-            ambientAnimation = null;
-            ambientRoom = null;
+            foreach (AnimatorPlayback animation in ambientAnimations) animation.Dispose();
+            ambientAnimations.Clear();
+            regionObjects.Clear();
+            warnings.Clear();
             ReleaseObject(root);
             actors.Clear();
             loot.Clear();
@@ -160,22 +175,105 @@ namespace GameLogic.Gameplay.Expedition
         }
 
         /// <summary>
-        /// 用通用播放器驱动房间内 NPC 的待机，使三选一暂停时环境角色也同步冻结。
+        /// 从当前冻结计划建立箱子、商人和入口出口，切区后释放上一组对象。
         /// </summary>
-        private void RefreshAmbientAnimation()
+        private void RefreshRegionObjects()
         {
-            GameObject room = run.RoomView?.Root;
-            if (ambientRoom != room)
+            RegionRuntimeState region = run.CurrentRegion;
+            RegionPlan plan = region.Plan;
+            if (presentedRegionId != plan.Request.RegionId)
             {
-                ambientAnimation?.Dispose();
-                ambientAnimation = null;
-                ambientRoom = room;
-                Animator npc = room != null ? room.GetComponentInChildren<Animator>() : null;
-                if (npc != null) ambientAnimation = new AnimatorPlayback(npc);
+                foreach (AnimatorPlayback animation in ambientAnimations) animation.Dispose();
+                ambientAnimations.Clear();
+                foreach (GameObject instance in regionObjects.Values) ReleaseObject(instance);
+                foreach (GameObject warning in warnings.Values) ReleaseObject(warning);
+                regionObjects.Clear();
+                warnings.Clear();
+                presentedRegionId = plan.Request.RegionId;
+                foreach (RegionChestPlan chest in plan.Chests)
+                {
+                    GameObject instance = CreateModel("Chest_" + chest.Id, assets.Chest);
+                    instance.transform.position = chest.Position + Vector3.up * 0.5f;
+                    regionObjects.Add(chest.Id, instance);
+                }
+                foreach (RegionNpcPlan npc in plan.Npcs)
+                {
+                    GameObject instance = CreateModel("Npc_" + npc.Id, assets.Npc);
+                    instance.transform.position = npc.Position + Vector3.up;
+                    regionObjects.Add(npc.Id, instance);
+                    ambientAnimations.Add(new AnimatorPlayback(instance.GetComponent<Animator>()));
+                }
+                regionObjects.Add("entry", CreateRing("Entry", plan.EntryPosition, plan.InteractionRadius, new Color(0.2f, 0.8f, 1f)));
+                regionObjects.Add("exit", CreateRing("Exit", plan.ExitPosition, plan.InteractionRadius, new Color(0.5f, 0.5f, 0.5f)));
             }
+            foreach (RegionChestPlan chest in plan.Chests)
+            {
+                RegionChestState state = region.Chests.Find(value => value.Id == chest.Id);
+                GameObject instance = regionObjects[chest.Id];
+                ApplyTint(instance, state.Opened ? new Color(0.45f, 0.5f, 0.5f) : new Color(1f, 0.8f, 0.3f));
+                instance.transform.localScale = Vector3.one * (state.Opened ? 0.7f : 1f);
+            }
+            foreach (RegionNpcPlan npc in plan.Npcs)
+            {
+                RegionNpcState state = region.Npcs.Find(value => value.Id == npc.Id);
+                ApplyTint(regionObjects[npc.Id], state.SoldOfferIds.Count == npc.Offers.Count ? new Color(0.4f, 0.5f, 0.55f) : Color.white);
+            }
+            SetRingColor(regionObjects["exit"], region.ExitEnabled ? new Color(0.3f, 1f, 0.5f) : new Color(0.5f, 0.5f, 0.5f));
             var settings = GameTables.CfgCombatAnimationSettings.GetById(1);
-            ambientAnimation?.TrySample(settings.IdleState, Mathf.Repeat((float)(run.World.TickIndex * CombatWorld.TickSeconds) /
-                (float)settings.IdleSeconds, 1f));
+            float idlePhase = Mathf.Repeat((float)(run.World.TickIndex * CombatWorld.TickSeconds) / (float)settings.IdleSeconds, 1f);
+            foreach (AnimatorPlayback animation in ambientAnimations) animation.TrySample(settings.IdleState, idlePhase);
+            foreach (RegionSpawnSlotState slot in region.Slots)
+            {
+                bool visible = slot.Phase == RegionSpawnPhase.Warning || slot.Phase == RegionSpawnPhase.ReadyToSpawn;
+                if (visible && !warnings.TryGetValue(slot.SlotId, out GameObject warning))
+                {
+                    RegionSpawnSlotPlan definition = plan.SpawnSlots.Find(value => value.SlotId == slot.SlotId);
+                    warning = CreateRing("RespawnWarning", definition.HomePosition, definition.Radius * 2f, new Color(1f, 0.45f, 0.1f));
+                    warnings.Add(slot.SlotId, warning);
+                }
+                if (warnings.TryGetValue(slot.SlotId, out GameObject existing)) existing.SetActive(visible);
+            }
+        }
+
+        /// <summary>
+        /// 创建只负责提示的原生描边圈，不添加物理组件。
+        /// </summary>
+        /// <param name="name">提示名称。</param>
+        /// <param name="position">冻结业务位置。</param>
+        /// <param name="radius">提示范围。</param>
+        /// <param name="color">提示颜色。</param>
+        /// <returns>归属于表现根节点的提示对象。</returns>
+        private GameObject CreateRing(string name, Vector3 position, float radius, Color color)
+        {
+            var instance = new GameObject(name, typeof(LineRenderer));
+            instance.transform.SetParent(root.transform, false);
+            instance.transform.position = position + Vector3.up * 0.05f;
+            LineRenderer line = instance.GetComponent<LineRenderer>();
+            line.useWorldSpace = false;
+            line.loop = true;
+            line.positionCount = 32;
+            line.widthMultiplier = 0.1f;
+            line.sharedMaterial = assets.Loot.GetComponentInChildren<Renderer>().sharedMaterial;
+            for (int index = 0; index < line.positionCount; index++)
+            {
+                float angle = index * Mathf.PI * 2f / line.positionCount;
+                line.SetPosition(index, new Vector3(Mathf.Sin(angle) * radius, 0f, Mathf.Cos(angle) * radius));
+            }
+            SetRingColor(instance, color);
+            return instance;
+        }
+
+        /// <summary>
+        /// 更新提示描边颜色，不创建材质副本。
+        /// </summary>
+        /// <param name="instance">描边圈对象。</param>
+        /// <param name="color">目标颜色。</param>
+        private void SetRingColor(GameObject instance, Color color)
+        {
+            LineRenderer line = instance.GetComponent<LineRenderer>();
+            line.startColor = color;
+            line.endColor = color;
+            ApplyTint(instance, color);
         }
 
         /// <summary>
@@ -187,7 +285,7 @@ namespace GameLogic.Gameplay.Expedition
             visibleProjectiles.Clear();
             foreach (CombatProjectileSnapshot snapshot in projectileSnapshots)
             {
-                if (snapshot.RoomId != run.Maps.CurrentRoomId) continue;
+                if (snapshot.RoomId != run.CurrentRegion.Plan.Request.RegionId) continue;
                 visibleProjectiles.Add(snapshot.Entity);
                 if (!projectiles.TryGetValue(snapshot.Entity, out GameObject model))
                 {
@@ -214,10 +312,10 @@ namespace GameLogic.Gameplay.Expedition
         private void PresentEvent(CombatEvent fact)
         {
             if (disposed) return;
-            if (fact.RoomId == run.Maps.CurrentRoomId)
+            if (fact.RoomId == run.CurrentRegion.Plan.Request.RegionId)
             {
                 feedback.Present(fact);
-                feedbackAudio.Refresh(run.FeedbackPaused, run.Maps.CurrentRoomId);
+                feedbackAudio.Refresh(run.FeedbackPaused, run.CurrentRegion.Plan.Request.RegionId);
                 feedbackAudio.Present(fact);
             }
             if (fact.Kind == CombatEventKind.Death || fact.Kind == CombatEventKind.CastCancelled)
@@ -231,7 +329,7 @@ namespace GameLogic.Gameplay.Expedition
                 }
                 return;
             }
-            if (fact.RoomId != run.Maps.CurrentRoomId || fact.Kind != CombatEventKind.Cue) return;
+            if (fact.RoomId != run.CurrentRegion.Plan.Request.RegionId || fact.Kind != CombatEventKind.Cue) return;
             if (GameTables.CfgCombatAnimationCues.GetById(fact.DefinitionId)?.IsAttack != true) return;
             Vector3 direction = Vector3.forward;
             int duration = 0;
@@ -261,7 +359,7 @@ namespace GameLogic.Gameplay.Expedition
             {
                 CombatCueView cue = cues[index];
                 float progress = (run.World.TickIndex - cue.StartTick) / (float)cue.DurationTicks;
-                if (progress >= 1 || cue.RoomId != run.Maps.CurrentRoomId || !actors.TryGetValue(cue.ActorId, out GameObject actor) || !actor.activeSelf)
+                if (progress >= 1 || cue.RoomId != run.CurrentRegion.Plan.Request.RegionId || !actors.TryGetValue(cue.ActorId, out GameObject actor) || !actor.activeSelf)
                 {
                     ReleaseObject(cue.Object);
                     cues.RemoveAt(index);

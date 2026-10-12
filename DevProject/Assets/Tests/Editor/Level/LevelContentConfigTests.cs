@@ -1,194 +1,170 @@
 using System.Collections.Generic;
+using GameLogic.Gameplay.Combat;
 using GameLogic.Gameplay.Level;
+using GameLogic.Project;
 using GameLogic.Tables;
 using NUnit.Framework;
+using ProjectExtraction.Tests.Shared;
 
 namespace GameLogic.Tests.Editor.Level
 {
     /// <summary>
-    /// 验证关卡内容表的生成参数、敌人数值与无效内容门禁。
+    /// 验证 v2 区域请求、强度映射及跨表配置门禁。
     /// </summary>
     public sealed class LevelContentConfigTests
     {
         /// <summary>
-        /// 修改网格尺寸后，指定关卡生成对应数量且连通的房间。
+        /// 为每项测试安装独立的真实配置表。
+        /// </summary>
+        [SetUp]
+        public void LoadConfiguration() => TestGameTables.LoadAll();
+
+        /// <summary>
+        /// 恢复修改过的配置，避免影响其他程序集测试。
+        /// </summary>
+        [TearDown]
+        public void RestoreConfiguration() => TestGameTables.LoadAll();
+
+        /// <summary>
+        /// 开局请求完整保存区域 Boss 绑定与独立内容种子。
         /// </summary>
         [Test]
-        public void GridDimensionsDriveConnectedRoomCount()
+        public void RequestsFreezeBossMapAndIndependentSeeds()
         {
-            CfgLevelsRow row = GameTables.CfgLevels.GetById(2);
-            int originalWidth = row.GridWidth;
-            int originalHeight = row.GridHeight;
-            try
+            Assert.That(LevelContentConfig.TryGetLevel(2, out LevelDefinition level), Is.True);
+            Assert.That(LevelContentConfig.TryCreateRegionRequests("run", 17, level, out var first, out string error), Is.True, error);
+            Assert.That(LevelContentConfig.TryCreateRegionRequests("run", 17, level, out var second, out error), Is.True, error);
+            Assert.That(first.Count, Is.EqualTo(level.Row.RegionCount + 1));
+            for (int index = 0; index < first.Count; index++)
             {
-                row.GridWidth = 4;
-                row.GridHeight = 3;
-                Assert.That(LevelContentConfig.Validate(out string error), Is.True, error);
-                Assert.That(LevelContentConfig.TryGetLevel(row.ID, out LevelDefinition level), Is.True);
-                Assert.That(LevelGenerator.TryGenerate(17, level, out LevelRunState run), Is.True);
-                Assert.That(run.Rooms.Count, Is.EqualTo(12));
-                var reached = new HashSet<int> { run.StartRoomId };
-                var pending = new Queue<int>();
-                pending.Enqueue(run.StartRoomId);
-                while (pending.Count > 0)
-                {
-                    Assert.That(run.TryGetRoom(pending.Dequeue(), out LevelRoomState room), Is.True);
-                    foreach (int neighborId in room.Exits.Values) if (reached.Add(neighborId)) pending.Enqueue(neighborId);
-                }
-                Assert.That(reached.Count, Is.EqualTo(run.Rooms.Count));
+                RegionGenerationRequest request = first[index];
+                CfgBossesRow boss = GameTables.CfgBosses.GetById(request.BossDefinitionId);
+                Assert.That(request.RegionId, Is.EqualTo(index + 1));
+                Assert.That(request.RegionIndex, Is.EqualTo(index));
+                Assert.That(request.EnemyLevel, Is.EqualTo(level.LootLevel + index));
+                Assert.That(request.BossEnemyLevel, Is.EqualTo(request.EnemyLevel));
+                Assert.That(request.LootLevel, Is.EqualTo(level.LootLevel));
+                Assert.That(request.MapId, Is.EqualTo(boss.MapID));
+                Assert.That(request.BossEnemyId, Is.EqualTo(boss.EnemyID));
+                Assert.That(request.MapVersion, Is.EqualTo(GameTables.CfgRegionMaps.GetById(boss.MapID).Version));
+                Assert.That(request.ConfigVersion, Is.EqualTo(GameTables.CfgRunPersistence.GetById(1).ConfigVersion));
+                Assert.That(UnityEngine.JsonUtility.ToJson(request), Is.EqualTo(UnityEngine.JsonUtility.ToJson(second[index])));
+                Assert.That(new HashSet<int> { request.MonsterSeed, request.EliteSeed, request.ChestSeed, request.NpcSeed }.Count, Is.EqualTo(4));
             }
-            finally
-            {
-                row.GridWidth = originalWidth;
-                row.GridHeight = originalHeight;
-            }
+            Assert.That(GameTables.CfgBosses.GetById(first[first.Count - 1].BossDefinitionId).PoolID, Is.EqualTo(level.Row.FinalBossPoolID));
         }
 
         /// <summary>
-        /// 敌人攻击与击杀经验读取当前内容表数值。
+        /// 最终区域只包含 Boss，不生成普通、精英、宝箱和商人。
+        /// </summary>
+        [Test]
+        public void FinalRegionHasOnlyBossContent()
+        {
+            LevelContentConfig.TryGetLevel(1, out LevelDefinition level);
+            Assert.That(LevelContentConfig.TryCreateRegionRequests("run", 1, level, out var requests, out string error), Is.True, error);
+            RegionContentDefinition normal = LevelContentConfig.CreateRegionContent(requests[0]);
+            RegionContentDefinition final = LevelContentConfig.CreateRegionContent(requests[requests.Count - 1]);
+            CfgRegionContentRow content = GameTables.CfgRegionContent.GetById(level.Row.ContentID);
+            Assert.That(normal.MonsterGroupCount, Is.EqualTo(content.MonsterGroupCount));
+            Assert.That(normal.EliteCount, Is.EqualTo(content.EliteCount));
+            Assert.That(normal.ChestCount, Is.EqualTo(content.ChestCount));
+            Assert.That(normal.NpcCount, Is.EqualTo(content.NpcCount));
+            Assert.That(final.MonsterGroupCount + final.EliteCount + final.ChestCount + final.NpcCount, Is.Zero);
+            Assert.That(normal.NormalRespawn.DelayTicks,
+                Is.EqualTo((long)System.Math.Ceiling(GameTables.CfgRespawnRules.GetById(content.NormalRespawnID).DelaySeconds / CombatWorld.TickSeconds)));
+        }
+
+        /// <summary>
+        /// 敌人数值、角色和弱点直接读取新配置。
         /// </summary>
         [Test]
         public void EnemyValuesFollowTableChanges()
         {
             CfgEnemiesRow row = GameTables.CfgEnemies.GetById(1);
-            double originalAttack = row.Attack;
-            int originalExperience = row.ExperienceBase;
-            try
-            {
-                row.Attack = originalAttack + 5;
-                row.ExperienceBase = originalExperience + 100;
-                Assert.That(LevelContentConfig.TryGetEnemy(row.ID, out EnemyDefinition enemy), Is.True);
-                Assert.That(enemy.Row.Attack, Is.EqualTo(originalAttack + 5));
-                Assert.That(enemy.ExperienceAt(2), Is.EqualTo(originalExperience + 100 + row.ExperiencePerLevel * 2));
-            }
-            finally
-            {
-                row.Attack = originalAttack;
-                row.ExperienceBase = originalExperience;
-            }
+            row.Attack += 5;
+            row.ExperienceBase += 100;
+            Assert.That(LevelContentConfig.TryGetEnemy(row.ID, out EnemyDefinition enemy), Is.True);
+            Assert.That(enemy.Row.Attack, Is.EqualTo(row.Attack));
+            Assert.That(enemy.ExperienceAt(2), Is.EqualTo(row.ExperienceBase + row.ExperiencePerLevel * 2));
+            Assert.That(enemy.HealthAt(2), Is.EqualTo((float)(row.BaseHealth + row.HealthPerLevel * 2)));
+            Assert.That(enemy.Role, Is.EqualTo((RegionEnemyKind)row.Role));
+            Assert.That(enemy.CreateVulnerabilities().Length, Is.EqualTo(row.VulnerableEffectIDs.Length));
         }
 
         /// <summary>
-        /// 同房间刷怪点重叠时拒绝内容配置。
+        /// 局次身份或配置缺失时不产生部分请求。
+        /// </summary>
+        [Test]
+        public void RejectsInvalidRunIdentityAndMissingBossPool()
+        {
+            LevelContentConfig.TryGetLevel(1, out LevelDefinition level);
+            Assert.That(LevelContentConfig.TryCreateRegionRequests("", 1, level, out var requests, out _), Is.False);
+            Assert.That(requests, Is.Null);
+            level.Row.BossPoolID = "missing-pool";
+            Assert.That(LevelContentConfig.TryCreateRegionRequests("run", 1, level, out requests, out string error), Is.False);
+            Assert.That(requests, Is.Null);
+            Assert.That(error, Does.Contain("Boss 池"));
+        }
+
+        /// <summary>
+        /// 相对锚点的组内出生位置重叠时拒绝内容配置。
         /// </summary>
         [Test]
         public void RejectsOverlappingSpawnPositions()
         {
-            CfgSpawnsRow row = GameTables.CfgSpawns.GetById(2);
-            double originalStepX = row.StepX;
-            try
-            {
-                row.StepX = 0;
-                Assert.That(LevelContentConfig.Validate(out string error), Is.False);
-                Assert.That(error, Does.Contain("刷怪点相互重叠"));
-            }
-            finally
-            {
-                row.StepX = originalStepX;
-            }
+            CfgSpawnsRow row = GameTables.CfgSpawns.GetAll()[0];
+            row.Count = 2;
+            row.StepX = 0;
+            row.StepZ = 0;
+            row.AlternateZ = 0;
+            Assert.That(LevelContentConfig.Validate(out string error), Is.False);
+            Assert.That(error, Does.Contain("刷怪点相互重叠"));
         }
 
         /// <summary>
-        /// 横贯房间的极薄障碍会被整段路径检测到。
-        /// </summary>
-        [Test]
-        public void RejectsThinBarrierAcrossRoom()
-        {
-            CfgObstaclesRow obstacle = GameTables.CfgObstacles.GetById(3);
-            double minX = obstacle.MinX;
-            double maxX = obstacle.MaxX;
-            double minZ = obstacle.MinZ;
-            double maxZ = obstacle.MaxZ;
-            try
-            {
-                obstacle.MinX = -11;
-                obstacle.MaxX = 11;
-                obstacle.MinZ = 1.01;
-                obstacle.MaxZ = 1.02;
-                Assert.That(LevelContentConfig.Validate(out string error), Is.False);
-                Assert.That(error, Does.Contain("封路"));
-            }
-            finally
-            {
-                obstacle.MinX = minX;
-                obstacle.MaxX = maxX;
-                obstacle.MinZ = minZ;
-                obstacle.MaxZ = maxZ;
-            }
-        }
-
-        /// <summary>
-        /// NPC 房间缺少自身商品掉落池时拒绝启动内容。
+        /// 商人商品池缺失时拒绝区域配置，不回退默认物品。
         /// </summary>
         [Test]
         public void RejectsMissingNpcLootPool()
         {
-            CfgRoomTemplatesRow row = GameTables.CfgRoomTemplates.GetById(106);
-            string original = row.LootPoolID;
-            try
-            {
-                row.LootPoolID = "missing-pool";
-                Assert.That(LevelContentConfig.Validate(out string error), Is.False);
-                Assert.That(error, Does.Contain("房间模板无效"));
-            }
-            finally
-            {
-                row.LootPoolID = original;
-            }
+            GameTables.CfgNpcPool.GetAll()[0].LootPoolID = "missing-pool";
+            Assert.That(LevelContentConfig.Validate(out string error), Is.False);
+            Assert.That(error, Does.Contain("商人候选"));
         }
 
         /// <summary>
-        /// 关卡编号与物品等级分离后，敌人掉落按物品等级筛选。
+        /// 非伤害效果不能充当敌人伤害弱点。
         /// </summary>
         [Test]
-        public void EnemyDropUsesLootLevelRatherThanLevelId()
+        public void RejectsInvalidDamageVulnerability()
         {
-            var levels = new List<CfgLevelsRow>(GameTables.CfgLevels.GetAll());
-            var pools = new List<CfgLootPoolRow>(GameTables.CfgLootPool.GetAll());
-            var originalLootLevels = new List<int>();
-            var originalMinLevels = new List<int>();
-            foreach (CfgLevelsRow level in levels) originalLootLevels.Add(level.LootLevel);
-            foreach (CfgLootPoolRow pool in pools) originalMinLevels.Add(pool.MinLevel);
-            try
-            {
-                foreach (CfgLevelsRow level in levels) level.LootLevel = 6;
-                foreach (CfgLootPoolRow pool in pools) pool.MinLevel = 6;
-                Assert.That(LevelContentConfig.Validate(out string error), Is.True, error);
-                Assert.That(LevelContentConfig.TryGetLevel(3, out LevelDefinition resolved), Is.True);
-                Assert.That(resolved.LootLevel, Is.EqualTo(6));
-            }
-            finally
-            {
-                for (int index = 0; index < levels.Count; index++) levels[index].LootLevel = originalLootLevels[index];
-                for (int index = 0; index < pools.Count; index++) pools[index].MinLevel = originalMinLevels[index];
-            }
+            GameTables.CfgEnemies.GetAll()[0].VulnerableEffectIDs = new[] { -1 };
+            Assert.That(LevelContentConfig.Validate(out string error), Is.False);
+            Assert.That(error, Does.Contain("伤害弱点"));
         }
 
         /// <summary>
-        /// 关卡等级没有正权重可抽掉落项时拒绝内容配置。
+        /// 物品等级与关卡编号分离，区域强度按物品等级递增。
         /// </summary>
         [Test]
-        public void RejectsUnreachableLootLevel()
+        public void IntensityUsesLootLevelRatherThanLevelId()
         {
-            var pool = new List<CfgLootPoolRow>();
-            var originalMaxLevels = new List<int>();
-            foreach (CfgLootPoolRow row in GameTables.CfgLootPool.GetAll())
-            {
-                if (row.PoolID != "default") continue;
-                pool.Add(row);
-                originalMaxLevels.Add(row.MaxLevel);
-            }
-            Assert.That(pool.Count, Is.GreaterThan(0));
-            try
-            {
-                foreach (CfgLootPoolRow row in pool) row.MaxLevel = 2;
-                Assert.That(LevelContentConfig.Validate(out string error), Is.False);
-                Assert.That(error, Does.Contain("关卡配置无效"));
-            }
-            finally
-            {
-                for (int index = 0; index < pool.Count; index++) pool[index].MaxLevel = originalMaxLevels[index];
-            }
+            LevelContentConfig.TryGetLevel(3, out LevelDefinition level);
+            Assert.That(level.ID, Is.Not.EqualTo(level.LootLevel));
+            Assert.That(LevelContentConfig.TryCreateRegionRequests("run", 1, level, out var requests, out string error), Is.True, error);
+            Assert.That(requests[0].EnemyLevel, Is.EqualTo(level.LootLevel));
+            Assert.That(requests[requests.Count - 1].EnemyLevel, Is.EqualTo(level.LootLevel + level.Row.RegionCount));
+        }
+
+        /// <summary>
+        /// 无效存档预算会被项目配置总门禁拒绝。
+        /// </summary>
+        [Test]
+        public void RejectsInvalidPersistenceBudget()
+        {
+            GameTables.CfgRunPersistence.GetById(1).MaxPendingTicks = 0;
+            Assert.That(ProjectContentConfig.Validate(out string error), Is.False);
+            Assert.That(error, Does.Contain("存档预算"));
         }
     }
 }

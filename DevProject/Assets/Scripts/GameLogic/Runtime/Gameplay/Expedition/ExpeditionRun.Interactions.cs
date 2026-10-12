@@ -9,55 +9,33 @@ namespace GameLogic.Gameplay.Expedition
 {
     public sealed partial class ExpeditionRun
     {
-        private enum InteractionTargetKind { Loot, Exit, Chest, Merchant, Extraction }
+        private enum InteractionTargetKind { Loot, Chest, Merchant, Extraction }
 
         /// <summary>
-        /// 同一房间内可以被明确选择的一次交互目标。
+        /// 当前区域内可明确选择的一个目标。
         /// </summary>
         private struct InteractionTarget
         {
             public string Id;
             public InteractionTargetKind Kind;
             public ExpeditionDrop Drop;
-            public RoomDirection Direction;
             public float DistanceSquared;
         }
 
         private readonly List<InteractionTarget> interactionTargets = new();
         private string requestedInteractionId;
-        private string describedInteractionId;
         private InteractionTarget selectedInteraction;
-
-        /// <summary>
-        /// 当前选定目标的稳定身份，无目标时为空。
-        /// </summary>
         public string SelectedInteractionId => selectedInteraction.Id ?? string.Empty;
-
-        /// <summary>
-        /// 当前选定地面物品的实例身份，其他目标返回空字符串。
-        /// </summary>
         public string SelectedLootId => selectedInteraction.Drop?.Item.Id ?? string.Empty;
-
-        /// <summary>
-        /// 当前目标的玩家可见说明，不包含尚未探索的房间信息。
-        /// </summary>
         public string InteractionDescription { get; private set; } = string.Empty;
-
-        /// <summary>
-        /// 当前交互范围内可切换的目标数量。
-        /// </summary>
         public int InteractionCount => interactionTargets.Count;
-
-        /// <summary>
-        /// 当前是否存在明确选定的交互目标。
-        /// </summary>
         public bool HasInteraction => !string.IsNullOrEmpty(selectedInteraction.Id);
 
         /// <summary>
-        /// 取得当前地面物品的独立副本，供界面仅在目标变化时生成摘要。
+        /// 取得选定地面物品的独立详情。
         /// </summary>
-        /// <param name="item">选定物品的副本，非物品目标时为空。</param>
-        /// <returns>当前选定未拾取物品时为真。</returns>
+        /// <param name="item">选定物品副本。</param>
+        /// <returns>选定未领取物品时为真。</returns>
         public bool TryGetInteractionItem(out ProjectItem item)
         {
             ExpeditionDrop drop = selectedInteraction.Drop;
@@ -66,7 +44,7 @@ namespace GameLogic.Gameplay.Expedition
         }
 
         /// <summary>
-        /// 按距离与稳定身份切换附近目标，不自动执行交互。
+        /// 按距离和稳定身份切换附近目标，不自动执行交互。
         /// </summary>
         public void CycleInteraction()
         {
@@ -80,52 +58,44 @@ namespace GameLogic.Gameplay.Expedition
         }
 
         /// <summary>
-        /// 重建附近候选并保持仍然有效的选择，目标离开范围后才重新选择最近目标。
+        /// 重建范围内候选并保持仍然有效的选择。
         /// </summary>
         /// <param name="position">玩家权威位置。</param>
         private void UpdateInteractionLabel(Vector3 position)
         {
             string previous = SelectedInteractionId;
             interactionTargets.Clear();
-            var layout = CurrentRoom.Plan.Definition.Layout;
-            float objectRadius = (float)layout.ObjectInteractionRadius;
+            RegionRuntimeState region = CurrentRegion;
+            float radius = region.Plan.InteractionRadius;
             foreach (ExpeditionDrop drop in drops)
+                if (!drop.Collected && drop.RoomId == region.Plan.Request.RegionId)
+                    AddInteractionTarget(new InteractionTarget { Id = "loot:" + drop.Item.Id, Kind = InteractionTargetKind.Loot, Drop = drop },
+                        position, drop.Position, radius);
+            foreach (RegionChestPlan chest in region.Plan.Chests)
             {
-                if (drop.Collected || drop.RoomId != Maps.CurrentRoomId) continue;
-                AddInteractionTarget(new InteractionTarget { Id = "loot:" + drop.Item.Id, Kind = InteractionTargetKind.Loot, Drop = drop },
-                    position, drop.Position, objectRadius);
+                RegionChestState state = region.Chests.Find(value => value.Id == chest.Id);
+                if (state.ClaimedItemIds.Count < chest.Items.Count)
+                    AddInteractionTarget(new InteractionTarget { Id = chest.Id, Kind = InteractionTargetKind.Chest }, position, chest.Position, radius);
             }
-            float center = (float)(layout.HalfExtent - layout.ExitCenterInset);
-            foreach (RoomDirection direction in CurrentRoom.Exits.Keys)
-            {
-                Vector3 target = direction == RoomDirection.North ? new Vector3(0, 0, center) :
-                    direction == RoomDirection.South ? new Vector3(0, 0, -center) :
-                    direction == RoomDirection.East ? new Vector3(center, 0, 0) : new Vector3(-center, 0, 0);
-                AddInteractionTarget(new InteractionTarget { Id = "exit:" + Maps.CurrentRoomId + ":" + direction,
-                    Kind = InteractionTargetKind.Exit, Direction = direction }, position, target, (float)layout.ExitInteractionRadius);
-            }
-            if (CurrentRoom.Type == LevelRoomType.Loot && !CurrentRoom.ChestOpened)
-                AddInteractionTarget(new InteractionTarget { Id = "chest:" + Maps.CurrentRoomId, Kind = InteractionTargetKind.Chest },
-                    position, new Vector3((float)layout.ChestX, 0, (float)layout.ChestZ), objectRadius);
-            if (CurrentRoom.Type == LevelRoomType.Npc)
-                AddInteractionTarget(new InteractionTarget { Id = "merchant:" + Maps.CurrentRoomId, Kind = InteractionTargetKind.Merchant },
-                    position, new Vector3((float)layout.NpcX, 0, (float)layout.NpcZ), objectRadius);
-            if (CurrentRoom.IsExtractionVisible)
-                AddInteractionTarget(new InteractionTarget { Id = "extraction:" + Maps.CurrentRoomId, Kind = InteractionTargetKind.Extraction },
-                    position, new Vector3((float)layout.ExtractionX, 0, (float)layout.ExtractionZ), objectRadius);
-            interactionTargets.Sort(CompareInteractionTargets);
+            foreach (RegionNpcPlan npc in region.Plan.Npcs)
+                AddInteractionTarget(new InteractionTarget { Id = npc.Id, Kind = InteractionTargetKind.Merchant }, position, npc.Position, radius);
+            if (region.ExitEnabled)
+                AddInteractionTarget(new InteractionTarget { Id = region.ExitTargetId, Kind = InteractionTargetKind.Extraction },
+                    position, region.Plan.ExitPosition, radius);
+            interactionTargets.Sort((left, right) => left.DistanceSquared != right.DistanceSquared ?
+                left.DistanceSquared.CompareTo(right.DistanceSquared) : string.CompareOrdinal(left.Id, right.Id));
             int retained = interactionTargets.FindIndex(value => value.Id == previous);
             selectedInteraction = retained >= 0 ? interactionTargets[retained] : interactionTargets.Count > 0 ? interactionTargets[0] : default;
             RefreshInteractionText();
         }
 
         /// <summary>
-        /// 将仍在水平交互范围内的目标加入候选列表。
+        /// 将处于水平交互距离内的目标加入列表。
         /// </summary>
         /// <param name="target">候选目标。</param>
-        /// <param name="playerPosition">玩家权威位置。</param>
-        /// <param name="targetPosition">交互中心位置。</param>
-        /// <param name="radius">配置的交互半径。</param>
+        /// <param name="playerPosition">玩家位置。</param>
+        /// <param name="targetPosition">目标位置。</param>
+        /// <param name="radius">允许交互距离。</param>
         private void AddInteractionTarget(InteractionTarget target, Vector3 playerPosition, Vector3 targetPosition, float radius)
         {
             float dx = playerPosition.x - targetPosition.x, dz = playerPosition.z - targetPosition.z;
@@ -134,24 +104,10 @@ namespace GameLogic.Gameplay.Expedition
         }
 
         /// <summary>
-        /// 先按距离排序，同距离时按稳定身份排序。
-        /// </summary>
-        /// <param name="left">左侧目标。</param>
-        /// <param name="right">右侧目标。</param>
-        /// <returns>两个候选目标的排序关系。</returns>
-        private static int CompareInteractionTargets(InteractionTarget left, InteractionTarget right)
-        {
-            int distance = left.DistanceSquared.CompareTo(right.DistanceSquared);
-            return distance != 0 ? distance : string.Compare(left.Id, right.Id, StringComparison.Ordinal);
-        }
-
-        /// <summary>
-        /// 在选中目标变化时更新摘要，出口信息只读取已过滤的小地图投影。
+        /// 以权威状态生成具体交互目标说明。
         /// </summary>
         private void RefreshInteractionText()
         {
-            if (describedInteractionId == SelectedInteractionId) return;
-            describedInteractionId = SelectedInteractionId;
             InteractionLabel = "交互 / E";
             InteractionDescription = string.Empty;
             if (!HasInteraction) return;
@@ -159,78 +115,68 @@ namespace GameLogic.Gameplay.Expedition
             {
                 case InteractionTargetKind.Loot:
                     InteractionLabel = "拾取 / E";
-                    break;
-                case InteractionTargetKind.Exit:
-                    InteractionLabel = "进入地图 / E";
-                    string direction = selectedInteraction.Direction == RoomDirection.North ? "北" :
-                        selectedInteraction.Direction == RoomDirection.South ? "南" : selectedInteraction.Direction == RoomDirection.East ? "东" : "西";
-                    string destinationType = "未探索";
-                    if (Maps.TryGetDestination(selectedInteraction.Direction, out int destination))
-                    {
-                        foreach (LevelMinimapRoom room in Maps.GetMinimapProjection().Rooms)
-                            if (room.RoomId == destination && room.IsVisited)
-                                destinationType = room.Type == LevelRoomType.Boss ? "首领房" : room.Type == LevelRoomType.Loot ? "战利品房" :
-                                    room.Type == LevelRoomType.Npc ? "商店" : "战斗房";
-                        InteractionDescription = direction + "侧出口 · 地图 " + destination + " · " + destinationType;
-                    }
+                    InteractionDescription = selectedInteraction.Drop.Item.Name;
                     break;
                 case InteractionTargetKind.Chest:
-                    InteractionLabel = "打开箱子 / E";
-                    InteractionDescription = "战利品箱 · 随机物品与强化选择";
+                    InteractionLabel = "打开宝箱 / E";
+                    InteractionDescription = "固定战利品箱 · 开箱后领取全部剩余物品";
                     break;
                 case InteractionTargetKind.Merchant:
                     InteractionLabel = "查看商店 / E";
-                    InteractionDescription = "本局商店 · 查看商品后购买";
+                    InteractionDescription = "本区商人 · 固定库存与价格";
                     break;
                 case InteractionTargetKind.Extraction:
-                    InteractionLabel = "撤离 / E";
-                    InteractionDescription = "撤离点 · 确认后携出全部物品并结束本局";
+                    InteractionLabel = "区域出口 / E";
+                    InteractionDescription = IsFinalRegion ? "已通关 · 确认携出全部物品" : "带回结束，或继续深入下一区域";
                     break;
             }
         }
 
         /// <summary>
-        /// 仅执行按下交互时锁定且本次仍在范围内的目标，拒绝自动替换目标。
+        /// 仅执行按下时锁定且当前仍合法的具体目标。
         /// </summary>
-        /// <param name="position">本次战斗 tick 后的玩家位置。</param>
+        /// <param name="position">完整逻辑帧后的玩家位置。</param>
         private void Interact(Vector3 position)
         {
             if (!CanInteract) return;
             int index = interactionTargets.FindIndex(value => value.Id == requestedInteractionId);
             if (index < 0) { Message = "目标已离开交互范围，请重新选择。"; return; }
             InteractionTarget target = interactionTargets[index];
-            if (target.Kind == InteractionTargetKind.Exit) { ChangeRoom(target.Direction); return; }
             if (target.Kind == InteractionTargetKind.Extraction) { TryOpenExtractionConfirmation(); return; }
+            if (target.Kind == InteractionTargetKind.Merchant) { TryOpenMerchant(target.Id); return; }
             if (target.Kind == InteractionTargetKind.Loot)
             {
+                if (target.Drop.Collected) return;
                 target.Drop.Collected = true;
-                inventory.Add(target.Drop.Item);
-                Message = "拾取：" + target.Drop.Item.Name;
+                inventory.Add(target.Drop.Item.Copy());
+                SaveMutation("已拾取：" + target.Drop.Item.Name, () => UpdateInteractionLabel(position));
+                return;
             }
-            else if (target.Kind == InteractionTargetKind.Chest)
+            RegionChestPlan chest = CurrentRegion.Plan.Chests.Find(value => value.Id == target.Id);
+            RegionChestState state = CurrentRegion.Chests.Find(value => value.Id == target.Id);
+            if (chest == null || state == null) return;
+            if (!state.Opened && !CurrentRegion.TryOpenChest(chest.Id)) return;
+            int received = 0;
+            foreach (ProjectItem item in chest.Items)
             {
-                CurrentRoom.MarkChestOpened();
-                inventory.Add(ProjectEquipmentRules.CreateLootFromPool(random, LootLevel, CurrentRoom.Plan.LootPoolID));
-                Message = "已打开箱子，获得一件战利品。";
-                TryBeginRogueChoice("chest:" + CurrentRoom.RoomId);
+                if (state.ClaimedItemIds.Contains(item.Id)) continue;
+                if (!CurrentRegion.TryClaimChestItem(chest.Id, item.Id)) { HandleFault("宝箱物品归属异常。"); return; }
+                inventory.Add(item.Copy());
+                received++;
             }
-            else if (target.Kind == InteractionTargetKind.Merchant) TryOpenMerchant();
-            RoomView.Refresh();
-            UpdateInteractionLabel(position);
+            SaveMutation("已领取宝箱中的 " + received + " 件物品。", () => UpdateInteractionLabel(position));
         }
 
         /// <summary>
-        /// 换房或终局时清除旧目标与尚未执行的交互请求。
+        /// 区域切换和终局时清除旧目标及待执行意图。
         /// </summary>
         private void ClearInteractionTargets()
         {
-            occupiedExtractionRoomId = -1;
             interactionTargets.Clear();
             selectedInteraction = default;
             requestedInteractionId = null;
-            interactionRequested = false;
-            describedInteractionId = null;
-            RefreshInteractionText();
+            InteractionLabel = "交互 / E";
+            InteractionDescription = string.Empty;
         }
     }
 }

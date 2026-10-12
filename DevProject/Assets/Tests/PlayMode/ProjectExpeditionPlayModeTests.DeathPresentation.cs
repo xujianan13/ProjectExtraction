@@ -27,6 +27,8 @@ namespace MiniGame.Tests
             ProjectRunCoordinator coordinator = ProjectServices.Coordinator;
             Assert.That(await coordinator.StartRunAsync(1).Timeout(TimeSpan.FromSeconds(20)), Is.True);
             ExpeditionRun run = ProjectServices.Session.CurrentRun;
+            var gameplay = (GameplayModule)GameEntry.Get<IGameplayModule>();
+            Assert.That(gameplay.Count, Is.EqualTo(1), "关卡必须由唯一存活玩法驱动。");
             TriggerDeath(run);
             Assert.That(run.World.TryGetActor(run.Player, out CombatActorSnapshot player), Is.True);
             Assert.That(player.Dead, Is.True);
@@ -37,7 +39,8 @@ namespace MiniGame.Tests
 
             await coordinator.SetApplicationPausedAsync(true);
             float frozenTime = run.DeathPresentationElapsed;
-            for (int frame = 0; frame < 5; frame++) run.Advance(1f);
+            for (int frame = 0; frame < 5; frame++) gameplay.OnUpdate(1f);
+            Assert.That(gameplay.Count, Is.EqualTo(1), "死亡表现期间不得因更新异常退出玩法调度。");
             Assert.That(run.DeathPresentationElapsed, Is.EqualTo(frozenTime));
             await UniTask.WaitUntil(() => ProjectServices.Session.RecordedOutcome != null).Timeout(TimeSpan.FromSeconds(5));
             Assert.That(ProjectServices.Session.RecordedOutcome.Extracted, Is.False);
@@ -45,8 +48,8 @@ namespace MiniGame.Tests
             Assert.That(coordinator.Phase, Is.EqualTo(ProjectRunPhase.FreezingOutcome));
             Assert.That(run.World.TickIndex, Is.EqualTo(finalTick));
             await UniTask.Yield(PlayerLoopTiming.LastPostLateUpdate);
-            var gameplay = (GameplayModule)GameEntry.Get<IGameplayModule>();
             gameplay.OnLateUpdate(0f);
+            Assert.That(gameplay.Count, Is.EqualTo(1), "死亡快照采样失败不能被直接推进 run 时钟掩盖。");
             Transform model = GameObject.Find("ExpeditionPresentation").transform.Find("Actor_1");
             Assert.That(model.gameObject.activeInHierarchy, Is.True);
             Assert.That(model.GetComponent<Animator>().GetCurrentAnimatorStateInfo(0).IsName("Base Layer.Death"), Is.True);
@@ -55,11 +58,14 @@ namespace MiniGame.Tests
             Assert.That(model.Find("Mesh").localRotation, Is.EqualTo(frozenPose));
 
             await coordinator.SetApplicationPausedAsync(false);
-            run.Advance(1f);
+            Assert.That(gameplay.IsPaused, Is.False);
+            Assert.That(gameplay.IsApplicationPaused, Is.False);
+            gameplay.OnUpdate(1f);
             Assert.That(run.DeathPresentationElapsed, Is.EqualTo(frozenTime + 0.1f).Within(0.0001f), "恢复时限制单帧表现时间。");
-            run.Advance(0.1f);
-            run.Advance(0.1f);
+            gameplay.OnUpdate(0.1f);
+            gameplay.OnUpdate(0.1f);
             gameplay.OnLateUpdate(0f);
+            Assert.That(gameplay.Count, Is.EqualTo(1), "终局保存后仍应调度独立死亡表现。");
             await UniTask.Yield(PlayerLoopTiming.LastPostLateUpdate);
             Assert.That(Quaternion.Angle(model.Find("Mesh").localRotation, frozenPose), Is.GreaterThan(10f));
             Assert.That(run.World.TickIndex, Is.EqualTo(finalTick));

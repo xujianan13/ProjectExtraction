@@ -1,0 +1,19 @@
+{
+  "schemaHash": "224b1c7fb7356a011b39c57f06428a4b495667eca65e3b7230d68a40fe834553",
+  "rows": [
+    {
+      "ID": 1,
+      "DelaySeconds": 180,
+      "WarningSeconds": 2,
+      "SafeDistance": 12,
+      "ExperienceMultiplier": 1
+    },
+    {
+      "ID": 2,
+      "DelaySeconds": 300,
+      "WarningSeconds": 2,
+      "SafeDistance": 12,
+      "ExperienceMultiplier": 1
+    }
+  ]
+}

@@ -41,7 +41,9 @@ namespace GameLogic.Scenes.Expedition
             ct.ThrowIfCancellationRequested();
             run = current;
             current.RogueChoiceChanged += OnRogueChoiceChanged;
+            current.BossChoiceChanged += OnRogueChoiceChanged;
             scope.Defer(() => current.RogueChoiceChanged -= OnRogueChoiceChanged);
+            scope.Defer(() => current.BossChoiceChanged -= OnRogueChoiceChanged);
             scope.Defer(() =>
             {
                 if (gameplay.IsValid) GameEntry.Get<IGameplayModule>().Stop(gameplay);
@@ -49,7 +51,7 @@ namespace GameLogic.Scenes.Expedition
             });
             presentation = new ExpeditionPresentation(run, assets);
             run.AttachScene(assets, presentation.Root);
-            if (run.RoomView == null) throw new System.InvalidOperationException("首张地图准备失败。");
+            if (run.RegionView == null) throw new System.InvalidOperationException("当前区域准备失败。");
             presentation.Refresh();
             var inputContext = GameEntry.Get<IInputModule>().PushContext("Gameplay");
             scope.Defer(inputContext.Dispose);
@@ -75,6 +77,9 @@ namespace GameLogic.Scenes.Expedition
         {
             run?.Stop();
             await GameEntry.Get<IUIModule>().CloseWindowAsync(ProjectServices.RogueChoiceWindow, GameWindowCloseReason.ScopeExit);
+            await GameEntry.Get<IUIModule>().CloseWindowAsync(ProjectServices.BossLootWindow, GameWindowCloseReason.ScopeExit);
+            await GameEntry.Get<IUIModule>().CloseWindowAsync(ProjectServices.ExpeditionMapWindow, GameWindowCloseReason.ScopeExit);
+            await GameEntry.Get<IUIModule>().CloseWindowAsync(ProjectServices.RegionExitWindow, GameWindowCloseReason.ScopeExit);
             await GameEntry.Get<IUIModule>().CloseWindowAsync(ProjectServices.RogueOverviewWindow, GameWindowCloseReason.ScopeExit);
             await GameEntry.Get<IUIModule>().CloseWindowAsync(ProjectServices.ExpeditionInventoryWindow, GameWindowCloseReason.ScopeExit);
             await GameEntry.Get<IUIModule>().CloseWindowAsync(ProjectServices.ExpeditionMerchantWindow, GameWindowCloseReason.ScopeExit);
@@ -98,7 +103,7 @@ namespace GameLogic.Scenes.Expedition
         /// </summary>
         private void OnRogueChoiceChanged()
         {
-            if (run?.IsRunning == true && run.IsChoosingRogue && SceneScope.IsActive && !openingRogueChoice)
+            if (run?.IsRunning == true && (run.PendingRogueChoice != null || run.PendingBossChoice != null) && SceneScope.IsActive && !openingRogueChoice)
                 OpenRogueChoiceAsync(run, SceneScope).Forget();
         }
 
@@ -114,8 +119,10 @@ namespace GameLogic.Scenes.Expedition
             try
             {
                 await UniTask.Yield(PlayerLoopTiming.Update, scope.Token);
-                if (!scope.IsActive || !ReferenceEquals(run, owner) || !owner.IsRunning || !owner.IsChoosingRogue) return;
-                GameWindow window = await GameEntry.Get<IUIModule>().OpenWindowAsync(ProjectServices.RogueChoiceWindow,
+                if (!scope.IsActive || !ReferenceEquals(run, owner) || !owner.IsRunning ||
+                    owner.PendingRogueChoice == null && owner.PendingBossChoice == null) return;
+                int windowId = owner.PendingBossChoice != null ? ProjectServices.BossLootWindow : ProjectServices.RogueChoiceWindow;
+                GameWindow window = await GameEntry.Get<IUIModule>().OpenWindowAsync(windowId,
                     new GameWindowOpenArgs(owner), scope.Token);
                 if (window == null) GameEntry.Get<ILogModule>()?.Error("Roguelike", "三选一窗口未打开，请从 HUD 继续选择。");
             }

@@ -7,7 +7,7 @@ namespace GameLogic.Gameplay.Expedition
 {
     public sealed partial class ExpeditionRun
     {
-        private readonly ProjectRunStatistics statistics = new() { Version = ProjectRunStatistics.CurrentVersion };
+        private ProjectRunStatistics statistics = new() { Version = ProjectRunStatistics.CurrentVersion };
 
         /// <summary>
         /// 在入场时冻结装备回收估值，后续购买和拾取不改写比较基准。
@@ -15,23 +15,27 @@ namespace GameLogic.Gameplay.Expedition
         /// <param name="items">本局入场装备快照。</param>
         private void InitializeStatistics(IReadOnlyList<ProjectItem> items)
         {
-            statistics.TotalRooms = Maps.Rooms.Count;
+            statistics.TotalRegions = regionRequests.Count;
             statistics.EntryItemCount = items.Count;
             foreach (ProjectItem item in items) statistics.EntryItemSellValue += item.SellGold;
         }
 
         /// <summary>
-        /// 返回独立的单局统计快照，房间回访不会重复计数。
+        /// 返回独立的单局统计快照，区域停留与完成状态读取已保存的权威运行状态。
         /// </summary>
         /// <returns>截至最近一次完整战斗步进的统计及当前探索状态。</returns>
         public ProjectRunStatistics CaptureStatistics()
         {
             ProjectRunStatistics snapshot = statistics.Copy();
-            foreach (LevelRoomState room in Maps.Rooms)
+            snapshot.Regions.Clear();
+            foreach (RegionRuntimeState region in regions)
             {
-                if (!room.IsVisited) continue;
-                snapshot.VisitedRooms++;
-                if (room.IsCleared && (room.Type == LevelRoomType.Mob || room.Type == LevelRoomType.Boss)) snapshot.ClearedCombatRooms++;
+                snapshot.Regions.Add(new ProjectRegionStatistics
+                {
+                    RegionId = region.Plan.Request.RegionId, RegionIndex = region.Plan.Request.RegionIndex,
+                    IsFinalRegion = region.Plan.Request.RegionIndex == regionRequests.Count - 1,
+                    EffectiveTicks = region.EffectiveTick, Completed = region.BossRewardsCompleted
+                });
             }
             return snapshot;
         }
@@ -52,13 +56,86 @@ namespace GameLogic.Gameplay.Expedition
         }
 
         /// <summary>
-        /// 在敌人死亡首次发放奖励时记录击杀，并按生成房间归类 Boss 房击杀。
+        /// 每次生命确认后记录真实职责、首次或复活分类，以及实际接纳的经验和进度。
         /// </summary>
-        /// <param name="roomId">敌人死亡的房间身份。</param>
-        private void RecordEnemyKill(int roomId)
+        /// <param name="plan">已冻结的敌人槽位定义。</param>
+        /// <param name="lifeSequence">本次已确认的生命序号。</param>
+        /// <param name="experience">本次实际增加的打怪经验。</param>
+        /// <param name="progress">本次实际接纳的技能进度。</param>
+        private void RecordEnemyKill(RegionSpawnSlotPlan plan, int lifeSequence, int experience, int progress)
         {
             statistics.EnemyKills++;
-            if (Maps.TryGetRoom(roomId, out LevelRoomState room) && room.Type == LevelRoomType.Boss) statistics.BossRoomKills++;
+            if (plan.Kind == RegionEnemyKind.Boss)
+            {
+                if (IsFinalRegion)
+                {
+                    statistics.FinalBossKills++;
+                    statistics.FinalBossExperience += experience;
+                }
+                else
+                {
+                    statistics.RegionBossKills++;
+                    statistics.RegionBossExperience += experience;
+                }
+                return;
+            }
+            ProjectEnemyLifeStatistics life = plan.Kind == RegionEnemyKind.Elite
+                ? lifeSequence == 1 ? statistics.EliteFirst : statistics.EliteRespawn
+                : lifeSequence == 1 ? statistics.NormalFirst : statistics.NormalRespawn;
+            life.Kills++;
+            life.Experience += experience;
+            life.Progress += progress;
+        }
+
+        /// <summary>
+        /// 校验活动统计和原区域生命确认数一致，拒绝从旧活动统计推算缺失分类。
+        /// </summary>
+        /// <param name="snapshot">已保存的完整活动关卡。</param>
+        /// <returns>统计版本、区域时钟、死亡身份与实际经验一致时为真。</returns>
+        private static bool ValidateStatisticsSnapshot(ExpeditionRunSnapshot snapshot)
+        {
+            ProjectRunStatistics stats = snapshot.Statistics;
+            if (stats == null || !stats.HasRegionData || !ProjectRunStatistics.IsValid(stats) ||
+                stats.TotalRegions != snapshot.Requests.Count || stats.Regions.Count != snapshot.Regions.Count ||
+                stats.EarnedKillExperience != snapshot.KillExperience || snapshot.Progress == null ||
+                snapshot.Progress.Threshold < 1 || snapshot.Progress.QualificationSerial < 0) return false;
+            long progress = 0;
+            foreach (ProjectEnemyLifeStatistics life in new[] { stats.NormalFirst, stats.NormalRespawn, stats.EliteFirst, stats.EliteRespawn })
+            {
+                if (progress > long.MaxValue - life.Progress) return false;
+                progress += life.Progress;
+            }
+            if (progress / snapshot.Progress.Threshold != snapshot.Progress.QualificationSerial ||
+                !snapshot.Progress.IsExhausted && progress % snapshot.Progress.Threshold != snapshot.Progress.RemainingProgress) return false;
+            long normalFirst = 0, normalRespawn = 0, eliteFirst = 0, eliteRespawn = 0, regionBoss = 0, finalBoss = 0;
+            foreach (RegionRuntimeState region in snapshot.Regions)
+            {
+                ProjectRegionStatistics row = stats.Regions.Find(value => value.RegionId == region.Plan.Request.RegionId);
+                if (row == null || row.RegionIndex != region.Plan.Request.RegionIndex || row.EffectiveTicks != region.EffectiveTick ||
+                    row.Completed != region.BossRewardsCompleted) return false;
+                foreach (RegionSpawnSlotState slot in region.Slots)
+                {
+                    RegionSpawnSlotPlan plan = region.Plan.SpawnSlots.Find(value => value.SlotId == slot.SlotId);
+                    if (plan.Kind == RegionEnemyKind.Boss)
+                    {
+                        if (region.Plan.Request.RegionIndex == snapshot.Requests.Count - 1) finalBoss += slot.LastProcessedLife;
+                        else regionBoss += slot.LastProcessedLife;
+                    }
+                    else if (plan.Kind == RegionEnemyKind.Elite)
+                    {
+                        if (slot.LastProcessedLife > 0) eliteFirst++;
+                        eliteRespawn += System.Math.Max(0, slot.LastProcessedLife - 1);
+                    }
+                    else
+                    {
+                        if (slot.LastProcessedLife > 0) normalFirst++;
+                        normalRespawn += System.Math.Max(0, slot.LastProcessedLife - 1);
+                    }
+                }
+            }
+            return stats.NormalFirst.Kills == normalFirst && stats.NormalRespawn.Kills == normalRespawn &&
+                stats.EliteFirst.Kills == eliteFirst && stats.EliteRespawn.Kills == eliteRespawn &&
+                stats.RegionBossKills == regionBoss && stats.FinalBossKills == finalBoss;
         }
     }
 }

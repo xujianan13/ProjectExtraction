@@ -17,7 +17,7 @@ namespace GameLogic.UI.Common
         /// <param name="type">物品类别。</param>
         /// <returns>类别名称。</returns>
         public static string TypeName(ProjectItemType type) => type == ProjectItemType.Weapon ? "武器" :
-            ProjectEquipmentRules.IsArmor(type) ? "护甲" : "物品";
+            ProjectEquipmentRules.IsArmor(type) ? "护甲" : type == ProjectItemType.Collection ? "收藏" : "物品";
 
         /// <summary>
         /// 返回包含品质的物品标题。
@@ -54,7 +54,7 @@ namespace GameLogic.UI.Common
         /// <returns>当前装备详情、已穿戴提示或空槽说明；普通物品返回空字符串。</returns>
         public static string EquippedDetails(ProjectItem selected, IReadOnlyList<ProjectItem> items)
         {
-            if (selected.Type == ProjectItemType.Item) return string.Empty;
+            if (selected.Type == ProjectItemType.Item || selected.Type == ProjectItemType.Collection) return string.Empty;
             string heading = "当前穿戴（" + TypeName(selected.Type) + "）\n";
             foreach (ProjectItem equipped in items)
             {
@@ -77,6 +77,12 @@ namespace GameLogic.UI.Common
         {
             if (item == null) return string.Empty;
             var builder = new StringBuilder(Title(item));
+            if (item.Type == ProjectItemType.Collection)
+            {
+                ProjectCollectionDefinition collection = ProjectV2RewardConfig.Collection(item.CollectionId);
+                return builder.Append("\n").Append(CollectionRegistration(item)).Append("\n来源：").Append(collection.Source)
+                    .Append("\n售价 ").Append(item.SellGold).Append(" 金币").ToString();
+            }
             builder.Append("\n等级 ").Append(item.RequiredLevel).Append(" · 售价 ").Append(item.SellGold).Append(" 金币");
             int shown = 0;
             foreach (ProjectAttributeValue attribute in ProjectEquipmentRules.GetItemAttributes(item))
@@ -125,6 +131,12 @@ namespace GameLogic.UI.Common
         public static string Details(ProjectItem item)
         {
             if (item == null) return "选择物品查看详情";
+            if (item.Type == ProjectItemType.Collection)
+            {
+                ProjectCollectionDefinition definition = ProjectV2RewardConfig.Collection(item.CollectionId);
+                return definition == null ? "收藏配置缺失" : CollectionRegistration(item) + $"\n来源：{definition.Source}\n" +
+                    $"出售可得 {item.SellGold} 金币\n实际入库后登记图鉴，重复收藏不会重复授予成就属性。";
+            }
             var builder = new StringBuilder();
             builder.Append("需求等级 ").Append(item.RequiredLevel);
             if (item.Type == ProjectItemType.Weapon) builder.Append(" · 攻击范围 ").Append(item.Range.ToString("0.#"));
@@ -158,6 +170,18 @@ namespace GameLogic.UI.Common
             else foreach (ProjectAdvancedAffix affix in item.AdvancedAffixes)
                 if (affix != null) builder.AppendLine(AdvancedAffixText(affix));
             return builder.ToString().TrimEnd();
+        }
+
+        /// <summary>
+        /// 展示已确认入库的图鉴状态，局内拾取和待结算收藏仍属于未登记。
+        /// </summary>
+        /// <param name="item">具有稳定收藏身份的物品实例。</param>
+        /// <returns>当前已登记或未登记的收藏说明。</returns>
+        public static string CollectionRegistration(ProjectItem item)
+        {
+            foreach (string id in ProjectServices.Session.CollectedCollectionIds)
+                if (id == item.CollectionId) return "已收藏";
+            return "未收藏";
         }
 
         /// <summary>

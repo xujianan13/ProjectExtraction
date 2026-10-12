@@ -58,7 +58,7 @@ namespace MiniGame.Editor
         {
             result = null;
             error = null;
-            if (string.IsNullOrWhiteSpace(poolId) || level < 1 || level > PrototypeRules.LegacySkillRankLimit ||
+            if (string.IsNullOrWhiteSpace(poolId) || level < 1 ||
                 sampleCount < 1 || sampleCount > MaxSamples)
             { error = "掉落评估参数无效：池身份、等级或样本数超出范围。"; return false; }
             if (GameTables.CfgLootPool == null || GameTables.CfgItemDefinitions == null || GameTables.CfgQualities == null ||
@@ -83,6 +83,8 @@ namespace MiniGame.Editor
                     definition.SellBase < 0 || definition.SellPerLevel < 0 || definition.SellRandomExclusive < 0 ||
                     definition.SellPerQuality < 0)
                 { error = "掉落模板引用或字段无效：" + row.ID + "/" + row.DefinitionId; return false; }
+                if (definition.Type == (int)ProjectItemType.Collection && GameTables.CfgCollections?.GetById(definition.CollectionID) == null)
+                { error = "收藏模板缺少业务定义：" + definition.ID; return false; }
                 long maximumSell = (long)definition.SellBase + (long)level * definition.SellPerLevel +
                     Math.Max(0, definition.SellRandomExclusive - 1) + (long)(int)ProjectItemQuality.Artifact * definition.SellPerQuality;
                 if (maximumSell > int.MaxValue)
@@ -117,14 +119,19 @@ namespace MiniGame.Editor
                 totalQualityWeight += row.Weight;
                 weightedQualityIds += (long)row.Quality * row.Weight;
             }
-            if (qualityWeights.Count != Enum.GetValues(typeof(ProjectItemQuality)).Length ||
-                totalQualityWeight <= 0 || totalQualityWeight > int.MaxValue)
+            typeWeights.TryGetValue((int)ProjectItemType.Collection, out long collectionWeight);
+            long rolledQualityWeight = totalWeight - collectionWeight;
+            if (rolledQualityWeight > 0 && (qualityWeights.Count != Enum.GetValues(typeof(ProjectItemQuality)).Length ||
+                totalQualityWeight <= 0 || totalQualityWeight > int.MaxValue))
             { error = "掉落池品质配置不完整或权重无效：" + poolId; return false; }
 
             var definitionRows = new List<LootFrequency>();
             var qualityRows = new List<LootFrequency>();
             var typeRows = new List<LootFrequency>();
-            double meanQuality = (double)weightedQualityIds / totalQualityWeight;
+            double meanQuality = totalQualityWeight > 0 ? (double)weightedQualityIds / totalQualityWeight : 0d;
+            var qualityProbabilities = new Dictionary<int, double>();
+            foreach (var entry in qualityWeights)
+                qualityProbabilities.Add(entry.Key, totalQualityWeight > 0 ? (double)rolledQualityWeight / totalWeight * entry.Value / totalQualityWeight : 0d);
             double expectedSell = 0;
             var definitionIds = new List<string>(definitionWeights.Keys);
             definitionIds.Sort(StringComparer.Ordinal);
@@ -133,13 +140,23 @@ namespace MiniGame.Editor
                 CfgItemDefinitionsRow definition = definitions[definitionId];
                 double probability = (double)definitionWeights[definitionId] / totalWeight;
                 double meanRandom = definition.SellRandomExclusive > 0 ? (definition.SellRandomExclusive - 1) / 2d : 0;
-                expectedSell += probability * (definition.SellBase + (double)level * definition.SellPerLevel + meanRandom +
+                if (definition.Type == (int)ProjectItemType.Collection)
+                {
+                    CfgCollectionsRow collection = GameTables.CfgCollections.GetById(definition.CollectionID);
+                    if (!Enum.IsDefined(typeof(ProjectItemQuality), collection.Quality) || collection.SellGold < 0)
+                    { error = "收藏品质或回收价无效：" + collection.ID; return false; }
+                    expectedSell += probability * collection.SellGold;
+                    qualityProbabilities.TryGetValue(collection.Quality, out double qualityProbability);
+                    qualityProbabilities[collection.Quality] = qualityProbability + probability;
+                    qualityNames[collection.Quality] = ProjectRulesConfig.Quality((ProjectItemQuality)collection.Quality).Name;
+                }
+                else expectedSell += probability * (definition.SellBase + (double)level * definition.SellPerLevel + meanRandom +
                     meanQuality * definition.SellPerQuality);
                 definitionRows.Add(new LootFrequency { id = definitionId, name = definition.Name, expectedProbability = probability });
             }
-            foreach (KeyValuePair<int, long> entry in qualityWeights)
+            foreach (KeyValuePair<int, double> entry in qualityProbabilities)
                 qualityRows.Add(new LootFrequency { id = entry.Key.ToString(CultureInfo.InvariantCulture), name = qualityNames[entry.Key],
-                    expectedProbability = (double)entry.Value / totalQualityWeight });
+                    expectedProbability = entry.Value });
             foreach (KeyValuePair<int, long> entry in typeWeights)
                 typeRows.Add(new LootFrequency { id = entry.Key.ToString(CultureInfo.InvariantCulture), name = ((ProjectItemType)entry.Key).ToString(),
                     expectedProbability = (double)entry.Value / totalWeight });
@@ -184,9 +201,9 @@ namespace MiniGame.Editor
         /// 判断配置分类是否能由掉落生成器创建。
         /// </summary>
         /// <param name="type">模板中的分类编号。</param>
-        /// <returns>分类属于可生成的武器、护甲或普通物品时为真。</returns>
+        /// <returns>分类属于可生成的武器、护甲、普通物品或收藏时为真。</returns>
         private static bool IsSupportedType(int type) => type == (int)ProjectItemType.Weapon ||
-            type == (int)ProjectItemType.Armor || type == (int)ProjectItemType.Item;
+            type == (int)ProjectItemType.Armor || type == (int)ProjectItemType.Item || type == (int)ProjectItemType.Collection;
     }
 }
 

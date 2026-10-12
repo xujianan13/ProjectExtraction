@@ -307,6 +307,7 @@ namespace MiniGame.Tests
         {
             var backend = new FaultSaveBackend();
             ProjectSaveData initial = ProjectSaveData.CreateDefault();
+            string weaponId = initial.Warehouse.Single(item => item.Type == ProjectItemType.Weapon && item.Equipped).Id;
             ProjectItem first = ProjectEquipmentRules.CreateEquipment(new System.Random(20), ProjectItemType.Armor, 1, ProjectItemQuality.Epic);
             ProjectItem second = ProjectEquipmentRules.CreateEquipment(new System.Random(21), ProjectItemType.Armor, 1, ProjectItemQuality.Artifact);
             first.Equipped = true;
@@ -340,7 +341,8 @@ namespace MiniGame.Tests
             Assert.That(session.CharacterStats.MaxHealth, Is.EqualTo(stats.MaxHealth));
             Assert.That((await session.EquipAsync(second.Id)).Success, Is.True);
             Assert.That(session.CharacterStats.MaxHealth, Is.EqualTo(100));
-            Assert.That(session.Warehouse.Single(item => item.Type == ProjectItemType.Weapon).Equipped, Is.True);
+            Assert.That(session.Warehouse.Single(item => item.Id == weaponId).Equipped, Is.True);
+            Assert.That(session.Warehouse.Count(item => item.Type == ProjectItemType.Weapon && item.Equipped), Is.EqualTo(1));
         });
 
         /// <summary>
@@ -442,7 +444,7 @@ namespace MiniGame.Tests
         private static async UniTask TriggerExtractionAsync(ExpeditionRun run)
         {
             await EnterExtractionConfirmationAsync(run);
-            await ClickExtractionConfirmationAsync("确认撤离");
+            await ClickExtractionConfirmationAsync("带回结束");
             Assert.That(run.IsRunning, Is.False);
             await WaitForPhaseAsync(ProjectRunPhase.ResultsReady);
         }
@@ -453,15 +455,13 @@ namespace MiniGame.Tests
         /// <param name="run">本局运行对象。</param>
         private static void TriggerDeath(ExpeditionRun run)
         {
-            Assert.That(run.World.TrySetPosition(run.Player, new Vector3(0, 0, -8)), Is.True);
-            CombatEntityRef killer = run.World.CreateActor(new CombatActorSpec
-            {
-                ActorId = 90000, RoomId = run.CurrentRoom.RoomId, Team = 2,
-                Position = new Vector3(0, 0, -9), MaxHealth = 100000, Attack = 10000, Radius = 0.3f,
-                AttackRange = 2, AggroRange = 10, MoveSpeed = 0, BasicSkillId = 2
-            });
-            Assert.That(run.World.TryGetActor(killer, out _), Is.True, "致死敌人必须出生在未重叠位置。");
-            for (int tick = 0; tick < 200 && run.IsRunning; tick++) run.Advance(CombatWorld.TickSeconds);
+            RegionSpawnSlotState slot = run.CurrentRegion.Slots.First(value => value.Phase == RegionSpawnPhase.Alive);
+            Assert.That(run.World.TryFindActor(slot.CurrentActorId, out CombatEntityRef killer), Is.True);
+            Assert.That(run.World.TryAddAttributeBonus(killer, CombatAttributeKind.Attack, 100000), Is.True);
+            Assert.That(run.World.TryAddAttributeBonus(killer, CombatAttributeKind.Defense, 100000), Is.True);
+            Assert.That(run.World.TryAddAttributeBonus(killer, CombatAttributeKind.MaxHealth, 100000), Is.True);
+            Assert.That(TryPlacePlayerNearActor(run, killer), Is.True, "真实敌人附近必须存在合法攻击站位。");
+            for (int tick = 0; tick < 600 && run.IsRunning; tick++) run.Advance(CombatWorld.TickSeconds);
             Assert.That(run.IsRunning, Is.False, "真实敌方伤害应触发死亡。");
         }
 
@@ -584,9 +584,9 @@ namespace MiniGame.Tests
             Assert.That(visualRoot, Is.Not.Null);
             Assert.That(GameObject.Find("Actor_1")?.transform.IsChildOf(visualRoot.transform), Is.True);
             Assert.That(GameEntry.Get<IResourceModule>().TryEvict<GameObject>("SC_Expedition"), Is.False, "场景持有资源租约时不得淘汰。");
-            Assert.That(GameObject.Find("LevelRoom_" + session.CurrentRun.CurrentRoom.RoomId)?.transform.IsChildOf(visualRoot.transform), Is.True);
+            Assert.That(session.CurrentRun.RegionView.Root.transform.IsChildOf(visualRoot.transform), Is.True);
             Assert.That(session.CurrentRun, Is.Not.Null);
-            Assert.That(session.CurrentRun.RoomView, Is.Not.Null);
+            Assert.That(session.CurrentRun.RegionView, Is.Not.Null);
             return session.CurrentRun;
         }
 

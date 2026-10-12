@@ -15,6 +15,28 @@ namespace GameFramework.Tests.Modules.Gameplay
     public sealed class GameRoundFlowTests
     {
         /// <summary>
+        /// 验证冷恢复沿用持久身份，重复恢复不会创建第二局，后续结算身份保持一致。
+        /// </summary>
+        /// <returns>测试协程。</returns>
+        [UnityTest]
+        public IEnumerator RestoreUsesSavedIdentityAndRejectsDuplicateEntry()
+        {
+            var factory = new FakeFactory();
+            var flow = new GameRoundFlow(factory);
+            Task<bool> restored = flow.RestoreLevelAsync(2, "persisted-round").AsTask();
+            yield return Wait(restored);
+            Assert.That(restored.Result, Is.True);
+            Assert.That(flow.CurrentRoundId, Is.EqualTo("persisted-round"));
+            Assert.That(factory.Last.RoundId, Is.EqualTo("persisted-round"));
+            Assert.That(flow.RestoreLevelAsync(2, "persisted-round").GetAwaiter().GetResult(), Is.False);
+            Assert.That(factory.Sessions.Count, Is.EqualTo(1));
+            factory.Last.Finish(true);
+            yield return WaitForState(flow, GameRoundState.Results);
+            Assert.That(flow.Result.Value.RoundId, Is.EqualTo("persisted-round"));
+            flow.Dispose();
+        }
+
+        /// <summary>
         /// 验证暂停、结算、下一关、重玩和返回菜单的完整流程。
         /// </summary>
         /// <returns>测试协程。</returns>

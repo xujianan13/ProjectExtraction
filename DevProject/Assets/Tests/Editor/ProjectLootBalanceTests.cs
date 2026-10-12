@@ -1,212 +1,192 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
+using GameLogic.Gameplay.Level;
+using GameLogic.Project;
 using GameLogic.Tables;
 using MiniGame.Editor;
 using NUnit.Framework;
+using ProjectExtraction.Tests.Shared;
 using UnityEngine;
 
-namespace ProjectExtraction.Tests
+namespace GameLogic.Tests.Editor
 {
     /// <summary>
-    /// 验证掉落经济报告的概率、售价和固定种子样本与正式配置一致。
+    /// 验证 v2 混合物品池、收藏固定价值及区域静态指标。
     /// </summary>
     public sealed class ProjectLootBalanceTests
     {
-        private static readonly string[] PoolIds = { "default", "treasure", "merchant", "boss" };
+        /// <summary>
+        /// 为每项测试重新安装真实配置。
+        /// </summary>
+        [SetUp]
+        public void LoadConfiguration() => TestGameTables.LoadAll();
 
         /// <summary>
-        /// 四个正式掉落池在三个关卡都生成归一概率及完整样本计数。
+        /// 恢复测试修改过的配置表。
+        /// </summary>
+        [TearDown]
+        public void RestoreConfiguration() => TestGameTables.LoadAll();
+
+        /// <summary>
+        /// 真实配置全部池和物品等级的模板、品质及分类概率归一。
         /// </summary>
         [Test]
-        public void AllPoolsAndLevelsHaveNormalizedProbabilitiesAndCompleteSamples()
+        public void AllConfiguredPoolsHaveNormalizedProbabilitiesAndSamples()
         {
-            foreach (string poolId in PoolIds)
-                foreach (int level in new[] { 1, 3, 6 })
+            foreach (string poolId in GameTables.CfgLootPool.GetAll().Select(row => row.PoolID).Distinct())
+                foreach (int level in GameTables.CfgLevels.GetAll().Select(row => row.LootLevel).Distinct())
                 {
-                    Assert.That(ProjectLootBalance.TryEvaluate(poolId, level, 2026, 128, out LootPoolEvaluation result, out string error),
-                        Is.True, poolId + "/" + level + ": " + error);
-                    Assert.That(result.poolId, Is.EqualTo(poolId));
-                    Assert.That(result.level, Is.EqualTo(level));
-                    Assert.That(result.seed, Is.EqualTo(2026));
-                    Assert.That(result.sampleCount, Is.EqualTo(128));
-                    Assert.That(result.definitions.Sum(row => row.expectedProbability), Is.EqualTo(1).Within(1e-10));
-                    Assert.That(result.qualities.Sum(row => row.expectedProbability), Is.EqualTo(1).Within(1e-10));
-                    Assert.That(result.types.Sum(row => row.expectedProbability), Is.EqualTo(1).Within(1e-10));
+                    Assert.That(ProjectLootBalance.TryEvaluate(poolId, level, 2026, 128, out LootPoolEvaluation result, out string error), Is.True, error);
+                    Assert.That(result.definitions.Sum(row => row.expectedProbability), Is.EqualTo(1d).Within(1e-10));
+                    Assert.That(result.qualities.Sum(row => row.expectedProbability), Is.EqualTo(1d).Within(1e-10));
+                    Assert.That(result.types.Sum(row => row.expectedProbability), Is.EqualTo(1d).Within(1e-10));
                     Assert.That(result.definitions.Sum(row => row.sampleCount), Is.EqualTo(128));
                     Assert.That(result.qualities.Sum(row => row.sampleCount), Is.EqualTo(128));
                     Assert.That(result.types.Sum(row => row.sampleCount), Is.EqualTo(128));
-                    Assert.That(result.sampleMinSellGold, Is.LessThanOrEqualTo(result.sampleAverageSellGold));
-                    Assert.That(result.sampleAverageSellGold, Is.LessThanOrEqualTo(result.sampleMaxSellGold));
                 }
         }
 
         /// <summary>
-        /// 同一配置和种子得到可序列化的稳定报告，不暴露随机生成的物品身份。
+        /// 固定种子估值报告一致且不包含随机实例身份。
         /// </summary>
         [Test]
-        public void FixedSeedProducesIdenticalSerializableReport()
+        public void FixedSeedProducesIdenticalReport()
         {
-            Assert.That(ProjectLootBalance.TryEvaluate("treasure", 2, 314159, 500, out LootPoolEvaluation first, out string error), Is.True, error);
-            Assert.That(ProjectLootBalance.TryEvaluate("treasure", 2, 314159, 500, out LootPoolEvaluation second, out error), Is.True, error);
-            string json = JsonUtility.ToJson(first);
-            Assert.That(json, Is.EqualTo(JsonUtility.ToJson(second)));
-            Assert.That(json, Does.Contain("expectedSellGold"));
-            Assert.That(json, Does.Not.Contain("Guid").And.Not.Contain("guid"));
+            string poolId = GameTables.CfgChestPool.GetAll()[0].LootPoolID;
+            int level = GameTables.CfgLevels.GetAll()[0].LootLevel;
+            Assert.That(ProjectLootBalance.TryEvaluate(poolId, level, 314159, 500, out var first, out string error), Is.True, error);
+            Assert.That(ProjectLootBalance.TryEvaluate(poolId, level, 314159, 500, out var second, out error), Is.True, error);
+            Assert.That(JsonUtility.ToJson(first), Is.EqualTo(JsonUtility.ToJson(second)));
         }
 
         /// <summary>
-        /// 以配置字段独立计算品质及模板均价，核对所有正式池的理论售价。
+        /// 混合收藏池的理论均价独立按收藏固定价和其他物品品质权重计算。
         /// </summary>
         [Test]
-        public void ExpectedSellGoldMatchesIndependentCurrentTableCalculation()
+        public void MixedCollectionPoolUsesFixedCollectionPriceAndQuality()
         {
-            CfgItemDefinitionsRow[] definitions = GameTables.CfgItemDefinitions.GetAll().Where(row => !row.StarterEquipped).ToArray();
-            Assert.That(definitions.Length, Is.EqualTo(6));
-            Assert.That(definitions.All(row => row.SellBase == 8 && row.SellPerLevel == 4 &&
-                row.SellRandomExclusive == 8 && row.SellPerQuality == 6), Is.True);
-            foreach (string poolId in PoolIds)
-                foreach (int level in new[] { 1, 3, 6 })
-                {
-                    CfgLootQualitiesRow[] qualities = GameTables.CfgLootQualities.GetAll().Where(row => row.PoolID == poolId).ToArray();
-                    double weightedQuality = qualities.Sum(row => (double)row.Quality * row.Weight) / qualities.Sum(row => row.Weight);
-                    double expected = 8 + level * 4 + (8 - 1) / 2.0 + weightedQuality * 6;
-                    Assert.That(ProjectLootBalance.TryEvaluate(poolId, level, 77, 64, out LootPoolEvaluation result, out string error),
-                        Is.True, error);
-                    Assert.That(result.expectedSellGold, Is.EqualTo(expected).Within(1e-10), poolId + "/" + level);
-                }
+            CfgLootPoolRow collectionEntry = GameTables.CfgLootPool.GetAll().First(row =>
+                GameTables.CfgItemDefinitions.GetById(row.DefinitionId).Type == (int)ProjectItemType.Collection);
+            string poolId = collectionEntry.PoolID;
+            int level = Math.Max(collectionEntry.MinLevel, GameTables.CfgLevels.GetAll()[0].LootLevel);
+            Assert.That(ProjectLootBalance.TryEvaluate(poolId, level, 77, 256, out var result, out string error), Is.True, error);
+            Assert.That(result.expectedSellGold, Is.EqualTo(IndependentMean(poolId, level)).Within(1e-10));
+            CfgCollectionsRow collection = GameTables.CfgCollections.GetById(GameTables.CfgItemDefinitions.GetById(collectionEntry.DefinitionId).CollectionID);
+            double collectionProbability = result.definitions.Where(row =>
+                GameTables.CfgItemDefinitions.GetById(row.id).Type == (int)ProjectItemType.Collection).Sum(row => row.expectedProbability);
+            Assert.That(result.qualities.Single(row => row.id == collection.Quality.ToString()).expectedProbability, Is.GreaterThanOrEqualTo(collectionProbability));
         }
 
         /// <summary>
-        /// 每个掉落池的品质分布使用各自权重。
+        /// 等级筛选去除模板后，剩余权重重新归一。
         /// </summary>
         [Test]
-        public void PoolsUseTheirOwnQualityWeights()
+        public void LevelFilterRenormalizesEligibleDefinitions()
         {
-            foreach (string poolId in PoolIds)
+            CfgLootPoolRow restricted = GameTables.CfgLootPool.GetAll().First();
+            string definitionId = restricted.DefinitionId;
+            restricted.MaxLevel = 1;
+            Assert.That(ProjectLootBalance.TryEvaluate(restricted.PoolID, 2, 19, 128, out var result, out string error), Is.True, error);
+            Assert.That(result.definitions.Any(row => row.id == definitionId), Is.False);
+            Assert.That(result.expectedSellGold, Is.EqualTo(IndependentMean(restricted.PoolID, 2)).Within(1e-10));
+        }
+
+        /// <summary>
+        /// 同池重复模板合并概率，不影响实际样本总数。
+        /// </summary>
+        [Test]
+        public void DuplicateDefinitionsCombineWeights()
+        {
+            string poolId = GameTables.CfgLootPool.GetAll()[0].PoolID;
+            CfgLootPoolRow[] rows = GameTables.CfgLootPool.GetAll().Where(row => row.PoolID == poolId).ToArray();
+            rows[1].DefinitionId = rows[0].DefinitionId;
+            Assert.That(ProjectLootBalance.TryEvaluate(poolId, 1, 101, 128, out var result, out string error), Is.True, error);
+            int combined = rows.Where(row => row.DefinitionId == rows[0].DefinitionId).Sum(row => row.Weight);
+            Assert.That(result.definitions.Single(row => row.id == rows[0].DefinitionId).expectedProbability,
+                Is.EqualTo((double)combined / rows.Sum(row => row.Weight)).Within(1e-10));
+            Assert.That(result.definitions.Sum(row => row.sampleCount), Is.EqualTo(128));
+        }
+
+        /// <summary>
+        /// 区域报告按真实首次冻结的怪群、精英和 Boss 轮数计算。
+        /// </summary>
+        [Test]
+        public void RegionEvaluationUsesGeneratedPlanAndConfiguredContributions()
+        {
+            LevelContentConfig.TryGetLevel(1, out LevelDefinition level);
+            Assert.That(LevelContentConfig.TryCreateRegionRequests("balance-test", 7, level, out var requests, out string error), Is.True, error);
+            var pools = new Dictionary<string, LootPoolEvaluation>();
+            foreach (string id in GameTables.CfgLootPool.GetAll().Select(row => row.PoolID).Distinct())
             {
-                Assert.That(ProjectLootBalance.TryEvaluate(poolId, 3, 19, 64, out LootPoolEvaluation result, out string error),
-                    Is.True, error);
-                CfgLootQualitiesRow[] configured = GameTables.CfgLootQualities.GetAll().Where(row => row.PoolID == poolId).ToArray();
-                double total = configured.Sum(row => row.Weight);
-                foreach (CfgLootQualitiesRow row in configured)
-                    Assert.That(result.qualities.Single(frequency => frequency.id == row.Quality.ToString()).expectedProbability,
-                        Is.EqualTo(row.Weight / total).Within(1e-10), poolId + "/" + row.Quality);
+                Assert.That(ProjectLootBalance.TryEvaluate(id, level.LootLevel, 7, 64, out var value, out error), Is.True, error);
+                pools.Add(id, value);
+            }
+            foreach (RegionGenerationRequest request in requests)
+            {
+                RegionMapDefinition map = ProjectRegionAssetsBuilder.CreateDefinition(request.MapId);
+                Assert.That(RegionContentGenerator.TryGenerate(request, map, LevelContentConfig.CreateRegionContent(request), out var plan, out error), Is.True, error);
+                Assert.That(ProjectBalanceReport.TryEvaluateRegion(plan, pools, out var result, out error), Is.True, error);
+                CfgRogueProgressRow progress = GameTables.CfgRogueProgress.GetById(level.Row.ProgressRuleID);
+                Assert.That(result.initialWeightedSkillProgress,
+                    Is.EqualTo((long)result.normalEnemies * progress.NormalContribution + (long)result.eliteEnemies * progress.EliteContribution));
+                Assert.That(result.bosses, Is.EqualTo(1));
+                Assert.That(result.bossRewardRounds,
+                    Is.EqualTo(GameTables.CfgBossRewards.GetById(GameTables.CfgBosses.GetById(request.BossDefinitionId).RewardID).Rounds));
+                Assert.That(result.expectedMerchantNetGold, Is.EqualTo(result.expectedMerchantResaleGold - result.merchantPurchaseGold));
+                if (request.RegionIndex == level.Row.RegionCount)
+                    Assert.That(result.normalEnemies + result.eliteEnemies + result.chestItems + result.merchantOffers, Is.Zero);
             }
         }
 
         /// <summary>
-        /// 拒绝空池、未知池、非法等级和非正样本量，且不给出伪报告。
+        /// 无效参数和缺失模板不产生部分报告。
         /// </summary>
         [Test]
-        public void InvalidArgumentsAndMissingPoolAreRejected()
+        public void InvalidArgumentsAndMissingDefinitionAreRejected()
         {
             AssertRejected(null, 1, 1);
-            AssertRejected(" ", 1, 1);
             AssertRejected("missing-pool", 1, 1);
-            AssertRejected("default", 0, 1);
-            AssertRejected("default", 1001, 1);
-            AssertRejected("default", 1, 0);
-            AssertRejected("default", 1, -1);
-            CfgLootPoolRow invalid = GameTables.CfgLootPool.GetAll()
-                .Single(row => row.PoolID == "default" && row.DefinitionId == "ruin_heavy_blade");
-            string originalDefinitionId = invalid.DefinitionId;
-            try
-            {
-                invalid.DefinitionId = null;
-                AssertRejected("default", 1, 1);
-            }
-            finally
-            {
-                invalid.DefinitionId = originalDefinitionId;
-            }
+            AssertRejected(GameTables.CfgLootPool.GetAll()[0].PoolID, 0, 1);
+            AssertRejected(GameTables.CfgLootPool.GetAll()[0].PoolID, 1, 0);
+            CfgLootPoolRow row = GameTables.CfgLootPool.GetAll()[0];
+            row.DefinitionId = "missing-definition";
+            AssertRejected(row.PoolID, 1, 1);
         }
 
         /// <summary>
-        /// 等级区间剔除一项后，模板概率按剩余权重重新归一，恢复原配置字段。
+        /// 独立计算混合池的加权回收均价。
         /// </summary>
-        [Test]
-        public void LevelFilterRenormalizesRemainingDefinitions()
+        /// <param name="poolId">物品池身份。</param>
+        /// <param name="level">物品等级。</param>
+        /// <returns>当前可用条目的加权均价。</returns>
+        private static double IndependentMean(string poolId, int level)
         {
-            CfgLootPoolRow restricted = GameTables.CfgLootPool.GetAll()
-                .Single(row => row.PoolID == "default" && row.DefinitionId == "ruin_heavy_blade");
-            int originalMaxLevel = restricted.MaxLevel;
-            try
+            CfgLootPoolRow[] rows = GameTables.CfgLootPool.GetAll().Where(row => row.PoolID == poolId && row.Weight > 0 &&
+                row.MinLevel <= level && level <= row.MaxLevel).ToArray();
+            CfgLootQualitiesRow[] qualities = GameTables.CfgLootQualities.GetAll().Where(row => row.PoolID == poolId).ToArray();
+            double meanQuality = qualities.Sum(row => (double)row.Quality * row.Weight) / qualities.Sum(row => row.Weight);
+            return rows.Sum(row =>
             {
-                restricted.MaxLevel = 1;
-                Assert.That(ProjectLootBalance.TryEvaluate("default", 1, 19, 100, out LootPoolEvaluation first, out string error),
-                    Is.True, error);
-                Assert.That(ProjectLootBalance.TryEvaluate("default", 2, 19, 100, out LootPoolEvaluation second, out error),
-                    Is.True, error);
-                int eligibleWeight = GameTables.CfgLootPool.GetAll().Where(row => row.PoolID == "default" &&
-                    row.Weight > 0 && row.MinLevel <= 2 && row.MaxLevel >= 2).Sum(row => row.Weight);
-                Assert.That(first.definitions.Single(row => row.id == restricted.DefinitionId).expectedProbability, Is.GreaterThan(0));
-                Assert.That(second.definitions.Any(row => row.id == restricted.DefinitionId), Is.False);
-                Assert.That(second.definitions.Single(row => row.id == "ruin_armor").expectedProbability,
-                    Is.EqualTo(4.0 / eligibleWeight).Within(1e-10));
-                Assert.That(second.definitions.Sum(row => row.sampleCount), Is.EqualTo(100));
-            }
-            finally
-            {
-                restricted.MaxLevel = originalMaxLevel;
-            }
+                CfgItemDefinitionsRow definition = GameTables.CfgItemDefinitions.GetById(row.DefinitionId);
+                double value = definition.Type == (int)ProjectItemType.Collection ? GameTables.CfgCollections.GetById(definition.CollectionID).SellGold :
+                    definition.SellBase + (double)level * definition.SellPerLevel +
+                    (definition.SellRandomExclusive > 0 ? (definition.SellRandomExclusive - 1) / 2d : 0d) + meanQuality * definition.SellPerQuality;
+                return value * row.Weight;
+            }) / rows.Sum(row => row.Weight);
         }
 
         /// <summary>
-        /// 同池重复模板合并权重，模板售价不同后理论均价仍按条目权重计算。
+        /// 断言失败时返回明确错误且没有评估结果。
         /// </summary>
-        [Test]
-        public void DuplicateDefinitionCombinesWeightsAndUsesWeightedSellMean()
+        /// <param name="poolId">池身份。</param>
+        /// <param name="level">物品等级。</param>
+        /// <param name="samples">样本数量。</param>
+        private static void AssertRejected(string poolId, int level, int samples)
         {
-            CfgLootPoolRow redirected = GameTables.CfgLootPool.GetAll()
-                .Single(row => row.PoolID == "default" && row.DefinitionId == "ruin_heavy_blade");
-            CfgItemDefinitionsRow expensive = GameTables.CfgItemDefinitions.GetById("ruin_weapon");
-            string originalDefinitionId = redirected.DefinitionId;
-            int originalSellBase = expensive.SellBase;
-            try
-            {
-                redirected.DefinitionId = expensive.ID;
-                expensive.SellBase = originalSellBase + 37;
-                CfgLootPoolRow[] eligible = GameTables.CfgLootPool.GetAll()
-                    .Where(row => row.PoolID == "default" && row.MinLevel <= 2 && row.MaxLevel >= 2 && row.Weight > 0).ToArray();
-                int totalWeight = eligible.Sum(row => row.Weight);
-                int duplicateWeight = eligible.Where(row => row.DefinitionId == expensive.ID).Sum(row => row.Weight);
-                CfgLootQualitiesRow[] qualities = GameTables.CfgLootQualities.GetAll().Where(row => row.PoolID == "default").ToArray();
-                double qualityMean = qualities.Sum(row => (double)row.Quality * row.Weight) / qualities.Sum(row => row.Weight);
-                double expected = eligible.Sum(row =>
-                {
-                    CfgItemDefinitionsRow definition = GameTables.CfgItemDefinitions.GetById(row.DefinitionId);
-                    double randomMean = definition.SellRandomExclusive > 0 ? (definition.SellRandomExclusive - 1) / 2.0 : 0;
-                    return row.Weight * (definition.SellBase + 2.0 * definition.SellPerLevel +
-                        randomMean + qualityMean * definition.SellPerQuality);
-                }) / totalWeight;
-
-                Assert.That(ProjectLootBalance.TryEvaluate("default", 2, 101, 300, out LootPoolEvaluation result, out string error),
-                    Is.True, error);
-                Assert.That(duplicateWeight, Is.EqualTo(2));
-                Assert.That(result.definitions.Count(row => row.id == expensive.ID), Is.EqualTo(1));
-                Assert.That(result.definitions.Length, Is.EqualTo(5));
-                Assert.That(result.definitions.Single(row => row.id == expensive.ID).expectedProbability,
-                    Is.EqualTo((double)duplicateWeight / totalWeight).Within(1e-10));
-                Assert.That(result.expectedSellGold, Is.EqualTo(expected).Within(1e-10));
-            }
-            finally
-            {
-                redirected.DefinitionId = originalDefinitionId;
-                expensive.SellBase = originalSellBase;
-            }
-        }
-
-        /// <summary>
-        /// 断言无效输入返回错误而不产生报告。
-        /// </summary>
-        /// <param name="poolId">候选掉落池。</param>
-        /// <param name="level">候选等级。</param>
-        /// <param name="sampleCount">候选样本数。</param>
-        private static void AssertRejected(string poolId, int level, int sampleCount)
-        {
-            Assert.That(ProjectLootBalance.TryEvaluate(poolId, level, 1, sampleCount, out LootPoolEvaluation result, out string error), Is.False);
+            Assert.That(ProjectLootBalance.TryEvaluate(poolId, level, 1, samples, out var result, out string error), Is.False);
             Assert.That(result, Is.Null);
-            Assert.That(error, Is.Not.Null.And.Not.Empty);
+            Assert.That(error, Is.Not.Empty);
         }
     }
 }

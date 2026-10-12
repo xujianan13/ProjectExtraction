@@ -1,5 +1,5 @@
 {
-  "schemaHash": "b73905762056cbe2e95bca99a63483286fbac1aeb83f3e7578406589b5689ca7",
+  "schemaHash": "d52633067a01b2c7d9f8082c9b838b4476232dd141911e45a0877ee2e31c4e03",
   "rows": [
     {
       "ID": 1,
@@ -18,17 +18,20 @@
       "SkillID": 2,
       "ExperienceBase": 10,
       "ExperiencePerLevel": 3,
-      "DropChance": 0.4,
-      "DropPoolID": "default"
+      "Role": 0,
+      "Defense": 0,
+      "VulnerableEffectIDs": [],
+      "VulnerabilityMultiplier": 1,
+      "WeaknessDescription": ""
     },
     {
       "ID": 2,
-      "Name": "遗迹首领",
+      "Name": "遗迹守门者",
       "PrefabAddress": "PF_TestBoss",
       "ModelScaleX": 1.8,
       "ModelScaleY": 1.5,
       "ModelScaleZ": 1.8,
-      "BaseHealth": 180,
+      "BaseHealth": 420,
       "HealthPerLevel": 30,
       "Attack": 12,
       "MoveSpeed": 1.5,
@@ -38,8 +41,13 @@
       "SkillID": 3,
       "ExperienceBase": 10,
       "ExperiencePerLevel": 3,
-      "DropChance": 1,
-      "DropPoolID": "boss"
+      "Role": 2,
+      "Defense": 0,
+      "VulnerableEffectIDs": [
+        5
+      ],
+      "VulnerabilityMultiplier": 1.5,
+      "WeaknessDescription": "环形重击前离开范围；流血额外有效。"
     },
     {
       "ID": 3,
@@ -58,8 +66,11 @@
       "SkillID": 4,
       "ExperienceBase": 13,
       "ExperiencePerLevel": 4,
-      "DropChance": 0.5,
-      "DropPoolID": "default"
+      "Role": 0,
+      "Defense": 0,
+      "VulnerableEffectIDs": [],
+      "VulnerabilityMultiplier": 1,
+      "WeaknessDescription": ""
     },
     {
       "ID": 4,
@@ -78,8 +89,11 @@
       "SkillID": 5,
       "ExperienceBase": 18,
       "ExperiencePerLevel": 5,
-      "DropChance": 0.65,
-      "DropPoolID": "default"
+      "Role": 0,
+      "Defense": 0,
+      "VulnerableEffectIDs": [],
+      "VulnerabilityMultiplier": 1,
+      "WeaknessDescription": ""
     },
     {
       "ID": 5,
@@ -98,8 +112,11 @@
       "SkillID": 8,
       "ExperienceBase": 14,
       "ExperiencePerLevel": 4,
-      "DropChance": 0.5,
-      "DropPoolID": "default"
+      "Role": 0,
+      "Defense": 0,
+      "VulnerableEffectIDs": [],
+      "VulnerabilityMultiplier": 1,
+      "WeaknessDescription": ""
     },
     {
       "ID": 6,
@@ -118,8 +135,138 @@
       "SkillID": 9,
       "ExperienceBase": 20,
       "ExperiencePerLevel": 5,
-      "DropChance": 0.65,
-      "DropPoolID": "default"
+      "Role": 0,
+      "Defense": 0,
+      "VulnerableEffectIDs": [],
+      "VulnerabilityMultiplier": 1,
+      "WeaknessDescription": ""
+    },
+    {
+      "ID": 7,
+      "Name": "精英·疾行追猎者",
+      "PrefabAddress": "PF_TestEnemy",
+      "ModelScaleX": 1.05,
+      "ModelScaleY": 1.05,
+      "ModelScaleZ": 1.05,
+      "BaseHealth": 150,
+      "HealthPerLevel": 13,
+      "Attack": 15,
+      "MoveSpeed": 2.7,
+      "Radius": 0.53,
+      "AttackRange": 2,
+      "AggroRange": 10,
+      "SkillID": 4,
+      "ExperienceBase": 13,
+      "ExperiencePerLevel": 4,
+      "Role": 1,
+      "Defense": 0,
+      "VulnerableEffectIDs": [
+        1004
+      ],
+      "VulnerabilityMultiplier": 1.5,
+      "WeaknessDescription": "移速快；反击伤害对其额外有效。"
+    },
+    {
+      "ID": 8,
+      "Name": "精英·重甲破阵者",
+      "PrefabAddress": "PF_TestEnemy",
+      "ModelScaleX": 1.3,
+      "ModelScaleY": 1.2,
+      "ModelScaleZ": 1.3,
+      "BaseHealth": 230,
+      "HealthPerLevel": 20,
+      "Attack": 18,
+      "MoveSpeed": 1.35,
+      "Radius": 0.67,
+      "AttackRange": 2.4,
+      "AggroRange": 10,
+      "SkillID": 5,
+      "ExperienceBase": 18,
+      "ExperiencePerLevel": 5,
+      "Role": 1,
+      "Defense": 0,
+      "VulnerableEffectIDs": [
+        5
+      ],
+      "VulnerabilityMultiplier": 1.5,
+      "WeaknessDescription": "攻击缓慢；流血伤害对其额外有效。"
+    },
+    {
+      "ID": 9,
+      "Name": "精英·双刃守卫",
+      "PrefabAddress": "PF_TestEnemy",
+      "ModelScaleX": 0.76,
+      "ModelScaleY": 0.9,
+      "ModelScaleZ": 0.76,
+      "BaseHealth": 180,
+      "HealthPerLevel": 8,
+      "Attack": 16,
+      "MoveSpeed": 3,
+      "Radius": 0.38,
+      "AttackRange": 1.8,
+      "AggroRange": 10,
+      "SkillID": 8,
+      "ExperienceBase": 14,
+      "ExperiencePerLevel": 4,
+      "Role": 1,
+      "Defense": 0,
+      "VulnerableEffectIDs": [
+        1002
+      ],
+      "VulnerabilityMultiplier": 1.5,
+      "WeaknessDescription": "双段近战；暴击追伤对其额外有效。"
+    },
+    {
+      "ID": 10,
+      "Name": "庭院双刃统领",
+      "PrefabAddress": "PF_TestBoss",
+      "ModelScaleX": 1.8,
+      "ModelScaleY": 1.5,
+      "ModelScaleZ": 1.8,
+      "BaseHealth": 480,
+      "HealthPerLevel": 30,
+      "Attack": 18,
+      "MoveSpeed": 1.5,
+      "Radius": 0.9,
+      "AttackRange": 7,
+      "AggroRange": 10,
+      "SkillID": 3,
+      "ExperienceBase": 10,
+      "ExperiencePerLevel": 3,
+      "Role": 2,
+      "Defense": 0,
+      "VulnerableEffectIDs": [
+        1002
+      ],
+      "VulnerabilityMultiplier": 1.5,
+      "WeaknessDescription": "中距离追击与近身爆发；暴击追伤额外有效。"
+    },
+    {
+      "ID": 11,
+      "Name": "遗迹核心守望者",
+      "PrefabAddress": "PF_TestBoss",
+      "ModelScaleX": 1.8,
+      "ModelScaleY": 1.5,
+      "ModelScaleZ": 1.8,
+      "BaseHealth": 1000,
+      "HealthPerLevel": 30,
+      "Attack": 22,
+      "MoveSpeed": 1.5,
+      "Radius": 0.9,
+      "AttackRange": 7,
+      "AggroRange": 10,
+      "SkillID": 3,
+      "ExperienceBase": 10,
+      "ExperiencePerLevel": 3,
+      "Role": 2,
+      "Defense": 0,
+      "VulnerableEffectIDs": [
+        5,
+        1002,
+        1004
+      ],
+      "VulnerabilityMultiplier": 1.5,
+      "WeaknessDescription": "后半程冲锋；流血、暴击追伤、反击均有优势。"
     }
   ]
 }

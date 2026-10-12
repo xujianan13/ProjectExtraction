@@ -134,6 +134,7 @@ namespace GameLogic.Gameplay.Combat
     /// <summary>
     /// 敌人自动选择技能时使用的纯数据条件。
     /// </summary>
+    [Serializable]
     public struct CombatEnemySkillDefinition
     {
         public int SkillId;
@@ -146,8 +147,19 @@ namespace GameLogic.Gameplay.Combat
     }
 
     /// <summary>
+    /// 一项配置伤害效果对角色的软弱点倍率。
+    /// </summary>
+    [Serializable]
+    public struct CombatDamageVulnerability
+    {
+        public int EffectId;
+        public float Multiplier;
+    }
+
+    /// <summary>
     /// 创建角色所需的初始数据。
     /// </summary>
+    [Serializable]
     public struct CombatActorSpec
     {
         public int ActorId;
@@ -168,6 +180,7 @@ namespace GameLogic.Gameplay.Combat
         public float AttackRange;
         public int BasicSkillId;
         public CombatEnemySkillDefinition[] EnemySkills;
+        public CombatDamageVulnerability[] DamageVulnerabilities;
         public float AggroRange;
     }
 

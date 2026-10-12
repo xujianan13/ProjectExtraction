@@ -117,7 +117,8 @@ namespace GameLogic.Project
             foreach (CfgItemDefinitionsRow item in GameTables.CfgItemDefinitions.GetAll())
                 if (string.IsNullOrWhiteSpace(item.ID) || string.IsNullOrWhiteSpace(item.Name) ||
                     item.Type != (int)ProjectItemType.Weapon && item.Type != (int)ProjectItemType.Armor &&
-                    item.Type != (int)ProjectItemType.Item || item.Type == (int)ProjectItemType.Item && item.StarterEquipped ||
+                    item.Type != (int)ProjectItemType.Item && item.Type != (int)ProjectItemType.Collection ||
+                    (item.Type == (int)ProjectItemType.Item || item.Type == (int)ProjectItemType.Collection) && item.StarterEquipped ||
                     item.StarterEquipped && item.ID != p.StarterDefinitionId ||
                     !FiniteFloat(item.AttackBase) || !FiniteFloat(item.AttackPerLevel) ||
                     !FiniteFloat(item.HealthBase) || !FiniteFloat(item.HealthPerLevel) ||
@@ -217,6 +218,9 @@ namespace GameLogic.Project
                 error = "默认掉落池为空。";
                 return false;
             }
+            var poolsWithQualityDraw = new HashSet<string>(StringComparer.Ordinal);
+            foreach (CfgLootPoolRow row in GameTables.CfgLootPool.GetAll())
+                if (Item(row.DefinitionId).Type != (int)ProjectItemType.Collection) poolsWithQualityDraw.Add(row.PoolID);
             var qualityByPool = new Dictionary<string, HashSet<int>>(StringComparer.Ordinal);
             var qualityWeightsByPool = new Dictionary<string, long>(StringComparer.Ordinal);
             foreach (CfgLootQualitiesRow row in GameTables.CfgLootQualities.GetAll())
@@ -241,7 +245,7 @@ namespace GameLogic.Project
                 qualityWeightsByPool.TryGetValue(row.PoolID, out long weight);
                 qualityWeightsByPool[row.PoolID] = weight + row.Weight;
             }
-            foreach (string poolId in poolWeights.Keys)
+            foreach (string poolId in poolsWithQualityDraw)
                 if (!qualityByPool.TryGetValue(poolId, out HashSet<int> qualities) ||
                     qualities.Count != Enum.GetValues(typeof(ProjectItemQuality)).Length ||
                     qualityWeightsByPool[poolId] <= 0 || qualityWeightsByPool[poolId] > int.MaxValue)
@@ -257,8 +261,6 @@ namespace GameLogic.Project
                 }
             CfgRoguePolicyRow policy = RoguePolicy;
             if (policy == null || GameTables.CfgRoguePolicy.GetAll().Count != 1 || policy.MaxRefreshes < 0 ||
-                !FiniteFloat(policy.MobClearChance) || policy.MobClearChance < 0 || policy.MobClearChance > 1 ||
-                policy.MaxConsecutiveMobMisses < 0 || policy.MaxConsecutiveMobMisses > 1000 ||
                 policy.SelectedUpgradeWeightMultiplier < 1 || policy.SelectedUpgradeWeightMultiplier > 16 ||
                 policy.UnlockedComboWeightMultiplier < 1 || policy.UnlockedComboWeightMultiplier > 16)
             {
@@ -273,27 +275,18 @@ namespace GameLogic.Project
                     !Enum.IsDefined(typeof(GameLogic.Gameplay.Roguelike.RogueRewardKind), reward.Kind) ||
                     !FiniteFloat(reward.Amount) ||
                     reward.Kind == 0 && (!Enum.IsDefined(typeof(ProjectAttributeType), reward.Attribute) ||
-                        reward.Amount <= 0 || reward.Amount > p.MaxAttributeValue) ||
-                    reward.Kind == 1 && (reward.LootType != (int)ProjectItemType.Weapon &&
-                        reward.LootType != (int)ProjectItemType.Armor && reward.LootType != (int)ProjectItemType.Item))
+                        reward.Amount <= 0 || reward.Amount > p.MaxAttributeValue))
                 {
                     error = "Rogue 奖励无效。";
                     return false;
                 }
-                if (reward.Kind == 1)
-                    for (int level = 1; level <= p.MaxLevel; level++)
-                        if (!ProjectEquipmentRules.HasLoot(p.DefaultLootPoolID, level, (ProjectItemType)reward.LootType))
-                        {
-                            error = "默认掉落池缺少 Rogue 奖励类型：" + reward.ID + "，等级 " + level + "。";
-                            return false;
-                        }
                 rogueWeight += reward.Weight;
                 rogueCount++;
             }
             if (rogueWeight * Math.Max(policy.SelectedUpgradeWeightMultiplier, policy.UnlockedComboWeightMultiplier) > int.MaxValue)
                 error = "Rogue 奖励有效总权重超过可表示范围。";
-            if (rogueCount < 4) error = "Rogue 奖励少于四项。";
-            return error == null && ProjectAugmentConfig.Validate(out error);
+            if (rogueCount == 0) error = "Rogue 技能奖励池为空。";
+            return error == null && ProjectAugmentConfig.Validate(out error) && ProjectV2RewardConfig.Validate(out error);
         }
 
         /// <summary>

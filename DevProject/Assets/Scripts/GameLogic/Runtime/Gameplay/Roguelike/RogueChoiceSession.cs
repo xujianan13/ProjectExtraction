@@ -11,11 +11,12 @@ namespace GameLogic.Gameplay.Roguelike
     /// <summary>
     /// 本局强化的效果分类。
     /// </summary>
-    public enum RogueRewardKind { AttributeBonus, RandomLoot, CombatAugment }
+    public enum RogueRewardKind { AttributeBonus = 0, CombatAugment = 2 }
 
     /// <summary>
     /// 可配置但每局创建时会复制的选择功能开关。
     /// </summary>
+    [Serializable]
     public sealed class RogueChoicePolicy
     {
         public bool RefreshEnabled;
@@ -38,6 +39,24 @@ namespace GameLogic.Gameplay.Roguelike
         }
 
         /// <summary>
+        /// 使用调用方提供的功能和权重创建独立策略。
+        /// </summary>
+        /// <param name="refreshEnabled">是否允许刷新。</param>
+        /// <param name="extraChoiceEnabled">是否允许第四选项。</param>
+        /// <param name="maxRefreshes">允许的刷新次数。</param>
+        /// <param name="selectedUpgradeWeightMultiplier">已选强化的权重倍率。</param>
+        /// <param name="unlockedComboWeightMultiplier">已解锁组合的权重倍率。</param>
+        public RogueChoicePolicy(bool refreshEnabled, bool extraChoiceEnabled, int maxRefreshes,
+            int selectedUpgradeWeightMultiplier = 1, int unlockedComboWeightMultiplier = 1)
+        {
+            RefreshEnabled = refreshEnabled;
+            ExtraChoiceEnabled = extraChoiceEnabled;
+            MaxRefreshes = maxRefreshes;
+            SelectedUpgradeWeightMultiplier = selectedUpgradeWeightMultiplier;
+            UnlockedComboWeightMultiplier = unlockedComboWeightMultiplier;
+        }
+
+        /// <summary>
         /// 创建互不共享配置字段的副本。
         /// </summary>
         /// <returns>独立策略。</returns>
@@ -45,7 +64,7 @@ namespace GameLogic.Gameplay.Roguelike
     }
 
     /// <summary>
-    /// 表达本局属性、随机战利品或战斗强化，应用由调用方完成。
+    /// 表达本局属性或战斗强化，应用由调用方完成。
     /// </summary>
     public sealed class RogueRewardDefinition
     {
@@ -55,7 +74,6 @@ namespace GameLogic.Gameplay.Roguelike
         public RogueRewardKind Kind { get; }
         public ProjectAttributeType Attribute { get; }
         public float Amount { get; }
-        public ProjectItemType LootType { get; }
         public string AugmentId { get; }
         public int Rank { get; }
         public int MaxRank { get; }
@@ -69,12 +87,11 @@ namespace GameLogic.Gameplay.Roguelike
         /// <param name="kind">奖励分类。</param>
         /// <param name="attribute">本局属性种类。</param>
         /// <param name="amount">本局属性增量。</param>
-        /// <param name="lootType">随机战利品类型。</param>
         /// <param name="augmentId">战斗强化身份。</param>
         /// <param name="rank">本次获得后的等级。</param>
         /// <param name="maxRank">允许的最高等级，零表示不限。</param>
         public RogueRewardDefinition(string id, string title, string description, RogueRewardKind kind,
-            ProjectAttributeType attribute = default, float amount = 0, ProjectItemType lootType = default,
+            ProjectAttributeType attribute = default, float amount = 0,
             string augmentId = null, int rank = 1, int maxRank = 0)
         {
             Id = id;
@@ -83,7 +100,6 @@ namespace GameLogic.Gameplay.Roguelike
             Kind = kind;
             Attribute = attribute;
             Amount = amount;
-            LootType = lootType;
             AugmentId = augmentId;
             Rank = rank;
             MaxRank = maxRank;
@@ -255,11 +271,15 @@ namespace GameLogic.Gameplay.Roguelike
     /// <summary>
     /// 使用独立随机源管理本局三选一和可选第四项授权。
     /// </summary>
-    public sealed class RogueChoiceSession
+    public sealed partial class RogueChoiceSession
     {
         private readonly string runId;
-        private readonly System.Random random;
-        private readonly RogueChoicePolicy policy;
+        private PersistentRandom random;
+        private RogueChoicePolicy policy;
+        private readonly List<CfgRogueRewardsRow> rewards = new();
+        private readonly Dictionary<string, CfgRogueRewardsRow> rewardsById = new();
+        private readonly Dictionary<string, RogueRewardDefinition> selectedRewards = new();
+        private readonly string configurationError;
         private readonly HashSet<string> usedSources = new();
         private readonly HashSet<string> usedReceipts = new();
         private readonly List<RogueChoiceOption> options = new();
@@ -283,11 +303,27 @@ namespace GameLogic.Gameplay.Roguelike
         /// <param name="seed">选择专属随机种子。</param>
         /// <param name="policy">可选功能策略。</param>
         public RogueChoiceSession(string runId, int seed, RogueChoicePolicy policy = null)
+            : this(runId, seed, GameTables.CfgRogueRewards.GetAll(), policy) { }
+
+        /// <summary>
+        /// 冻结调用方提供的技能池，并使用独立的可恢复随机源。
+        /// </summary>
+        /// <param name="runId">单局身份。</param>
+        /// <param name="seed">选择专属随机种子。</param>
+        /// <param name="rewards">技能及可选纯属性候选，只接受强化分类。</param>
+        /// <param name="policy">可选功能策略。</param>
+        public RogueChoiceSession(string runId, int seed, IReadOnlyList<CfgRogueRewardsRow> rewards, RogueChoicePolicy policy = null)
         {
             this.runId = runId;
-            random = new System.Random(seed);
+            random = new PersistentRandom(seed);
             this.policy = (policy ?? new RogueChoicePolicy()).Copy();
+            configurationError = FreezeRewards(rewards);
         }
+
+        /// <summary>
+        /// 当前构筑已经没有合法强化，配置错误不视为正常耗尽。
+        /// </summary>
+        public bool IsExhausted => configurationError == null && ValidPolicy(policy) && EligibleRewards().Count == 0;
 
         /// <summary>
         /// 当前是否有待处理选择，避免高频检查时复制快照。
@@ -301,7 +337,7 @@ namespace GameLogic.Gameplay.Roguelike
             refreshCount, policy.RefreshEnabled && refreshCount < policy.MaxRefreshes, extraUnlocked, options);
 
         /// <summary>
-        /// 获取已兑现且不含随机战利品的只读强化快照。
+        /// 获取已兑现的只读强化快照。
         /// </summary>
         public IReadOnlyList<RogueUpgradeSnapshot> Upgrades
         {
@@ -320,7 +356,8 @@ namespace GameLogic.Gameplay.Roguelike
         /// <returns>是否创建新的三选一。</returns>
         public bool TryBegin(string sourceId)
         {
-            if (cancelled || offerId != null || string.IsNullOrWhiteSpace(sourceId) || !usedSources.Add(sourceId)) return false;
+            if (cancelled || applying || configurationError != null || !ValidPolicy(policy) || offerId != null || offerSerial == int.MaxValue ||
+                string.IsNullOrWhiteSpace(sourceId) || !usedSources.Add(sourceId)) return false;
             this.sourceId = sourceId;
             offerId = runId + ":" + ++offerSerial;
             revision = 0;
@@ -363,21 +400,15 @@ namespace GameLogic.Gameplay.Roguelike
             if (!Current(offerId, revision) || applying || apply == null || optionIndex < 0 || optionIndex >= options.Count ||
                 (options[optionIndex].IsExtra && !extraUnlocked)) return false;
             RogueRewardDefinition reward = options[optionIndex].Reward;
-            bool applied;
             applying = true;
-            try
-            {
-                applied = apply(reward);
-            }
-            finally
-            {
-                applying = false;
-            }
+            bool applied = apply(reward);
+            applying = false;
             if (!applied) return false;
             selectedRanks[reward.Id] = reward.Rank;
-            CfgRogueRewardsRow row = GameTables.CfgRogueRewards.GetById(reward.Id);
-            if (!string.IsNullOrEmpty(row?.ExclusiveGroup)) selectedGroups[row.ExclusiveGroup] = reward.Id;
-            if (reward.Kind != RogueRewardKind.RandomLoot) upgrades[reward.Id] = new RogueUpgradeSnapshot(reward);
+            selectedRewards[reward.Id] = reward;
+            CfgRogueRewardsRow row = rewardsById[reward.Id];
+            if (!string.IsNullOrEmpty(row.ExclusiveGroup)) selectedGroups[row.ExclusiveGroup] = reward.Id;
+            upgrades[reward.Id] = new RogueUpgradeSnapshot(reward);
             CloseActive();
             return true;
         }
@@ -392,7 +423,7 @@ namespace GameLogic.Gameplay.Roguelike
         public bool TryCreateExtraAccessRequest(string offerId, int revision, out RogueChoiceAccessRequest request)
         {
             request = null;
-            if (applying || !Current(offerId, revision) || !policy.ExtraChoiceEnabled || extraUnlocked) return false;
+            if (applying || !Current(offerId, revision) || !policy.ExtraChoiceEnabled || options.Count < 4 || extraUnlocked) return false;
             pendingRequest ??= new RogueChoiceAccessRequest(runId, offerId, revision, Guid.NewGuid().ToString("N"));
             request = pendingRequest;
             return true;
@@ -428,6 +459,7 @@ namespace GameLogic.Gameplay.Roguelike
         /// </summary>
         public void Cancel()
         {
+            if (applying) return;
             cancelled = true;
             CloseActive();
         }
@@ -455,25 +487,14 @@ namespace GameLogic.Gameplay.Roguelike
         /// <summary>
         /// 按等级上限、前置和互斥组过滤后，抽取不重复选项。
         /// </summary>
-        /// <returns>至少可以生成三个基础选项时为真。</returns>
+        /// <returns>至少可以生成一个合法选项时为真。</returns>
         private bool Deal()
         {
-            if (policy.SelectedUpgradeWeightMultiplier < 1 || policy.SelectedUpgradeWeightMultiplier > 16 ||
-                policy.UnlockedComboWeightMultiplier < 1 || policy.UnlockedComboWeightMultiplier > 16) return false;
-            var pool = new List<CfgRogueRewardsRow>();
-            foreach (CfgRogueRewardsRow row in GameTables.CfgRogueRewards.GetAll())
-            {
-                int rank = selectedRanks.TryGetValue(row.ID, out int current) ? current : 0;
-                if (row.MaxRank > 0 && rank >= row.MaxRank) continue;
-                if (!string.IsNullOrEmpty(row.PrerequisiteID) &&
-                    (!selectedRanks.TryGetValue(row.PrerequisiteID, out int prerequisite) || prerequisite < row.PrerequisiteRank)) continue;
-                if (!string.IsNullOrEmpty(row.ExclusiveGroup) && selectedGroups.TryGetValue(row.ExclusiveGroup, out string chosen) &&
-                    chosen != row.ID) continue;
-                pool.Add(row);
-            }
-            if (pool.Count < 3) return false;
+            if (!ValidPolicy(policy)) return false;
+            List<CfgRogueRewardsRow> pool = EligibleRewards();
+            if (pool.Count == 0) return false;
             var dealt = new List<RogueChoiceOption>();
-            int count = Math.Min(4, pool.Count);
+            int count = Math.Min(policy.ExtraChoiceEnabled ? 4 : 3, pool.Count);
             for (int index = 0; index < count; index++)
             {
                 long total = 0;
@@ -490,10 +511,7 @@ namespace GameLogic.Gameplay.Roguelike
                 CfgRogueRewardsRow row = pool[chosen];
                 pool.RemoveAt(chosen);
                 int rank = selectedRanks.TryGetValue(row.ID, out int current) ? current + 1 : 1;
-                var reward = new RogueRewardDefinition(row.ID, row.Title, row.Description, (RogueRewardKind)row.Kind,
-                    (ProjectAttributeType)row.Attribute, (float)row.Amount, (ProjectItemType)row.LootType,
-                    row.AugmentID, rank, row.MaxRank);
-                if (index < 3 || policy.ExtraChoiceEnabled) dealt.Add(new RogueChoiceOption(index, index == 3, reward));
+                dealt.Add(new RogueChoiceOption(index, index == 3, CreateReward(row, rank)));
             }
             options.Clear();
             options.AddRange(dealt);

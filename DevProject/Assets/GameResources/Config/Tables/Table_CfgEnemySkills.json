@@ -88,6 +88,105 @@
       "MaxHealthRatio": 1,
       "MinDistance": 0,
       "MaxDistance": 3.7
+    },
+    {
+      "ID": 9,
+      "EnemyID": 7,
+      "SkillID": 4,
+      "Priority": 0,
+      "Weight": 1,
+      "MinHealthRatio": 0,
+      "MaxHealthRatio": 1,
+      "MinDistance": 0,
+      "MaxDistance": 3.5
+    },
+    {
+      "ID": 10,
+      "EnemyID": 8,
+      "SkillID": 5,
+      "Priority": 0,
+      "Weight": 1,
+      "MinHealthRatio": 0,
+      "MaxHealthRatio": 1,
+      "MinDistance": 0,
+      "MaxDistance": 3.2
+    },
+    {
+      "ID": 11,
+      "EnemyID": 9,
+      "SkillID": 8,
+      "Priority": 0,
+      "Weight": 1,
+      "MinHealthRatio": 0,
+      "MaxHealthRatio": 1,
+      "MinDistance": 0,
+      "MaxDistance": 2.2
+    },
+    {
+      "ID": 12,
+      "EnemyID": 10,
+      "SkillID": 3,
+      "Priority": 0,
+      "Weight": 1,
+      "MinHealthRatio": 0,
+      "MaxHealthRatio": 1,
+      "MinDistance": 0,
+      "MaxDistance": 8
+    },
+    {
+      "ID": 13,
+      "EnemyID": 10,
+      "SkillID": 6,
+      "Priority": 1,
+      "Weight": 2,
+      "MinHealthRatio": 0,
+      "MaxHealthRatio": 1,
+      "MinDistance": 0,
+      "MaxDistance": 3.2
+    },
+    {
+      "ID": 14,
+      "EnemyID": 10,
+      "SkillID": 7,
+      "Priority": 2,
+      "Weight": 3,
+      "MinHealthRatio": 0,
+      "MaxHealthRatio": 0.5,
+      "MinDistance": 3.2,
+      "MaxDistance": 6
+    },
+    {
+      "ID": 15,
+      "EnemyID": 11,
+      "SkillID": 3,
+      "Priority": 0,
+      "Weight": 1,
+      "MinHealthRatio": 0,
+      "MaxHealthRatio": 1,
+      "MinDistance": 0,
+      "MaxDistance": 8
+    },
+    {
+      "ID": 16,
+      "EnemyID": 11,
+      "SkillID": 6,
+      "Priority": 1,
+      "Weight": 2,
+      "MinHealthRatio": 0,
+      "MaxHealthRatio": 1,
+      "MinDistance": 0,
+      "MaxDistance": 3.2
+    },
+    {
+      "ID": 17,
+      "EnemyID": 11,
+      "SkillID": 7,
+      "Priority": 2,
+      "Weight": 3,
+      "MinHealthRatio": 0,
+      "MaxHealthRatio": 0.5,
+      "MinDistance": 3.2,
+      "MaxDistance": 6
     }
   ]
 }

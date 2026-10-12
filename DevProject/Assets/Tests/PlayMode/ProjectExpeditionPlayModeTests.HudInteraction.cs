@@ -6,6 +6,7 @@ using GameFramework;
 using GameLogic.Gameplay.Expedition;
 using GameLogic.Gameplay.Level;
 using GameLogic.Project;
+using GameLogic.Tables;
 using GameLogic.UI.Battle;
 using NUnit.Framework;
 using UnityEngine;
@@ -19,32 +20,6 @@ namespace MiniGame.Tests
     /// </summary>
     public sealed partial class ProjectExpeditionPlayModeTests
     {
-        /// <summary>
-        /// 未探索格点只能显示未知，同一格点再次点击取消，且保留单局消息。
-        /// </summary>
-        /// <returns>等待真实局内 HUD 打开的逐帧测试。</returns>
-        [UnityTest]
-        public IEnumerator HudMinimap_UnknownRoomDetailsStayHiddenAndToggle() => UniTask.ToCoroutine(async () =>
-        {
-            await SetupAsync(new MemorySaveBackend());
-            Assert.That(await ProjectServices.Coordinator.StartRunAsync(1).Timeout(TimeSpan.FromSeconds(20)), Is.True);
-            ExpeditionRun run = ProjectServices.Session.CurrentRun;
-            BattleHudWindow hud = GameEntry.Get<IUIModule>().OpenedWindows.OfType<BattleHudWindow>().Single();
-            LevelMinimapRoom unknown = run.Maps.GetMinimapProjection().Rooms.First(room => !room.IsVisited);
-            Transform map = hud.RootTransform.Find("BattleHud/Minimap");
-            Transform header = hud.RootTransform.Find("BattleHud/Status");
-            Assert.That(map, Is.Not.Null);
-            Assert.That(header, Is.Not.Null);
-            Text hint = header.GetComponentsInChildren<Text>(false)[1];
-            Button cell = map.GetComponentsInChildren<Button>(false).Single(button => button.name == "Room_" + unknown.RoomId);
-
-            cell.onClick.Invoke();
-            Assert.That(hint.text, Is.EqualTo(run.Message + "\n地图 " + unknown.RoomId + "：未知区域"));
-            cell = map.GetComponentsInChildren<Button>(false).Single(button => button.name == "Room_" + unknown.RoomId);
-            cell.onClick.Invoke();
-            Assert.That(hint.text, Is.EqualTo(run.Message));
-        });
-
         /// <summary>
         /// 摘要和新增按钮在竖横屏及强化选择状态下保持在安全区内且不压住小地图。
         /// </summary>
@@ -107,6 +82,47 @@ namespace MiniGame.Tests
                 UnityEngine.Object.DestroyImmediate(host);
             }
         }
+
+        /// <summary>
+        /// 小地图标出未追踪的远处尾王，大地图显示配置名称和直线距离。
+        /// </summary>
+        /// <returns>真实地图入口、方向与详情验证任务。</returns>
+        [UnityTest]
+        public IEnumerator MapTargets_ShowBossDirectionAndStraightLineDetails() => UniTask.ToCoroutine(async () =>
+        {
+            await SetupAsync(new MemorySaveBackend());
+            Assert.That(await ProjectServices.Coordinator.StartRunAsync(1), Is.True);
+            ExpeditionRun run = ProjectServices.Session.CurrentRun;
+            await WaitRunSavedAsync(run);
+            GameWindow hud = await WaitForWindowAsync(ProjectServices.BattleHudWindow);
+            RegionMapProjection projection = run.GetMapProjection();
+            RegionMapMarker boss = projection.Markers.Single(value => value.Kind == RegionMapMarkerKind.Boss);
+            Assert.That(boss.IsTracked, Is.False);
+            Text direction = hud.Root.GetComponentsInChildren<Text>(false).Single(value => value.name == "Marker_" + boss.Id);
+            Assert.That(direction.text, Is.EqualTo("▲"));
+            Assert.That(direction.rectTransform.anchorMin.y, Is.GreaterThan(0.8f), "出生点以北的尾王应有向上边缘指向。");
+            hud.Root.GetComponentsInChildren<Button>(false).Single(value => value.name == "Minimap").onClick.Invoke();
+            GameWindow map = await WaitForWindowAsync(ProjectServices.ExpeditionMapWindow);
+            map.Root.GetComponentsInChildren<Button>(false).Single(value => value.name == "Marker_" + boss.Id).onClick.Invoke();
+            string detail = string.Join("\n", map.Root.GetComponentsInChildren<Text>(false).Select(value => value.text));
+            StringAssert.Contains(GameTables.CfgBosses.GetById(run.CurrentRegion.Plan.Request.BossDefinitionId).Name, detail);
+            Vector3 player = projection.Markers.Single(value => value.Kind == RegionMapMarkerKind.Player).Position;
+            float distance = Vector2.Distance(new Vector2(player.x, player.z), new Vector2(boss.Position.x, boss.Position.z));
+            StringAssert.Contains("直线距离 " + distance.ToString("0.0") + " 米", detail);
+            RegionMapMarker elite = projection.Markers.First(value => value.Kind == RegionMapMarkerKind.Elite);
+            map.Root.GetComponentsInChildren<Button>(false).Single(value => value.name == "Marker_" + elite.Id).onClick.Invoke();
+            detail = string.Join("\n", map.Root.GetComponentsInChildren<Text>(false).Select(value => value.text));
+            int enemyId = run.CurrentRegion.Plan.SpawnSlots.Single(value => value.SlotId == elite.Id).EnemyId;
+            StringAssert.Contains(GameTables.CfgEnemies.GetById(enemyId).Name, detail);
+            StringAssert.Contains(GameTables.CfgEnemies.GetById(enemyId).WeaknessDescription, detail);
+            ClickButton(map, "定位玩家");
+            Rect viewport = map.Root.GetComponentsInChildren<RawImage>(false).Single(value => value.texture == run.MapTexture).uvRect;
+            Assert.That(viewport.width, Is.LessThan(1f));
+            Assert.That(viewport.Contains(RegionMapProjection.ProjectWorld(run.CurrentMap, player).NormalizedPosition), Is.True);
+            ClickButton(map, "全图");
+            ClickButton(map, "返回探索");
+            await WaitForAsync(() => run.ActivePanel == ExpeditionPanelKind.None);
+        });
 
         /// <summary>
         /// 创建几何布局测试节点。

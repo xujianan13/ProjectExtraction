@@ -202,7 +202,7 @@ namespace MiniGame.Boot
             public SaveStartupFailureException(string message) : base(message) { }
         }
         /// <summary>
-        /// 按宿主配置选择持久化后端，小游戏必须显式选平台 SDK。
+        /// 按宿主配置选择存档后端，内存模式只保留本次运行数据。
         /// </summary>
         private void ConfigureSaveBackend()
         {
@@ -238,6 +238,9 @@ namespace MiniGame.Boot
                 case SaveBackendMode.PlatformSdk:
                     backend = new PlatformSaveBackend(PlatformSaveStore);
                     break;
+                case SaveBackendMode.Memory:
+                    backend = new MemorySaveBackend();
+                    break;
                 default:
                     throw new InvalidOperationException("未知玩家存档后端。");
             }
@@ -255,7 +258,7 @@ namespace MiniGame.Boot
             while (!ct.IsCancellationRequested)
             {
                 view.HideFailure();
-                view.SetStatus("正在准备玩家存档…");
+                view.SetStatus("正在准备玩家数据…");
                 GameStartupCompletionResult result;
                 try
                 {

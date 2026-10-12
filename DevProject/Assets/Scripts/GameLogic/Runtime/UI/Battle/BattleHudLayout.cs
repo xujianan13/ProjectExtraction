@@ -61,13 +61,11 @@ namespace GameLogic.UI.Battle
             float mapSize = Mathf.Clamp(Mathf.Min(width * 0.29f, height * 0.25f), 160f, 300f);
             float actionWidth = Mathf.Min(330f, width * 0.38f);
             bool landscape = width > height;
-            bool besideMap = landscape && width - padding - actionWidth >= width * 0.5f + mapSize * 0.5f + padding;
+            bool besideMap = false;
             float controlsHeight = FitActions(height, mapSize, padding, besideMap);
-            float headerWidth = landscape ? Mathf.Min(width * 0.42f, width * 0.5f - mapSize * 0.5f - padding * 2f) :
-                width - mapSize - padding * 3f;
+            float headerWidth = width - mapSize - padding * 3f;
             Pin(header, new Vector2(0f, 1f), new Vector2(padding, -padding), new Vector2(headerWidth, 214f));
-            Pin(minimap, landscape ? new Vector2(0.5f, 1f) : Vector2.one,
-                landscape ? new Vector2(0f, -padding) : new Vector2(-padding, -padding), Vector2.one * mapSize);
+            Pin(minimap, Vector2.one, new Vector2(-padding, -padding), Vector2.one * mapSize);
             Pin(stick, Vector2.zero, new Vector2(padding, padding * 2f), Vector2.one * diameter);
             Pin(actions, Vector2.right, new Vector2(-padding, padding * 2f), new Vector2(actionWidth, controlsHeight));
         }

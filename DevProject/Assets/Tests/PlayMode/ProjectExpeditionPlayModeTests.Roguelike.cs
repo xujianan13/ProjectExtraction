@@ -1,8 +1,7 @@
-using System;
+﻿using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
-using System.Threading;
 using Cysharp.Threading.Tasks;
 using GameFramework;
 using GameLogic.Gameplay.Combat;
@@ -10,9 +9,11 @@ using GameLogic.Gameplay.Expedition;
 using GameLogic.Gameplay.Level;
 using GameLogic.Gameplay.Roguelike;
 using GameLogic.Project;
+using GameLogic.Tables;
 using GameLogic.UI.Battle;
 using GameLogic.UI.Roguelike;
 using NUnit.Framework;
+using ProjectExtraction.Tests.Shared;
 using UnityEngine;
 using UnityEngine.UI;
 using UnityEngine.TestTools;
@@ -20,192 +21,230 @@ using UnityEngine.TestTools;
 namespace MiniGame.Tests
 {
     /// <summary>
-    /// 真实场景宝箱和独立单局授权的集成测试。
+    /// 检查真实击杀技能奖励、冻结保存和 Boss 多轮恢复。
     /// </summary>
     public sealed partial class ProjectExpeditionPlayModeTests
     {
         /// <summary>
-        /// 真实关卡中的宝箱保留原战利品并开启三选一，窗口丢失后可恢复选择。
+        /// 击杀阈值触发纯技能选择，关闭窗口不丢候选，持久选择完成后解除暂停。
         /// </summary>
-        /// <returns>等待场景和窗口异步更新的逐帧测试。</returns>
+        /// <returns>真实技能奖励和窗口生命周期的逐帧测试。</returns>
         [UnityTest]
-        public IEnumerator LootChest_OpensDefaultChoiceAndResumesOneTickAfterSelection() => UniTask.ToCoroutine(async () =>
+        public IEnumerator ProgressChoice_ReopensFrozenSkillsAndAppliesOnlyOnce() => UniTask.ToCoroutine(async () =>
         {
             await SetupAsync(new MemorySaveBackend());
-            ProjectSession session = ProjectServices.Session;
-            ProjectCharacterStats homeStats = session.CharacterStats;
-            Assert.That(await ProjectServices.Coordinator.StartRunAsync(1).Timeout(TimeSpan.FromSeconds(20)), Is.True);
+            using var scope = new LifetimeScope("RogueProgressChoice");
+            SetProgressThreshold(scope, 1);
+            Assert.That(await ProjectServices.Coordinator.StartRunAsync(1), Is.True);
             ExpeditionRun run = ProjectServices.Session.CurrentRun;
-            Assert.That(GameEntry.Get<ISceneModule>().CurrentScene, Is.TypeOf<GameLogic.Scenes.Expedition.ExpeditionScene>());
-            MoveToRoom(run, run.Maps.Rooms.First(room => room.Type == LevelRoomType.Loot).RoomId);
-            int inventoryBeforeChest = run.Inventory.Count;
-            var chestLayout = run.CurrentRoom.Plan.Definition.Layout;
-            Assert.That(run.World.TrySetPosition(run.Player, new Vector3((float)chestLayout.ChestX, 0, (float)chestLayout.ChestZ)), Is.True);
-            long before = run.World.TickIndex;
-            run.RequestInteraction();
-            run.Advance(CombatWorld.TickSeconds * 4f);
-            Assert.That(run.World.TickIndex, Is.EqualTo(before + 1), "宝箱交互后剩余三个 tick 不得继续战斗。");
-            Assert.That(run.CurrentRoom.ChestOpened, Is.True);
-            Assert.That(run.Inventory.Count, Is.EqualTo(inventoryBeforeChest + 1), "原宝箱战利品必须保留。");
-            Assert.That(run.IsChoosingRogue, Is.True);
+            int itemCount = run.Inventory.Count;
+            await EarnRogueChoiceAsync(run);
             RogueChoiceSnapshot offer = run.PendingRogueChoice;
-            Assert.That(offer.Options.Count, Is.EqualTo(3));
-            Assert.That(offer.CanRefresh, Is.False);
-            Assert.That(offer.ExtraUnlocked, Is.False);
-            Assert.That(run.TryRefreshRogue(offer.OfferId, offer.Revision), Is.False);
-            Assert.That(await run.RequestExtraRogueChoiceAsync(offer.OfferId, offer.Revision), Is.False);
+            Assert.That(offer.Options.Count, Is.InRange(1, 3));
+            Assert.That(offer.Options.All(value => value.Reward.Kind == RogueRewardKind.AttributeBonus ||
+                value.Reward.Kind == RogueRewardKind.CombatAugment), Is.True);
+            Assert.That(run.Inventory.Count, Is.EqualTo(itemCount));
+            Assert.That(run.TryBeginRogueChoice("chest:forged"), Is.False);
+            long pausedTick = run.World.TickIndex;
+            run.Advance(10);
+            Assert.That(run.World.TickIndex, Is.EqualTo(pausedTick));
             IUIModule ui = GameEntry.Get<IUIModule>();
-            await UniTask.WaitUntil(() => ui.OpenedWindows.Any(window => window.Id == ProjectServices.RogueChoiceWindow))
+            await UniTask.WaitUntil(() => ui.OpenedWindows.Any(value => value.Id == ProjectServices.RogueChoiceWindow))
                 .Timeout(TimeSpan.FromSeconds(10));
-            RogueChoiceWindow window = ui.OpenedWindows.OfType<RogueChoiceWindow>().Single();
-            Assert.That(window.RootTransform.GetComponentsInChildren<Button>(false).Length, Is.EqualTo(3));
-            await ProjectServices.Coordinator.SetApplicationPausedAsync(true);
-            Assert.That(run.TryChooseRogue(offer.OfferId, offer.Revision, 0), Is.False);
-            run.Advance(10f);
-            Assert.That(run.World.TickIndex, Is.EqualTo(before + 1));
-            await ProjectServices.Coordinator.SetApplicationPausedAsync(false);
-            run.Advance(10f);
-            Assert.That(run.World.TickIndex, Is.EqualTo(before + 1), "后台恢复后未选择仍应暂停。");
             Assert.That(await ui.CloseWindowAsync(ProjectServices.RogueChoiceWindow), Is.True);
-            Assert.That(run.IsChoosingRogue, Is.True);
-            BattleHudWindow hud = ui.OpenedWindows.OfType<BattleHudWindow>().Single();
-            ClickButton(hud, "继续选择强化");
-            await UniTask.WaitUntil(() => ui.OpenedWindows.Any(item => item.Id == ProjectServices.RogueChoiceWindow))
+            Assert.That(run.PendingRogueChoice.OfferId, Is.EqualTo(offer.OfferId));
+            ClickButton(ui.OpenedWindows.OfType<BattleHudWindow>().Single(), "继续选择强化");
+            await UniTask.WaitUntil(() => ui.OpenedWindows.Any(value => value.Id == ProjectServices.RogueChoiceWindow))
                 .Timeout(TimeSpan.FromSeconds(10));
-            window = ui.OpenedWindows.OfType<RogueChoiceWindow>().Single();
-            Assert.That(run.World.TryGetActor(run.Player, out CombatActorSnapshot beforeReward), Is.True);
-            int inventoryBeforeReward = run.Inventory.Count;
+            Assert.That(run.World.TryGetActor(run.Player, out CombatActorSnapshot before), Is.True);
             RogueRewardDefinition reward = offer.Options[0].Reward;
-            int skillPoints = session.SkillPoints;
-            int powerRank = session.PowerRank;
-            int vitalityRank = session.VitalityRank;
-            int agilityRank = session.AgilityRank;
-            Button firstCard = window.RootTransform.GetComponentsInChildren<Button>(false).First();
-            Assert.That(firstCard.interactable, Is.True);
-            firstCard.onClick.Invoke();
-            Assert.That(run.IsChoosingRogue, Is.False);
-            AssertRewardApplied(reward, beforeReward, run, inventoryBeforeReward);
-            string rewardedItemId = reward.Kind == RogueRewardKind.RandomLoot ? run.Inventory.Last().Id : null;
-            Assert.That(session.SkillPoints, Is.EqualTo(skillPoints));
-            Assert.That(session.PowerRank, Is.EqualTo(powerRank));
-            Assert.That(session.VitalityRank, Is.EqualTo(vitalityRank));
-            Assert.That(session.AgilityRank, Is.EqualTo(agilityRank));
-            Assert.That(run.TryChooseRogue(offer.OfferId, offer.Revision, 0), Is.False, "同一奖励不能重复领取。");
-            Assert.That(run.World.TickIndex, Is.EqualTo(before + 1));
+            Assert.That(run.TryChooseRogue(offer.OfferId, offer.Revision, 0), Is.True);
+            Assert.That(run.TryChooseRogue(offer.OfferId, offer.Revision, 0), Is.False);
+            await WaitRunSavedAsync(run);
+            AssertRewardApplied(reward, before, run, itemCount);
+            await ChooseAllSkillsAsync(run);
+            Assert.That(run.IsChoosingReward, Is.False);
             run.Advance(CombatWorld.TickSeconds);
-            Assert.That(run.World.TickIndex, Is.EqualTo(before + 2), "恢复后仅处理新提交的一个 tick。");
-            await TriggerExtractionAsync(run);
-            if (rewardedItemId != null)
-                Assert.That(session.Warehouse.Any(item => item.Id == rewardedItemId), Is.True, "三选一物品应随撤离进入仓库。");
-            Assert.That(await ProjectServices.Coordinator.ReturnHomeAsync(), Is.True);
-            Assert.That(session.PowerRank, Is.EqualTo(powerRank));
-            Assert.That(session.VitalityRank, Is.EqualTo(vitalityRank));
-            Assert.That(session.AgilityRank, Is.EqualTo(agilityRank));
-            Assert.That(session.CharacterStats.MaxHealth, Is.EqualTo(homeStats.MaxHealth));
-            Assert.That(session.CharacterStats.Attack, Is.EqualTo(homeStats.Attack));
+            Assert.That(run.World.TickIndex, Is.EqualTo(pausedTick + 1));
         });
 
         /// <summary>
-        /// 刷新使旧代次失效，第四项仅凭异步回执解锁；停止新来源取消迟到授权。
+        /// 选择提交失败保持同一冻结候选，重试仅兑现一次并保留随机游标。
         /// </summary>
-        /// <returns>等待假授权回执与取消的逐帧测试。</returns>
+        /// <returns>保存故障和统一重试的逐帧测试。</returns>
         [UnityTest]
-        public IEnumerator ExtraChoice_RefreshUnlockSelectAndCancelLateReceipt() => UniTask.ToCoroutine(async () =>
+        public IEnumerator SkillSaveFailure_RetriesOriginalCandidateWithoutReroll() => UniTask.ToCoroutine(async () =>
+        {
+            var backend = new FaultSaveBackend();
+            await SetupAsync(backend);
+            using var scope = new LifetimeScope("RogueChoiceRetry");
+            SetProgressThreshold(scope, 1);
+            Assert.That(await ProjectServices.Coordinator.StartRunAsync(1), Is.True);
+            ExpeditionRun run = ProjectServices.Session.CurrentRun;
+            await EarnRogueChoiceAsync(run);
+            RogueChoiceSnapshot offer = run.PendingRogueChoice;
+            Assert.That(run.TryCaptureState(out var before, out _), Is.True);
+            backend.FailWrites = true;
+            LogAssert.ignoreFailingMessages = true;
+            Assert.That(run.TryChooseRogue(offer.OfferId, offer.Revision, 0), Is.True);
+            await WaitForPhaseAsync(ProjectRunPhase.RecoveryRequired);
+            Assert.That(run.PendingRogueChoice, Is.Null, "保存未确认时不能展示新候选。");
+            Assert.That(run.IsSavingRun, Is.True);
+            Assert.That(run.TryCaptureState(out var failed, out _), Is.True);
+            string frozen = JsonUtility.ToJson(failed);
+            Assert.That(run.TryChooseRogue(offer.OfferId, offer.Revision, 0), Is.False);
+            backend.FailWrites = false;
+            Assert.That(await ProjectServices.Coordinator.RetryAsync(), Is.True);
+            await WaitRunSavedAsync(run);
+            Assert.That(run.TryCaptureState(out var confirmed, out _), Is.True);
+            Assert.That(confirmed.Progress.SelectedChoices, Is.EqualTo(before.Progress.SelectedChoices + 1));
+            Assert.That(confirmed.Rogue.SelectedRewards.Sum(value => value.Rank), Is.EqualTo(failed.Rogue.SelectedRewards.Sum(value => value.Rank)));
+            if (run.PendingRogueChoice == null) Assert.That(JsonUtility.ToJson(confirmed), Is.EqualTo(frozen));
+            else
+            {
+                Assert.That(confirmed.Progress.PendingQualifications, Is.EqualTo(failed.Progress.PendingQualifications));
+                Assert.That(confirmed.Rogue.OfferSerial, Is.EqualTo(failed.Rogue.OfferSerial + 1));
+            }
+        });
+
+        /// <summary>
+        /// Boss 首轮候选冷恢复保持完整物品身份，各轮领取一次后才开放区域出口。
+        /// </summary>
+        /// <returns>真实尾王、存档续局及多轮领取测试。</returns>
+        [UnityTest]
+        public IEnumerator BossChoices_ResumeFrozenRoundAndUnlockAfterAllRounds() => UniTask.ToCoroutine(async () =>
         {
             await SetupAsync(new MemorySaveBackend());
-            var policy = new RogueChoicePolicy { RefreshEnabled = true, ExtraChoiceEnabled = true, MaxRefreshes = 1 };
-            var provider = new DeferredRogueAccessProvider();
-            Assert.That(ExpeditionRun.TryCreate(ProjectServices.Session, "rogue-test-1", 1, 42,
-                new List<ProjectItem>(), out ExpeditionRun run, policy, provider), Is.True);
-            using var assetScope = new LifetimeScope("RoguelikePrefabTest");
-            using var ownedRun = run;
-            ExpeditionVisualAssets assets = await ExpeditionVisualAssets.LoadAsync(assetScope, GameEntry.Get<IResourceModule>());
-            Assert.That(assets, Is.Not.Null);
-            run.AttachScene(assets);
-            Assert.That(run.MarkReady(), Is.True);
-            Assert.That(run.Activate(), Is.True);
-            Assert.That(run.TryBeginRogueChoice("source-1"), Is.True);
-            RogueChoiceSnapshot first = run.PendingRogueChoice;
-            Assert.That(first.Options.Count, Is.EqualTo(4));
-            Assert.That(first.Options[3].IsExtra, Is.True);
-            Assert.That(first.ExtraUnlocked, Is.False);
-            Assert.That(run.TryChooseRogue(first.OfferId, first.Revision, 3), Is.False);
-            Assert.That(run.TryRefreshRogue(first.OfferId, first.Revision), Is.True);
-            RogueChoiceSnapshot refreshed = run.PendingRogueChoice;
-            Assert.That(refreshed.Revision, Is.EqualTo(first.Revision + 1));
-            Assert.That(refreshed.CanRefresh, Is.False);
-            Assert.That(run.TryChooseRogue(first.OfferId, first.Revision, 0), Is.False);
-            Assert.That(run.TryRefreshRogue(first.OfferId, first.Revision), Is.False);
-            Assert.That(run.TryChooseRogue(refreshed.OfferId, refreshed.Revision, 3), Is.False);
-            UniTask<bool> granting = run.RequestExtraRogueChoiceAsync(refreshed.OfferId, refreshed.Revision).Preserve();
-            Assert.That(provider.Request, Is.Not.Null);
-            Assert.That(run.IsChoosingRogue, Is.True);
-            Assert.That(run.TryChooseRogue(refreshed.OfferId, refreshed.Revision, 0), Is.False);
-            provider.Complete(true);
-            Assert.That(await granting, Is.True);
-            Assert.That(run.IsChoosingRogue, Is.True, "回执只能解锁，不能代替玩家选择。");
-            Assert.That(run.PendingRogueChoice.ExtraUnlocked, Is.True);
-            Assert.That(run.World.TryGetActor(run.Player, out CombatActorSnapshot beforeReward), Is.True);
-            int inventoryBeforeReward = run.Inventory.Count;
-            RogueRewardDefinition reward = run.PendingRogueChoice.Options[3].Reward;
-            Assert.That(run.TryChooseRogue(refreshed.OfferId, refreshed.Revision, 3), Is.True);
-            AssertRewardApplied(reward, beforeReward, run, inventoryBeforeReward);
-            Assert.That(run.IsChoosingRogue, Is.False);
-            Assert.That(run.TryChooseRogue(refreshed.OfferId, refreshed.Revision, 3), Is.False);
-            Assert.That(run.TryBeginRogueChoice("source-2"), Is.True);
-            RogueChoiceSnapshot second = run.PendingRogueChoice;
-            UniTask<bool> late = run.RequestExtraRogueChoiceAsync(second.OfferId, second.Revision).Preserve();
-            Assert.That(provider.Request.OfferId, Is.EqualTo(second.OfferId));
-            int inventoryBeforeStop = run.Inventory.Count;
-            Assert.That(run.World.TryGetActor(run.Player, out CombatActorSnapshot beforeStop), Is.True);
-            run.Stop();
-            Assert.That(await late.Timeout(TimeSpan.FromSeconds(2)), Is.False);
-            provider.Complete(true);
-            Assert.That(run.IsChoosingRogue, Is.False);
-            Assert.That(run.Inventory.Count, Is.EqualTo(inventoryBeforeStop));
-            Assert.That(run.World.TryGetActor(run.Player, out CombatActorSnapshot afterStop), Is.True);
-            Assert.That(afterStop.MaxHealth, Is.EqualTo(beforeStop.MaxHealth));
-            Assert.That(afterStop.Attack, Is.EqualTo(beforeStop.Attack));
+            Assert.That(await ProjectServices.Coordinator.StartRunAsync(1), Is.True);
+            ExpeditionRun run = ProjectServices.Session.CurrentRun;
+            string bossSlot = run.CurrentRegion.Plan.SpawnSlots.Single(value => value.Kind == RegionEnemyKind.Boss).SlotId;
+            await DefeatSlotAsync(run, bossSlot);
+            await ChooseAllSkillsAsync(run);
+            await WaitRunSavedAsync(run);
+            BossLootChoiceSnapshot first = run.PendingBossChoice;
+            Assert.That(first, Is.Not.Null);
+            Assert.That(first.Options.Count, Is.EqualTo(3));
+            string offer = first.OfferId;
+            string values = JsonUtility.ToJson(new BossLootRoundState { Revision = first.Revision, Options = first.Options.ToList() });
+            string runId = run.RunId;
+            int stamina = ProjectServices.Session.Stamina;
+            Assert.That(await ProjectServices.Coordinator.CloseAsync(), Is.True);
+            Assert.That(await ProjectServices.InitializeAsync(default), Is.True);
+            Assert.That(await ProjectServices.Coordinator.InitializeAsync(), Is.True);
+            Assert.That(ProjectServices.Coordinator.CanResume, Is.True);
+            Assert.That(await ProjectServices.Coordinator.ResumeRunAsync(), Is.True);
+            run = ProjectServices.Session.CurrentRun;
+            Assert.That(run.RunId, Is.EqualTo(runId));
+            Assert.That(ProjectServices.Session.Stamina, Is.EqualTo(stamina));
+            Assert.That(run.PendingBossChoice.OfferId, Is.EqualTo(offer));
+            Assert.That(JsonUtility.ToJson(new BossLootRoundState { Revision = run.PendingBossChoice.Revision,
+                Options = run.PendingBossChoice.Options.ToList() }), Is.EqualTo(values));
+            int initialItems = run.Inventory.Count;
+            int rounds = run.PendingBossChoice.TotalRounds;
+            for (int round = 1; round <= rounds; round++)
+            {
+                BossLootChoiceSnapshot choice = run.PendingBossChoice;
+                Assert.That(choice.Round, Is.EqualTo(round));
+                Assert.That(run.CurrentRegion.ExitEnabled, Is.False);
+                string id = choice.Options[0].Id;
+                Assert.That(run.TryChooseBoss(choice.OfferId, choice.Revision, 0), Is.True);
+                Assert.That(run.TryChooseBoss(choice.OfferId, choice.Revision, 0), Is.False);
+                await WaitRunSavedAsync(run);
+                Assert.That(run.Inventory.Count(value => value.Id == id), Is.EqualTo(1));
+            }
+            Assert.That(run.Inventory.Count, Is.EqualTo(initialItems + rounds));
+            Assert.That(run.CurrentRegion.BossRewardsCompleted && run.CurrentRegion.ExitEnabled, Is.True);
         });
 
         /// <summary>
-        /// 沿真实出口的最短路径进入指定房间。
+        /// 将阈值修改限制在单项测试作用域，其他业务规则继续使用真实配置。
         /// </summary>
-        /// <param name="run">正在游玩的单局。</param>
-        /// <param name="targetRoomId">目标地图编号。</param>
-        private static void MoveToRoom(ExpeditionRun run, int targetRoomId)
+        /// <param name="scope">负责恢复配置的测试作用域。</param>
+        /// <param name="threshold">本项测试的有限击杀阈值。</param>
+        private static void SetProgressThreshold(LifetimeScope scope, int threshold)
         {
-            var previous = new Dictionary<int, int> { [run.CurrentRoom.RoomId] = 0 };
-            var queue = new Queue<int>();
-            queue.Enqueue(run.CurrentRoom.RoomId);
-            while (queue.Count > 0 && !previous.ContainsKey(targetRoomId))
+            CfgRogueProgressRow rule = ProjectV2RewardConfig.Progress(GameTables.CfgLevels.GetById(1).ProgressRuleID);
+            int previous = rule.Threshold;
+            scope.Defer(() => rule.Threshold = previous);
+            rule.Threshold = threshold;
+        }
+
+        /// <summary>
+        /// 击杀实际普通或精英生命直至资格进入持久选择。
+        /// </summary>
+        /// <param name="run">已经正式准入并激活的单局。</param>
+        /// <returns>候选完成保存后的任务。</returns>
+        private static async UniTask EarnRogueChoiceAsync(ExpeditionRun run)
+        {
+            for (int attempt = 0; attempt < run.CurrentRegion.Plan.SpawnSlots.Count && run.PendingRogueChoice == null; attempt++)
             {
-                int id = queue.Dequeue();
-                run.Maps.TryGetRoom(id, out LevelRoomState room);
-                foreach (int next in room.Exits.Values)
-                    if (!previous.ContainsKey(next))
-                    {
-                        previous[next] = id;
-                        queue.Enqueue(next);
-                    }
+                await WaitRunSavedAsync(run);
+                RegionSpawnSlotPlan target = run.CurrentRegion.Plan.SpawnSlots.FirstOrDefault(value => value.Kind != RegionEnemyKind.Boss &&
+                    run.CurrentRegion.Slots.Single(state => state.SlotId == value.SlotId).Phase == RegionSpawnPhase.Alive);
+                Assert.That(target, Is.Not.Null, "本测试的阈值必须可由当前区域冻结生命达到。");
+                await DefeatSlotAsync(run, target.SlotId, true);
             }
-            Assert.That(previous.ContainsKey(targetRoomId), Is.True);
-            var path = new Stack<int>();
-            for (int id = targetRoomId; id != run.CurrentRoom.RoomId; id = previous[id]) path.Push(id);
-            while (path.Count > 0)
+            await WaitRunSavedAsync(run);
+            Assert.That(run.PendingRogueChoice, Is.Not.Null);
+        }
+
+        /// <summary>
+        /// 用真实基础攻击击败一个已经生成的槽位，所有业务保存完成后再返回。
+        /// </summary>
+        /// <param name="run">正式激活的单局。</param>
+        /// <param name="slotId">计划内稳定槽位身份。</param>
+        /// <param name="preserveChoice">遇到技能选择时保留资格并停止攻击。</param>
+        /// <returns>目标死亡并保存则为真；保留选择但目标仍存活则为假。</returns>
+        private static async UniTask<bool> DefeatSlotAsync(ExpeditionRun run, string slotId, bool preserveChoice = false)
+        {
+            RegionSpawnSlotState slot = run.CurrentRegion.Slots.Single(value => value.SlotId == slotId);
+            Assert.That(run.World.TryFindActor(slot.CurrentActorId, out CombatEntityRef enemy), Is.True);
+            Assert.That(run.World.TryGetActor(run.Player, out CombatActorSnapshot player), Is.True);
+            if (player.Attack < 100000) Assert.That(run.World.TryAddAttributeBonus(run.Player, CombatAttributeKind.Attack, 100000), Is.True);
+            if (player.Defense < 100000) Assert.That(run.World.TryAddAttributeBonus(run.Player, CombatAttributeKind.Defense, 100000), Is.True);
+            for (int tick = 0; tick < 600 && slot.Phase == RegionSpawnPhase.Alive; tick++)
             {
-                int destination = path.Pop();
-                RoomDirection direction = run.CurrentRoom.Exits.First(pair => pair.Value == destination).Key;
-                var geometry = run.CurrentRoom.Plan.Definition.Layout;
-                float edge = (float)(geometry.HalfExtent - geometry.ExitCenterInset);
-                Vector3 position = direction == RoomDirection.North ? new Vector3(0, 0, edge) :
-                    direction == RoomDirection.South ? new Vector3(0, 0, -edge) :
-                    direction == RoomDirection.East ? new Vector3(edge, 0, 0) : new Vector3(-edge, 0, 0);
-                Assert.That(run.World.TrySetPosition(run.Player, position), Is.True);
-                run.RequestInteraction();
+                await WaitRunSavedAsync(run);
+                if (slot.Phase != RegionSpawnPhase.Alive) break;
+                if (run.PendingRogueChoice != null)
+                {
+                    if (preserveChoice) return false;
+                    await ChooseAllSkillsAsync(run);
+                    continue;
+                }
+                TryPlacePlayerNearActor(run, enemy);
                 run.Advance(CombatWorld.TickSeconds);
-                Assert.That(run.CurrentRoom.RoomId, Is.EqualTo(destination));
             }
+            await WaitRunSavedAsync(run);
+            Assert.That(slot.Phase, Is.Not.EqualTo(RegionSpawnPhase.Alive));
+            Assert.That(slot.LastProcessedLife, Is.EqualTo(slot.LifeSequence), "目标死亡收益必须已经确认。");
+            return true;
+        }
+
+        /// <summary>
+        /// 使用共享几何采样在目标的实际近战距离内尝试合法玩家站位。
+        /// </summary>
+        /// <param name="run">处于完整战斗边界的测试单局。</param>
+        /// <param name="target">同地图存活目标。</param>
+        /// <returns>权威碰撞入口接受某个候选站位时为真。</returns>
+        private static bool TryPlacePlayerNearActor(ExpeditionRun run, CombatEntityRef target) =>
+            CombatTestPositioning.TryPlaceAdjacent(run.World, run.Player, target);
+
+        /// <summary>
+        /// 逐项消费已经保存的技能资格，每次选择后等待保存及下一候选生成。
+        /// </summary>
+        /// <param name="run">持有技能队列的正式单局。</param>
+        /// <returns>技能队列清空任务。</returns>
+        private static async UniTask ChooseAllSkillsAsync(ExpeditionRun run)
+        {
+            for (int attempt = 0; attempt < 100; attempt++)
+            {
+                await WaitRunSavedAsync(run);
+                RogueChoiceSnapshot offer = run.PendingRogueChoice;
+                if (offer == null) return;
+                Assert.That(run.TryChooseRogue(offer.OfferId, offer.Revision, 0), Is.True);
+            }
+            Assert.Fail("技能队列未在有限候选池边界内收束。");
         }
 
         /// <summary>
@@ -222,30 +261,19 @@ namespace MiniGame.Tests
         }
 
         /// <summary>
-        /// 按奖励实际类型确认只兑现一次背包物品或战斗属性。
+        /// 确认技能只兑现一次战斗属性或词条，不向背包生成物品。
         /// </summary>
         /// <param name="reward">刚刚选择的奖励。</param>
         /// <param name="before">选择前的角色属性。</param>
         /// <param name="run">已兑现奖励的单局。</param>
         /// <param name="inventoryBefore">选择前背包数量。</param>
-        private static void AssertRewardApplied(RogueRewardDefinition reward, CombatActorSnapshot before, ExpeditionRun run,
-            int inventoryBefore)
+        private static void AssertRewardApplied(RogueRewardDefinition reward, CombatActorSnapshot before, ExpeditionRun run, int inventoryBefore)
         {
             Assert.That(run.World.TryGetActor(run.Player, out CombatActorSnapshot after), Is.True);
-            if (reward.Kind == RogueRewardKind.RandomLoot)
-            {
-                Assert.That(run.Inventory.Count, Is.EqualTo(inventoryBefore + 1));
-                return;
-            }
-            if (reward.Kind == RogueRewardKind.CombatAugment)
-            {
-                Assert.That(run.Inventory.Count, Is.EqualTo(inventoryBefore));
-                Assert.That(run.RogueUpgrades.Single(item => item.Id == reward.Id).Rank, Is.EqualTo(reward.Rank));
-                return;
-            }
-            Assert.That(reward.Kind, Is.EqualTo(RogueRewardKind.AttributeBonus));
             Assert.That(run.Inventory.Count, Is.EqualTo(inventoryBefore));
-            Assert.That(AttributeValue(after, reward.Attribute), Is.GreaterThan(AttributeValue(before, reward.Attribute)));
+            if (reward.Kind == RogueRewardKind.CombatAugment)
+                Assert.That(run.RogueUpgrades.Single(item => item.Id == reward.Id).Rank, Is.EqualTo(reward.Rank));
+            else Assert.That(AttributeValue(after, reward.Attribute), Is.GreaterThan(AttributeValue(before, reward.Attribute)));
         }
 
         /// <summary>
@@ -267,37 +295,5 @@ namespace MiniGame.Tests
             _ => float.NaN
         };
 
-        /// <summary>
-        /// 由测试控制授权回执的异步提供者。
-        /// </summary>
-        private sealed class DeferredRogueAccessProvider : IRogueChoiceAccessProvider
-        {
-            private UniTaskCompletionSource<RogueChoiceAccessReceipt> completion;
-            public RogueChoiceAccessRequest Request { get; private set; }
-
-            /// <summary>
-            /// 保存请求并等待测试回执。
-            /// </summary>
-            /// <param name="request">本局签发的授权请求。</param>
-            /// <param name="ct">请求取消令牌。</param>
-            /// <returns>测试提交回执后的任务。</returns>
-            public UniTask<RogueChoiceAccessReceipt> RequestAsync(RogueChoiceAccessRequest request, CancellationToken ct)
-            {
-                Request = request;
-                completion = new UniTaskCompletionSource<RogueChoiceAccessReceipt>();
-                return completion.Task;
-            }
-
-            /// <summary>
-            /// 对最近一次请求返回匹配的授权回执。
-            /// </summary>
-            /// <param name="granted">是否授权第四项。</param>
-            public void Complete(bool granted)
-            {
-                Assert.That(Request, Is.Not.Null);
-                completion.TrySetResult(new RogueChoiceAccessReceipt(Request.RunId, Request.OfferId, Request.Revision,
-                    Request.RequestId, granted, Guid.NewGuid().ToString("N")));
-            }
-        }
     }
 }

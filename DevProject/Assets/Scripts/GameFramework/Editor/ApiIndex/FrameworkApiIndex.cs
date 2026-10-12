@@ -103,6 +103,7 @@ namespace GameFramework.Editor.ApiIndex
             Module("PrefabPool", "生成、回收并释放 Prefab 实例", "Modules/PrefabPool/PrefabPool.cs", "docs/framework/Prefab实例池.md", "场景或玩法持有池", "等待 DisposeAsync 完成租约释放", "Spawn 失败时返回空"),
             Module("PrefabInstance", "管理一次 Prefab 生成轮次", "Modules/PrefabPool/PrefabInstance.cs", "docs/framework/Prefab实例池.md", "PrefabPool 持有实例", "Despawn 结束 SpawnScope", "失效句柄不可继续使用"),
             Module("SaveSession`1", "激活、写入并关闭正式存档会话", "Modules/Save/Session/SaveSession.cs", "docs/framework/正式存档使用指南.md", "项目持有会话并等待 CloseAsync", "关闭用独立清理令牌", "检查 SaveResult 和会话状态"),
+            Module("SaveStateJournal", "保存有序状态增量并恢复完整提交", "Modules/Save/Repository/SaveStateJournal.cs", "docs/framework/正式存档使用指南.md", "业务会话独占日志与 FIFO 提交队列", "在途写入完成后再关闭后端", "失败保留原候选并显式重试；检查 SaveResult", paused: "暂停时仍可完成已接纳的保存"),
             Module("GameRoundFlow", "管理单局进入、结算和返回菜单", "Modules/Gameplay/Flow/GameRoundFlow.cs", "docs/framework/关卡与单局流程.md", "项目持有流程并等待 CloseAsync", "CancelLoading 取消进入", "检查状态、错误和 bool 结果")
         };
 

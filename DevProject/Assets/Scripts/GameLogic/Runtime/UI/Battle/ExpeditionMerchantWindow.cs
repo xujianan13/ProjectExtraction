@@ -156,7 +156,7 @@ namespace GameLogic.UI.Battle
             }
             string text = item == null ? "选择商品查看详情" : "选中商品\n" + ProjectEquipmentText.ColoredTitle(item) + "\n价格 " +
                 offer.Price + " 金币 · " + (offer.Sold ? "已售" : "可购买") + "\n" + ProjectEquipmentText.Details(item);
-            if (item != null && item.Type != ProjectItemType.Item)
+            if (item != null && item.Type != ProjectItemType.Item && item.Type != ProjectItemType.Collection)
             {
                 text += "\n\n" + ProjectEquipmentText.EquippedDetails(item, inventory);
                 string action = item.Equipped ? "卸下后" : item.RequiredLevel > run.PlayerLevel ? "满足等级后穿戴" : "穿戴后";
@@ -176,7 +176,7 @@ namespace GameLogic.UI.Battle
         private void Purchase()
         {
             if (run?.CanManageMerchant != true || selectedId == null) return;
-            run.TryPurchase(selectedId);
+            run.TryBuyMerchantOffer(selectedId);
             Refresh();
         }
 

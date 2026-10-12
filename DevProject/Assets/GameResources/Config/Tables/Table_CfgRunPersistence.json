@@ -1,0 +1,12 @@
+{
+  "schemaHash": "a19264eb3aaa997d18ee36c7fad7407586cff7826da6a1b705c14619b4405847",
+  "rows": [
+    {
+      "ID": 1,
+      "ConfigVersion": "v2-content-1",
+      "CheckpointTicks": 120,
+      "MaxPendingTicks": 30,
+      "MaxStateBytes": 8388608
+    }
+  ]
+}

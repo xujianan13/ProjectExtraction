@@ -42,12 +42,19 @@ namespace GameLogic.Gameplay.Combat
         /// <param name="rangeMultiplier">施放时冻结的技能范围倍率。</param>
         /// <param name="passiveDerived">飞弹是否由被动衍生。</param>
         /// <param name="instigatorActorId">实际来源业务角色编号，零表示发射者。</param>
+        /// <param name="inheritedSource">来源已回收时保留的父飞弹冻结上下文。</param>
         /// <returns>生成成功则为真。</returns>
         private bool TrySpawnProjectileInternal(CombatEntityRef sourceRef, int projectileId, CombatEntityRef targetRef,
-            Vector3 targetPoint, Vector3 forward, Vector3? originOverride, bool allowDeadSource, CombatOffense offense, float rangeDelta, float rangeMultiplier, bool passiveDerived, int instigatorActorId = 0)
+            Vector3 targetPoint, Vector3 forward, Vector3? originOverride, bool allowDeadSource, CombatOffense offense,
+            float rangeDelta, float rangeMultiplier, bool passiveDerived, int instigatorActorId = 0, ProjectileComponent inheritedSource = null)
         {
-            if (!IsValid(sourceRef) || !actors.TryGetValue(sourceRef.Id, out var source) ||
-                (!allowDeadSource && source.DeadPending) ||
+            ActorComponent source = null;
+            bool hasSource = IsValid(sourceRef) && actors.TryGetValue(sourceRef.Id, out source);
+            if (!hasSource && allowDeadSource && inheritedSource != null)
+                source = new ActorComponent { Spec = new CombatActorSpec { ActorId = inheritedSource.InstigatorActorId,
+                    RoomId = inheritedSource.RoomId, Team = inheritedSource.SourceTeam }, Position = inheritedSource.Position,
+                    Forward = inheritedSource.Direction, DeadPending = true };
+            if (source == null || (!allowDeadSource && source.DeadPending) ||
                 source.Spec.RoomId != activeRoomId || !catalog.Projectiles.TryGetValue(projectileId, out var definition) ||
                 !ValidProjectile(definition) || !IsFinite(targetPoint) || !IsFinite(forward)) return false;
             ActorComponent target = null;
@@ -120,7 +127,7 @@ namespace GameLogic.Gameplay.Combat
             if (destination == null) return 0;
             destination.Clear();
             var projectileIds = new List<int>(projectiles.Keys);
-            projectileIds.Sort();
+            SortEntityIds(projectileIds);
             foreach (var id in projectileIds)
             {
                 var projectile = projectiles[id];
@@ -140,7 +147,7 @@ namespace GameLogic.Gameplay.Combat
         private void ResolveInstant(int id, ProjectileComponent projectile, CombatProjectileDefinition definition)
         {
             var targets = new List<int>(actors.Keys);
-            targets.Sort();
+            SortEntityIds(targets);
             foreach (var targetId in targets)
             {
                 var target = actors[targetId];
@@ -159,7 +166,7 @@ namespace GameLogic.Gameplay.Combat
         private void MoveProjectiles()
         {
             var projectileIds = new List<int>(projectiles.Keys);
-            projectileIds.Sort();
+            SortEntityIds(projectileIds);
             foreach (var id in projectileIds)
             {
                 var projectile = projectiles[id];
@@ -321,7 +328,7 @@ namespace GameLogic.Gameplay.Combat
                             t < bestT)
                         { bestT = t; wallNormal = normal; hitActorId = 0; }
                 var actorIds = new List<int>(actors.Keys);
-                actorIds.Sort();
+                SortEntityIds(actorIds);
                 foreach (var actorId in actorIds)
                 {
                     var actor = actors[actorId];
@@ -376,7 +383,7 @@ namespace GameLogic.Gameplay.Combat
             ActorComponent target)
         {
             if (target.DeadPending || target.Spec.RoomId != projectile.RoomId || target.Spec.ActorId == projectile.InstigatorActorId ||
-                (definition.OnlyLockedTarget && targetId != projectile.Target.Id)) return false;
+                (definition.OnlyLockedTarget && (!IsValid(projectile.Target) || !Ref(targetId).Equals(projectile.Target)))) return false;
             if (projectile.SourceTeam == target.Spec.Team) return false;
             var targetRef = Ref(targetId);
             if (!projectile.Hits.TryGetValue(targetRef, out var hit)) return true;

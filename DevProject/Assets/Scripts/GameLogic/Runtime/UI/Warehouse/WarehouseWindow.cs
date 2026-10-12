@@ -49,7 +49,7 @@ namespace GameLogic.UI.Warehouse
 
             RectTransform filters = ProjectUiFactory.Horizontal(layout, "Filters", 8f);
             ProjectUiFactory.Height(filters, 64f);
-            string[] names = { "全部", "武器", "装备", "物品" };
+            string[] names = { "全部", "武器", "装备", "物品", "收藏" };
             for (int index = 0; index < names.Length; index++)
             {
                 int chosen = index;
@@ -159,7 +159,7 @@ namespace GameLogic.UI.Warehouse
             RefreshDetails(selected);
             equipButton.GetComponentInChildren<UnityEngine.UI.Text>().text = selected?.Equipped == true ? "卸下" : "装备";
             lockButton.GetComponentInChildren<UnityEngine.UI.Text>().text = selected?.Locked == true ? "解锁" : "锁定";
-            equipButton.interactable = selected != null && selected.Type != ProjectItemType.Item &&
+            equipButton.interactable = selected != null && selected.Type != ProjectItemType.Item && selected.Type != ProjectItemType.Collection &&
                 (selected.Equipped || session.Level >= selected.RequiredLevel) && !session.IsBusy && !operating;
             lockButton.interactable = selected != null && !session.IsBusy && !operating;
             sellButton.interactable = selected != null && !selected.Equipped && !selected.Locked &&
@@ -243,7 +243,8 @@ namespace GameLogic.UI.Warehouse
         /// <param name="item">待筛选物品。</param>
         /// <returns>是否显示。</returns>
         private bool Matches(ProjectItem item) => filter == 0 || filter == 1 && item.Type == ProjectItemType.Weapon ||
-            filter == 2 && ProjectEquipmentRules.IsArmor(item.Type) || filter == 3 && item.Type == ProjectItemType.Item;
+            filter == 2 && ProjectEquipmentRules.IsArmor(item.Type) || filter == 3 && item.Type == ProjectItemType.Item ||
+            filter == 4 && item.Type == ProjectItemType.Collection;
 
         /// <summary>
         /// 在可滚动区域显示选中物品、同部位当前装备及穿脱前后的属性差值。
@@ -264,7 +265,7 @@ namespace GameLogic.UI.Warehouse
             string value = ProjectEquipmentText.Details(item);
             UnityEngine.UI.Text attributes = ProjectUiFactory.Label(detailsContent, value, 22, TextAnchor.UpperLeft, Color.white);
             attributes.gameObject.AddComponent<UnityEngine.UI.LayoutElement>().minHeight = 72f;
-            if (item.Type != ProjectItemType.Item)
+            if (item.Type != ProjectItemType.Item && item.Type != ProjectItemType.Collection)
             {
                 string equipped = ProjectEquipmentText.EquippedDetails(item, session.Warehouse);
                 UnityEngine.UI.Text equippedText = ProjectUiFactory.Label(detailsContent, equipped, 22, TextAnchor.UpperLeft, Color.white);
