@@ -207,6 +207,7 @@ namespace GameLogic.Gameplay.Expedition
         /// </summary>
         public void DetachScene()
         {
+            EndNavigation(null);
             IsRunning = false;
             IsReady = false;
             RegionView?.Dispose();
@@ -222,19 +223,23 @@ namespace GameLogic.Gameplay.Expedition
         public void Advance(float deltaTime)
         {
             AdvanceDeathPresentation(deltaTime);
-            if (!CanAdvance) { World.ClearPendingTime(); return; }
+            if (!CanInteract) { World.ClearPendingTime(); return; }
             IInputModule input = GameEntry.Get<IInputModule>();
             Vector2 movement = input.GetVector2("Gameplay/Move");
             if (touchMove.sqrMagnitude > movement.sqrMagnitude) movement = touchMove;
-            World.SetMove(Player, movement);
+            if (movement.sqrMagnitude > 0f && IsNavigating) CancelNavigation();
+            if (!CanAdvance) { World.ClearPendingTime(); return; }
+            PreparePlayerMovement(movement);
             if (input.GetButton("Gameplay/CycleInteraction").PressedThisFrame) CycleInteraction();
             if (input.GetButton("Gameplay/Interact").PressedThisFrame) RequestInteraction();
             bool interact = interactionRequested;
             World.Advance(deltaTime, () =>
             {
                 bool proceed = CompleteTick(interact);
+                ObserveNavigationTick();
                 interact = false;
                 interactionRequested = false;
+                if (proceed) PreparePlayerMovement(movement);
                 return proceed;
             });
             if (World.Faulted && IsRunning) HandleFault("战斗发生错误，已暂停并保留最近完整存档。");
@@ -300,6 +305,7 @@ namespace GameLogic.Gameplay.Expedition
         /// <param name="reason">玩家可读的故障说明。</param>
         private void HandleFault(string reason)
         {
+            EndNavigation(null);
             paused = true;
             Message = reason;
             ClearPlayerInput();
@@ -316,6 +322,7 @@ namespace GameLogic.Gameplay.Expedition
             if (axis == Vector2.zero || !CanInteract || float.IsNaN(axis.x) || float.IsInfinity(axis.x) || float.IsNaN(axis.y) || float.IsInfinity(axis.y))
             { touchMove = Vector2.zero; return; }
             touchMove = Vector2.ClampMagnitude(axis, 1);
+            if (IsNavigating) CancelNavigation();
         }
 
         /// <summary>
@@ -345,6 +352,7 @@ namespace GameLogic.Gameplay.Expedition
         /// </summary>
         public void Stop()
         {
+            EndNavigation(null);
             stopped = true;
             IsRunning = false;
             ActivePanel = ExpeditionPanelKind.None;

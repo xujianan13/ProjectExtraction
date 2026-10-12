@@ -26,6 +26,11 @@ namespace GameLogic.Project
         public static CfgDisplayRow Display => GameTables.CfgDisplay.GetById(1);
 
         /// <summary>
+        /// 取得启动门禁已经验证的唯一玩家导航配置。
+        /// </summary>
+        public static CfgNavigationRow Navigation => GameTables.CfgNavigation.GetById(1);
+
+        /// <summary>
         /// 装载内容包内的全部表，再执行跨表业务校验，失败时禁止创建玩家会话。
         /// </summary>
         /// <param name="ct">应用初始化取消令牌。</param>
@@ -58,6 +63,11 @@ namespace GameLogic.Project
             CfgDisplayRow display = GameTables.CfgDisplay?.GetById(1);
             if (display == null || GameTables.CfgDisplay.GetAll().Count != 1 || display.TargetFrameRate < 1 || display.TargetFrameRate > 240)
             { error = "显示配置缺失、不是唯一规则或目标帧率超出 1 到 240。"; return false; }
+            CfgNavigationRow navigation = GameTables.CfgNavigation?.GetById(1);
+            if (navigation == null || GameTables.CfgNavigation.GetAll().Count != 1 || !Positive(navigation.CornerClearance) ||
+                !Positive(navigation.ArrivalDistance) || !Positive(navigation.TargetApproachDistance) ||
+                !Positive(navigation.StuckSeconds) || !Positive(navigation.ProgressDistance))
+            { error = "导航配置缺失、不是唯一 ID 1 规则或导航参数不是有限正数。"; return false; }
             error = "项目资源绑定或玩家战斗表缺失。";
             if (GameTables.CfgAssets == null || GameTables.CfgPlayerCombat == null || Player == null ||
                 GameTables.CfgPlayerCombat.GetAll().Count != 1) return false;
@@ -76,6 +86,9 @@ namespace GameLogic.Project
             { error = "玩家战斗属性或基础技能引用无效。"; return false; }
             if (!LevelContentConfig.Validate(out error) || !ProjectHomeShopConfig.Validate(out error) ||
                 !ProjectCombatFeedbackConfig.Validate(out error) || !ProjectGuideConfig.Validate(out error)) return false;
+            foreach (CfgRegionContentRow content in GameTables.CfgRegionContent.GetAll())
+                if (navigation.TargetApproachDistance + navigation.ArrivalDistance >= content.InteractionRadius)
+                { error = "导航目标接近距离与到达容差之和必须小于区域交互半径：" + content.ID; return false; }
             error = null;
             return true;
         }

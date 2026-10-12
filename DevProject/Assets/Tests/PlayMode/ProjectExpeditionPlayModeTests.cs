@@ -299,7 +299,7 @@ namespace MiniGame.Tests
         });
 
         /// <summary>
-        /// 武器与护甲独占各自槽位，保存后的属性在入场和返场保持一致。
+        /// 武器与护甲独占各自槽位，装备随机值在入场、返场和读档保持冻结，收藏结算成长独立计入。
         /// </summary>
         /// <returns>穿戴、实际战斗快照及读档的逐帧测试。</returns>
         [UnityTest]
@@ -334,13 +334,19 @@ namespace MiniGame.Tests
             await TriggerExtractionAsync(run);
             Assert.That(await ProjectServices.Coordinator.ReturnHomeAsync(), Is.True);
             Assert.That(JsonUtility.ToJson(session.Warehouse.Single(item => item.Id == second.Id)), Is.EqualTo(frozen));
+            float collectionHealth = session.CollectionBonusSources.SelectMany(source => source.Attributes)
+                .Where(value => value.Attribute == ProjectAttributeType.MaxHealth).Sum(value => value.Value);
+            Assert.That(session.CharacterStats.MaxHealth, Is.EqualTo(stats.MaxHealth + collectionHealth),
+                "冻结装备的生命加成必须保持原值，返场差异只能来自本次已确认的收藏成就。");
+            string settledStats = JsonUtility.ToJson(session.CharacterStats);
             Assert.That(await ProjectServices.InitializeAsync(default), Is.True);
             Assert.That(await ProjectServices.Coordinator.InitializeAsync(), Is.True);
             session = ProjectServices.Session;
             Assert.That(JsonUtility.ToJson(session.Warehouse.Single(item => item.Id == second.Id)), Is.EqualTo(frozen));
-            Assert.That(session.CharacterStats.MaxHealth, Is.EqualTo(stats.MaxHealth));
+            Assert.That(session.CharacterStats.MaxHealth, Is.EqualTo(stats.MaxHealth + collectionHealth));
+            Assert.That(JsonUtility.ToJson(session.CharacterStats), Is.EqualTo(settledStats), "读档必须保留装备及本次已确认的全部成长属性。");
             Assert.That((await session.EquipAsync(second.Id)).Success, Is.True);
-            Assert.That(session.CharacterStats.MaxHealth, Is.EqualTo(100));
+            Assert.That(session.CharacterStats.MaxHealth, Is.EqualTo(100 + collectionHealth));
             Assert.That(session.Warehouse.Single(item => item.Id == weaponId).Equipped, Is.True);
             Assert.That(session.Warehouse.Count(item => item.Type == ProjectItemType.Weapon && item.Equipped), Is.EqualTo(1));
         });

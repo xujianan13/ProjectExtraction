@@ -31,6 +31,8 @@ namespace GameLogic.Gameplay.Combat
             public Vector3 Position;
             public Vector3 Forward = Vector3.forward;
             public Vector2 Move;
+            public bool HasNavigationWaypoint;
+            public Vector3 NavigationWaypoint;
             public float Health;
             public float MoveBonus;
             public float RangeBonus;
@@ -289,7 +291,7 @@ namespace GameLogic.Gameplay.Combat
         }
 
         /// <summary>
-        /// 设置角色移动摇杆输入。
+        /// 设置角色移动摇杆输入，并取消该角色的临时导航路点。
         /// </summary>
         /// <param name="actor">角色实体引用。</param>
         /// <param name="axis">XZ 平面移动轴，长度上限为一。</param>
@@ -299,6 +301,7 @@ namespace GameLogic.Gameplay.Combat
             if (!IsValid(actor) || !actors.TryGetValue(actor.Id, out var state) || state.DeadPending ||
                 !IsFinite(axis)) return false;
             state.Move = Vector2.ClampMagnitude(axis, 1f);
+            state.HasNavigationWaypoint = false;
             return true;
         }
 
@@ -331,6 +334,7 @@ namespace GameLogic.Gameplay.Combat
             RemoveOwnedDisplacement(player.Id);
             state.Spec.RoomId = roomId;
             state.Move = Vector2.zero;
+            state.HasNavigationWaypoint = false;
             foreach (var actor in actors.Values) actor.Velocity = Vector3.zero;
             state.CueId = 0;
             state.CueClock = -1;

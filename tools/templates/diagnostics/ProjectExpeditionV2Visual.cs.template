@@ -116,11 +116,15 @@ namespace MiniGame.Tests
                 RawImage background = map.Root.GetComponentsInChildren<RawImage>(false).Single(item => item.texture == run.MapTexture);
                 Assert.That(background.texture.width, Is.GreaterThan(0));
                 Assert.That(background.texture.height, Is.GreaterThan(0));
-                map.Root.GetComponentsInChildren<Button>(false).Single(item => item.name == "Marker_" + bossMarker.Id).onClick.Invoke();
+                NavigationUiClick(map.Root.GetComponentsInChildren<Button>(false).Single(item => item.name == "Marker_" + bossMarker.Id).gameObject);
                 await SettleVisualLayoutAsync();
                 Assert.That(map.Root.GetComponentsInChildren<Text>(false).Any(item => item.text.Contains("直线距离")), Is.True);
+                Assert.That(map.Root.GetComponentsInChildren<Text>(false).Any(item => item.text.Contains("路线距离")), Is.True);
+                Assert.That(NavigationUiButton(map, "前往").interactable, Is.True);
+                Assert.That(NavigationUiButton(map, "停止前往").interactable, Is.False);
+                AssertNavigationUiMesh(map.Root.GetComponentInChildren<GameLogic.UI.Battle.RegionMapRouteGraphic>(false));
                 await CaptureVisualScreenshotAsync(directory, prefix + "-map", width, height);
-                CheckVisualButtons(map, record, failures, "缩小", "放大", "全图", "定位玩家", "追踪目标", "取消追踪", "返回探索");
+                CheckVisualButtons(map, record, failures, "缩小", "放大", "全图", "定位玩家", "追踪目标", "取消追踪", "前往", "停止前往", "返回探索");
                 CheckVisualRect(FindVisualRect(map, "MapViewport"), "Map/Viewport", record, failures);
                 CheckVisualRect((RectTransform)background.transform, "Map/Texture", record, failures);
                 File.AppendAllText(record, "MapPause: WorldTick=" + tick + "; EffectiveTick=" + effectiveTick + "\n");

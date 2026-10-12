@@ -34,6 +34,7 @@ namespace GameLogic.Gameplay.Combat
             buffs.Clear();
             roomBounds.Clear();
             obstacles.Clear();
+            navigationGraph = null;
             roomTicks.Clear();
             effectQueue.Clear();
             events.Clear();

@@ -18,6 +18,11 @@ namespace GameLogic.UI.Battle
         private Action<string> select;
         private UnityEngine.UI.RawImage background;
         private RectTransform frame;
+        private RegionMapRouteGraphic routeGraphic;
+        private readonly List<Vector3> previewRoute = new();
+        private Vector3 previewDestination;
+        private bool hasPreview;
+        private bool validPreview;
         private readonly Dictionary<string, UnityEngine.UI.Text> markers = new();
         private readonly HashSet<string> visible = new(StringComparer.Ordinal);
         private readonly List<string> stale = new();
@@ -45,6 +50,11 @@ namespace GameLogic.UI.Battle
             background = image.GetComponent<UnityEngine.UI.RawImage>();
             background.raycastTarget = false;
             ProjectUiFactory.Stretch((RectTransform)image.transform, 0f);
+            var route = new GameObject("NavigationRoute", typeof(RectTransform), typeof(RegionMapRouteGraphic));
+            route.transform.SetParent(frame, false);
+            ProjectUiFactory.Stretch((RectTransform)route.transform, 0f);
+            routeGraphic = route.GetComponent<RegionMapRouteGraphic>();
+            routeGraphic.raycastTarget = false;
             if (!local)
             {
                 var aspect = frame.gameObject.AddComponent<UnityEngine.UI.AspectRatioFitter>();
@@ -72,6 +82,66 @@ namespace GameLogic.UI.Battle
         /// </summary>
         /// <param name="id">目标身份，空值取消选择。</param>
         public void Select(string id) { selectedId = id; Refresh(); }
+
+        /// <summary>
+        /// 显示本次选点的路线或不可达终点。
+        /// </summary>
+        /// <param name="route">已经规划的路线，失败时为空列表。</param>
+        /// <param name="destination">选点终点或路线实际终点。</param>
+        /// <param name="valid">路线是否可达。</param>
+        public void SetNavigationPreview(IReadOnlyList<Vector3> route, Vector3 destination, bool valid)
+        {
+            previewRoute.Clear();
+            for (int i = 0; i < route.Count; i++) previewRoute.Add(route[i]);
+            previewDestination = destination;
+            hasPreview = true;
+            validPreview = valid;
+            Refresh();
+        }
+
+        /// <summary>
+        /// 清除本次选点预览，保留运行中的导航路线。
+        /// </summary>
+        public void ClearNavigationPreview()
+        {
+            previewRoute.Clear();
+            hasPreview = false;
+            Refresh();
+        }
+
+        /// <summary>
+        /// 将屏幕点击还原为当前底图视口中的世界坐标。
+        /// </summary>
+        /// <param name="screenPosition">点击的屏幕坐标。</param>
+        /// <param name="camera">事件系统使用的画布摄像机，覆盖画布时为空。</param>
+        /// <param name="world">成功时的世界位置。</param>
+        /// <returns>点击处于实际地图框和地图边界内时为真。</returns>
+        public bool TryScreenToWorld(Vector2 screenPosition, Camera camera, out Vector3 world)
+        {
+            world = default;
+            if (!TryScreenToViewport(frame, screenPosition, camera, out Vector2 position)) return false;
+            return RegionMapProjection.TryUnprojectViewport(run.CurrentMap, background.uvRect, position,
+                run.CurrentRegion.Plan.EntryPosition.y, out world);
+        }
+
+        /// <summary>
+        /// 将屏幕点击转换到实际地图框，拒绝宽高适配后的留白点击。
+        /// </summary>
+        /// <param name="frame">实际显示地图的矩形。</param>
+        /// <param name="screenPosition">点击的屏幕坐标。</param>
+        /// <param name="camera">事件系统使用的画布摄像机，覆盖画布时为空。</param>
+        /// <param name="position">成功时的归一化视口坐标。</param>
+        /// <returns>点击位于地图矩形闭合边界内时为真。</returns>
+        public static bool TryScreenToViewport(RectTransform frame, Vector2 screenPosition, Camera camera, out Vector2 position)
+        {
+            position = default;
+            if (!RectTransformUtility.ScreenPointToLocalPointInRectangle(frame, screenPosition, camera, out Vector2 localPosition)) return false;
+            Rect rect = frame.rect;
+            if (rect.width <= 0f || rect.height <= 0f || localPosition.x < rect.xMin || localPosition.x > rect.xMax ||
+                localPosition.y < rect.yMin || localPosition.y > rect.yMax) return false;
+            position = new Vector2((localPosition.x - rect.xMin) / rect.width, (localPosition.y - rect.yMin) / rect.height);
+            return true;
+        }
 
         /// <summary>
         /// 按实际渲染帧更新活体位置和有效倒计时，不推进玩法。
@@ -102,6 +172,10 @@ namespace GameLogic.UI.Battle
             }
             else uv = new Rect(center - Vector2.one * (0.5f / zoom), Vector2.one / zoom);
             background.uvRect = uv;
+            IReadOnlyList<Vector3> navigationRoute = run.NavigationRoute;
+            Vector3 navigationEnd = navigationRoute.Count > 0 ? navigationRoute[navigationRoute.Count - 1] : run.NavigationDestination;
+            routeGraphic.SetRoutes(map, uv, navigationRoute, navigationEnd, run.IsNavigating,
+                previewRoute, previewDestination, hasPreview, validPreview, local ? 3f : 5f);
             visible.Clear();
             foreach (RegionMapMarker marker in projection.Markers)
             {
@@ -124,7 +198,7 @@ namespace GameLogic.UI.Battle
                     if (!local && marker.Kind != RegionMapMarkerKind.Player)
                     {
                         label.raycastTarget = true;
-                        var markerButton = label.gameObject.AddComponent<UnityEngine.UI.Button>();
+                        var markerButton = label.gameObject.AddComponent<RegionMapMarkerButton>();
                         markerButton.targetGraphic = label;
                         string id = marker.Id;
                         markerButton.onClick.AddListener(() => select?.Invoke(id));

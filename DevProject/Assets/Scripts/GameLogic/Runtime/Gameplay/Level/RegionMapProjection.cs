@@ -129,8 +129,56 @@ namespace GameLogic.Gameplay.Level
         /// <returns>归一化坐标及越界信息。</returns>
         public static RegionMapPoint ProjectWorld(RegionMapDefinition map, Vector3 position)
         {
+            return MakePoint(ProjectWorldUv(map, position));
+        }
+
+        /// <summary>
+        /// 取得未经边缘压缩的底图坐标，供路线裁切与反投影使用。
+        /// </summary>
+        /// <param name="map">地图边界及北向。</param>
+        /// <param name="position">世界坐标。</param>
+        /// <returns>可超出零到一区间的底图坐标。</returns>
+        public static Vector2 ProjectWorldUv(RegionMapDefinition map, Vector3 position)
+        {
             Vector2 offset = Rotate(new Vector2(position.x - map.Bounds.center.x, position.z - map.Bounds.center.y), map.NorthYawDegrees);
-            return MakePoint(new Vector2(offset.x / map.Bounds.width, offset.y / map.Bounds.height) + Vector2.one * 0.5f);
+            return new Vector2(offset.x / map.Bounds.width, offset.y / map.Bounds.height) + Vector2.one * 0.5f;
+        }
+
+        /// <summary>
+        /// 将视口内点击还原为世界位置，拒绝视口外或地图边界外的位置。
+        /// </summary>
+        /// <param name="map">地图边界及北向。</param>
+        /// <param name="viewport">底图当前显示的归一化裁切矩形。</param>
+        /// <param name="position">视口归一化点击位置。</param>
+        /// <param name="height">还原坐标的世界高度。</param>
+        /// <param name="world">成功时的世界坐标。</param>
+        /// <returns>点击处于视口和世界地图边界内时为真。</returns>
+        public static bool TryUnprojectViewport(RegionMapDefinition map, Rect viewport, Vector2 position, float height, out Vector3 world)
+        {
+            world = default;
+            if (!RegionValueRules.Finite(position.x) || !RegionValueRules.Finite(position.y) || position.x < 0f || position.x > 1f ||
+                position.y < 0f || position.y > 1f || viewport.width <= 0f || viewport.height <= 0f) return false;
+            return TryUnprojectWorld(map, viewport.position + Vector2.Scale(position, viewport.size), height, out world);
+        }
+
+        /// <summary>
+        /// 反转底图北向旋转并还原世界位置，不将越界坐标夹到边缘。
+        /// </summary>
+        /// <param name="map">地图边界及北向。</param>
+        /// <param name="uv">未经边缘压缩的底图坐标。</param>
+        /// <param name="height">还原坐标的世界高度。</param>
+        /// <param name="world">成功时的世界坐标。</param>
+        /// <returns>坐标有限且处于世界地图闭合边界内时为真。</returns>
+        public static bool TryUnprojectWorld(RegionMapDefinition map, Vector2 uv, float height, out Vector3 world)
+        {
+            world = default;
+            if (!RegionValueRules.Finite(uv.x) || !RegionValueRules.Finite(uv.y) || !RegionValueRules.Finite(height)) return false;
+            Vector2 offset = Rotate(Vector2.Scale(uv - Vector2.one * 0.5f, map.Bounds.size), -map.NorthYawDegrees);
+            Vector2 position = map.Bounds.center + offset;
+            if (position.x < map.Bounds.xMin || position.x > map.Bounds.xMax || position.y < map.Bounds.yMin || position.y > map.Bounds.yMax)
+                return false;
+            world = new Vector3(position.x, height, position.y);
+            return true;
         }
 
         /// <summary>

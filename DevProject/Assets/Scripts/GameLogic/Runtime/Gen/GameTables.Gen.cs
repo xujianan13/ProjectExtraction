@@ -151,6 +151,11 @@ namespace GameLogic.Tables
         public static CfgLootQualitiesTable CfgLootQualities { get; private set; }
 
         /// <summary>
+        /// CfgNavigation 配置表。
+        /// </summary>
+        public static CfgNavigationTable CfgNavigation { get; private set; }
+
+        /// <summary>
         /// CfgNpcPool 配置表。
         /// </summary>
         public static CfgNpcPoolTable CfgNpcPool { get; private set; }
@@ -258,6 +263,7 @@ namespace GameLogic.Tables
             CfgLevelsTable nextCfgLevels = await CfgLevelsTable.LoadAsync(resources, ct);
             CfgLootPoolTable nextCfgLootPool = await CfgLootPoolTable.LoadAsync(resources, ct);
             CfgLootQualitiesTable nextCfgLootQualities = await CfgLootQualitiesTable.LoadAsync(resources, ct);
+            CfgNavigationTable nextCfgNavigation = await CfgNavigationTable.LoadAsync(resources, ct);
             CfgNpcPoolTable nextCfgNpcPool = await CfgNpcPoolTable.LoadAsync(resources, ct);
             CfgPlayerCombatTable nextCfgPlayerCombat = await CfgPlayerCombatTable.LoadAsync(resources, ct);
             CfgProfileTable nextCfgProfile = await CfgProfileTable.LoadAsync(resources, ct);
@@ -300,6 +306,7 @@ namespace GameLogic.Tables
             CfgLevels = nextCfgLevels;
             CfgLootPool = nextCfgLootPool;
             CfgLootQualities = nextCfgLootQualities;
+            CfgNavigation = nextCfgNavigation;
             CfgNpcPool = nextCfgNpcPool;
             CfgPlayerCombat = nextCfgPlayerCombat;
             CfgProfile = nextCfgProfile;

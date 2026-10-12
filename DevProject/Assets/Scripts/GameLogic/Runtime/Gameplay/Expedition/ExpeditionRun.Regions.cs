@@ -192,6 +192,7 @@ namespace GameLogic.Gameplay.Expedition
             if (!PrepareRegion(destination, out RegionRuntimeState next, out RegionMapDefinition map, out RegionMapView prepared)) return false;
             prepared.Root.SetActive(false);
             RegionMapView previous = RegionView;
+            EndNavigation(null);
             CurrentMap = map;
             CurrentRegionIndex = destination;
             if (!BindRegionWorld(next, false)) { prepared.Dispose(); HandleFault("目标区域战斗状态建立失败。"); return false; }

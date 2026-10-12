@@ -921,6 +921,34 @@
         }
       }
     },
+    "CfgNavigation": {
+      "fields": {
+        "ID": {
+          "min": 1,
+          "max": 1
+        },
+        "CornerClearance": {
+          "min": 0.0001,
+          "max": 1
+        },
+        "ArrivalDistance": {
+          "min": 0.0001,
+          "max": 1
+        },
+        "TargetApproachDistance": {
+          "min": 0.0001,
+          "max": 10
+        },
+        "StuckSeconds": {
+          "min": 0.0001,
+          "max": 60
+        },
+        "ProgressDistance": {
+          "min": 0.0001,
+          "max": 1
+        }
+      }
+    },
     "CfgRunPersistence": {
       "fields": {
         "ID": {

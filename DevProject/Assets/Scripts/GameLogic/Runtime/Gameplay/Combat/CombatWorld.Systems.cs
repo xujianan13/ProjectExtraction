@@ -21,8 +21,14 @@ namespace GameLogic.Gameplay.Combat
                 var actor = actors[id];
                 if (actor.Spec.RoomId == activeRoomId) actor.Velocity = Vector3.zero;
                 if (actor.DeadPending || actor.Spec.RoomId != activeRoomId) continue;
-                var motion = new Vector3(actor.Move.x, 0f, actor.Move.y) *
-                    Mathf.Max(0f, actor.Spec.MoveSpeed + actor.MoveBonus) * TickSeconds;
+                float stepDistance = Mathf.Max(0f, actor.Spec.MoveSpeed + actor.MoveBonus) * TickSeconds;
+                var motion = new Vector3(actor.Move.x, 0f, actor.Move.y) * stepDistance;
+                if (actor.HasNavigationWaypoint)
+                {
+                    Vector3 remaining = actor.NavigationWaypoint - actor.Position;
+                    remaining.y = 0f;
+                    motion = Vector3.ClampMagnitude(remaining, stepDistance);
+                }
                 if (FindDisplacement(id, out _)) motion = Vector3.zero;
                 MoveActor(id, actor, motion);
             }

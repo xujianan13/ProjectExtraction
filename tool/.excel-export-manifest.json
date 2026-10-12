@@ -3,7 +3,7 @@
   "sources": [
     {
       "path": "config/excel/schema.json",
-      "sha256": "00bc14d57c4bbc36aafd58ace143f2deea431259ea80281aab3fb9cbfdb32016"
+      "sha256": "3f0e27d69c26e9d2a65d8fb0a072975c47f64522184166b484388fd30658e512"
     },
     {
       "path": "config/excel/CfgAdvancedAffixes.xlsx",
@@ -116,6 +116,10 @@
     {
       "path": "config/excel/CfgLootQualities.xlsx",
       "sha256": "23f4bb539ce0676ed6bf0b22ad67301de24ba8d8e54345938277975f02f58a86"
+    },
+    {
+      "path": "config/excel/CfgNavigation.xlsx",
+      "sha256": "cbab8d1fe142c2b2558fb7ed922c70c84d54520b027d1b25702f332a4a78c177"
     },
     {
       "path": "config/excel/CfgNpcPool.xlsx",
@@ -1466,6 +1470,36 @@
       ]
     },
     {
+      "name": "CfgNavigation",
+      "source": "config/excel/CfgNavigation.xlsx",
+      "fields": [
+        {
+          "name": "ID",
+          "type": "int"
+        },
+        {
+          "name": "CornerClearance",
+          "type": "number"
+        },
+        {
+          "name": "ArrivalDistance",
+          "type": "number"
+        },
+        {
+          "name": "TargetApproachDistance",
+          "type": "number"
+        },
+        {
+          "name": "StuckSeconds",
+          "type": "number"
+        },
+        {
+          "name": "ProgressDistance",
+          "type": "number"
+        }
+      ]
+    },
+    {
       "name": "CfgNpcPool",
       "source": "config/excel/CfgNpcPool.xlsx",
       "fields": [
@@ -2320,6 +2354,14 @@
       "sha256": "bd057474861be2f96e5fb35bf6005dbed38dad90bb8055b42135867f590cae7d"
     },
     {
+      "path": "DevProject/Assets/GameResources/Config/Tables/Table_CfgNavigation.json",
+      "sha256": "4bf20384bd7719214c16b21f315fdedec7c17abb397eadbbe2b11fe2777bdee7"
+    },
+    {
+      "path": "DevProject/Assets/Scripts/GameLogic/Runtime/Gen/CfgNavigation.Gen.cs",
+      "sha256": "e234fec6e342f48329926fd1d949e2ad0d3b2b82e8dda6fa521024513abfb1a5"
+    },
+    {
       "path": "DevProject/Assets/GameResources/Config/Tables/Table_CfgNpcPool.json",
       "sha256": "46eb5c6866bee1ac6279d2ca135deae7f416fe27a38ad0d19a0dd41d2f1f9633"
     },
@@ -2433,7 +2475,7 @@
     },
     {
       "path": "DevProject/Assets/Scripts/GameLogic/Runtime/Gen/GameTables.Gen.cs",
-      "sha256": "2a476766771cf4ec1585beb6cfe5d38b51c251c0b4541a602c5a4ba4b01f3b7f"
+      "sha256": "883a46936e9a73d6ba381b1ce232ddbd02790b063229108e1baf74ce76a43936"
     }
   ]
 }

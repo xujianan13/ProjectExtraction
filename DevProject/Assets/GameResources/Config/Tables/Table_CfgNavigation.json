@@ -1,0 +1,13 @@
+{
+  "schemaHash": "eb4827fb35c84968064891089bde752cd916d9b40bbb7f28a28763c8f73ed5cc",
+  "rows": [
+    {
+      "ID": 1,
+      "CornerClearance": 0.08,
+      "ArrivalDistance": 0.12,
+      "TargetApproachDistance": 1,
+      "StuckSeconds": 1.5,
+      "ProgressDistance": 0.05
+    }
+  ]
+}
