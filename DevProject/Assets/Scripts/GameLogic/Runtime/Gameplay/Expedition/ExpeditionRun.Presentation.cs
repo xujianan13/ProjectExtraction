@@ -6,7 +6,7 @@ using UnityEngine;
 namespace GameLogic.Gameplay.Expedition
 {
     /// <summary>
-    /// 战斗结束后的有限表现时钟，不改变终局、伤害或奖励数据。
+    /// 玩家死亡后的有限表现时钟，不推进伤害、奖励或世界模拟。
     /// </summary>
     public sealed partial class ExpeditionRun
     {
@@ -18,20 +18,22 @@ namespace GameLogic.Gameplay.Expedition
         public float DeathPresentationElapsed => deathPresentationElapsed;
         public double PresentationSeconds => World.TickIndex * (double)CombatWorld.TickSeconds + deathPresentationElapsed;
         public bool FeedbackPaused => paused || GameEntry.IsInBackground || ProjectServices.Coordinator?.IsPaused == true ||
-            ActivePanel != ExpeditionPanelKind.None || session.HasUncommittedSave || IsChoosingRogue || (!IsRunning && !IsPresentingDeath);
+            (ActivePanel != ExpeditionPanelKind.None && ActivePanel != ExpeditionPanelKind.DeathChoice) || session.HasUncommittedSave ||
+            (IsChoosingRogue && !IsAwaitingDeathChoice) || (!IsRunning && !IsPresentingDeath);
 
         /// <summary>
         /// 仅对真实死亡且已冻结的角色开启倒下与短暂停留；不重新开放任何输入。
         /// </summary>
         public void BeginDeathPresentation()
         {
-            if (disposed || !stopped || deathPresentationStarted || !World.TryGetActor(Player, out var actor) || !actor.Dead) return;
+            if (disposed || (!stopped && !IsAwaitingDeathChoice) || deathPresentationStarted ||
+                !World.TryGetActor(Player, out var actor) || !actor.Dead) return;
             deathPresentationStarted = true;
             deathPresentationElapsed = 0f;
         }
 
         /// <summary>
-        /// 推进终局表现，后台暂停时不累计时间，恢复时不追赶大帧。
+        /// 推进死亡表现，后台暂停时不累计时间，恢复时不追赶大帧。
         /// </summary>
         /// <param name="deltaTime">本帧经过秒数。</param>
         private void AdvanceDeathPresentation(float deltaTime)

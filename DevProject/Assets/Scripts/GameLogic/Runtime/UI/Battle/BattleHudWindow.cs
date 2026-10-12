@@ -142,11 +142,14 @@ namespace GameLogic.UI.Battle
                     "\n强化进度 " + run.CurrentRogueProgress + " / " + run.NextRogueThreshold + " · 金币 " + run.AvailableGold;
             }
             hint.text = "最终 Boss：" + finalBoss.BossName + "\n" + finalBoss.Weakness + "\n" +
-                (run.IsRogueBuildComplete ? "本局技能构筑已完成。" : run.Message);
+                (run.IsRogueBuildComplete && !run.IsAwaitingDeathChoice ? "本局技能构筑已完成。" : run.Message);
             RefreshTarget();
-            bool choosing = run.IsChoosingReward;
-            resumeChoice.interactable = choosing && !run.IsSavingRun && (run.PendingRogueChoice != null || run.PendingBossChoice != null);
-            resumeChoice.GetComponentInChildren<UnityEngine.UI.Text>().text = run.PendingBossChoice != null ? "继续选择尾王战利品" : "继续选择强化";
+            bool choosingDeath = run.IsAwaitingDeathChoice;
+            bool choosing = run.IsChoosingReward || choosingDeath;
+            resumeChoice.interactable = choosingDeath ? run.CanChooseDeath :
+                run.IsChoosingReward && !run.IsSavingRun && (run.PendingRogueChoice != null || run.PendingBossChoice != null);
+            resumeChoice.GetComponentInChildren<UnityEngine.UI.Text>().text = choosingDeath ? "继续死亡选择" :
+                run.PendingBossChoice != null ? "继续选择尾王战利品" : "继续选择强化";
             if (resumeChoice.gameObject.activeSelf != choosing)
             {
                 resumeChoice.gameObject.SetActive(choosing);
@@ -242,6 +245,7 @@ namespace GameLogic.UI.Battle
                 kind == ExpeditionPanelKind.Merchant ? ProjectServices.ExpeditionMerchantWindow :
                 kind == ExpeditionPanelKind.Pause ? ProjectServices.PauseWindow :
                 kind == ExpeditionPanelKind.Map ? ProjectServices.ExpeditionMapWindow :
+                kind == ExpeditionPanelKind.DeathChoice ? ProjectServices.DeathChoiceWindow :
                 kind == ExpeditionPanelKind.ExtractionConfirmation ? ProjectServices.RegionExitWindow : ProjectServices.RogueOverviewWindow;
             try
             {
@@ -309,11 +313,17 @@ namespace GameLogic.UI.Battle
         }
 
         /// <summary>
-        /// 在选择窗口被系统关闭后重新打开当前待选奖励。
+        /// 在选择窗口被系统关闭后重新打开死亡选择或当前待选奖励。
         /// </summary>
         private void OpenPendingChoice()
         {
-            if (run == null || !run.IsChoosingReward || run.IsSavingRun) return;
+            if (run == null) return;
+            if (run.IsAwaitingDeathChoice)
+            {
+                if (run.CanChooseDeath) run.TryOpenDeathChoice();
+                return;
+            }
+            if (!run.IsChoosingReward || run.IsSavingRun) return;
             IUIModule ui = GameEntry.Get<IUIModule>();
             if (ui != null) ui.OpenWindowAsync(run.PendingBossChoice != null ? ProjectServices.BossLootWindow : ProjectServices.RogueChoiceWindow,
                 new GameWindowOpenArgs(run)).Forget();

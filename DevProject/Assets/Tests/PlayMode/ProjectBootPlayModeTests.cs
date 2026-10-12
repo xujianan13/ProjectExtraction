@@ -157,8 +157,10 @@ namespace MiniGame.Tests
             Assert.That(CombatTestPositioning.TryPlaceAdjacent(run.World, run.Player, enemy), Is.True);
             await WaitAsync(() => run.IsPresentingDeath, "真实宿主未启动死亡收尾。", 5f);
             long finalTick = run.World.TickIndex;
-            Assert.That(run.IsRunning, Is.False);
+            Assert.That(run.IsAwaitingDeathChoice, Is.True);
             Assert.That(GameEntry.Get<ISceneModule>().CurrentScene, Is.Not.Null);
+            await WaitAsync(() => run.CanChooseDeath, "死亡选择存档未完成。", 5f);
+            Assert.That(run.TryConfirmDeath(), Is.True);
             await WaitAsync(() => ProjectServices.Coordinator.CanReturn,
                 "真实宿主未在倒下动画结束后显示可返回的结果页。", 5f);
             Assert.That(run.World.TickIndex, Is.EqualTo(finalTick));

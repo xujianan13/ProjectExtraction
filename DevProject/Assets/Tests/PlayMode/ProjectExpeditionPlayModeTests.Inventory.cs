@@ -121,6 +121,7 @@ namespace MiniGame.Tests
             Assert.That(run.ActivePanel, Is.EqualTo(ExpeditionPanelKind.None));
             Assert.That(run.CanAcceptPlayerInput, Is.True);
             TriggerDeath(run);
+            await ConfirmPendingDeathAsync(run);
             await WaitForPhaseAsync(ProjectRunPhase.ResultsReady);
             Assert.That(ProjectServices.Session.LastResult.RetainedItems.Single().Id, Is.EqualTo(starterId));
             Assert.That(ProjectServices.Session.LastResult.RetainedItems.Single().Equipped, Is.False);

@@ -380,7 +380,7 @@ namespace GameLogic.Gameplay.Expedition
         /// </summary>
         private void PublishRewardState()
         {
-            rewardOffersVisible = IsRunning && !IsSavingRun && !disposed && !stopped;
+            rewardOffersVisible = IsRunning && !IsSavingRun && !IsAwaitingDeathChoice && !disposed && !stopped;
             if (rewardOffersVisible && !paused && ActivePanel == ExpeditionPanelKind.None &&
                 ProjectServices.Coordinator.Phase == ProjectRunPhase.Playing)
             {

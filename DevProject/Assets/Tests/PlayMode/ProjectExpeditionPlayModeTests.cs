@@ -96,6 +96,7 @@ namespace MiniGame.Tests
             Assert.That(session.Stamina, Is.EqualTo(stamina - 20));
             Assert.That(second.Inventory.Any(item => item.Id == equippedId), Is.True);
             TriggerDeath(second);
+            await ConfirmPendingDeathAsync(second);
             await WaitForPhaseAsync(ProjectRunPhase.ResultsReady);
             Assert.That(ProjectServices.Session.LastResult.Outcome.Extracted, Is.False);
             Assert.That(await ProjectServices.Coordinator.ReturnHomeAsync(), Is.True);
@@ -203,6 +204,7 @@ namespace MiniGame.Tests
             ExpeditionRun run = ProjectServices.Session.CurrentRun;
             string runId = run.RunId;
             TriggerDeath(run);
+            await ConfirmPendingDeathAsync(run);
             await WaitForPhaseAsync(ProjectRunPhase.RecoveryRequired);
             Assert.That(ProjectServices.Session.RunStage, Is.EqualTo(ProjectRunStage.OutcomeRecorded));
             Assert.That(GameEntry.Get<ISceneModule>().CurrentScene, Is.Null);
@@ -467,8 +469,9 @@ namespace MiniGame.Tests
             Assert.That(run.World.TryAddAttributeBonus(killer, CombatAttributeKind.Defense, 100000), Is.True);
             Assert.That(run.World.TryAddAttributeBonus(killer, CombatAttributeKind.MaxHealth, 100000), Is.True);
             Assert.That(TryPlacePlayerNearActor(run, killer), Is.True, "真实敌人附近必须存在合法攻击站位。");
-            for (int tick = 0; tick < 600 && run.IsRunning; tick++) run.Advance(CombatWorld.TickSeconds);
-            Assert.That(run.IsRunning, Is.False, "真实敌方伤害应触发死亡。");
+            for (int tick = 0; tick < 600 && !run.IsAwaitingDeathChoice; tick++) run.Advance(CombatWorld.TickSeconds);
+            Assert.That(run.IsAwaitingDeathChoice, Is.True, "真实敌方伤害应触发待确认死亡。");
+            Assert.That(run.World.TryGetActor(run.Player, out var player) && player.Dead, Is.True);
         }
 
         /// <summary>

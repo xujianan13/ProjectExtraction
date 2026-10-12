@@ -12,7 +12,7 @@ using UnityEngine.TestTools;
 namespace MiniGame.Tests
 {
     /// <summary>
-    /// 验证死亡后先保存终局，再独立播放倒下动作并进入结果页。
+    /// 验证死亡待选状态先保存，倒下表现支持后台暂停，明确确认后才进入结果页。
     /// </summary>
     public sealed partial class ProjectExpeditionPlayModeTests
     {
@@ -33,19 +33,20 @@ namespace MiniGame.Tests
             Assert.That(run.World.TryGetActor(run.Player, out CombatActorSnapshot player), Is.True);
             Assert.That(player.Dead, Is.True);
             Assert.That(run.IsPresentingDeath, Is.True);
-            Assert.That(coordinator.Phase, Is.EqualTo(ProjectRunPhase.FreezingOutcome));
+            await UniTask.WaitUntil(() => run.CanChooseDeath).Timeout(TimeSpan.FromSeconds(5));
+            Assert.That(coordinator.Phase, Is.EqualTo(ProjectRunPhase.Playing));
             long finalTick = run.World.TickIndex;
-            Assert.That(coordinator.TryEndRun(run, false), Is.False, "死亡事实不得重复提交。");
+            Assert.That(ProjectServices.Session.RecordedOutcome, Is.Null);
 
             await coordinator.SetApplicationPausedAsync(true);
             float frozenTime = run.DeathPresentationElapsed;
             for (int frame = 0; frame < 5; frame++) gameplay.OnUpdate(1f);
             Assert.That(gameplay.Count, Is.EqualTo(1), "死亡表现期间不得因更新异常退出玩法调度。");
             Assert.That(run.DeathPresentationElapsed, Is.EqualTo(frozenTime));
-            await UniTask.WaitUntil(() => ProjectServices.Session.RecordedOutcome != null).Timeout(TimeSpan.FromSeconds(5));
-            Assert.That(ProjectServices.Session.RecordedOutcome.Extracted, Is.False);
+            Assert.That(ProjectServices.Session.RecordedOutcome, Is.Null, "待选死亡不得提前记录终局。");
             Assert.That(ProjectServices.Session.CurrentRun, Is.SameAs(run));
-            Assert.That(coordinator.Phase, Is.EqualTo(ProjectRunPhase.FreezingOutcome));
+            Assert.That(coordinator.Phase, Is.EqualTo(ProjectRunPhase.Playing));
+            Assert.That(run.TryConfirmDeath(), Is.False, "后台状态不得提交死亡选择。");
             Assert.That(run.World.TickIndex, Is.EqualTo(finalTick));
             await UniTask.Yield(PlayerLoopTiming.LastPostLateUpdate);
             gameplay.OnLateUpdate(0f);
@@ -65,10 +66,12 @@ namespace MiniGame.Tests
             gameplay.OnUpdate(0.1f);
             gameplay.OnUpdate(0.1f);
             gameplay.OnLateUpdate(0f);
-            Assert.That(gameplay.Count, Is.EqualTo(1), "终局保存后仍应调度独立死亡表现。");
+            Assert.That(gameplay.Count, Is.EqualTo(1), "待选择期间仍应调度独立死亡表现。");
             await UniTask.Yield(PlayerLoopTiming.LastPostLateUpdate);
             Assert.That(Quaternion.Angle(model.Find("Mesh").localRotation, frozenPose), Is.GreaterThan(10f));
             Assert.That(run.World.TickIndex, Is.EqualTo(finalTick));
+            Assert.That(run.TryConfirmDeath(), Is.True);
+            Assert.That(run.TryConfirmDeath(), Is.False, "同一死亡结算只能提交一次。");
             await WaitForPhaseAsync(ProjectRunPhase.ResultsReady);
             Assert.That(run.DeathPresentationElapsed, Is.EqualTo(ExpeditionRun.DeathPresentationDuration));
             Assert.That(ProjectServices.Session.LastResult.Outcome.RunId, Is.EqualTo(run.RunId));

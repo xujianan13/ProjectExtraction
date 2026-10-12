@@ -20,7 +20,7 @@
       "DefensePerLevel": 0,
       "DefenseRandomMin": 0,
       "DefenseRandomExclusive": 0,
-      "RangeBase": 1.9,
+      "RangeBase": 4.9,
       "RangeRandom": 0,
       "CollectionID": ""
     },
@@ -43,7 +43,7 @@
       "DefensePerLevel": 0,
       "DefenseRandomMin": 0,
       "DefenseRandomExclusive": 0,
-      "RangeBase": 1.6,
+      "RangeBase": 4.6,
       "RangeRandom": 0.5,
       "CollectionID": ""
     },
@@ -112,7 +112,7 @@
       "DefensePerLevel": 0,
       "DefenseRandomMin": 0,
       "DefenseRandomExclusive": 0,
-      "RangeBase": 1.35,
+      "RangeBase": 4.35,
       "RangeRandom": 0.2,
       "CollectionID": ""
     },
@@ -135,7 +135,7 @@
       "DefensePerLevel": 0,
       "DefenseRandomMin": 0,
       "DefenseRandomExclusive": 0,
-      "RangeBase": 2.65,
+      "RangeBase": 5.65,
       "RangeRandom": 0.35,
       "CollectionID": ""
     },
@@ -158,7 +158,7 @@
       "DefensePerLevel": 0,
       "DefenseRandomMin": 1,
       "DefenseRandomExclusive": 3,
-      "RangeBase": 1.65,
+      "RangeBase": 4.65,
       "RangeRandom": 0.25,
       "CollectionID": ""
     },

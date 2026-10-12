@@ -35,6 +35,7 @@ namespace GameLogic.Gameplay.Expedition
         private readonly MaterialPropertyBlock tint = new();
         private static readonly int ColorId = Shader.PropertyToID("_Color");
         private readonly List<CombatCueView> cues = new();
+        private readonly List<CombatTelegraphSnapshot> cueTelegraphs = new();
         private bool disposed;
         private readonly CombatFeedbackView feedback;
         private readonly CombatFeedbackAudio feedbackAudio;
@@ -55,6 +56,7 @@ namespace GameLogic.Gameplay.Expedition
             public long StartTick;
             public int DurationTicks;
             public Vector3 Direction;
+            public float Offset;
         }
 
         /// <summary>
@@ -345,9 +347,41 @@ namespace GameLogic.Gameplay.Expedition
             if (duration <= 0) return;
             GameObject model = CreateModel("SkillCue", assets.MeleeCue);
             ApplyTint(model, fact.ActorId == 1 ? new Color(0.7f, 1, 1) : new Color(1, 0.55f, 0.2f));
-            model.transform.localScale = new Vector3(0.14f, 0.14f, 1.7f);
+            bool playerBasicAttack = TryGetPlayerBasicAttackCueRange(fact, out float attackRange);
+            model.transform.localScale = new Vector3(0.14f, 0.14f, playerBasicAttack ? attackRange : 1.7f);
             cues.Add(new CombatCueView { Object = model, ActorId = fact.ActorId, RoomId = fact.RoomId,
-                StartTick = fact.Tick, DurationTicks = duration, Direction = direction });
+                StartTick = fact.Tick, DurationTicks = duration, Direction = direction, Offset = playerBasicAttack ? attackRange * 0.5f : 1f });
+        }
+
+        /// <summary>
+        /// 识别玩家普攻提示并读取本次施放已经冻结的真实命中半径。
+        /// </summary>
+        /// <param name="fact">当前提示事件。</param>
+        /// <param name="attackRange">匹配时返回本次普攻半径。</param>
+        /// <returns>提示属于玩家普攻且存在对应命中快照时为真。</returns>
+        private bool TryGetPlayerBasicAttackCueRange(CombatEvent fact, out float attackRange)
+        {
+            attackRange = 0f;
+            if (fact.ActorId != 1) return false;
+            bool matchingCue = false;
+            foreach (CfgCombatTimelineNodesRow node in GameTables.CfgCombatTimelineNodes.GetAll())
+            {
+                if (node.SkillID != ProjectContentConfig.Player.SkillID) continue;
+                foreach (int effectId in node.EffectIDs)
+                {
+                    CfgCombatEffectsRow effect = GameTables.CfgCombatEffects.GetById(effectId);
+                    if (effect.Kind == (int)CombatEffectKind.Cue && effect.DefinitionID == fact.DefinitionId) matchingCue = true;
+                }
+            }
+            if (!matchingCue) return false;
+            run.World.GetTelegraphsSnapshot(cueTelegraphs);
+            foreach (CombatTelegraphSnapshot telegraph in cueTelegraphs)
+            {
+                if (telegraph.ActorId != fact.ActorId || !telegraph.IsPlayer || telegraph.IsProjectile) continue;
+                attackRange = telegraph.Radius;
+                return true;
+            }
+            return false;
         }
 
         /// <summary>
@@ -366,7 +400,7 @@ namespace GameLogic.Gameplay.Expedition
                     continue;
                 }
                 Vector3 direction = Quaternion.Euler(0, Mathf.Lerp(-65, 65, progress), 0) * cue.Direction;
-                cue.Object.transform.position = actor.transform.position + direction;
+                cue.Object.transform.position = actor.transform.position + direction * cue.Offset;
                 cue.Object.transform.rotation = Quaternion.LookRotation(direction);
             }
         }

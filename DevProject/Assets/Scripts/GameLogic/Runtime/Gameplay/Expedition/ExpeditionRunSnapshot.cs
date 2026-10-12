@@ -38,6 +38,7 @@ namespace GameLogic.Gameplay.Expedition
         public RogueProgressState Progress;
         public BossLootChoiceState BossLoot;
         public ProjectRunStatistics Statistics;
+        public int PendingPlayerDeathId;
         public bool HasPendingOutcome;
         public ProjectRunOutcome PendingOutcome;
         public CombatWorldSnapshot World;

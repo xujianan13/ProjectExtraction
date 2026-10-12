@@ -103,7 +103,7 @@
     },
     {
       "path": "config/excel/CfgItemDefinitions.xlsx",
-      "sha256": "d6fe0433972176cf3aca11bc45bcf109b0dfc1aceeb588516f6c0caff5d501e8"
+      "sha256": "c3e5d866ff44c43a30d5a5ed9503878afe33e7f203483c4e2866d2ef899ba120"
     },
     {
       "path": "config/excel/CfgLevels.xlsx",
@@ -131,7 +131,7 @@
     },
     {
       "path": "config/excel/CfgProfile.xlsx",
-      "sha256": "f74928975209990c1ebddab35b167c63e61000280c88f179fd60229e47d0de3d"
+      "sha256": "704ac193b2964b8c455a7332e036968d155b54fe3319b7e054a6c3861751587d"
     },
     {
       "path": "config/excel/CfgQualities.xlsx",
@@ -2323,7 +2323,7 @@
     },
     {
       "path": "DevProject/Assets/GameResources/Config/Tables/Table_CfgItemDefinitions.json",
-      "sha256": "4c9ca5518baf7c9dfd0fa7ac7faa74edc44f1f9caf96b5644c37545fb358d8f8"
+      "sha256": "05d417628d72ce8c96272407fb727e78e6c0d4824cd960b9f95ea58866a2baaa"
     },
     {
       "path": "DevProject/Assets/Scripts/GameLogic/Runtime/Gen/CfgItemDefinitions.Gen.cs",
@@ -2379,7 +2379,7 @@
     },
     {
       "path": "DevProject/Assets/GameResources/Config/Tables/Table_CfgProfile.json",
-      "sha256": "c7156c83eb32bbf04c97b1645da3e53857da1e634d1204fd527d155b8373980e"
+      "sha256": "c857dedd033422cda36d43e38a4c55d3a4f68d3de57a38bc11b6c5108bbfd7c0"
     },
     {
       "path": "DevProject/Assets/Scripts/GameLogic/Runtime/Gen/CfgProfile.Gen.cs",

@@ -30,7 +30,7 @@ namespace GameLogic.Gameplay.Expedition
                 Requests = regionRequests.ConvertAll(value => value.Copy()), Regions = regions.ConvertAll(value => value.Copy()),
                 Inventory = inventory.ConvertAll(value => value.Copy()), ProtectedItemIds = new List<string>(protectedItems),
                 Drops = drops.ConvertAll(value => value.Copy()), Statistics = CaptureStatistics(), World = world,
-                HasPendingOutcome = pendingOutcome != null, PendingOutcome = pendingOutcome?.Copy()
+                PendingPlayerDeathId = pendingPlayerDeathId, HasPendingOutcome = pendingOutcome != null, PendingOutcome = pendingOutcome?.Copy()
             };
             captured.ProtectedItemIds.Sort(StringComparer.Ordinal);
             CaptureRewardState(captured);
@@ -84,6 +84,13 @@ namespace GameLogic.Gameplay.Expedition
                 error = "活动区域与玩家战斗身份不一致。";
                 return false;
             }
+            bool playerDead = savedPlayer.Health <= 0 && savedPlayer.DeadPending && savedPlayer.DeathPublished;
+            if (snapshot.PendingPlayerDeathId < 0 || snapshot.PendingPlayerDeathId > snapshot.World.NextDeathId ||
+                (snapshot.PendingPlayerDeathId > 0) != playerDead)
+            {
+                error = "玩家生命与待确认死亡状态不一致。";
+                return false;
+            }
             regionIds.Clear();
             var actorIds = new HashSet<int> { 1 };
             foreach (RegionRuntimeState region in snapshot.Regions)
@@ -127,6 +134,7 @@ namespace GameLogic.Gameplay.Expedition
             created.nextActorId = snapshot.NextActorId;
             created.KillExperience = snapshot.KillExperience;
             created.GoldSpent = snapshot.GoldSpent;
+            created.pendingPlayerDeathId = snapshot.PendingPlayerDeathId;
             created.augmentBaseAttackRange = snapshot.AugmentBaseAttackRange;
             created.random = restoredRandom;
             created.regions.AddRange(snapshot.Regions.ConvertAll(value => value.Copy()));

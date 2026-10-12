@@ -61,6 +61,7 @@ namespace MiniGame.Tests
             ExpeditionRun run = session.CurrentRun;
             Assert.That(run.Inventory.Any(item => item.Id == first.Id && item.Equipped), Is.True);
             TriggerDeath(run);
+            await ConfirmPendingDeathAsync(run);
             await WaitForPhaseAsync(ProjectRunPhase.ResultsReady);
             Assert.That(session.LastResult.Outcome.Extracted, Is.False);
             Assert.That(await ProjectServices.Coordinator.ReturnHomeAsync(), Is.True);

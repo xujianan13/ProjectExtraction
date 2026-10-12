@@ -48,7 +48,8 @@ namespace GameLogic.Gameplay.Expedition
                 RegionInitialized = snapshot.RegionInitialized, Requests = snapshot.Requests, Inventory = snapshot.Inventory,
                 ProtectedItemIds = snapshot.ProtectedItemIds, Drops = snapshot.Drops, PendingBossRegions = snapshot.PendingBossRegions,
                 Rogue = snapshot.Rogue, Progress = snapshot.Progress, BossLoot = snapshot.BossLoot,
-                Statistics = snapshot.Statistics, HasPendingOutcome = snapshot.HasPendingOutcome, PendingOutcome = snapshot.PendingOutcome
+                Statistics = snapshot.Statistics, PendingPlayerDeathId = snapshot.PendingPlayerDeathId,
+                HasPendingOutcome = snapshot.HasPendingOutcome, PendingOutcome = snapshot.PendingOutcome
             };
             Add(components, "run", header);
             CombatWorldSnapshot world = snapshot.World;

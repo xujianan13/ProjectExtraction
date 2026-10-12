@@ -25,7 +25,7 @@ namespace MiniGame.Tests
     public sealed partial class ProjectExpeditionPlayModeTests
     {
         /// <summary>
-        /// 验证窄竖屏的真实主界面、收藏、战斗控件与区域地图。
+        /// 验证窄竖屏的真实主界面、收藏、战斗控件、区域地图与死亡选择。
         /// </summary>
         /// <returns>环境变量启用时执行的逐帧视觉测试。</returns>
         [UnityTest]
@@ -36,7 +36,7 @@ namespace MiniGame.Tests
         }
 
         /// <summary>
-        /// 验证横屏的真实主界面、收藏、战斗控件与区域地图。
+        /// 验证横屏的真实主界面、收藏、战斗控件、区域地图与死亡选择。
         /// </summary>
         /// <returns>环境变量启用时执行的逐帧视觉测试。</returns>
         [UnityTest]
@@ -155,9 +155,68 @@ namespace MiniGame.Tests
                 Assert.That(exit.Root.GetComponentsInChildren<Text>(false).Any(item => item.text.Contains("回收估值")), Is.True);
                 ClickButton(exit, "留在本区");
                 await WaitForAsync(() => run.ActivePanel == ExpeditionPanelKind.None);
+                await WaitRunSavedAsync(run);
+                await WaitForAsync(() => run.CanAcceptPlayerInput);
+                await TriggerVisualDeathAsync(run);
+                await WaitRunSavedAsync(run);
+                await WaitForAsync(() => run.CanChooseDeath);
+                GameWindow death = await WaitForWindowAsync(ProjectServices.DeathChoiceWindow);
+                Assert.That(run.World.TryGetActor(run.Player, out CombatActorSnapshot deadPlayer), Is.True);
+                Assert.That(deadPlayer.Dead, Is.True);
+                Assert.That(run.CanAcceptPlayerInput, Is.False);
+                Assert.That(run.ActivePanel, Is.EqualTo(ExpeditionPanelKind.DeathChoice));
+                Vector3 deathPosition = deadPlayer.Position;
+                string[] heldItems = run.Inventory.Select(item => item.Id).ToArray();
+                int regionIndex = run.CurrentRegionIndex;
+                int killExperience = run.KillExperience;
+                await SettleVisualLayoutAsync();
+                await CaptureVisualScreenshotAsync(directory, prefix + "-death-choice", width, height);
+                CheckVisualButtons(death, record, failures, "看广告复活", "结算返回");
+                CheckVisualRect(FindVisualRect(death, "DeathPanel"), "Death/Panel", record, failures);
+                CheckVisualRect(FindVisualRect(death, "Viewport"), "Death/Viewport", record, failures);
+                Assert.That(death.Root.GetComponentsInChildren<Text>(false).Any(item => item.text == "你已倒下"), Is.True);
+                Assert.That(death.Root.GetComponentsInChildren<Text>(false).Any(item => item.text.Contains("不限次数")), Is.True);
+                Assert.That(FindButton(death, "看广告复活").interactable, Is.True);
+                Assert.That(FindButton(death, "结算返回").interactable, Is.True);
+                ClickButton(death, "看广告复活");
+                await WaitForAsync(() => !run.IsAwaitingDeathChoice);
+                await WaitRunSavedAsync(run);
+                await WaitForAsync(() => run.ActivePanel == ExpeditionPanelKind.None && run.CanAcceptPlayerInput &&
+                    GameEntry.Get<IUIModule>().OpenedWindows.All(item => item.Id != ProjectServices.DeathChoiceWindow));
+                Assert.That(run.World.TryGetActor(run.Player, out CombatActorSnapshot revivedPlayer), Is.True);
+                Assert.That(revivedPlayer.Dead, Is.False);
+                Assert.That(revivedPlayer.Health, Is.EqualTo(revivedPlayer.MaxHealth));
+                Assert.That(revivedPlayer.Position, Is.EqualTo(deathPosition));
+                Assert.That(run.Inventory.Select(item => item.Id), Is.EquivalentTo(heldItems));
+                Assert.That(run.CurrentRegionIndex, Is.EqualTo(regionIndex));
+                Assert.That(run.KillExperience, Is.EqualTo(killExperience));
+                Assert.That(ProjectServices.Session.RecordedOutcome, Is.Null);
+                File.AppendAllText(record, "DeathChoiceRevive: Alive=True; Health=" + revivedPlayer.Health + "/" + revivedPlayer.MaxHealth +
+                    "; Position=" + revivedPlayer.Position + "; Saved=True; WindowClosed=True; ProgressAndItemsPreserved=True\n");
                 File.AppendAllText(record, failures.Count == 0 ? "LayoutChecks=PASS\n" : string.Join("\n", failures) + "\n");
                 Assert.That(failures, Is.Empty, string.Join("\n", failures));
             }
+        }
+
+        /// <summary>
+        /// 让存活敌人通过真实攻击造成玩家死亡，不伪造死亡事件或待选状态。
+        /// </summary>
+        /// <param name="run">尾王奖励已完成且可以推进战斗的当前单局。</param>
+        /// <returns>真实致死事件已经进入死亡选择的任务。</returns>
+        private static async UniTask TriggerVisualDeathAsync(ExpeditionRun run)
+        {
+            RegionSpawnSlotState slot = run.CurrentRegion.Slots.First(value => value.Phase == RegionSpawnPhase.Alive);
+            Assert.That(run.World.TryFindActor(slot.CurrentActorId, out CombatEntityRef killer), Is.True);
+            Assert.That(run.World.TryAddAttributeBonus(killer, CombatAttributeKind.Attack, 1000000f), Is.True);
+            Assert.That(run.World.TryAddAttributeBonus(killer, CombatAttributeKind.Defense, 1000000f), Is.True);
+            Assert.That(run.World.TryAddAttributeBonus(killer, CombatAttributeKind.MaxHealth, 1000000f), Is.True);
+            Assert.That(TryPlacePlayerNearActor(run, killer), Is.True, "真实敌人附近必须存在合法攻击站位。");
+            for (int tick = 0; tick < 600 && !run.IsAwaitingDeathChoice; tick++)
+            {
+                await WaitRunSavedAsync(run);
+                run.Advance(CombatWorld.TickSeconds);
+            }
+            Assert.That(run.IsAwaitingDeathChoice, Is.True, "真实敌方伤害必须触发死亡选择。");
         }
 
         /// <summary>

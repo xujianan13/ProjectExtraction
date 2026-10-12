@@ -77,7 +77,7 @@ namespace GameLogic.Gameplay.Expedition
         public int AvailableGold => session.Gold - GoldSpent;
         public bool IsSavingRun => committing || session.RunSaveInteractionBlocked;
         private bool CanInteract => IsRunning && IsReady && !paused && ActivePanel == ExpeditionPanelKind.None && !IsChoosingReward &&
-            !disposed && !stopped && !IsSavingRun && !session.HasUncommittedSave && !GameEntry.IsInBackground;
+            !disposed && !stopped && !IsAwaitingDeathChoice && !IsSavingRun && !session.HasUncommittedSave && !GameEntry.IsInBackground;
         /// <summary>
         /// 完整战斗帧只在保存队列未达到预算时继续推进，等待期间仍保留玩家输入。
         /// </summary>
@@ -185,6 +185,7 @@ namespace GameLogic.Gameplay.Expedition
             IsRunning = true;
             paused = false;
             World.ClearPendingTime();
+            if (IsAwaitingDeathChoice) RestoreDeathChoice();
             PublishRewardState();
             return true;
         }
@@ -197,7 +198,7 @@ namespace GameLogic.Gameplay.Expedition
         {
             if (disposed || stopped || paused == value) return;
             paused = value;
-            if (value) ClearPlayerInput();
+            if (value) { CancelReviveAd(); ClearPlayerInput(); }
             PublishRewardState();
             Changed?.Invoke();
         }
@@ -207,6 +208,7 @@ namespace GameLogic.Gameplay.Expedition
         /// </summary>
         public void DetachScene()
         {
+            CancelReviveAd();
             EndNavigation(null);
             IsRunning = false;
             IsReady = false;
@@ -254,13 +256,13 @@ namespace GameLogic.Gameplay.Expedition
         {
             events.Clear();
             World.DrainEvents(events);
-            bool playerDied = false;
+            int playerDeathId = 0;
             foreach (CombatEvent fact in events)
             {
                 RecordStatistics(fact);
                 CombatEventPublished?.Invoke(fact);
                 if (fact.Kind != CombatEventKind.Death) continue;
-                if (fact.TargetActorId == 1) { playerDied = true; continue; }
+                if (fact.TargetActorId == 1) { playerDeathId = fact.DefinitionId; continue; }
                 RegionSpawnSlotState slot = CurrentRegion.Slots.Find(value => value.CurrentActorId == fact.TargetActorId);
                 if (slot == null || !CurrentRegion.TryRecordDeath(slot.SlotId, fact.TargetActorId, slot.LifeSequence)) continue;
                 RegionSpawnSlotPlan plan = CurrentRegion.Plan.SpawnSlots.Find(value => value.SlotId == slot.SlotId);
@@ -275,7 +277,7 @@ namespace GameLogic.Gameplay.Expedition
                 { HandleFault("死亡收益确认失败，已保留存档。"); return false; }
                 RecordEnemyKill(plan, slot.LifeSequence, KillExperience - previousExperience, gainedProgress);
             }
-            if (playerDied) { EndRun(false); return false; }
+            if (playerDeathId > 0) { BeginDeathChoice(playerDeathId); return false; }
             CurrentRegion.AdvanceTick(EvaluateSpawnSafety);
             if (!SpawnPendingEnemies(CurrentRegion, false)) { HandleFault("敌人复活状态创建失败。"); return false; }
             if (TryBeginPendingReward()) return false;
@@ -352,6 +354,7 @@ namespace GameLogic.Gameplay.Expedition
         /// </summary>
         public void Stop()
         {
+            CancelReviveAd();
             EndNavigation(null);
             stopped = true;
             IsRunning = false;

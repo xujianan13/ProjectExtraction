@@ -108,6 +108,7 @@ namespace MiniGame.Tests
             LogAssert.ignoreFailingMessages = true;
             string runId = session.CurrentRun.RunId;
             TriggerDeath(session.CurrentRun);
+            await ConfirmPendingDeathAsync(session.CurrentRun);
             await WaitForPhaseAsync(ProjectRunPhase.RecoveryRequired);
             Assert.That(session.RunHistory, Is.Empty);
             coordinator.Changed -= FailSettlement;

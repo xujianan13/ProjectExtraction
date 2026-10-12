@@ -9,7 +9,7 @@ namespace GameLogic.Gameplay.Expedition
     /// <summary>
     /// 与应用暂停和强化选择分别管理的局内交互面板。
     /// </summary>
-    public enum ExpeditionPanelKind { None, Inventory, Merchant, RogueOverview, Pause, ExtractionConfirmation, Map }
+    public enum ExpeditionPanelKind { None, Inventory, Merchant, RogueOverview, Pause, ExtractionConfirmation, Map, DeathChoice }
 
     public sealed partial class ExpeditionRun
     {

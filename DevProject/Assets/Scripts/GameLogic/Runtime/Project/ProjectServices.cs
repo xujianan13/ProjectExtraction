@@ -1,6 +1,7 @@
 using System.Threading;
 using Cysharp.Threading.Tasks;
 using GameFramework;
+using GameLogic.Advertising;
 
 namespace GameLogic.Project
 {
@@ -18,6 +19,7 @@ namespace GameLogic.Project
         public const int ExpeditionMapWindow = 2204;
         public const int RegionExitWindow = 2205;
         public const int BossLootWindow = 2206;
+        public const int DeathChoiceWindow = 2207;
         public const int CollectionWindow = 2401;
         public const int SettingsWindow = 2600;
         public const int GuideWindow = 2601;
@@ -28,6 +30,7 @@ namespace GameLogic.Project
         public const int RogueOverviewWindow = 2501;
         public static ProjectRunCoordinator Coordinator { get; private set; }
         public static ProjectSession Session { get; private set; }
+        public static RewardedAdService RewardedAds { get; private set; }
         private static UnityEngine.GameObject lifecycleObserver;
 
         /// <summary>
@@ -43,6 +46,8 @@ namespace GameLogic.Project
             lifecycleObserver = null;
             Session?.Dispose();
             Session = null;
+            RewardedAds?.Dispose();
+            RewardedAds = null;
             if (!await ProjectContentConfig.LoadAsync(ct)) return false;
             ProjectSession created = await ProjectSession.OpenAsync(ct);
             if (created == null) return false;
@@ -50,6 +55,8 @@ namespace GameLogic.Project
             created.Preferences.Apply();
             var coordinator = new ProjectRunCoordinator(created);
             Coordinator = coordinator;
+            var rewardedAds = new RewardedAdService(new SimulatedRewardedAdProvider());
+            RewardedAds = rewardedAds;
             UnityEngine.GameObject observer = new UnityEngine.GameObject("ProjectRunLifecycle");
             UnityEngine.Object.DontDestroyOnLoad(observer);
             observer.AddComponent<ProjectRunLifecycle>();
@@ -57,11 +64,13 @@ namespace GameLogic.Project
             GameEntry.ApplicationScope.Defer(() =>
             {
                 coordinator.Dispose();
+                rewardedAds.Dispose();
                 created.Dispose();
                 if (observer != null) UnityEngine.Object.Destroy(observer);
                 if (ReferenceEquals(lifecycleObserver, observer)) lifecycleObserver = null;
                 if (ReferenceEquals(Coordinator, coordinator)) Coordinator = null;
                 if (ReferenceEquals(Session, created)) Session = null;
+                if (ReferenceEquals(RewardedAds, rewardedAds)) RewardedAds = null;
             });
             return true;
         }
