@@ -28,11 +28,10 @@ namespace GameLogic.Gameplay.Expedition
                 KillExperience = KillExperience, GoldSpent = GoldSpent, AugmentBaseAttackRange = augmentBaseAttackRange,
                 LootRandomState = random.State, RegionInitialized = CurrentRegion != null,
                 Requests = regionRequests.ConvertAll(value => value.Copy()), Regions = regions.ConvertAll(value => value.Copy()),
-                Inventory = inventory.ConvertAll(value => value.Copy()), ProtectedItemIds = new List<string>(protectedItems),
+                Inventory = inventory.ConvertAll(value => value.Copy()),
                 Drops = drops.ConvertAll(value => value.Copy()), Statistics = CaptureStatistics(), World = world,
                 PendingPlayerDeathId = pendingPlayerDeathId, HasPendingOutcome = pendingOutcome != null, PendingOutcome = pendingOutcome?.Copy()
             };
-            captured.ProtectedItemIds.Sort(StringComparer.Ordinal);
             CaptureRewardState(captured);
             snapshot = captured;
             return true;
@@ -138,7 +137,6 @@ namespace GameLogic.Gameplay.Expedition
             created.augmentBaseAttackRange = snapshot.AugmentBaseAttackRange;
             created.random = restoredRandom;
             created.regions.AddRange(snapshot.Regions.ConvertAll(value => value.Copy()));
-            created.protectedItems.UnionWith(snapshot.ProtectedItemIds);
             created.drops.AddRange(snapshot.Drops.ConvertAll(value => value.Copy()));
             created.statistics = snapshot.Statistics.Copy();
             foreach (RegionRuntimeState region in created.regions)
@@ -157,28 +155,20 @@ namespace GameLogic.Gameplay.Expedition
         }
 
         /// <summary>
-        /// 校验实际持有容器，拒绝复制实例、非法保护或损坏物品。
+        /// 校验实际持有容器，拒绝复制实例或损坏物品。
         /// </summary>
         /// <param name="snapshot">需要校验的快照。</param>
         /// <param name="error">容器错误说明。</param>
         /// <returns>每个活跃物品实例只有一个归属时为真。</returns>
         private static bool ValidateSnapshotItems(ExpeditionRunSnapshot snapshot, out string error)
         {
-            error = "局内物品归属或安全箱数据无效。";
-            if (snapshot.Inventory == null || snapshot.ProtectedItemIds == null || snapshot.Drops == null ||
-                snapshot.ProtectedItemIds.Count > PrototypeRules.SafeSlots) return false;
+            error = "局内物品归属数据无效。";
+            if (snapshot.Inventory == null || snapshot.Drops == null) return false;
             var owned = new HashSet<string>(StringComparer.Ordinal);
             var origins = new HashSet<string>(StringComparer.Ordinal);
             var equipped = new HashSet<ProjectItemType>();
             foreach (ProjectItem item in snapshot.Inventory)
                 if (ProjectEquipmentRules.ValidateItem(item) != null || !owned.Add(item.Id) || item.Equipped && !equipped.Add(item.Type)) return false;
-            var protectedIds = new HashSet<string>(StringComparer.Ordinal);
-            foreach (string id in snapshot.ProtectedItemIds)
-            {
-                ProjectItem item = snapshot.Inventory.Find(value => value.Id == id);
-                if (item == null || item.Equipped || !protectedIds.Add(id) ||
-                    item.Type == ProjectItemType.Collection && !ProjectV2RewardConfig.CollectionSafeAllowed(item.CollectionId)) return false;
-            }
             foreach (ExpeditionDrop drop in snapshot.Drops)
                 if (drop == null || !RegionValueRules.Finite(drop.Position) ||
                     !snapshot.Requests.Exists(value => value != null && value.RegionId == drop.RoomId) ||

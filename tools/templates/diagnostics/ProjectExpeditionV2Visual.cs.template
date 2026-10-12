@@ -92,7 +92,7 @@ namespace MiniGame.Tests
                 Assert.That(hud.Root.GetComponentsInChildren<Text>(false).Single(item => item.name == "Marker_" + bossMarker.Id).text,
                     Is.EqualTo("▲"), "远处且未追踪的尾王应显示边缘指向。");
                 await CaptureVisualScreenshotAsync(directory, prefix + "-hud", width, height);
-                CheckVisualButtons(hud, record, failures, "切换目标 / Tab", "背包 / 安全箱", "本局总览", "暂停");
+                CheckVisualButtons(hud, record, failures, "切换目标 / Tab", "背包", "本局总览", "暂停");
                 Button minimap = hud.Root.GetComponentsInChildren<Button>(false).Single(item => item.name == "Minimap");
                 Rect mapBounds = CheckVisualRect((RectTransform)minimap.transform, "HUD/Minimap", record, failures);
                 Rect stickBounds = CheckVisualRect(FindVisualRect(hud, "MoveStick"), "HUD/MoveStick", record, failures);
@@ -101,6 +101,26 @@ namespace MiniGame.Tests
                     failures.Add("HUD 小地图没有位于安全区右上方。");
                 CheckVisualOverlap(mapBounds, actionBounds, "HUD 小地图与操作区", failures);
                 CheckVisualOverlap(stickBounds, actionBounds, "HUD 摇杆与操作区", failures);
+                ClickButton(hud, "背包");
+                GameWindow inventory = await WaitForWindowAsync(ProjectServices.ExpeditionInventoryWindow);
+                await SettleVisualLayoutAsync();
+                CheckVisualButtons(inventory, record, failures, "关闭", "全部", "武器", "物品");
+                CheckVisualRect(FindVisualRect(inventory, "InventoryPanel"), "Inventory/Panel", record, failures);
+                RectTransform filters = FindVisualRect(inventory, "Filters");
+                foreach (Button filter in filters.GetComponentsInChildren<Button>(false))
+                    CheckVisualRect((RectTransform)filter.transform, "Inventory/Filter/" + filter.name, record, failures);
+                Button equip = inventory.Root.GetComponentsInChildren<Button>(false)
+                    .Single(item => item.name == "装备Button" && item.transform.parent.name == "Layout");
+                CheckVisualRect((RectTransform)equip.transform, "Inventory/Equip", record, failures);
+                Rect itemsBounds = CheckVisualRect(FindVisualRect(inventory, "Items"), "Inventory/Items", record, failures);
+                Rect detailsBounds = CheckVisualRect(FindVisualRect(inventory, "Details"), "Inventory/Details", record, failures);
+                CheckVisualOverlap(itemsBounds, detailsBounds, "背包物品列表与详情", failures);
+                Assert.That(inventory.Root.GetComponentsInChildren<RectTransform>(true).Any(item => item.name == "Regions"), Is.False,
+                    "背包应只有一个持有物品列表。");
+                await CaptureVisualScreenshotAsync(directory, prefix + "-inventory", width, height);
+                ClickButton(inventory, "关闭");
+                await WaitForAsync(() => run.ActivePanel == ExpeditionPanelKind.None &&
+                    GameEntry.Get<IUIModule>().OpenedWindows.All(item => item.Id != ProjectServices.ExpeditionInventoryWindow));
                 Assert.That(minimap.interactable, Is.True);
                 minimap.onClick.Invoke();
 
@@ -176,6 +196,7 @@ namespace MiniGame.Tests
                 CheckVisualRect(FindVisualRect(death, "Viewport"), "Death/Viewport", record, failures);
                 Assert.That(death.Root.GetComponentsInChildren<Text>(false).Any(item => item.text == "你已倒下"), Is.True);
                 Assert.That(death.Root.GetComponentsInChildren<Text>(false).Any(item => item.text.Contains("不限次数")), Is.True);
+                Assert.That(death.Root.GetComponentsInChildren<Text>(false).Any(item => item.text.Contains("全部持有物品掉落")), Is.True);
                 Assert.That(FindButton(death, "看广告复活").interactable, Is.True);
                 Assert.That(FindButton(death, "结算返回").interactable, Is.True);
                 ClickButton(death, "看广告复活");

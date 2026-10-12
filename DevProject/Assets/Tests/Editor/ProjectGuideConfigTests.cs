@@ -24,7 +24,7 @@ namespace ProjectExtraction.Tests
             Assert.AreEqual("stamina", pages[pages.Count - 1].ID);
             Assert.IsTrue(ProjectGuideConfig.TryFormat(GameTables.CfgGuide.GetById("loot").Body, out string loot, out error), error);
             Assert.IsTrue(ProjectGuideConfig.TryFormat(GameTables.CfgGuide.GetById("stamina").Body, out string stamina, out error), error);
-            Assert.IsTrue(loot.Contains(GameTables.CfgProfile.GetById(1).SafeSlots.ToString()));
+            Assert.IsFalse(loot.Contains("{"));
             Assert.IsTrue(stamina.Contains(GameTables.CfgProfile.GetById(1).EntryCost.ToString()));
             Assert.IsFalse(stamina.Contains("{"));
         }
@@ -35,10 +35,10 @@ namespace ProjectExtraction.Tests
         [Test]
         public void UnknownAndMalformedPlaceholdersAreRejected()
         {
-            Assert.IsTrue(ProjectGuideConfig.ValidatePlaceholders("{SafeSlots} 格", out _));
+            Assert.IsTrue(ProjectGuideConfig.ValidatePlaceholders("{EntryCost} 点", out _));
             Assert.IsFalse(ProjectGuideConfig.ValidatePlaceholders("{Unknown}", out _));
-            Assert.IsFalse(ProjectGuideConfig.ValidatePlaceholders("{SafeSlots", out _));
-            Assert.IsFalse(ProjectGuideConfig.ValidatePlaceholders("SafeSlots}", out _));
+            Assert.IsFalse(ProjectGuideConfig.ValidatePlaceholders("{EntryCost", out _));
+            Assert.IsFalse(ProjectGuideConfig.ValidatePlaceholders("EntryCost}", out _));
         }
     }
 }

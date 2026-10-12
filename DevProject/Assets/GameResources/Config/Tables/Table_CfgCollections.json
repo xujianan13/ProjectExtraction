@@ -1,5 +1,5 @@
 {
-  "schemaHash": "42cd40e5a8a39503c69400c8f11252dcf3da849627361ab826a71a8a2e3d72b3",
+  "schemaHash": "5e3f437d4e41b5a292e2648ffe3f736462caf4384f0283b72c9adb83db7413ed",
   "rows": [
     {
       "ID": "gate_sigil",
@@ -8,8 +8,7 @@
       "Source": "区域尾王：遗迹守门者",
       "SellGold": 80,
       "RequiredLevel": 1,
-      "Quality": 3,
-      "SafeAllowed": true
+      "Quality": 3
     },
     {
       "ID": "court_medal",
@@ -18,8 +17,7 @@
       "Source": "区域尾王：庭院双刃统领",
       "SellGold": 80,
       "RequiredLevel": 1,
-      "Quality": 3,
-      "SafeAllowed": true
+      "Quality": 3
     },
     {
       "ID": "core_fragment",
@@ -28,8 +26,7 @@
       "Source": "关卡Boss：遗迹核心守望者",
       "SellGold": 150,
       "RequiredLevel": 1,
-      "Quality": 4,
-      "SafeAllowed": true
+      "Quality": 4
     },
     {
       "ID": "explorer_token",
@@ -38,8 +35,7 @@
       "Source": "区域宝箱与商人",
       "SellGold": 40,
       "RequiredLevel": 1,
-      "Quality": 2,
-      "SafeAllowed": true
+      "Quality": 2
     }
   ]
 }

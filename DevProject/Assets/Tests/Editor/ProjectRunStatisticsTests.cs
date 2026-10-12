@@ -226,8 +226,8 @@ namespace ProjectExtraction.Tests
         /// <param name="lost">预期丢失物品回收估值。</param>
         /// <param name="net">预期净资产变化。</param>
         [TestCase(true, false, 4200000000L, 0L, 4099999990L)]
-        [TestCase(false, false, 2100000000L, 2100000000L, 1999999990L)]
-        [TestCase(false, true, 2100000000L, 2100000000L, 1999999990L)]
+        [TestCase(false, false, 0L, 4200000000L, -100000010L)]
+        [TestCase(false, true, 0L, 4200000000L, -100000010L)]
         public void EconomyUsesFrozenItemsWithoutChangingSettlement(bool extracted, bool abandoned, long retained, long lost, long net)
         {
             ProjectSaveData data = Running("economy-" + extracted + abandoned);
@@ -240,7 +240,6 @@ namespace ProjectExtraction.Tests
             loot.Equipped = false;
             loot.SellGold = 2100000000;
             outcome.Items.Add(loot);
-            outcome.SafeItemIds.Add(loot.Id);
             outcome.Statistics = Statistics();
             outcome.Statistics.EntryItemSellValue = 100000000;
             Assert.IsTrue(ProjectRunRecordRules.TryRecordOutcome(data, outcome, out _));

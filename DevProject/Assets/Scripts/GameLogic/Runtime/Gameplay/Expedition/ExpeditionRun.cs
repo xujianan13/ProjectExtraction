@@ -41,7 +41,6 @@ namespace GameLogic.Gameplay.Expedition
         private readonly List<CombatActorSnapshot> actorSnapshots = new();
         private readonly List<RegionSpawnRequest> spawnRequests = new();
         private readonly List<ProjectItem> inventory = new();
-        private readonly HashSet<string> protectedItems = new();
         private readonly List<ExpeditionDrop> drops = new();
         private PersistentRandom random;
         private bool disposed;
@@ -86,7 +85,6 @@ namespace GameLogic.Gameplay.Expedition
         public string Message { get; private set; } = "击杀积累强化进度；击败区域尾王后可带回结束或继续深入。";
         public IReadOnlyList<ProjectItem> Inventory => inventory.ConvertAll(item => item.Copy());
         public IReadOnlyList<ExpeditionDrop> Drops => drops;
-        public int SafeCount => protectedItems.Count;
         public string InteractionLabel { get; private set; } = "交互 / E";
 
         /// <summary>

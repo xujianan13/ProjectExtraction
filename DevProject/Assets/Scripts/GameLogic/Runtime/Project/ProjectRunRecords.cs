@@ -30,7 +30,6 @@ namespace GameLogic.Project
         public int GoldSpent;
         public ProjectRunStatistics Statistics;
         public List<ProjectItem> Items = new();
-        public List<string> SafeItemIds = new();
 
         /// <summary>
         /// 创建不共享物品集合的终局副本。
@@ -41,7 +40,6 @@ namespace GameLogic.Project
             var copy = (ProjectRunOutcome)MemberwiseClone();
             copy.Statistics = Statistics?.Copy();
             copy.Items = Items?.ConvertAll(item => item?.Copy());
-            copy.SafeItemIds = SafeItemIds == null ? null : new List<string>(SafeItemIds);
             return copy;
         }
     }
@@ -122,7 +120,7 @@ namespace GameLogic.Project
             outcome.Tick == 0 && outcome.ElapsedSeconds == 0 && !outcome.Extracted && !outcome.Abandoned && outcome.KillExperience == 0 &&
             outcome.AwardedKillExperience == 0 && outcome.ExtractionExperience == 0 && outcome.GoldSpent == 0 &&
             (outcome.Statistics == null || outcome.Statistics.Version == 0 && ProjectRunStatistics.IsValid(outcome.Statistics)) &&
-            (outcome.Items == null || outcome.Items.Count == 0) && (outcome.SafeItemIds == null || outcome.SafeItemIds.Count == 0);
+            (outcome.Items == null || outcome.Items.Count == 0);
 
         /// <summary>
         /// 判断 Unity 内联解码产生的空结果壳。
@@ -341,17 +339,16 @@ namespace GameLogic.Project
             var warehouseIds = new HashSet<string>();
             foreach (ProjectItem item in data.Warehouse) warehouseIds.Add(item.Id);
             foreach (ProjectItem item in outcome.Items)
-                if ((outcome.Extracted || outcome.SafeItemIds.Contains(item.Id)) && warehouseIds.Contains(item.Id))
+                if (outcome.Extracted && warehouseIds.Contains(item.Id))
                 {
                     error = "结算物品已存在仓库。";
                     return false;
                 }
             var retained = new List<ProjectItem>();
             var lost = new List<ProjectItem>();
-            var safe = new HashSet<string>(outcome.SafeItemIds);
             foreach (ProjectItem item in outcome.Items)
             {
-                if (outcome.Extracted || safe.Contains(item.Id)) retained.Add(item.Copy());
+                if (outcome.Extracted) retained.Add(item.Copy());
                 else lost.Add(item.Copy());
             }
             var receipt = new ProjectRunResult
@@ -376,7 +373,7 @@ namespace GameLogic.Project
             data.LastRunSummary = outcome.Extracted ? outcome.Statistics?.HasRegionData == true ?
                 outcome.Statistics.IsFinalCompletion ? "最终通关，已带回全部物品。" : "提前带回，已保留全部持有物品。" :
                 "撤离成功，已带回物品。" : outcome.Abandoned ?
-                "已放弃本局，已保留安全箱物品，体力不退还。" : "角色死亡，已保留安全箱物品。";
+                "已放弃本局，本局全部持有物品丢失，体力不退还。" : "角色死亡，本局全部持有物品丢失。";
             data.LastResult = receipt;
             data.EntryItems.Clear();
             data.ActiveRunId = "";
@@ -445,11 +442,9 @@ namespace GameLogic.Project
                 if (item == null || string.IsNullOrEmpty(item.Id) || retained.ContainsKey(item.Id) || lost.ContainsKey(item.Id)) return false;
                 else lost.Add(item.Id, item);
             if (retained.Count + lost.Count != outcome.Items.Count) return false;
-            var safe = new HashSet<string>(outcome.SafeItemIds);
             foreach (ProjectItem item in outcome.Items)
             {
-                bool shouldRetain = outcome.Extracted || safe.Contains(item.Id);
-                var map = shouldRetain ? retained : lost;
+                var map = outcome.Extracted ? retained : lost;
                 if (!map.TryGetValue(item.Id, out ProjectItem actual) || JsonUtility.ToJson(item) != JsonUtility.ToJson(actual)) return false;
             }
             return true;
@@ -472,7 +467,7 @@ namespace GameLogic.Project
                 outcome.ElapsedSeconds < 0 || outcome.KillExperience < 0 || outcome.AwardedKillExperience < 0 ||
                 outcome.AwardedKillExperience > outcome.KillExperience || outcome.ExtractionExperience < 0 || outcome.GoldSpent < 0 ||
                 (outcome.Extracted && outcome.Abandoned) || (!outcome.Extracted && outcome.ExtractionExperience != 0) ||
-                outcome.Items == null || outcome.SafeItemIds == null) return false;
+                outcome.Items == null) return false;
             error = "终局统计无效。";
             if (!ProjectRunStatistics.IsValid(outcome.Statistics)) return false;
             var ids = new HashSet<string>();
@@ -485,9 +480,6 @@ namespace GameLogic.Project
                 ProjectItemType slot = ProjectEquipmentRules.IsArmor(item.Type) ? ProjectItemType.Armor : ProjectItemType.Weapon;
                 if (!equippedSlots.Add(slot)) return false;
             }
-            var safeIds = new HashSet<string>();
-            foreach (string id in outcome.SafeItemIds)
-                if (string.IsNullOrEmpty(id) || !safeIds.Add(id) || !ids.Contains(id)) return false;
             error = null;
             return true;
         }

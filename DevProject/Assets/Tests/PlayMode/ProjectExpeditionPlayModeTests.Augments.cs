@@ -57,10 +57,9 @@ namespace MiniGame.Tests
             run.ClosePanel(ExpeditionPanelKind.Inventory);
             await AssertSkillRadiusAsync(run, 1.3f);
             Assert.That(run.TryOpenInventory(), Is.True);
-            Assert.That(run.ToggleSafe(weapon.Id), Is.True);
-            await WaitRunSavedAsync(run);
             string frozen = JsonUtility.ToJson(run.Inventory.Single(item => item.Id == weapon.Id).AdvancedAffixes[0]);
-            Assert.That(JsonUtility.ToJson(run.GetRetainedItems(false).Single().AdvancedAffixes[0]), Is.EqualTo(frozen));
+            Assert.That(JsonUtility.ToJson(run.GetRetainedItems(true).Single(item => item.Id == weapon.Id).AdvancedAffixes[0]), Is.EqualTo(frozen));
+            Assert.That(run.GetRetainedItems(false), Is.Empty);
             Assert.That(run.World.Faulted, Is.False);
         });
 

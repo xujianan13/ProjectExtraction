@@ -11,7 +11,7 @@ namespace ProjectExtraction.Tests
     public sealed class ProjectAbandonTests
     {
         /// <summary>
-        /// 放弃可在记录后重启恢复，只带回安全箱且不重复结算或退体力。
+        /// 放弃可在记录后重启恢复，损失全部本局物品且不重复结算或退体力。
         /// </summary>
         [Test]
         public void RecordedAbandonSurvivesReloadAndSettlesExactlyOnce()
@@ -23,13 +23,13 @@ namespace ProjectExtraction.Tests
             data.Warehouse[0].Locked = true;
             Assert.That(ProjectRunRecordRules.TryAdmit(data, "abandon-1", 1, 42, new[] { entry }, out string error), Is.True, error);
             Assert.That(ProjectRunRecordRules.TryMarkRunning(data, "abandon-1", out error), Is.True, error);
-            ProjectItem safe = entry.Copy();
-            safe.Id = "safe-loot";
-            safe.Equipped = false;
+            ProjectItem loot = entry.Copy();
+            loot.Id = "abandon-loot";
+            loot.Equipped = false;
             var outcome = new ProjectRunOutcome
             {
                 RunId = "abandon-1", LevelId = 1, Seed = 42, RulesVersion = ProjectRunRecordRules.RulesVersion,
-                Abandoned = true, Items = new List<ProjectItem> { entry, safe }, SafeItemIds = new List<string> { safe.Id }
+                Abandoned = true, Items = new List<ProjectItem> { entry, loot }
             };
             Assert.That(ProjectRunRecordRules.TryRecordOutcome(data, outcome, out error), Is.True, error);
             var codec = new ProjectSaveCodec();
@@ -39,8 +39,9 @@ namespace ProjectExtraction.Tests
             Assert.That(ProjectRunRecordRules.TrySettleOutcome(restored, out error), Is.True, error);
             Assert.That(restored.Stamina, Is.EqualTo(stamina - PrototypeRules.EntryCost));
             Assert.That(restored.Experience, Is.EqualTo(0));
-            Assert.That(restored.LastResult.RetainedItems.Count, Is.EqualTo(1));
-            Assert.That(restored.LastResult.RetainedItems[0].Id, Is.EqualTo(safe.Id));
+            Assert.That(restored.LastResult.RetainedItems, Is.Empty);
+            Assert.That(restored.Warehouse, Is.Empty);
+            Assert.That(restored.LastResult.LostItems.Count, Is.EqualTo(2));
             Assert.That(restored.LastResult.LostItems[0].Id, Is.EqualTo(entry.Id), "锁定不能防止放弃损失。");
             Assert.That(ProjectSaveData.Validate(restored), Is.Null);
             string settled = codec.Encode(restored);

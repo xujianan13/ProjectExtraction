@@ -5,6 +5,7 @@ using GameLogic.Project;
 using GameLogic.Tables;
 using NUnit.Framework;
 using ProjectExtraction.Tests.Shared;
+using UnityEngine;
 
 namespace ProjectExtraction.Tests
 {
@@ -194,6 +195,50 @@ namespace ProjectExtraction.Tests
             ProjectSaveData old = codec.Decode("{\"Level\":1,\"Warehouse\":[],\"EntryItems\":[]}");
             Assert.That(old.CollectedCollectionIds, Is.Not.Null.And.Empty);
             Assert.That(old.AchievedCollectionIds, Is.Not.Null.And.Empty);
+        }
+
+        /// <summary>
+        /// 收藏只有成功结束实际入库时才登记，死亡和主动放弃损失所有本局物品且不修改既有钱包与经验。
+        /// </summary>
+        /// <param name="extracted">是否成功携出本局物品。</param>
+        /// <param name="abandoned">是否主动放弃本局。</param>
+        [TestCase(true, false)]
+        [TestCase(false, false)]
+        [TestCase(false, true)]
+        public void Settlement_RegistersCollectionsOnlyWhenAllHeldItemsEnterWarehouse(bool extracted, bool abandoned)
+        {
+            ProjectSaveData data = ProjectSaveData.CreateDefault();
+            data.Experience = 35;
+            int gold = data.Gold, experience = data.Experience;
+            ProjectItem equipment = data.Warehouse.Single().Copy();
+            ProjectItem collection = ProjectCollectionRules.CreateItem(new System.Random(42), ProjectV2RewardConfig.Collection("gate_sigil"));
+            Assert.That(ProjectRunRecordRules.TryAdmit(data, "collection-settlement", 1, 42, new[] { equipment }, out string error), Is.True, error);
+            Assert.That(ProjectRunRecordRules.TryMarkRunning(data, "collection-settlement", out error), Is.True, error);
+            var outcome = new ProjectRunOutcome
+            {
+                RunId = data.ActiveRunId, LevelId = data.ActiveLevelId, Seed = data.ActiveSeed,
+                RulesVersion = ProjectRunRecordRules.RulesVersion, Extracted = extracted, Abandoned = abandoned,
+                Items = new List<ProjectItem> { equipment, collection }
+            };
+            Assert.That(data.CollectedCollectionIds, Is.Empty, "仅持有收藏不登记。");
+            Assert.That(ProjectRunRecordRules.TryRecordOutcome(data, outcome, out error), Is.True, error);
+            Assert.That(data.CollectedCollectionIds, Is.Empty, "仅冻结终局不登记。");
+            Assert.That(ProjectRunRecordRules.TrySettleOutcome(data, out error), Is.True, error);
+            Assert.That(data.CollectedCollectionIds, Is.Empty, "物品结算与会话收藏登记是独立阶段。");
+            Assert.That(ProjectCollectionRules.RegisterRetainedItems(data, data.LastResult.RetainedItems,
+                ProjectV2RewardConfig.CollectionDefinitions(), ProjectV2RewardConfig.CollectionAchievements(out _), out error), Is.True, error);
+            Assert.That(data.Gold, Is.EqualTo(gold));
+            Assert.That(data.Experience, Is.EqualTo(experience));
+            Assert.That(data.LastResult.RetainedItems.Count, Is.EqualTo(extracted ? 2 : 0));
+            Assert.That(data.LastResult.LostItems.Count, Is.EqualTo(extracted ? 0 : 2));
+            Assert.That(data.Warehouse.Count, Is.EqualTo(extracted ? 2 : 0));
+            Assert.That(data.CollectedCollectionIds, Is.EqualTo(extracted ? new[] { collection.CollectionId } : Array.Empty<string>()));
+            string settled = JsonUtility.ToJson(data);
+            Assert.That(ProjectRunRecordRules.TrySettleOutcome(data, out error), Is.True, error);
+            Assert.That(ProjectCollectionRules.RegisterRetainedItems(data, data.LastResult.RetainedItems,
+                ProjectV2RewardConfig.CollectionDefinitions(), ProjectV2RewardConfig.CollectionAchievements(out _), out error), Is.True, error);
+            Assert.That(JsonUtility.ToJson(data), Is.EqualTo(settled));
+            Assert.That(ProjectSaveData.Validate(data), Is.Null);
         }
 
         /// <summary>

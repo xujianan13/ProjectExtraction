@@ -1,5 +1,5 @@
 {
-  "schemaHash": "43336095ea505f58cba990f264ad6a55c07e04b617230f27e97cd7cd35b08cee",
+  "schemaHash": "ded41526368e6e0d985f0cc5c3cd30806f57421dbf09b56e9d46cd50d26d07ea",
   "rows": [
     {
       "ID": 1,
@@ -9,7 +9,6 @@
       "SupplyAmount": 40,
       "GameUtcOffsetHours": 8,
       "DailyResetHour": 5,
-      "SafeSlots": 2,
       "SkillPointsPerLevel": 1,
       "ExtractionExperience": 40,
       "KeepKillExperienceOnDeath": true,

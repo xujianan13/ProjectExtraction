@@ -35,7 +35,7 @@
     },
     {
       "path": "config/excel/CfgCollections.xlsx",
-      "sha256": "cd5b68187dadedd2b20e9900bf448a371a63862a1aca145a6afd8701da62aa79"
+      "sha256": "aece957fa4adbeb4d2ea333222bde29facff3f1b3a17ba04d8e270d55edaae96"
     },
     {
       "path": "config/excel/CfgCombatAnimationCues.xlsx",
@@ -95,7 +95,7 @@
     },
     {
       "path": "config/excel/CfgGuide.xlsx",
-      "sha256": "5ceb708e1461d9a915bee0dfccd6ecfadbab7c26f25113d3fd2ddee444cf797e"
+      "sha256": "7b2c07bd314d733c220397cf53827931f6c9e9d52d20e66335de86fadb59d1c6"
     },
     {
       "path": "config/excel/CfgHomeShop.xlsx",
@@ -131,7 +131,7 @@
     },
     {
       "path": "config/excel/CfgProfile.xlsx",
-      "sha256": "704ac193b2964b8c455a7332e036968d155b54fe3319b7e054a6c3861751587d"
+      "sha256": "90c6b2937d3893e5c45d4c45a390ebc358c2939f07d676873beb19bca9a7e14b"
     },
     {
       "path": "config/excel/CfgQualities.xlsx",
@@ -530,10 +530,6 @@
         {
           "name": "Quality",
           "type": "int"
-        },
-        {
-          "name": "SafeAllowed",
-          "type": "bool"
         }
       ]
     },
@@ -1600,10 +1596,6 @@
           "type": "int"
         },
         {
-          "name": "SafeSlots",
-          "type": "int"
-        },
-        {
           "name": "SkillPointsPerLevel",
           "type": "int"
         },
@@ -2187,11 +2179,11 @@
     },
     {
       "path": "DevProject/Assets/GameResources/Config/Tables/Table_CfgCollections.json",
-      "sha256": "86b64e154fe0fbe8af9d863482cfdf26883596c548e04bcbd07d66fb2a54f73e"
+      "sha256": "5e6bd158c2e553875f9725137bc0f7766431b1952e34451e48afc6832acfdb2b"
     },
     {
       "path": "DevProject/Assets/Scripts/GameLogic/Runtime/Gen/CfgCollections.Gen.cs",
-      "sha256": "4020cd496be4fe1da3005610ba752ff241feacd2951216133c841be1567035d4"
+      "sha256": "85a08f995889c1cf77cd0bb0f082e434670f1251370dcdfdff46a8307fc21f0d"
     },
     {
       "path": "DevProject/Assets/GameResources/Config/Tables/Table_CfgCombatAnimationCues.json",
@@ -2307,7 +2299,7 @@
     },
     {
       "path": "DevProject/Assets/GameResources/Config/Tables/Table_CfgGuide.json",
-      "sha256": "351728a172b3e8182fe6387af996f4a57f6a7d7b3a5b576ab4fcbd0912f1446c"
+      "sha256": "786eaeaf027ed6ca12527f8c48054a4e40dfa45ce78419873e287a590085901c"
     },
     {
       "path": "DevProject/Assets/Scripts/GameLogic/Runtime/Gen/CfgGuide.Gen.cs",
@@ -2379,11 +2371,11 @@
     },
     {
       "path": "DevProject/Assets/GameResources/Config/Tables/Table_CfgProfile.json",
-      "sha256": "c857dedd033422cda36d43e38a4c55d3a4f68d3de57a38bc11b6c5108bbfd7c0"
+      "sha256": "7e437bc51ead802c04a67d484c5e65832483ad2228e795cfde585cbc5f61f09d"
     },
     {
       "path": "DevProject/Assets/Scripts/GameLogic/Runtime/Gen/CfgProfile.Gen.cs",
-      "sha256": "404214724b8b3c7afc0836a937b872487ca15fa21c1d93cbfc3d2da4291345ce"
+      "sha256": "84c9a8f8d72cb1c7a32494aae4b780d17f3f8a23a131119c491417dc624705cb"
     },
     {
       "path": "DevProject/Assets/GameResources/Config/Tables/Table_CfgQualities.json",

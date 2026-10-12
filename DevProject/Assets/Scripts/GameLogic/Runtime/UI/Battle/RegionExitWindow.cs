@@ -80,7 +80,7 @@ namespace GameLogic.UI.Battle
             }
             title.text = run.IsFinalRegion ? "最终挑战完成" : "区域 " + (run.CurrentRegionIndex + 1) + " 探索完成";
             summary.text = run.IsSavingRun ? "正在保存本局进度，请稍候。" :
-                run.IsFinalRegion ? "全部尾王奖励已领取。带回结束可携出背包和安全箱中的全部持有物。" :
+                run.IsFinalRegion ? "全部尾王奖励已领取。带回结束可携出全部持有物品。" :
                 "带回结束：携出全部持有物并结束本局。\n继续深入：单向进入下一区域，风险和收益继续累积。\n留在本区：继续探索当前区域。";
             if (!run.IsSavingRun) summary.text = PendingReturnSummary() + "\n\n" + summary.text;
             ProjectUiFactory.Height(summary.rectTransform, ProjectEquipmentText.PreferredHeight(summary.text, 150f) + 36f);
@@ -105,7 +105,7 @@ namespace GameLogic.UI.Battle
                 if (item.Type == ProjectItemType.Collection && !registered.Contains(item.CollectionId)) newCollections.Add(item.CollectionId);
             }
             long net = value - run.CaptureStatistics().EntryItemSellValue - run.GoldSpent;
-            return "待带回物品 " + items.Count + " 件 · 安全箱 " + run.SafeCount + " 件\n" +
+            return "待带回物品 " + items.Count + " 件\n" +
                 "回收估值 " + value + " 金币 · 净资产变化 " + net.ToString("+0;-0;0") + "\n" +
                 "尚未登记收藏 " + newCollections.Count + " 种 · 本局击杀经验 " + run.KillExperience + "\n" +
                 "估值仅供参考，带回不会直接发放对应金币。";

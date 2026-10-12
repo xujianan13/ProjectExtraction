@@ -39,7 +39,7 @@ namespace GameLogic.UI.Battle
             size.minHeight = 100f;
             UnityEngine.UI.Text rules = ProjectUiFactory.Label(actions,
                 "看广告复活：原地恢复满血，本局探索进度和持有物品保留。\n每次死亡都可以选择广告复活，不限次数。\n\n" +
-                "结算返回：按死亡规则结算，安全箱外的入场装备与战利品丢失，安全箱内物品保留。",
+                "结算返回：死亡后全部持有物品掉落，入场装备与本局战利品均无法带回。",
                 32, TextAnchor.MiddleLeft, new Color(0.9f, 0.94f, 1f));
             ProjectUiFactory.Height(rules.rectTransform, 360f);
             revive = ProjectUiFactory.ActionButton(actions, "看广告复活", () => ReviveAsync().Forget());

@@ -16,11 +16,11 @@ namespace MiniGame.Tests
     public sealed partial class ProjectExpeditionPlayModeTests
     {
         /// <summary>
-        /// 局内装备、安全箱、等级门槛与属性预览共用权威状态，预览不能改动物品。
+        /// 局内装备、等级门槛与属性预览共用权威状态，预览不能改动物品，死亡预览不保留任何物品。
         /// </summary>
         /// <returns>使用真实配置和资源的背包操作测试。</returns>
         [UnityTest]
-        public IEnumerator Inventory_EquipmentPreviewSafeCapacityAndPauseRemainConsistent() => UniTask.ToCoroutine(async () =>
+        public IEnumerator Inventory_EquipmentPreviewAndPauseRemainConsistent() => UniTask.ToCoroutine(async () =>
         {
             await SetupAsync(new MemorySaveBackend());
 
@@ -31,8 +31,6 @@ namespace MiniGame.Tests
             ProjectItem locked = ProjectEquipmentRules.CreateEquipment(random, ProjectItemType.Weapon, 2, ProjectItemQuality.Common);
             first.Equipped = true;
             var items = new List<ProjectItem> { first, next, armor, locked };
-            for (int index = 0; index <= PrototypeRules.SafeSlots; index++)
-                items.Add(ProjectEquipmentRules.CreateEquipment(random, ProjectItemType.Armor, 1, ProjectItemQuality.Common));
             ExpeditionRun run = await StartWithEquipmentFixturesAsync(first, items.Skip(1).ToList());
 
             Assert.That(run.World.TryAddAttributeBonus(run.Player, CombatAttributeKind.Attack, 7), Is.True);
@@ -53,27 +51,21 @@ namespace MiniGame.Tests
             Assert.That(run.Inventory.Single(item => item.Id == first.Id).Equipped, Is.False);
             Assert.That(run.TryEquip(locked.Id), Is.False);
             Assert.That(run.Inventory.Single(item => item.Id == next.Id).Equipped, Is.True);
-            Assert.That(run.ToggleSafe(next.Id), Is.False, "穿戴中的装备不能放入安全箱。");
             Assert.That(run.TryEquip(armor.Id), Is.True);
             await WaitRunSavedAsync(run);
             run.World.TryGetActor(run.Player, out var armored);
             Assert.That(armored.Health, Is.EqualTo(actorAfter.Health), "提高上限不能凭空恢复生命。");
             Assert.That(armored.MaxHealth, Is.GreaterThan(actorAfter.MaxHealth));
-            Assert.That(run.ToggleSafe(first.Id), Is.True);
+            Assert.That(run.TryEquip(first.Id), Is.True);
             await WaitRunSavedAsync(run);
-            Assert.That(run.TryEquip(first.Id), Is.False, "安全箱中的装备需要先取出。");
-            foreach (ProjectItem item in items.Skip(4).Take(run.SafeCapacity - 1))
-            {
-                Assert.That(run.ToggleSafe(item.Id), Is.True);
-                await WaitRunSavedAsync(run);
-            }
-            Assert.That(run.ToggleSafe(items.Last().Id), Is.False);
-            Assert.That(run.SafeCount, Is.EqualTo(run.SafeCapacity));
+            Assert.That(run.Inventory.Single(item => item.Id == first.Id).Equipped, Is.True);
+            Assert.That(run.TryEquip(next.Id), Is.True);
+            await WaitRunSavedAsync(run);
             ProjectItem snapshot = run.Inventory.Single(item => item.Id == next.Id);
             snapshot.Equipped = false;
             snapshot.BaseAttributes.Clear();
             Assert.That(run.Inventory.Single(item => item.Id == next.Id).Equipped, Is.True);
-            Assert.That(run.GetRetainedItems(false).All(item => run.IsProtected(item.Id) && !item.Equipped), Is.True);
+            Assert.That(run.GetRetainedItems(false), Is.Empty);
             Assert.That(run.GetRetainedItems(true).Count, Is.EqualTo(items.Count));
             run.SetPaused(true);
             Assert.That(run.TryEquip(armor.Id), Is.False);
@@ -89,11 +81,11 @@ namespace MiniGame.Tests
         });
 
         /// <summary>
-        /// 真正的背包窗口穿脱和安全箱操作能够进入死亡结算并在返场后清理窗口。
+        /// 真正的背包窗口卸装后死亡仍损失全部物品，返场清理窗口并保持物品唯一归属。
         /// </summary>
         /// <returns>从出战到窗口操作及死亡返场的完整验证。</returns>
         [UnityTest]
-        public IEnumerator InventoryWindow_UnloadsStarterIntoSafeAndDeathRetainsIt() => UniTask.ToCoroutine(async () =>
+        public IEnumerator InventoryWindow_UnloadsStarterThenDeathLosesAllItems() => UniTask.ToCoroutine(async () =>
         {
             await SetupAsync(new MemorySaveBackend());
             Assert.That(await ProjectServices.Coordinator.StartRunAsync(1), Is.True);
@@ -114,19 +106,18 @@ namespace MiniGame.Tests
             bag.Root.GetComponentsInChildren<UnityEngine.UI.Button>().Single(button =>
                 button.GetComponentInChildren<UnityEngine.UI.Text>().text == "卸下").onClick.Invoke();
             Assert.That(run.Inventory.Single(item => item.Id == starterId).Equipped, Is.False);
-            bag.Root.GetComponentsInChildren<UnityEngine.UI.Button>().Single(button =>
-                button.GetComponentInChildren<UnityEngine.UI.Text>().text == "存入安全箱").onClick.Invoke();
-            Assert.That(run.IsProtected(starterId), Is.True);
+            await WaitRunSavedAsync(run);
             Assert.That(await ui.CloseWindowAsync(ProjectServices.ExpeditionInventoryWindow), Is.True);
             Assert.That(run.ActivePanel, Is.EqualTo(ExpeditionPanelKind.None));
             Assert.That(run.CanAcceptPlayerInput, Is.True);
             TriggerDeath(run);
             await ConfirmPendingDeathAsync(run);
             await WaitForPhaseAsync(ProjectRunPhase.ResultsReady);
-            Assert.That(ProjectServices.Session.LastResult.RetainedItems.Single().Id, Is.EqualTo(starterId));
-            Assert.That(ProjectServices.Session.LastResult.RetainedItems.Single().Equipped, Is.False);
+            Assert.That(ProjectServices.Session.LastResult.RetainedItems, Is.Empty);
+            Assert.That(ProjectServices.Session.LastResult.LostItems.Single().Id, Is.EqualTo(starterId));
+            Assert.That(ProjectServices.Session.LastResult.LostItems.Single().Equipped, Is.False);
             Assert.That(await ProjectServices.Coordinator.ReturnHomeAsync(), Is.True);
-            Assert.That(ProjectServices.Session.Warehouse.Any(item => item.Id == starterId && !item.Equipped), Is.True);
+            Assert.That(ProjectServices.Session.Warehouse, Is.Empty);
             Assert.That(ui.OpenedWindows.Any(window => window.Id == ProjectServices.ExpeditionInventoryWindow ||
                 window.Id == ProjectServices.ExpeditionMerchantWindow), Is.False);
         });

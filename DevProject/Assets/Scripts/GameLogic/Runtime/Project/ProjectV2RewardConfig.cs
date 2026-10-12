@@ -76,14 +76,6 @@ namespace GameLogic.Project
         }
 
         /// <summary>
-        /// 判断收藏配置是否允许放入安全箱。
-        /// </summary>
-        /// <param name="id">收藏身份。</param>
-        /// <returns>收藏已配置且允许安全箱时为真。</returns>
-        public static bool CollectionSafeAllowed(string id) => !string.IsNullOrWhiteSpace(id) &&
-            GameTables.CfgCollections != null && GameTables.CfgCollections.GetById(id) is CfgCollectionsRow row && row.SafeAllowed;
-
-        /// <summary>
         /// 取得完整的独立收藏定义列表。
         /// </summary>
         /// <returns>收藏列表；表未加载时为空。</returns>

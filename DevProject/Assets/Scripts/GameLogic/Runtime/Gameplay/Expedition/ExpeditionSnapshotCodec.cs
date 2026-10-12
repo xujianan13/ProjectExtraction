@@ -46,7 +46,7 @@ namespace GameLogic.Gameplay.Expedition
                 AugmentBaseAttackRange = snapshot.AugmentBaseAttackRange, LootRandomState = snapshot.LootRandomState,
                 BossRandomState = snapshot.BossRandomState, ActiveRogueQualification = snapshot.ActiveRogueQualification,
                 RegionInitialized = snapshot.RegionInitialized, Requests = snapshot.Requests, Inventory = snapshot.Inventory,
-                ProtectedItemIds = snapshot.ProtectedItemIds, Drops = snapshot.Drops, PendingBossRegions = snapshot.PendingBossRegions,
+                Drops = snapshot.Drops, PendingBossRegions = snapshot.PendingBossRegions,
                 Rogue = snapshot.Rogue, Progress = snapshot.Progress, BossLoot = snapshot.BossLoot,
                 Statistics = snapshot.Statistics, PendingPlayerDeathId = snapshot.PendingPlayerDeathId,
                 HasPendingOutcome = snapshot.HasPendingOutcome, PendingOutcome = snapshot.PendingOutcome

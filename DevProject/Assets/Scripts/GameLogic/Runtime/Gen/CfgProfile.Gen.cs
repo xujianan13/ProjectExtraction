@@ -49,11 +49,6 @@ namespace GameLogic.Tables
         public int DailyResetHour;
 
         /// <summary>
-        /// SafeSlots 字段。
-        /// </summary>
-        public int SafeSlots;
-
-        /// <summary>
         /// SkillPointsPerLevel 字段。
         /// </summary>
         public int SkillPointsPerLevel;
@@ -233,7 +228,7 @@ namespace GameLogic.Tables
                 TextAsset asset = lease.Asset;
                 if (asset == null) throw new InvalidOperationException("配置表资源不可用：CfgProfile");
                 var envelope = JsonUtility.FromJson(asset.text, typeof(Envelope)) as Envelope;
-                if (envelope == null || envelope.schemaHash != "43336095ea505f58cba990f264ad6a55c07e04b617230f27e97cd7cd35b08cee" || envelope.rows == null)
+                if (envelope == null || envelope.schemaHash != "ded41526368e6e0d985f0cc5c3cd30806f57421dbf09b56e9d46cd50d26d07ea" || envelope.rows == null)
                     throw new InvalidOperationException("配置表结构不匹配：CfgProfile");
 
                 var table = new CfgProfileTable();

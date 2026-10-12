@@ -49,7 +49,7 @@ namespace GameLogic.UI.Battle
             retry = ProjectUiFactory.ActionButton(actions, "重试保存", () => RetryAsync().Forget());
             foreach (var button in new[] { resume, settings, guide, abandon, retry })
                 ProjectUiFactory.Height((RectTransform)button.transform, 76f);
-            var rules = ProjectUiFactory.Label(actions, "正常撤离可携出全部物品。\n主动放弃只保留安全箱内物品，入场体力不退还。",
+            var rules = ProjectUiFactory.Label(actions, "成功带回可携出全部持有物品。\n死亡或主动放弃会失去全部持有物品，入场体力不退还。",
                 24, TextAnchor.MiddleLeft, new Color(1f, 0.8f, 0.5f));
             ProjectUiFactory.Height(rules.rectTransform, 150f);
             feedback = ProjectUiFactory.Label(actions, string.Empty, 23, TextAnchor.MiddleLeft, Color.white);
@@ -140,7 +140,7 @@ namespace GameLogic.UI.Battle
             LifetimeScope scope = OpenScope;
             confirming = true;
             Refresh();
-            var answer = await ui.ConfirmAsync("放弃本局？", "安全箱外的入场装备与战利品将全部丢失；只带回安全箱物品。入场体力不退还，且不获得撤离经验。",
+            var answer = await ui.ConfirmAsync("放弃本局？", "全部持有物品将丢失，包括入场装备与本局战利品。入场体力不退还，且不获得撤离经验。",
                 "确认放弃", "继续探索", scope.Token).SuppressCancellationThrow();
             confirming = false;
             if (answer.IsCanceled || !scope.IsActive || !ReferenceEquals(current, run)) return;

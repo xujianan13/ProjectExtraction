@@ -29,11 +29,10 @@ namespace MiniGame.Tests
             await SetupAsync(new MemorySaveBackend());
             var random = new System.Random(932);
             ProjectItem starter = ProjectEquipmentRules.CreateEquipment(random, ProjectItemType.Weapon, 1, ProjectItemQuality.Common);
-            ProjectItem safe = ProjectEquipmentRules.CreateEquipment(random, ProjectItemType.Armor, 1, ProjectItemQuality.Common);
+            ProjectItem loot = ProjectEquipmentRules.CreateEquipment(random, ProjectItemType.Armor, 1, ProjectItemQuality.Common);
+            ProjectItem collection = ProjectEquipmentRules.CreateConfiguredItem(random, ProjectV2RewardConfig.Collection("gate_sigil"));
             starter.Equipped = true;
-            ExpeditionRun run = await StartWithEquipmentFixturesAsync(starter, new[] { safe });
-            Assert.That(run.ToggleSafe(safe.Id), Is.True);
-            await WaitRunSavedAsync(run);
+            ExpeditionRun run = await StartWithEquipmentFixturesAsync(starter, new[] { loot, collection });
             Assert.That(run.World.TryAddAttributeBonus(run.Player, CombatAttributeKind.Attack, 7f), Is.True);
             Assert.That(run.World.TryAddAttributeBonus(run.Player, CombatAttributeKind.MaxHealth, 25f), Is.True);
             string runId = run.RunId;
@@ -66,7 +65,8 @@ namespace MiniGame.Tests
                 Assert.That(alive.Dead, Is.False);
                 Assert.That(run.RunId, Is.EqualTo(runId));
                 Assert.That(ProjectServices.Session.Stamina, Is.EqualTo(stamina));
-                Assert.That(run.IsProtected(safe.Id), Is.True);
+                Assert.That(run.Inventory.Select(item => item.Id), Is.EquivalentTo(new[] { starter.Id, loot.Id, collection.Id }));
+                Assert.That(ProjectServices.Session.CollectedCollectionIds, Is.Empty, "复活保留持有收藏，但没有入库便不登记。");
                 Assert.That(run.CanAcceptPlayerInput, Is.True);
                 Assert.That(run.IsNavigating, Is.False);
                 Assert.That(run.NavigationRoute, Is.Empty);
@@ -86,11 +86,13 @@ namespace MiniGame.Tests
             ClickButton(await WaitForWindowAsync(ProjectServices.DeathChoiceWindow), "结算返回");
             await WaitForPhaseAsync(ProjectRunPhase.ResultsReady);
             Assert.That(ProjectServices.Session.LastResult.Outcome.Extracted, Is.False);
-            Assert.That(ProjectServices.Session.LastResult.RetainedItems.Select(item => item.Id), Is.EqualTo(new[] { safe.Id }));
+            Assert.That(ProjectServices.Session.LastResult.RetainedItems, Is.Empty);
+            Assert.That(ProjectServices.Session.LastResult.LostItems.Select(item => item.Id),
+                Is.EquivalentTo(new[] { starter.Id, loot.Id, collection.Id }));
+            Assert.That(ProjectServices.Session.CollectedCollectionIds, Is.Empty);
             Assert.That(ProjectServices.Session.Stamina, Is.EqualTo(stamina));
             Assert.That(await ProjectServices.Coordinator.ReturnHomeAsync(), Is.True);
-            Assert.That(ProjectServices.Session.Warehouse.Any(item => item.Id == starter.Id), Is.False);
-            Assert.That(ProjectServices.Session.Warehouse.Count(item => item.Id == safe.Id), Is.EqualTo(1));
+            Assert.That(ProjectServices.Session.Warehouse, Is.Empty);
         });
 
         /// <summary>
@@ -128,6 +130,8 @@ namespace MiniGame.Tests
             using (restored)
             {
                 Assert.That(restored.IsAwaitingDeathChoice, Is.True);
+                Assert.That(JsonUtility.ToJson(new RevivalInventoryProbe { Items = restored.Inventory.ToList() }),
+                    Is.EqualTo(JsonUtility.ToJson(new RevivalInventoryProbe { Items = saved.Inventory })));
                 Assert.That(restored.CanChooseDeath, Is.False, "未绑定场景并激活的恢复对象不得发起广告。");
                 Assert.That(restored.World.TryGetActor(restored.Player, out var dead) && dead.Dead, Is.True);
                 Assert.That(restored.World.DrainEvents(new System.Collections.Generic.List<CombatEvent>()), Is.Zero);
@@ -141,6 +145,8 @@ namespace MiniGame.Tests
             ExpeditionRun resumed = ProjectServices.Session.CurrentRun;
             await WaitForDeathChoiceAsync(resumed);
             Assert.That(resumed.RunId, Is.EqualTo(runId));
+            Assert.That(JsonUtility.ToJson(new RevivalInventoryProbe { Items = resumed.Inventory.ToList() }),
+                Is.EqualTo(JsonUtility.ToJson(new RevivalInventoryProbe { Items = saved.Inventory })));
             Assert.That(resumed.ActivePanel, Is.EqualTo(ExpeditionPanelKind.DeathChoice));
             long tick = resumed.World.TickIndex;
             resumed.Advance(5f);

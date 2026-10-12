@@ -160,7 +160,6 @@ namespace GameLogic.UI.Battle
             {
                 text += "\n\n" + ProjectEquipmentText.EquippedDetails(item, inventory);
                 string action = item.Equipped ? "卸下后" : item.RequiredLevel > run.PlayerLevel ? "满足等级后穿戴" : "穿戴后";
-                if (run.IsProtected(item.Id)) text += "\n需先移出安全箱才能穿戴。";
                 if (run.TryPreviewEquipment(item, out ProjectCharacterStats current, out ProjectCharacterStats preview))
                     text += "\n\n属性预览（当前 → " + action + "）\n" + ExpeditionEquipmentComparison.Format(current, preview);
                 else text += "\n\n属性预览暂不可用。";

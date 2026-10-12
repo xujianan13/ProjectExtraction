@@ -65,7 +65,7 @@ namespace GameLogic.Project
             CfgProfileRow p = Profile;
             if (p == null || GameTables.CfgProfile.GetAll().Count != 1 || p.StaminaCap <= 0 || p.EntryCost <= 0 ||
                 p.RecoverySeconds <= 0 || p.SupplyAmount <= 0 || p.DailyResetHour < 0 || p.DailyResetHour > 23 ||
-                p.GameUtcOffsetHours < -12 || p.GameUtcOffsetHours > 14 || p.SafeSlots < 0 ||
+                p.GameUtcOffsetHours < -12 || p.GameUtcOffsetHours > 14 ||
                 p.NpcItemPrice < 0 || p.ExtractionExperience < 0 || p.SkillPointsPerLevel < 0 ||
                 p.ExperienceBase <= 0 || p.ExperiencePerLevel < 0 ||
                 p.RunHistoryLimit < 1 || p.RunHistoryLimit > 100 || p.MaxLevel < 1 || p.MaxLevel > 1000 ||

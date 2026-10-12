@@ -15,7 +15,6 @@ namespace GameLogic.Gameplay.Expedition
     {
         public ExpeditionPanelKind ActivePanel { get; private set; }
         public int PlayerLevel => session.Level;
-        public int SafeCapacity => PrototypeRules.SafeSlots;
         public bool CanManageInventory => ActivePanel == ExpeditionPanelKind.Inventory && CanManagePanel;
         public bool CanManageMerchant => ActivePanel == ExpeditionPanelKind.Merchant && CanManagePanel;
         private bool CanManagePanel => IsRunning && IsReady && !paused && !IsChoosingReward && !disposed && !stopped && !IsSavingRun &&
@@ -87,7 +86,6 @@ namespace GameLogic.Gameplay.Expedition
             ProjectItem item = inventory.Find(value => value.Id == itemId);
             if (item == null || item.Type != ProjectItemType.Weapon && !ProjectEquipmentRules.IsArmor(item.Type))
                 return ReportInventoryFailure("请选择武器或护甲。");
-            if (IsProtected(itemId)) return ReportInventoryFailure("请先将物品移出安全箱，再穿戴。");
             if (!item.Equipped && PlayerLevel < item.RequiredLevel) return ReportInventoryFailure("角色等级不足，暂时不能穿戴。");
             List<ProjectItem> proposed = CreateEquipmentProposal(item);
             CombatActorSpec spec = EquipmentSpec(proposed);
@@ -121,7 +119,7 @@ namespace GameLogic.Gameplay.Expedition
         }
 
         /// <summary>
-        /// 创建只调整同类装备槽的独立候选，不触碰背包或安全箱。
+        /// 创建只调整同类装备槽的独立候选，不修改实际背包。
         /// </summary>
         /// <param name="selected">准备穿戴或卸下的物品。</param>
         /// <returns>保留原有物品次序的候选集合。</returns>

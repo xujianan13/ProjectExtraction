@@ -47,11 +47,6 @@ namespace GameLogic.Tables
         /// Quality 字段。
         /// </summary>
         public int Quality;
-
-        /// <summary>
-        /// SafeAllowed 字段。
-        /// </summary>
-        public bool SafeAllowed;
     }
 
     /// <summary>
@@ -88,7 +83,7 @@ namespace GameLogic.Tables
                 TextAsset asset = lease.Asset;
                 if (asset == null) throw new InvalidOperationException("配置表资源不可用：CfgCollections");
                 var envelope = JsonUtility.FromJson(asset.text, typeof(Envelope)) as Envelope;
-                if (envelope == null || envelope.schemaHash != "42cd40e5a8a39503c69400c8f11252dcf3da849627361ab826a71a8a2e3d72b3" || envelope.rows == null)
+                if (envelope == null || envelope.schemaHash != "5e3f437d4e41b5a292e2648ffe3f736462caf4384f0283b72c9adb83db7413ed" || envelope.rows == null)
                     throw new InvalidOperationException("配置表结构不匹配：CfgCollections");
 
                 var table = new CfgCollectionsTable();

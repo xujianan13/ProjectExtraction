@@ -12,16 +12,15 @@ namespace ProjectExtraction.Tests
     public sealed class ProjectRunSettlementTests
     {
         /// <summary>
-        /// 死亡只保留安全箱物品，入场扣费和金币支出不退回。
+        /// 死亡损失全部持有物品，已确认的经验、入场扣费和金币支出不退回。
         /// </summary>
         [Test]
-        public void DeathRetainsOnlySafeItemsAndDoesNotRefund()
+        public void DeathLosesAllItemsAndDoesNotRefund()
         {
             ProjectSaveData data = Admitted("death");
             Assert.IsTrue(ProjectRunRecordRules.TryMarkRunning(data, "death", out _));
             ProjectRunOutcome outcome = Outcome(data, false);
             outcome.Items.Add(new ProjectItem { Id = "loot", Name = "战利品", RequiredLevel = 1 });
-            outcome.SafeItemIds.Add("loot");
             outcome.KillExperience = 80;
             outcome.AwardedKillExperience = 80;
             outcome.GoldSpent = 20;
@@ -33,11 +32,12 @@ namespace ProjectExtraction.Tests
             Assert.AreEqual(90, data.Stamina);
             Assert.AreEqual(30, data.Gold);
             Assert.AreEqual(80, data.Experience);
-            Assert.AreEqual("loot", data.Warehouse[0].Id);
+            Assert.IsEmpty(data.Warehouse);
             Assert.AreEqual("death", data.LastSettledRunId);
-            Assert.AreEqual(1, data.LastResult.LostItems.Count);
+            Assert.AreEqual(2, data.LastResult.LostItems.Count);
+            Assert.IsEmpty(data.LastResult.RetainedItems);
             Assert.IsTrue(ProjectRunRecordRules.TrySettleOutcome(data, out _));
-            Assert.AreEqual(1, data.Warehouse.Count);
+            Assert.IsEmpty(data.Warehouse);
             Assert.AreEqual(80, data.Experience);
             Assert.IsNull(ProjectSaveData.Validate(data));
         }

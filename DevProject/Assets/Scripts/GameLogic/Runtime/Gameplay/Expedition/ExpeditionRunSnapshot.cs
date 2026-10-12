@@ -31,7 +31,6 @@ namespace GameLogic.Gameplay.Expedition
         public List<RegionGenerationRequest> Requests = new();
         public List<RegionRuntimeState> Regions = new();
         public List<ProjectItem> Inventory = new();
-        public List<string> ProtectedItemIds = new();
         public List<ExpeditionDrop> Drops = new();
         public List<int> PendingBossRegions = new();
         public RogueChoiceState Rogue;

@@ -193,7 +193,7 @@ namespace GameLogic.Project
         /// 将调用方确认实际保留入库的物品登记到候选，收藏与成就身份各自只记录一次。
         /// </summary>
         /// <param name="data">统一存档入口持有的未提交候选。</param>
-        /// <param name="retainedItems">调用方已确认保留的物品，不由本方法决定安全箱或结算资格。</param>
+        /// <param name="retainedItems">调用方已确认成功带回的物品，不由本方法决定结算资格。</param>
         /// <param name="definitions">本版本明确收藏定义。</param>
         /// <param name="achievements">本版本明确成就定义。</param>
         /// <param name="error">配置、物品或保存状态无效时的原因。</param>

@@ -1,4 +1,3 @@
-using System;
 using System.Collections.Generic;
 using GameLogic.Gameplay.Combat;
 using GameLogic.Project;
@@ -39,41 +38,14 @@ namespace GameLogic.Gameplay.Expedition
             CurrentRegion.Plan.InteractionRadius * CurrentRegion.Plan.InteractionRadius;
 
         /// <summary>
-        /// 切换物品的安全箱归属，持久确认后公布完成。
-        /// </summary>
-        /// <param name="itemId">本局物品身份。</param>
-        /// <returns>合法操作已进入保存时为真。</returns>
-        public bool ToggleSafe(string itemId)
-        {
-            if (!CanInteract && !CanManageInventory) return false;
-            ProjectItem item = inventory.Find(value => value.Id == itemId);
-            if (item == null) return ReportInventoryFailure("物品已不存在。");
-            if (item.Equipped) return ReportInventoryFailure("请先卸下装备，再放入安全箱。");
-            bool remove = protectedItems.Contains(itemId);
-            if (!remove && item.Type == ProjectItemType.Collection && !ProjectV2RewardConfig.CollectionSafeAllowed(item.CollectionId))
-                return ReportInventoryFailure("该收藏品不能放入安全箱。");
-            if (!remove && protectedItems.Count >= SafeCapacity) return ReportInventoryFailure("安全箱已满。");
-            if (remove) protectedItems.Remove(itemId); else protectedItems.Add(itemId);
-            SaveMutation(remove ? "已移回背包：" + item.Name : "已放入安全箱：" + item.Name);
-            return true;
-        }
-
-        /// <summary>
-        /// 查询物品是否处于安全箱内。
-        /// </summary>
-        /// <param name="itemId">物品实例身份。</param>
-        /// <returns>受到保护时为真。</returns>
-        public bool IsProtected(string itemId) => protectedItems.Contains(itemId);
-
-        /// <summary>
-        /// 生成正常结束或死亡保留的独立物品计划。
+        /// 生成带回物品的独立计划，死亡或主动放弃不保留物品。
         /// </summary>
         /// <param name="extracted">是否正常带回。</param>
         /// <returns>实际保留的物品副本。</returns>
         public IReadOnlyList<ProjectItem> GetRetainedItems(bool extracted)
         {
             var retained = new List<ProjectItem>();
-            foreach (ProjectItem item in inventory) if (extracted || protectedItems.Contains(item.Id)) retained.Add(item.Copy());
+            if (extracted) foreach (ProjectItem item in inventory) retained.Add(item.Copy());
             return retained;
         }
 
@@ -93,9 +65,8 @@ namespace GameLogic.Gameplay.Expedition
                 Extracted = extracted, Abandoned = abandoned, KillExperience = KillExperience,
                 AwardedKillExperience = extracted || PrototypeRules.KeepKillExperienceOnDeath ? KillExperience : 0,
                 ExtractionExperience = extracted ? PrototypeRules.ExtractionExperience : 0, GoldSpent = GoldSpent,
-                Statistics = CaptureStatistics(), Items = inventory.ConvertAll(value => value.Copy()), SafeItemIds = new List<string>(protectedItems)
+                Statistics = CaptureStatistics(), Items = inventory.ConvertAll(value => value.Copy())
             };
-            pendingOutcome.SafeItemIds.Sort(StringComparer.Ordinal);
             return pendingOutcome.Copy();
         }
     }

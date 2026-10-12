@@ -76,7 +76,7 @@ namespace GameLogic.UI.Battle
             interactionLabel = interactButton.GetComponentInChildren<UnityEngine.UI.Text>();
             interactionLabel.fontSize = 32;
             ProjectUiFactory.Height((RectTransform)interactButton.transform, 90f);
-            bagButton = ProjectUiFactory.ActionButton(actions, "背包 / 安全箱", OpenInventory);
+            bagButton = ProjectUiFactory.ActionButton(actions, "背包", OpenInventory);
             bagButton.GetComponentInChildren<UnityEngine.UI.Text>().fontSize = 32;
             ProjectUiFactory.Height((RectTransform)bagButton.transform, 90f);
             RectTransform menuRow = ProjectUiFactory.Horizontal(actions, "MenuActions", 8f);

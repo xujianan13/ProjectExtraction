@@ -30,7 +30,7 @@ namespace GameLogic.UI.Character
             title.gameObject.AddComponent<UnityEngine.UI.LayoutElement>().flexibleWidth = 1f;
             var close = ProjectUiFactory.ActionButton(header, "关闭", () => CloseSelfAsync().Forget());
             close.gameObject.AddComponent<UnityEngine.UI.LayoutElement>().preferredWidth = 110f;
-            ProjectUiFactory.Label(layout, "带回仓库后登记收藏。重复收藏可出售，已完成成就持续提供属性。", 22,
+            ProjectUiFactory.Label(layout, "成功结束并将收藏带回仓库后登记。重复收藏可出售，已完成成就持续提供属性。", 22,
                 TextAnchor.MiddleLeft, new Color(0.8f, 0.9f, 0.96f));
             var scroll = ProjectUiFactory.Scroll(layout, "Entries", out content);
             scroll.gameObject.AddComponent<UnityEngine.UI.LayoutElement>().flexibleHeight = 1f;
@@ -63,8 +63,7 @@ namespace GameLogic.UI.Character
                     TextAnchor.MiddleLeft, ProjectEquipmentRules.QualityColor(entry.Quality));
                 ProjectUiFactory.Label(card, $"来源：{entry.Source}\n重复售价：{entry.SellGold} 金币", 22,
                     TextAnchor.MiddleLeft, Color.white);
-                ProjectUiFactory.Label(card, ProjectV2RewardConfig.CollectionSafeAllowed(entry.Id) ?
-                    "可放入安全箱，占 1 格；实际保留入库后登记。" : "不能放入安全箱；成功结束并带回仓库后登记。", 20,
+                ProjectUiFactory.Label(card, "仅在成功带回并实际入库后登记；死亡或放弃不会登记本局收藏。", 20,
                     TextAnchor.MiddleLeft, new Color(0.8f, 0.9f, 0.96f));
             }
             foreach (ProjectCollectionAchievementDefinition entry in ProjectV2RewardConfig.CollectionAchievements(out _))

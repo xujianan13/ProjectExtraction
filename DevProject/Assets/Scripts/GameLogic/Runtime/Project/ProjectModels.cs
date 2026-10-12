@@ -104,7 +104,6 @@ namespace GameLogic.Project
         public static int RecoverySeconds => ProjectRulesConfig.Profile.RecoverySeconds;
         public static int SupplyAmount => ProjectRulesConfig.Profile.SupplyAmount;
         public static int GameUtcOffsetHours => ProjectRulesConfig.Profile.GameUtcOffsetHours;
-        public static int SafeSlots => ProjectRulesConfig.Profile.SafeSlots;
         public const int LegacySkillRankLimit = 1000;
         public const int LegacyEntryCost = 10;
         public static int SkillMaxRank => Math.Max(ProjectRulesConfig.Skill("power").MaxRank,

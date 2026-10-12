@@ -67,11 +67,11 @@ namespace MiniGame.Tests
         });
 
         /// <summary>
-        /// 取消放弃不结算；确认后只保留安全箱物品，入场体力和撤离经验均不返还。
+        /// 取消放弃不结算；确认后损失全部本局物品，入场体力和撤离经验均不返还。
         /// </summary>
         /// <returns>真实确认框、终局保存与返场验证的逐帧测试。</returns>
         [UnityTest]
-        public IEnumerator PauseWindow_AbandonConfirmationSettlesOnceWithSafeItemsOnly() => UniTask.ToCoroutine(async () =>
+        public IEnumerator PauseWindow_AbandonConfirmationSettlesOnceAndLosesAllItems() => UniTask.ToCoroutine(async () =>
         {
             ProjectSaveData initial = ProjectSaveData.CreateDefault();
             ProjectItem armor = ProjectEquipmentRules.CreateEquipment(new System.Random(73), ProjectItemType.Armor, 1, ProjectItemQuality.Common);
@@ -88,7 +88,7 @@ namespace MiniGame.Tests
             Assert.That(run.TryOpenInventory(), Is.True);
             await WaitForWindowAsync(ProjectServices.ExpeditionInventoryWindow);
             Assert.That(run.TryEquip(starterId), Is.True);
-            Assert.That(run.ToggleSafe(starterId), Is.True);
+            await WaitRunSavedAsync(run);
             await GameEntry.Get<IUIModule>().CloseWindowAsync(ProjectServices.ExpeditionInventoryWindow);
             Assert.That(run.ActivePanel, Is.EqualTo(ExpeditionPanelKind.None));
 
@@ -109,14 +109,13 @@ namespace MiniGame.Tests
             Assert.That(result.Outcome.Abandoned, Is.True);
             Assert.That(result.Outcome.Extracted, Is.False);
             Assert.That(result.Outcome.ExtractionExperience, Is.Zero);
-            Assert.That(result.RetainedItems.Select(item => item.Id), Is.EquivalentTo(new[] { starterId }));
-            Assert.That(result.LostItems.Any(item => item.Id == armor.Id), Is.True);
+            Assert.That(result.RetainedItems, Is.Empty);
+            Assert.That(result.LostItems.Select(item => item.Id), Is.EquivalentTo(new[] { starterId, armor.Id }));
             Assert.That(session.Stamina, Is.EqualTo(initialStamina - PrototypeRules.EntryCost));
             Assert.That(session.Experience, Is.EqualTo(initialExperience));
             Assert.That(ProjectServices.Coordinator.TryAbandonRun(run), Is.False);
             Assert.That(await ProjectServices.Coordinator.ReturnHomeAsync(), Is.True);
-            Assert.That(session.Warehouse.Any(item => item.Id == starterId && !item.Equipped), Is.True);
-            Assert.That(session.Warehouse.Any(item => item.Id == armor.Id), Is.False);
+            Assert.That(session.Warehouse, Is.Empty);
         });
 
         /// <summary>

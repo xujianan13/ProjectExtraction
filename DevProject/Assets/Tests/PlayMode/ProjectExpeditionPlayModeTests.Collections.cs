@@ -43,7 +43,6 @@ namespace MiniGame.Tests
                 Assert.That(text, Does.Contain("未收藏 · " + definition.Name));
                 Assert.That(text, Does.Contain("来源：" + definition.Source));
                 Assert.That(text, Does.Contain("重复售价：" + definition.SellGold + " 金币"));
-                Assert.That(text, Does.Contain(ProjectV2RewardConfig.CollectionSafeAllowed(definition.Id) ? "可放入安全箱" : "不能放入安全箱"));
             }
 
             var achievements = ProjectV2RewardConfig.CollectionAchievements(out string error);

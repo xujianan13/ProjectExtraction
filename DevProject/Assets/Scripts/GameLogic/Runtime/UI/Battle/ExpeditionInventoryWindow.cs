@@ -8,20 +8,17 @@ using UnityEngine;
 namespace GameLogic.UI.Battle
 {
     /// <summary>
-    /// 局内背包与安全箱模态窗口，集中展示装备操作和属性预览。
+    /// 局内背包模态窗口，集中展示全部持有物、装备操作和属性预览。
     /// </summary>
     public sealed class ExpeditionInventoryWindow : GameWindow
     {
         private ExpeditionRun run;
         private RectTransform list;
         private RectTransform details;
-        private UnityEngine.UI.Text title;
         private UnityEngine.UI.Text message;
         private UnityEngine.UI.Button equip;
-        private UnityEngine.UI.Button safe;
         private string selectedId;
         private int filter;
-        private int region;
 
         /// <summary>
         /// 在安全区创建双列滚动物品列表、滚动详情和明确操作按钮。
@@ -35,14 +32,10 @@ namespace GameLogic.UI.Battle
             ProjectUiFactory.Stretch(layout, 12f);
             RectTransform header = ProjectUiFactory.Horizontal(layout, "Header", 8f);
             ProjectUiFactory.Height(header, 58f);
-            title = ProjectUiFactory.Label(header, "局内背包", 31, TextAnchor.MiddleLeft, Color.white);
+            UnityEngine.UI.Text title = ProjectUiFactory.Label(header, "局内背包", 31, TextAnchor.MiddleLeft, Color.white);
             title.gameObject.AddComponent<UnityEngine.UI.LayoutElement>().flexibleWidth = 1f;
             UnityEngine.UI.Button close = ProjectUiFactory.ActionButton(header, "关闭", () => CloseSelfAsync().Forget());
             close.gameObject.AddComponent<UnityEngine.UI.LayoutElement>().preferredWidth = 110f;
-            RectTransform regions = ProjectUiFactory.Horizontal(layout, "Regions", 8f);
-            ProjectUiFactory.Height(regions, 48f);
-            ProjectUiFactory.ActionButton(regions, "背包", () => SelectRegion(0));
-            ProjectUiFactory.ActionButton(regions, "安全箱", () => SelectRegion(1));
             RectTransform filters = ProjectUiFactory.Horizontal(layout, "Filters", 6f);
             ProjectUiFactory.Height(filters, 48f);
             string[] names = { "全部", "武器", "装备", "物品" };
@@ -59,10 +52,8 @@ namespace GameLogic.UI.Battle
             UnityEngine.UI.LayoutElement detailSize = detailScroll.gameObject.AddComponent<UnityEngine.UI.LayoutElement>();
             detailSize.flexibleHeight = 1f;
             detailSize.minHeight = 72f;
-            RectTransform actions = ProjectUiFactory.Horizontal(layout, "Actions", 8f);
-            ProjectUiFactory.Height(actions, 66f);
-            equip = ProjectUiFactory.ActionButton(actions, "装备", Equip);
-            safe = ProjectUiFactory.ActionButton(actions, "存入安全箱", ToggleSafe);
+            equip = ProjectUiFactory.ActionButton(layout, "装备", Equip);
+            ProjectUiFactory.Height((RectTransform)equip.transform, 66f);
             message = ProjectUiFactory.Label(layout, string.Empty, 20, TextAnchor.MiddleLeft, new Color(1f, 0.85f, 0.58f));
             ProjectUiFactory.Height(message.rectTransform, 64f);
         }
@@ -90,17 +81,6 @@ namespace GameLogic.UI.Battle
         /// </summary>
         /// <param name="args">窗口显示参数。</param>
         protected override void Show(GameWindowOpenArgs args) => Refresh();
-
-        /// <summary>
-        /// 切换背包或安全箱区域。
-        /// </summary>
-        /// <param name="value">目标区域索引。</param>
-        private void SelectRegion(int value)
-        {
-            region = value;
-            selectedId = null;
-            Refresh();
-        }
 
         /// <summary>
         /// 切换当前物品分类。
@@ -134,7 +114,6 @@ namespace GameLogic.UI.Battle
                 if (State == GameWindowState.Opened) CloseSelfAsync().Forget();
                 return;
             }
-            title.text = region == 0 ? "局内背包" : "安全箱 " + run.SafeCount + " / " + run.SafeCapacity;
             message.text = run.Message;
             ProjectUiFactory.Clear(list);
             int count = 0;
@@ -142,7 +121,7 @@ namespace GameLogic.UI.Battle
             ProjectItem selected = null;
             foreach (ProjectItem item in run.Inventory)
             {
-                if (run.IsProtected(item.Id) != (region == 1) || !Matches(item)) continue;
+                if (!Matches(item)) continue;
                 if (item.Id == selectedId) selected = item;
                 if (count % 2 == 0)
                 {
@@ -150,8 +129,7 @@ namespace GameLogic.UI.Battle
                     ProjectUiFactory.Height(row, 108f);
                 }
                 string id = item.Id;
-                string caption = ProjectEquipmentText.Title(item) + (item.Equipped ? "\n已穿戴" : "") +
-                    (run.IsProtected(id) ? "\n安全箱" : "");
+                string caption = ProjectEquipmentText.Title(item) + (item.Equipped ? "\n已穿戴" : "");
                 UnityEngine.UI.Button card = ProjectUiFactory.ActionButton(row, caption, () => SelectItem(id));
                 UnityEngine.UI.Text cardText = card.GetComponentInChildren<UnityEngine.UI.Text>();
                 cardText.fontSize = 21;
@@ -165,17 +143,15 @@ namespace GameLogic.UI.Battle
             }
             if (count == 0)
             {
-                UnityEngine.UI.Text empty = ProjectUiFactory.Label(list, "此区域暂无物品", 23, TextAnchor.MiddleCenter, Color.white);
+                UnityEngine.UI.Text empty = ProjectUiFactory.Label(list, "此分类暂无物品", 23, TextAnchor.MiddleCenter, Color.white);
                 ProjectUiFactory.Height(empty.rectTransform, 78f);
             }
             if (selected == null) selectedId = null;
             RefreshDetails(selected);
             equip.GetComponentInChildren<UnityEngine.UI.Text>().text = selected?.Equipped == true ? "卸下" : "装备";
-            equip.interactable = run.CanManageInventory && selected != null && selected.Type != ProjectItemType.Item &&
-                !run.IsProtected(selected.Id) && (selected.Equipped || run.PlayerLevel >= selected.RequiredLevel);
-            safe.GetComponentInChildren<UnityEngine.UI.Text>().text = selected != null && run.IsProtected(selected.Id) ? "移出安全箱" : "存入安全箱";
-            safe.interactable = run.CanManageInventory && selected != null && !selected.Equipped &&
-                (run.IsProtected(selected.Id) || run.SafeCount < run.SafeCapacity);
+            equip.interactable = run.CanManageInventory && selected != null &&
+                (selected.Type == ProjectItemType.Weapon || ProjectEquipmentRules.IsArmor(selected.Type)) &&
+                (selected.Equipped || run.PlayerLevel >= selected.RequiredLevel);
         }
 
         /// <summary>
@@ -187,11 +163,10 @@ namespace GameLogic.UI.Battle
             ProjectUiFactory.Clear(details);
             string text = item == null ? "选择物品查看属性和词条" : "选中物品\n" + ProjectEquipmentText.ColoredTitle(item) + "\n" +
                 ProjectEquipmentText.Details(item);
-            if (item != null && item.Type != ProjectItemType.Item)
+            if (item != null && (item.Type == ProjectItemType.Weapon || ProjectEquipmentRules.IsArmor(item.Type)))
             {
                 text += "\n\n" + ProjectEquipmentText.EquippedDetails(item, run.Inventory);
                 string action = item.Equipped ? "卸下后" : item.RequiredLevel > run.PlayerLevel ? "满足等级后穿戴" : "穿戴后";
-                if (run.IsProtected(item.Id)) text += "\n需先移出安全箱才能穿戴。";
                 if (run.TryPreviewEquipment(item, out ProjectCharacterStats current, out ProjectCharacterStats preview))
                     text += "\n\n属性预览（当前 → " + action + "）\n" + ExpeditionEquipmentComparison.Format(current, preview);
                 else text += "\n\n属性预览暂不可用。";
@@ -207,7 +182,8 @@ namespace GameLogic.UI.Battle
         /// <param name="item">待筛选物品。</param>
         /// <returns>物品属于当前分类则为真。</returns>
         private bool Matches(ProjectItem item) => filter == 0 || filter == 1 && item.Type == ProjectItemType.Weapon ||
-            filter == 2 && ProjectEquipmentRules.IsArmor(item.Type) || filter == 3 && item.Type == ProjectItemType.Item;
+            filter == 2 && ProjectEquipmentRules.IsArmor(item.Type) ||
+            filter == 3 && (item.Type == ProjectItemType.Item || item.Type == ProjectItemType.Collection);
 
         /// <summary>
         /// 提交当前物品的装备或卸下操作。
@@ -216,16 +192,6 @@ namespace GameLogic.UI.Battle
         {
             if (run?.CanManageInventory != true || selectedId == null) return;
             run.TryEquip(selectedId);
-            Refresh();
-        }
-
-        /// <summary>
-        /// 提交当前物品的安全箱存取操作。
-        /// </summary>
-        private void ToggleSafe()
-        {
-            if (run?.CanManageInventory != true || selectedId == null) return;
-            run.ToggleSafe(selectedId);
             Refresh();
         }
 
