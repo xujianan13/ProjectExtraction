@@ -32,7 +32,7 @@ namespace GameLogic.Gameplay.Combat
                 {
                     Id = definition.Id, Trigger = definition.Trigger, Chance = definition.Chance,
                     CooldownTicks = definition.CooldownTicks, TargetSelf = definition.TargetSelf,
-                    SkillId = definition.SkillId, CooldownMultiplier = definition.CooldownMultiplier,
+                    AffectsBasicAttack = definition.AffectsBasicAttack, SkillId = definition.SkillId, CooldownMultiplier = definition.CooldownMultiplier,
                     RangeMultiplier = definition.RangeMultiplier, DamageMultiplier = definition.DamageMultiplier
                 };
                 foreach (var effect in definition.Effects) clone.Effects.Add(CopyEffectWithRadius(effect, effect.Radius));
@@ -96,14 +96,14 @@ namespace GameLogic.Gameplay.Combat
         /// <param name="cooldown">最终冷却倍率。</param>
         /// <param name="range">最终范围倍率。</param>
         /// <param name="damage">最终伤害倍率。</param>
-        private static void GetSkillModifiers(ActorComponent owner, int skillId, out float cooldown, out float range, out float damage)
+        private void GetSkillModifiers(ActorComponent owner, int skillId, out float cooldown, out float range, out float damage)
         {
             double cooldownProduct = 1d, rangeProduct = 1d, damageProduct = 1d;
             foreach (var groupId in owner.AugmentGroupOrder)
                 foreach (var definition in owner.AugmentGroups[groupId])
                 {
-                    if (definition.SkillId != skillId &&
-                        (definition.SkillId != 0 || owner.Spec.BasicSkillId != skillId)) continue;
+                    if (definition.AffectsBasicAttack ? !catalog.Skills.TryGetValue(skillId, out var skill) || skill.SkillType != CombatSkillType.BasicAttack :
+                        definition.SkillId != skillId && (definition.SkillId != 0 || owner.Spec.BasicSkillId != skillId)) continue;
                     cooldownProduct *= definition.CooldownMultiplier;
                     rangeProduct *= definition.RangeMultiplier;
                     damageProduct *= definition.DamageMultiplier;

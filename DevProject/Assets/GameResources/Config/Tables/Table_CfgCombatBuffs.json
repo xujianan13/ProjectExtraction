@@ -1,5 +1,5 @@
 {
-  "schemaHash": "48877cc242c2c8f852e554f4682e12eb576de15ee58d5d2f0bef3da7c166dc97",
+  "schemaHash": "38dfc785baaf28b03990085fb468a56629c0005a044dbe0771116f4478971fca",
   "rows": [
     {
       "ID": 1,
@@ -9,12 +9,12 @@
       "Merge": 0,
       "MoveSpeedAddPerStack": 0,
       "AttackRangeAddPerStack": 0,
-      "PeriodicDamagePerStack": 0,
       "OnApplyEffectIDs": [],
       "OnTickEffectIDs": [
         10
       ],
-      "OnExpireEffectIDs": []
+      "OnExpireEffectIDs": [],
+      "Lifetime": 0
     },
     {
       "ID": 2,
@@ -24,12 +24,12 @@
       "Merge": 0,
       "MoveSpeedAddPerStack": 0.5,
       "AttackRangeAddPerStack": 0,
-      "PeriodicDamagePerStack": 0,
       "OnApplyEffectIDs": [
         11
       ],
       "OnTickEffectIDs": [],
-      "OnExpireEffectIDs": []
+      "OnExpireEffectIDs": [],
+      "Lifetime": 0
     },
     {
       "ID": 1001,
@@ -39,10 +39,42 @@
       "Merge": 0,
       "MoveSpeedAddPerStack": 0,
       "AttackRangeAddPerStack": 0,
-      "PeriodicDamagePerStack": 3,
       "OnApplyEffectIDs": [],
+      "OnTickEffectIDs": [
+        210
+      ],
+      "OnExpireEffectIDs": [],
+      "Lifetime": 0
+    },
+    {
+      "ID": 100,
+      "DurationTicks": 0,
+      "IntervalTicks": 60,
+      "MaxStacks": 1,
+      "Merge": 1,
+      "MoveSpeedAddPerStack": 0,
+      "AttackRangeAddPerStack": 0,
+      "OnApplyEffectIDs": [
+        205
+      ],
       "OnTickEffectIDs": [],
-      "OnExpireEffectIDs": []
+      "OnExpireEffectIDs": [],
+      "Lifetime": 1
+    },
+    {
+      "ID": 101,
+      "DurationTicks": 240,
+      "IntervalTicks": 60,
+      "MaxStacks": 1,
+      "Merge": 1,
+      "MoveSpeedAddPerStack": 0,
+      "AttackRangeAddPerStack": 0,
+      "OnApplyEffectIDs": [],
+      "OnTickEffectIDs": [
+        209
+      ],
+      "OnExpireEffectIDs": [],
+      "Lifetime": 0
     }
   ]
 }

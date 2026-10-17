@@ -30,6 +30,7 @@ namespace GameLogic.Project
                 Id = sourceId, Trigger = (CombatTriggerKind)row.Trigger, Chance = row.ValueMode == 1 ? value : (float)row.Chance,
                 CooldownTicks = row.CooldownTicks, TargetSelf = row.TargetSelf, SkillId = row.SkillID, Effects = effects
             };
+            result.AffectsBasicAttack = row.AffectsBasicAttack;
             if (row.ValueMode == 0)
                 foreach (CombatEffectDefinition effect in effects)
                 {
@@ -75,6 +76,7 @@ namespace GameLogic.Project
                 if (string.IsNullOrWhiteSpace(row.ID) || string.IsNullOrWhiteSpace(row.Title) || row.Version < 1 ||
                     row.Trigger < 0 || row.Trigger > 4 || !Finite(row.Chance) || row.Chance < 0 || row.Chance > 1 ||
                     row.CooldownTicks < 0 || row.SkillID < 0 || row.SkillID > 0 && GameTables.CfgCombatSkills.GetById(row.SkillID) == null ||
+                    row.AffectsBasicAttack && (row.SkillID != 0 || row.ValueMode != 2) ||
                     row.ValueMode < 0 || row.ValueMode > 2 || row.ModifierKind < 0 || row.ModifierKind > 3 || row.EffectIDs == null || row.EffectIDs.Length > 16 ||
                     row.ValueMode == 2 && (row.Trigger != 0 || row.ModifierKind == 0 || row.EffectIDs.Length != 0) ||
                     row.ValueMode != 2 && (row.Trigger == 0 || row.ModifierKind != 0 || row.EffectIDs.Length == 0))

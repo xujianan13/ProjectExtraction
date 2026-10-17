@@ -298,6 +298,47 @@ async function validateSemantics(tables, schema) {
       }
     }
   }
+  validateCombatGeneration(byName);
+  const skills = byName.get('CfgCombatSkills');
+  const timeline = byName.get('CfgCombatTimelineNodes');
+  if (skills && timeline) {
+    const skillRows = new Map(skills.rows.map(row => [row.ID, row]));
+    for (const row of timeline.rows) {
+      const skill = skillRows.get(row.SkillID);
+      if (!skill || row.Tick < 0 || (skill.DurationTicks === 0 ? row.Tick !== 0 : row.Tick >= skill.DurationTicks))
+        throw new Error(`战斗时间轴超出技能持续时间：${row.ID}`);
+    }
+  }
+}
+
+function validateCombatGeneration(byName) {
+  const effects = byName.get('CfgCombatEffects');
+  const projectiles = byName.get('CfgCombatProjectiles');
+  const buffs = byName.get('CfgCombatBuffs');
+  if (!effects || !projectiles || !buffs) return;
+  const effectRows = new Map(effects.rows.map(row => [row.ID, row]));
+  const projectileRows = new Map(projectiles.rows.map(row => [row.ID, row]));
+  const buffRows = new Map(buffs.rows.map(row => [row.ID, row]));
+  const states = new Map();
+  const chain = [];
+  function visit(id) {
+    if (states.get(id) === 2) return;
+    if (states.get(id) === 1) throw new Error(`战斗效果存在循环生成：${[...chain, id].join(' -> ')}`);
+    const row = effectRows.get(id);
+    if (!row) throw new Error(`战斗效果引用不存在：${id}`);
+    states.set(id, 1);
+    chain.push(id);
+    const linked = row.Kind === 3 ? projectileRows.get(row.LinkedID) : row.Kind === 4 ? buffRows.get(row.LinkedID) : null;
+    if ((row.Kind === 3 || row.Kind === 4) && !linked) throw new Error(`战斗效果关联定义不存在：${id} -> ${row.LinkedID}`);
+    if (linked) {
+      const fields = row.Kind === 3 ? ['OnHitEffectIDs', 'OnArriveEffectIDs', 'OnExpireEffectIDs'] :
+        ['OnApplyEffectIDs', 'OnTickEffectIDs', 'OnExpireEffectIDs'];
+      for (const field of fields) for (const child of linked[field] ?? []) visit(child);
+    }
+    chain.pop();
+    states.set(id, 2);
+  }
+  for (const row of effects.rows) visit(row.ID);
 }
 async function referencedResourceHashes(tables, schema) {
   if (!Object.values(schema.tables).some(table => Object.values(table.fields ?? {}).some(rule => rule.asset))) return [];

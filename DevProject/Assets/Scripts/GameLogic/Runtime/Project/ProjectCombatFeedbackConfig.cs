@@ -93,14 +93,13 @@ namespace GameLogic.Project
         }
 
         /// <summary>
-        /// 校验具体显示定义可以由同类型的效果或周期 Buff 产生。
+        /// 校验具体显示定义可以由同类型的效果产生。
         /// </summary>
         /// <param name="kind">事件类型。</param>
-        /// <param name="definitionId">效果或周期 Buff 标识。</param>
+        /// <param name="definitionId">产生反馈的效果标识。</param>
         /// <returns>能够产生对应事件时为真。</returns>
         private static bool HasEffect(CombatEventKind kind, int definitionId)
         {
-            if (kind == CombatEventKind.Damage && GameTables.CfgCombatBuffs.GetById(definitionId)?.PeriodicDamagePerStack > 0) return true;
             foreach (CfgCombatEffectsRow effect in GameTables.CfgCombatEffects.GetAll())
                 if (effect.DefinitionID == definitionId && (kind == CombatEventKind.Heal ? effect.Kind == (int)CombatEffectKind.Heal :
                     effect.Kind == (int)CombatEffectKind.Damage)) return true;

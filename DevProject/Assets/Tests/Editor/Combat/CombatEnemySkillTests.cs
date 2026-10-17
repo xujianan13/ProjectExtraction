@@ -52,8 +52,7 @@ namespace ProjectExtraction.Tests.Editor.Combat
         {
             var world = CreateWorld(out var enemy, out var player, 8, new[]
             {
-                Rule(1, 1, 5, 0f, 1f, 0f, 2f), Rule(2, 1, 5, 0f, 1f, 2f, 7f),
-                Rule(3, 2, 1, 0f, 0.5f, 0f, 7f)
+                Rule(1, 0f, 1f, 0f, 2f), Rule(2, 0f, 1f, 2f, 7f), Rule(3, 0f, 0.5f, 0f, 7f)
             });
             world.Step();
             Assert.That(Cues(world), Is.EqualTo(new[] { 202 }));
@@ -77,9 +76,9 @@ namespace ProjectExtraction.Tests.Editor.Combat
         [Test]
         public void ActorSpec_CopiesEnemySkillRules()
         {
-            var rules = new[] { Rule(1, 1, 1, 0f, 1f, 0f, 7f) };
+            var rules = new[] { Rule(1, 0f, 1f, 0f, 7f) };
             var world = CreateWorld(out _, out _, 4, rules);
-            rules[0] = Rule(2, 1, 1, 0f, 1f, 0f, 7f);
+            rules[0] = Rule(2, 0f, 1f, 0f, 7f);
             world.Step();
             Assert.That(Cues(world), Is.EqualTo(new[] { 201 }));
         }
@@ -91,7 +90,7 @@ namespace ProjectExtraction.Tests.Editor.Combat
         public void AutoSkill_TooCloseToMinDistance_Retreats()
         {
             var world = CreateWorld(out var enemy, out var player, 4,
-                new[] { Rule(2, 1, 1, 0f, 1f, 2f, 7f) });
+                new[] { Rule(2, 0f, 1f, 2f, 7f) });
             Assert.That(world.TrySetPosition(player, new Vector3(4f, 0f, 0f)), Is.True);
             world.Step();
             Assert.That(Cues(world), Is.Empty);
@@ -101,14 +100,14 @@ namespace ProjectExtraction.Tests.Editor.Combat
         }
 
         /// <summary>
-        /// 验证相同种子和状态序列产生相同的同优先级加权选择。
+        /// 验证不同随机种子均按列表循环，冷却中的前项不会阻塞后项。
         /// </summary>
         [Test]
-        public void WeightedChoice_IsDeterministicForSeed()
+        public void OrderedSkills_RotateAndSkipCooldownIndependentlyOfSeed()
         {
-            var rules = new[] { Rule(1, 1, 1, 0f, 1f, 0f, 7f), Rule(2, 1, 3, 0f, 1f, 0f, 7f) };
+            var rules = new[] { Rule(1, 0f, 1f, 0f, 7f), Rule(2, 0f, 1f, 0f, 7f) };
             var left = CreateWorld(out _, out _, 19, rules);
-            var right = CreateWorld(out _, out _, 19, rules);
+            var right = CreateWorld(out _, out _, 71, rules);
             var leftCues = new List<int>();
             var rightCues = new List<int>();
             for (var i = 0; i < 20; i++)
@@ -119,24 +118,24 @@ namespace ProjectExtraction.Tests.Editor.Combat
                 rightCues.AddRange(Cues(right));
             }
             Assert.That(leftCues, Is.EqualTo(rightCues));
-            Assert.That(leftCues.Count, Is.GreaterThan(1));
+            Assert.That(leftCues, Is.EqualTo(new[] { 201, 202, 201, 202, 201, 202, 201, 202 }));
+            left.Dispose();
+            right.Dispose();
         }
 
         /// <summary>
         /// 创建用于测试的技能条件。
         /// </summary>
         /// <param name="id">技能编号。</param>
-        /// <param name="priority">选择优先级。</param>
-        /// <param name="weight">同级权重。</param>
         /// <param name="minHealth">最低生命比例。</param>
         /// <param name="maxHealth">最高生命比例。</param>
         /// <param name="minDistance">最近距离。</param>
         /// <param name="maxDistance">最远距离。</param>
         /// <returns>技能选择条件。</returns>
-        private static CombatEnemySkillDefinition Rule(int id, int priority, int weight, float minHealth, float maxHealth,
+        private static CombatEnemySkillDefinition Rule(int id, float minHealth, float maxHealth,
             float minDistance, float maxDistance) => new CombatEnemySkillDefinition
         {
-            SkillId = id, Priority = priority, Weight = weight, MinHealthRatio = minHealth, MaxHealthRatio = maxHealth,
+            SkillId = id, MinHealthRatio = minHealth, MaxHealthRatio = maxHealth,
             MinDistance = minDistance, MaxDistance = maxDistance
         };
 

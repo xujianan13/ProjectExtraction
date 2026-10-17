@@ -21,7 +21,7 @@ namespace MiniGame.Tests
 
 
         /// <summary>
-        /// 实际换装改变基础技能一的预警范围，同时守卫刀的生命和防御进入 ECS。
+        /// 实际换装替换对应普攻入口与预警范围，同时守卫刀的生命和防御进入 ECS。
         /// </summary>
         /// <returns>真实单局战斗范围与装备属性验证流程。</returns>
         [UnityTest]

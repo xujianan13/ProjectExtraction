@@ -208,7 +208,8 @@ namespace GameLogic.Gameplay.Expedition
             statusRows.Clear();
             foreach (CombatBuffSnapshot buff in buffs)
             {
-                if (buff.RoomId != currentRoom || buff.RemainingTicks <= 0 || !health.TryGetValue(buff.ActorId, out HealthView owner)) continue;
+                bool persistent = buff.Lifetime == CombatBuffLifetime.Persistent;
+                if (buff.RoomId != currentRoom || !persistent && buff.RemainingTicks <= 0 || !health.TryGetValue(buff.ActorId, out HealthView owner)) continue;
                 var style = ProjectCombatFeedbackConfig.Status(buff.DefinitionId);
                 if (style == null || assets.DamageText == null) continue;
                 if (!statuses.TryGetValue(buff.InstanceId, out StatusView view))
@@ -225,7 +226,8 @@ namespace GameLogic.Gameplay.Expedition
                 if (view.Label != null)
                 {
                     float seconds = Mathf.Max(0.1f, buff.RemainingTicks * CombatWorld.TickSeconds);
-                    view.Label.text = style.Text + " ×" + buff.Stacks + " " + seconds.ToString("0.0", System.Globalization.CultureInfo.InvariantCulture) + "s";
+                    string duration = persistent ? "常驻" : seconds.ToString("0.0", System.Globalization.CultureInfo.InvariantCulture) + "s";
+                    view.Label.text = style.Text + " ×" + buff.Stacks + " " + duration;
                     view.Label.color = ProjectCombatFeedbackConfig.Color(style);
                 }
             }
@@ -434,14 +436,15 @@ namespace GameLogic.Gameplay.Expedition
             color.a = Mathf.Lerp(0.35f, 0.95f, Mathf.Clamp01(snapshot.Progress));
             line.startColor = color;
             line.endColor = color;
-            if (snapshot.Shape == CombatHitShape.Box)
+            if (snapshot.Shape == CombatHitShape.Box || snapshot.Shape == CombatHitShape.ForwardBox)
             {
+                Vector3 start = snapshot.Shape == CombatHitShape.ForwardBox ? origin : origin - forward * radius;
                 line.positionCount = 5;
-                line.SetPosition(0, origin - forward * radius - side * width);
-                line.SetPosition(1, origin - forward * radius + side * width);
+                line.SetPosition(0, start - side * width);
+                line.SetPosition(1, start + side * width);
                 line.SetPosition(2, origin + forward * radius + side * width);
                 line.SetPosition(3, origin + forward * radius - side * width);
-                line.SetPosition(4, origin - forward * radius - side * width);
+                line.SetPosition(4, start - side * width);
             }
             else if (snapshot.Shape == CombatHitShape.Capsule)
             {

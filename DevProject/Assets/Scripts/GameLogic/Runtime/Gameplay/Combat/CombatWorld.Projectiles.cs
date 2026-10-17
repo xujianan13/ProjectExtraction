@@ -43,10 +43,12 @@ namespace GameLogic.Gameplay.Combat
         /// <param name="passiveDerived">飞弹是否由被动衍生。</param>
         /// <param name="instigatorActorId">实际来源业务角色编号，零表示发射者。</param>
         /// <param name="inheritedSource">来源已回收时保留的父飞弹冻结上下文。</param>
+        /// <param name="controllerSkillId">拥有本实例的常驻技能编号。</param>
+        /// <param name="orbitAngleOffset">多实例阵列的轨道初相位偏移。</param>
         /// <returns>生成成功则为真。</returns>
         private bool TrySpawnProjectileInternal(CombatEntityRef sourceRef, int projectileId, CombatEntityRef targetRef,
             Vector3 targetPoint, Vector3 forward, Vector3? originOverride, bool allowDeadSource, CombatOffense offense,
-            float rangeDelta, float rangeMultiplier, bool passiveDerived, int instigatorActorId = 0, ProjectileComponent inheritedSource = null)
+            float rangeDelta, float rangeMultiplier, bool passiveDerived, int instigatorActorId = 0, ProjectileComponent inheritedSource = null, int controllerSkillId = 0, float orbitAngleOffset = 0f)
         {
             ActorComponent source = null;
             bool hasSource = IsValid(sourceRef) && actors.TryGetValue(sourceRef.Id, out source);
@@ -88,6 +90,8 @@ namespace GameLogic.Gameplay.Combat
                 var toTarget = target.Position - origin;
                 if (toTarget.sqrMagnitude > 0.0001f) direction = toTarget.normalized;
             }
+            if (definition.Motion == ProjectileMotionKind.Orbit)
+                origin = source.Position + Quaternion.AngleAxis(definition.OrbitInitialAngle + orbitAngleOffset, Vector3.up) * Vector3.forward * definition.OrbitRadius;
             var entity = Allocate();
             var originId = instigatorActorId > 0 ? instigatorActorId : source.Spec.ActorId;
             var originSlot = FindActorSlot(originId);
@@ -95,12 +99,13 @@ namespace GameLogic.Gameplay.Combat
             var originTeam = originSlot > 0 ? actors[originSlot].Spec.Team : source.Spec.Team;
             var component = new ProjectileComponent
             {
+                OrbitAngle = definition.OrbitInitialAngle + orbitAngleOffset, ControllerSkillId = controllerSkillId,
                 ProjectileId = projectileId, RangeDelta = rangeDelta, RangeMultiplier = rangeMultiplier,
                 PassiveDerived = passiveDerived, RoomId = source.Spec.RoomId, InstigatorActorId = originId,
                 SourceTeam = originTeam, Offense = offense, Source = originRef, Target = hasTarget ? targetRef : default, LastTargetPoint = targetPoint,
                 Position = origin, Previous = origin, Origin = origin, EndPoint = targetPoint,
                 Direction = direction, Velocity = direction * definition.Speed, CreatedTick = TickIndex,
-                FlightTicks = definition.Motion == ProjectileMotionKind.Instant ? 0 :
+                FlightTicks = definition.Motion == ProjectileMotionKind.Instant || definition.Motion == ProjectileMotionKind.Orbit ? 0 :
                     definition.FlightTicks > 0 ? definition.FlightTicks :
                     Mathf.Max(1, Mathf.CeilToInt(Vector3.Distance(origin, targetPoint) /
                         (definition.Speed * TickSeconds)))
@@ -131,7 +136,7 @@ namespace GameLogic.Gameplay.Combat
             foreach (var id in projectileIds)
             {
                 var projectile = projectiles[id];
-                if (projectile.Terminal) continue;
+                if (projectile.Terminal || !IsProjectileVisible(projectile)) continue;
                 destination.Add(new CombatProjectileSnapshot(Ref(id), projectile.ProjectileId, projectile.RoomId,
                     projectile.Position, projectile.Direction));
             }
@@ -170,9 +175,12 @@ namespace GameLogic.Gameplay.Combat
             foreach (var id in projectileIds)
             {
                 var projectile = projectiles[id];
-                if (projectile.Terminal || projectile.RoomId != activeRoomId ||
+                if (projectile.Terminal || (projectile.RoomId != activeRoomId &&
+                    catalog.Projectiles[projectile.ProjectileId].Motion != ProjectileMotionKind.Orbit) ||
                     projectile.CreatedTick >= TickIndex ||
                     !catalog.Projectiles.TryGetValue(projectile.ProjectileId, out var definition)) continue;
+                if (definition.Motion == ProjectileMotionKind.Orbit)
+                { MoveOrbitProjectile(id, projectile, definition); continue; }
                 if (definition.RemoveOnSourceDeath && (!IsValid(projectile.Source) ||
                     (actors.TryGetValue(projectile.Source.Id, out var source) && source.DeadPending)))
                 { EndProjectile(id, projectile, definition, true); continue; }
@@ -182,6 +190,11 @@ namespace GameLogic.Gameplay.Combat
                     var targetValid = IsValid(projectile.Target) &&
                         actors.TryGetValue(projectile.Target.Id, out target) &&
                         !target.DeadPending && target.Spec.RoomId == projectile.RoomId;
+                    if (!targetValid && definition.LostTarget == ProjectileLostTarget.Reacquire)
+                    {
+                        projectile.Target = FindProjectileTarget(projectile, definition.ReacquireRange);
+                        targetValid = IsValid(projectile.Target) && actors.TryGetValue(projectile.Target.Id, out target);
+                    }
                     if (!targetValid)
                     {
                         if (definition.LostTarget == ProjectileLostTarget.Expire)
@@ -208,7 +221,7 @@ namespace GameLogic.Gameplay.Combat
                 if (distance > remaining && distance > 0f) next = Vector3.Lerp(old, next, remaining / distance);
                 SweepProjectile(id, projectile, definition, old, next);
                 projectile.ElapsedTicks++;
-                if (projectile.Terminal) continue;
+                if (projectile.Terminal || !IsProjectileVisible(projectile)) continue;
                 if (definition.Motion == ProjectileMotionKind.FixedEndpointArc &&
                     projectile.ElapsedTicks >= projectile.FlightTicks)
                 {
@@ -226,6 +239,102 @@ namespace GameLogic.Gameplay.Combat
                     QueueProjectileEffects(id, projectile, definition.OnArrive, default);
                     EndProjectile(id, projectile, definition, false);
                 }
+            }
+        }
+
+        /// <summary>
+        /// 判断依附来源的攻击体是否处于可表现的活动状态。
+        /// </summary>
+        /// <param name="projectile">飞弹组件。</param>
+        /// <returns>独立飞弹或来源存活的轨道攻击体为真。</returns>
+        private bool IsProjectileVisible(ProjectileComponent projectile) => catalog.Projectiles[projectile.ProjectileId].Motion != ProjectileMotionKind.Orbit ||
+            IsValid(projectile.Source) && actors.TryGetValue(projectile.Source.Id, out var source) && !source.DeadPending;
+
+        /// <summary>
+        /// 为多枚跟踪飞剑按稳定距离顺序分配目标。
+        /// </summary>
+        /// <param name="sourceId">来源槽位。</param>
+        /// <param name="range">显式选敌范围。</param>
+        /// <param name="index">飞剑在阵列中的序号。</param>
+        /// <returns>选中的敌人引用，没有目标时为空。</returns>
+        private CombatEntityRef SelectProjectileTarget(int sourceId, float range, int index)
+        {
+            var source = actors[sourceId];
+            var candidates = OrderedEntityIds(actors.Keys);
+            candidates.RemoveAll(id => actors[id].DeadPending || actors[id].Spec.RoomId != source.Spec.RoomId ||
+                actors[id].Spec.Team == source.Spec.Team || Vector3.Distance(source.Position, actors[id].Position) > range ||
+                HasWallBetween(source.Spec.RoomId, source.Position, actors[id].Position));
+            candidates.Sort((a, b) => {
+                var distance = (actors[a].Position - source.Position).sqrMagnitude.CompareTo((actors[b].Position - source.Position).sqrMagnitude);
+                return distance != 0 ? distance : slots[a].PersistentKey.CompareTo(slots[b].PersistentKey);
+            });
+            return candidates.Count == 0 ? default : Ref(candidates[index % candidates.Count]);
+        }
+
+        /// <summary>
+        /// 从飞弹当前位置在显式范围内重新锁定合法敌人。
+        /// </summary>
+        /// <param name="projectile">失去目标的飞弹。</param>
+        /// <param name="range">最大重选距离。</param>
+        /// <returns>最近合法目标，没有目标时为空。</returns>
+        private CombatEntityRef FindProjectileTarget(ProjectileComponent projectile, float range)
+        {
+            var best = 0;
+            var distance = range * range;
+            foreach (var id in OrderedEntityIds(actors.Keys))
+            {
+                var actor = actors[id];
+                var squared = (actor.Position - projectile.Position).sqrMagnitude;
+                if (actor.DeadPending || actor.Spec.Team == projectile.SourceTeam || actor.Spec.RoomId != projectile.RoomId ||
+                    squared > distance || HasWallBetween(projectile.RoomId, projectile.Position, actor.Position)) continue;
+                best = id;
+                distance = squared;
+            }
+            return best == 0 ? default : Ref(best);
+        }
+
+        /// <summary>
+        /// 推进来源实时位置上的轨道，每次检测统一冻结进攻属性。
+        /// </summary>
+        /// <param name="id">轨道实例槽位。</param>
+        /// <param name="projectile">保存相位与命中记录的实例。</param>
+        /// <param name="definition">轨道配置。</param>
+        private void MoveOrbitProjectile(int id, ProjectileComponent projectile, CombatProjectileDefinition definition)
+        {
+            if (!IsValid(projectile.Source) || !actors.TryGetValue(projectile.Source.Id, out var source))
+            { projectile.Terminal = true; return; }
+            if (projectile.ControllerSkillId > 0 && !source.EnabledPersistentSkills.Contains(projectile.ControllerSkillId))
+            { projectile.Terminal = true; return; }
+            if (source.DeadPending)
+            {
+                foreach (var target in new List<CombatEntityRef>(projectile.Hits.Keys))
+                {
+                    var hit = projectile.Hits[target];
+                    hit.Tick++;
+                    projectile.Hits[target] = hit;
+                }
+                return;
+            }
+            if (source.Spec.RoomId != activeRoomId) return;
+            var transferred = projectile.RoomId != source.Spec.RoomId;
+            projectile.RoomId = source.Spec.RoomId;
+            var old = transferred ? source.Position + Quaternion.AngleAxis(projectile.OrbitAngle, Vector3.up) * Vector3.forward * definition.OrbitRadius : projectile.Position;
+            projectile.Previous = old;
+            projectile.OrbitAngle = Mathf.Repeat(projectile.OrbitAngle + definition.OrbitDegreesPerSecond * TickSeconds, 360f);
+            var next = source.Position + Quaternion.AngleAxis(projectile.OrbitAngle, Vector3.up) * Vector3.forward * definition.OrbitRadius;
+            projectile.Position = next;
+            projectile.Direction = (next - old).sqrMagnitude > 0.000001f ? (next - old).normalized : source.Forward;
+            GetSkillModifiers(source, projectile.ControllerSkillId, out _, out var rangeMultiplier, out var damageMultiplier);
+            projectile.Offense = new CombatOffense(source.Spec, damageMultiplier);
+            projectile.RangeMultiplier = rangeMultiplier;
+            if (HasWallBetween(projectile.RoomId, source.Position, next) || HasWallBetween(projectile.RoomId, old, next)) return;
+            foreach (var targetId in OrderedEntityIds(actors.Keys))
+            {
+                var target = actors[targetId];
+                if (!CanProjectileHit(projectile, definition, targetId, target) ||
+                    HasWallBetween(projectile.RoomId, source.Position, target.Position) ||
+                    !SweepCircle(old, next, target.Position, definition.Radius + target.Spec.Radius, out _)) continue;
+                RegisterProjectileHit(id, projectile, definition, targetId);
             }
         }
 

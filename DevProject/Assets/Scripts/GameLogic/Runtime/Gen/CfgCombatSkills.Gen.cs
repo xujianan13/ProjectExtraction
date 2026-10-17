@@ -37,6 +37,56 @@ namespace GameLogic.Tables
         /// StartRangeSource 字段。
         /// </summary>
         public int StartRangeSource;
+
+        /// <summary>
+        /// Name 字段。
+        /// </summary>
+        public string Name;
+
+        /// <summary>
+        /// Description 字段。
+        /// </summary>
+        public string Description;
+
+        /// <summary>
+        /// EffectClass 字段。
+        /// </summary>
+        public int EffectClass;
+
+        /// <summary>
+        /// SkillType 字段。
+        /// </summary>
+        public int SkillType;
+
+        /// <summary>
+        /// CastMode 字段。
+        /// </summary>
+        public int CastMode;
+
+        /// <summary>
+        /// TargetKind 字段。
+        /// </summary>
+        public int TargetKind;
+
+        /// <summary>
+        /// OccupiesAction 字段。
+        /// </summary>
+        public bool OccupiesAction;
+
+        /// <summary>
+        /// MaxHealthRatio 字段。
+        /// </summary>
+        public double MaxHealthRatio;
+
+        /// <summary>
+        /// RequiredMissingBuffId 字段。
+        /// </summary>
+        public int RequiredMissingBuffId;
+
+        /// <summary>
+        /// MaintainBuffId 字段。
+        /// </summary>
+        public int MaintainBuffId;
     }
 
     /// <summary>
@@ -73,7 +123,7 @@ namespace GameLogic.Tables
                 TextAsset asset = lease.Asset;
                 if (asset == null) throw new InvalidOperationException("配置表资源不可用：CfgCombatSkills");
                 var envelope = JsonUtility.FromJson(asset.text, typeof(Envelope)) as Envelope;
-                if (envelope == null || envelope.schemaHash != "6ce1e0c000af0279944f2952b23b04b7876bf0fdb117be6cb77ecd010b442260" || envelope.rows == null)
+                if (envelope == null || envelope.schemaHash != "b63ee9eb52c25ef689bbc09edf093175f36111281ffada98a1bc225aaa3f4db3" || envelope.rows == null)
                     throw new InvalidOperationException("配置表结构不匹配：CfgCombatSkills");
 
                 var table = new CfgCombatSkillsTable();

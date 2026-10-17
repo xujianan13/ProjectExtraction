@@ -161,10 +161,13 @@ namespace ProjectExtraction.Tests.Editor.Combat
         {
             world.Dispose();
             var catalog = new CombatCatalog();
-            catalog.Buffs.Add(1, new CombatBuffDefinition
+            var deathBuff = new CombatBuffDefinition
             {
-                BuffId = 1, DurationTicks = 2, IntervalTicks = 1, MaxStacks = 1, PeriodicDamagePerStack = 200f
-            });
+                BuffId = 1, DurationTicks = 2, IntervalTicks = 1, MaxStacks = 1
+            };
+            deathBuff.OnTick.Add(new CombatEffectDefinition { Kind = CombatEffectKind.Damage, DefinitionId = 101, Value = 200f,
+                CanCritical = false, CanDodge = false });
+            catalog.Buffs.Add(1, deathBuff);
             world = new CombatWorld(catalog);
             world.SetRoomBounds(1, new Rect(-8f, -8f, 16f, 16f));
             player = world.CreateActor(CreateActor(1, new Vector3(-6f, 2f, 0f), 0.5f));

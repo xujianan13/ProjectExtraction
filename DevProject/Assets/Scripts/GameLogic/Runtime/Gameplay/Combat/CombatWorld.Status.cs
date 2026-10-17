@@ -15,6 +15,7 @@ namespace GameLogic.Gameplay.Combat
         public readonly int Stacks;
         public readonly long RemainingTicks;
         public readonly int DurationTicks;
+        public readonly CombatBuffLifetime Lifetime;
 
         /// <summary>
         /// 构造与战斗世界状态脱离的 Buff 快照。
@@ -27,8 +28,9 @@ namespace GameLogic.Gameplay.Combat
         /// <param name="stacks">当前层数。</param>
         /// <param name="remainingTicks">按持有者逻辑钟计算的剩余帧数。</param>
         /// <param name="durationTicks">Buff 定义时长帧数。</param>
+        /// <param name="lifetime">状态显式生命周期。</param>
         public CombatBuffSnapshot(int instanceId, int actorId, int sourceActorId, int roomId, int definitionId, int stacks,
-            long remainingTicks, int durationTicks)
+            long remainingTicks, int durationTicks, CombatBuffLifetime lifetime = CombatBuffLifetime.Timed)
         {
             InstanceId = instanceId;
             ActorId = actorId;
@@ -38,6 +40,7 @@ namespace GameLogic.Gameplay.Combat
             Stacks = stacks;
             RemainingTicks = remainingTicks;
             DurationTicks = durationTicks;
+            Lifetime = lifetime;
         }
     }
 
@@ -62,7 +65,7 @@ namespace GameLogic.Gameplay.Combat
                 var remaining = buff.ExpireTick - GetBuffClock(owner);
                 if (remaining <= 0) continue;
                 output.Add(new CombatBuffSnapshot(pair.Key, owner.Spec.ActorId, buff.SourceActorId, owner.Spec.RoomId,
-                    buff.BuffId, buff.Stacks, remaining, definition.DurationTicks));
+                    buff.BuffId, buff.Stacks, remaining, definition.DurationTicks, definition.Lifetime));
             }
             output.Sort((left, right) => left.InstanceId.CompareTo(right.InstanceId));
         }

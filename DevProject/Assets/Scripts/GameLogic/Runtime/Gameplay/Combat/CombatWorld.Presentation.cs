@@ -9,6 +9,7 @@ namespace GameLogic.Gameplay.Combat
     public struct CombatTelegraphSnapshot
     {
         public CombatEntityRef Cast;
+        public int SkillId;
         public int ActorId;
         public int RoomId;
         public Vector3 Origin;
@@ -44,15 +45,15 @@ namespace GameLogic.Gameplay.Combat
                 for (int index = cast.NextNode; index < skill.Nodes.Count; index++)
                 {
                     CombatTimelineNode node = skill.Nodes[index];
-                    if (node.Tick <= elapsed) continue;
+                    if (node.Tick * cast.TimeMultiplier <= elapsed) continue;
                     bool found = false;
                     foreach (CombatEffectDefinition effect in node.Effects)
                     {
                         bool missile = effect.Kind == CombatEffectKind.SpawnProjectile;
                         if (effect.Kind != CombatEffectKind.Damage && !missile) continue;
                         float radius = Mathf.Min(AttributeCeiling, Mathf.Max(0f,
-                            (effect.Radius + (effect.AttackRangeSource ? cast.RangeDelta : 0f)) * cast.RangeMultiplier));
-                        float width = effect.Width;
+                            (effect.Radius + (effect.AttackRangeSource ? cast.RangeDelta * effect.AttackRangeMultiplier : 0f)) * cast.RangeMultiplier));
+                        float width = effect.Width * cast.RangeMultiplier;
                         Vector3 origin = owner.Position;
                         Vector3 direction = cast.Forward;
                         CombatHitShape shape = effect.Shape;
@@ -82,9 +83,9 @@ namespace GameLogic.Gameplay.Combat
                         }
                         output.Add(new CombatTelegraphSnapshot
                         {
-                            Cast = Ref(pair.Key), ActorId = owner.Spec.ActorId, RoomId = owner.Spec.RoomId,
+                            Cast = Ref(pair.Key), SkillId = cast.SkillId, ActorId = owner.Spec.ActorId, RoomId = owner.Spec.RoomId,
                             Origin = origin, Direction = direction, Shape = shape, Radius = radius, Width = width,
-                            Angle = effect.Angle, Progress = Mathf.Clamp01(elapsed / (float)Mathf.Max(1, node.Tick)),
+                            Angle = effect.Angle, Progress = Mathf.Clamp01(elapsed / (float)Mathf.Max(1f, node.Tick * cast.TimeMultiplier)),
                             IsProjectile = missile, IsPlayer = owner.Spec.IsPlayer
                         });
                         found = true;

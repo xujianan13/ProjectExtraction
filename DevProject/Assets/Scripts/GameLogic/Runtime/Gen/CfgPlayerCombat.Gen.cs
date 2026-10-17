@@ -52,6 +52,11 @@ namespace GameLogic.Tables
         /// ScaleZ 字段。
         /// </summary>
         public double ScaleZ;
+
+        /// <summary>
+        /// SkillIDs 字段。
+        /// </summary>
+        public int[] SkillIDs;
     }
 
     /// <summary>
@@ -88,7 +93,7 @@ namespace GameLogic.Tables
                 TextAsset asset = lease.Asset;
                 if (asset == null) throw new InvalidOperationException("配置表资源不可用：CfgPlayerCombat");
                 var envelope = JsonUtility.FromJson(asset.text, typeof(Envelope)) as Envelope;
-                if (envelope == null || envelope.schemaHash != "a8d066416861faf8ac7c5fb6451011f60e958ada65196b243ee1ec166b498215" || envelope.rows == null)
+                if (envelope == null || envelope.schemaHash != "0206b784717b44dcdf8ecce59ba0a1198b21b4b42681e61a01198b79786cd042" || envelope.rows == null)
                     throw new InvalidOperationException("配置表结构不匹配：CfgPlayerCombat");
 
                 var table = new CfgPlayerCombatTable();

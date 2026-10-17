@@ -53,6 +53,9 @@ namespace GameLogic.Gameplay.Combat
                     LastInstigatorActorId = value.LastInstigatorActorId, Velocity = value.Velocity, CueDirection = value.CueDirection,
                     CueId = value.CueId, CueDurationTicks = value.CueDurationTicks, CueClock = value.CueClock,
                     HitClock = value.HitClock, DeathClock = value.DeathClock, Move = value.Spec.IsPlayer ? Vector2.zero : value.AiMove };
+                actor.SkillCursor = value.SkillCursor;
+                actor.ActionAcceptedTick = value.ActionAcceptedTick;
+                foreach (var id in value.EnabledPersistentSkills) actor.EnabledPersistentSkills.Add(id);
                 value.PermanentBonuses.CopyTo(actor.PermanentBonuses, 0);
                 foreach (var cooldown in value.SkillCooldowns) actor.SkillCooldowns.Add(cooldown.SkillId, cooldown.RemainingTicks);
                 foreach (var group in value.AugmentGroups)
@@ -76,7 +79,7 @@ namespace GameLogic.Gameplay.Combat
                 casts.Add(references[value.Key], new CastComponent { Owner = references[value.OwnerKey], SkillId = value.SkillId,
                     StartTick = value.StartTick, Target = ImportReference(value.TargetKey, references), TargetPoint = value.TargetPoint,
                     Forward = value.Forward, NextNode = value.NextNode, RangeDelta = value.RangeDelta,
-                    RangeMultiplier = value.RangeMultiplier, UsesWorldClock = value.UsesWorldClock, Offense = ImportOffense(value.Offense) });
+                    TimeMultiplier = value.TimeMultiplier, RangeMultiplier = value.RangeMultiplier, UsesWorldClock = value.UsesWorldClock, Offense = ImportOffense(value.Offense) });
             foreach (var value in snapshot.Displacements)
                 displacements.Add(references[value.Key], new DisplacementComponent { Owner = references[value.OwnerKey],
                     Direction = value.Direction, DistancePerTick = value.DistancePerTick, RemainingTicks = value.RemainingTicks,
@@ -90,7 +93,7 @@ namespace GameLogic.Gameplay.Combat
                     LastTargetPoint = value.LastTargetPoint, Position = value.Position, Previous = value.Previous, Origin = value.Origin,
                     EndPoint = value.EndPoint, Velocity = value.Velocity, Direction = value.Direction, FlightTicks = value.FlightTicks,
                     ElapsedTicks = value.ElapsedTicks, CreatedTick = value.CreatedTick, Bounces = value.Bounces,
-                    Distance = value.Distance, DistinctHits = value.DistinctHits, Terminal = value.Terminal };
+                    Distance = value.Distance, DistinctHits = value.DistinctHits, Terminal = value.Terminal, OrbitAngle = value.OrbitAngle, ControllerSkillId = value.ControllerSkillId };
                 foreach (var hit in value.Hits) projectile.Hits.Add(ImportReference(hit.TargetKey, references),
                     new HitRecord { Tick = hit.Tick, Count = hit.Count });
                 projectiles.Add(references[value.Key], projectile);

@@ -10,7 +10,7 @@ namespace GameLogic.Gameplay.Combat
     [Serializable]
     public sealed class CombatWorldSnapshot
     {
-        public int Version = 1;
+        public int Version = 2;
         public int RandomAlgorithmVersion = 1;
         public long RandomState;
         public long Tick;
@@ -88,6 +88,9 @@ namespace GameLogic.Gameplay.Combat
         public List<CombatSkillCooldownState> SkillCooldowns = new();
         public Vector3 Position;
         public Vector3 Forward;
+        public int SkillCursor;
+        public long ActionAcceptedTick = -1;
+        public List<int> EnabledPersistentSkills = new();
         public Vector2 AiMove;
         public float Health;
         public float MoveBonus;
@@ -133,6 +136,7 @@ namespace GameLogic.Gameplay.Combat
         public int NextNode;
         public float RangeDelta;
         public float RangeMultiplier;
+        public float TimeMultiplier = 1f;
         public bool UsesWorldClock;
         public CombatOffenseState Offense;
     }
@@ -192,6 +196,8 @@ namespace GameLogic.Gameplay.Combat
         public int Bounces;
         public float Distance;
         public int DistinctHits;
+        public float OrbitAngle;
+        public int ControllerSkillId;
         public bool Terminal;
         public List<CombatProjectileHitState> Hits = new();
     }

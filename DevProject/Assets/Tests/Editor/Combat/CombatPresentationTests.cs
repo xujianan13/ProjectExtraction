@@ -103,6 +103,8 @@ namespace ProjectExtraction.Tests.Editor.Combat
 
             Assert.That(world.TryStartSkill(enemy, 1, default), Is.True);
             Assert.That(SingleSnapshot(world).ActorId, Is.EqualTo(2));
+            Assert.That(world.TryStartSkill(player, 2, enemy), Is.False, "同一帧取消动作不会重新获得动作接纳机会。");
+            world.Step();
             Assert.That(world.TryStartSkill(player, 2, enemy), Is.True);
             world.Step();
             Assert.That(world.TryGetActor(enemy, out CombatActorSnapshot dead), Is.True);

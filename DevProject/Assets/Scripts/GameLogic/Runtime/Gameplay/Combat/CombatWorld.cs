@@ -37,6 +37,9 @@ namespace GameLogic.Gameplay.Combat
             public float MoveBonus;
             public float RangeBonus;
             public readonly Dictionary<int, int> SkillCooldowns = new Dictionary<int, int>();
+            public int SkillCursor;
+            public long ActionAcceptedTick = -1;
+            public readonly HashSet<int> EnabledPersistentSkills = new HashSet<int>();
             public bool DeadPending;
             public bool DeathPublished;
             public int LastInstigatorActorId;
@@ -83,6 +86,7 @@ namespace GameLogic.Gameplay.Combat
             public int NextNode;
             public float RangeDelta;
             public float RangeMultiplier;
+            public float TimeMultiplier = 1f;
             public bool UsesWorldClock;
             public CombatOffense Offense;
         }
@@ -121,6 +125,8 @@ namespace GameLogic.Gameplay.Combat
             public int Bounces;
             public float Distance;
             public int DistinctHits;
+            public float OrbitAngle;
+            public int ControllerSkillId;
             public bool Terminal;
             public readonly Dictionary<CombatEntityRef, HitRecord> Hits = new Dictionary<CombatEntityRef, HitRecord>();
         }
@@ -158,6 +164,7 @@ namespace GameLogic.Gameplay.Combat
             public Vector3 Direction;
             public int InstigatorActorId;
             public CombatOffense Offense;
+            public int ControllerSkillId;
             public long RootId;
             public long TriggerId;
             public int Depth;
@@ -268,13 +275,14 @@ namespace GameLogic.Gameplay.Combat
             {
                 var skillIds = new HashSet<int>();
                 foreach (var skill in spec.EnemySkills)
-                    if (!skillIds.Add(skill.SkillId) || skill.SkillId <= 0 || skill.Weight <= 0 || !IsFinite(skill.MinHealthRatio) ||
+                    if (!skillIds.Add(skill.SkillId) || skill.SkillId <= 0 || !IsFinite(skill.MinHealthRatio) ||
                         !IsFinite(skill.MaxHealthRatio) || !IsFinite(skill.MinDistance) || !IsFinite(skill.MaxDistance) ||
                         skill.MinHealthRatio < 0f || skill.MaxHealthRatio > 1f || skill.MinHealthRatio > skill.MaxHealthRatio ||
                         skill.MinDistance < 0f || skill.MinDistance > skill.MaxDistance ||
                         !catalog.Skills.ContainsKey(skill.SkillId)) return default;
             }
-            if (!ValidDamageVulnerabilities(spec.DamageVulnerabilities)) return default;
+            if (spec.BasicSkillId < 0 || spec.BasicSkillId > 0 && !catalog.Skills.ContainsKey(spec.BasicSkillId) ||
+                !ValidSkillLoadout(spec.SkillIds) || !ValidDamageVulnerabilities(spec.DamageVulnerabilities)) return default;
             spec.CriticalDamage = spec.CriticalDamage == 0f ? 1.5f : Mathf.Max(1f, spec.CriticalDamage);
             spec.DodgeChance = Mathf.Min(0.75f, spec.DodgeChance);
             spec.DamageReduction = Mathf.Min(0.75f, spec.DamageReduction);
@@ -330,6 +338,10 @@ namespace GameLogic.Gameplay.Combat
         {
             if (roomId <= 0 || !IsValid(player) || !actors.TryGetValue(player.Id, out var state) ||
                 !state.Spec.IsPlayer || state.DeadPending) return false;
+            if (roomId != state.Spec.RoomId)
+                foreach (var id in OrderedEntityIds(projectiles.Keys))
+                    if (projectiles[id].RoomId == state.Spec.RoomId && catalog.Projectiles[projectiles[id].ProjectileId].Motion != ProjectileMotionKind.Orbit)
+                    { projectiles.Remove(id); Release(id); }
             CancelOwnedCast(player.Id, true);
             RemoveOwnedDisplacement(player.Id);
             state.Spec.RoomId = roomId;
@@ -372,17 +384,25 @@ namespace GameLogic.Gameplay.Combat
         public bool TryStartSkill(CombatEntityRef actor, int skillId, CombatEntityRef target)
         {
             if (!IsValid(actor) || !actors.TryGetValue(actor.Id, out var source) || source.DeadPending ||
-                source.Spec.RoomId != activeRoomId || HasCast(actor.Id) ||
+                source.Spec.RoomId != activeRoomId ||
                 !catalog.Skills.TryGetValue(skillId, out var definition)) return false;
-            if (source.SkillCooldowns.TryGetValue(skillId, out var cooldown) && cooldown > 0) return false;
+            if (source.EnabledPersistentSkills.Contains(skillId)) return false;
+            if (definition.OccupiesAction && (HasCast(actor.Id) || source.ActionAcceptedTick == TickIndex) ||
+                source.Health / source.Spec.MaxHealth > definition.MaxHealthRatio ||
+                definition.RequiredMissingBuffId > 0 && HasBuff(actor.Id, definition.RequiredMissingBuffId) ||
+                source.SkillCooldowns.TryGetValue(skillId, out var cooldown) && cooldown > 0) return false;
+            if (definition.TargetKind == CombatSkillTargetKind.Self) target = actor;
             var rangeDelta = source.Spec.IsPlayer && skillId == source.Spec.BasicSkillId
                 ? source.Spec.AttackRange - catalog.InitialAttackRange : 0f;
             GetSkillModifiers(source, skillId, out var cooldownMultiplier, out var rangeMultiplier, out var damageMultiplier);
-            var startRange = Mathf.Max(0f, definition.StartRange + (definition.AttackRangeSource ? rangeDelta : 0f));
+            var startRange = Mathf.Max(0f, definition.StartRange + (definition.AttackRangeSource ? rangeDelta * definition.AttackRangeMultiplier : 0f));
             startRange = Mathf.Min(AttributeCeiling, (startRange + source.RangeBonus) * rangeMultiplier);
             if (target.Id != 0 && (!IsValid(target) || !actors.TryGetValue(target.Id, out var targetActor) ||
                 targetActor.DeadPending || targetActor.Spec.RoomId != source.Spec.RoomId ||
                 Vector3.Distance(source.Position, targetActor.Position) > startRange)) return false;
+            if (definition.OccupiesAction) source.ActionAcceptedTick = TickIndex;
+            if (definition.CastMode == CombatSkillCastMode.Persistent) source.EnabledPersistentSkills.Add(skillId);
+            var timeMultiplier = definition.SkillType == CombatSkillType.BasicAttack ? cooldownMultiplier : 1f;
             var cast = Allocate();
             var point = target.Id != 0 ? actors[target.Id].Position : source.Position + source.Forward * startRange;
             casts.Add(cast.Id, new CastComponent
@@ -390,10 +410,10 @@ namespace GameLogic.Gameplay.Combat
                 Owner = actor.Id, SkillId = skillId, StartTick = source.Spec.IsPlayer ? TickIndex : GetRoomTick(source.Spec.RoomId),
                 Target = target, TargetPoint = point, Forward = source.Forward, NextNode = 0,
                 UsesWorldClock = source.Spec.IsPlayer, Offense = new CombatOffense(source.Spec, damageMultiplier),
-                RangeDelta = rangeDelta, RangeMultiplier = rangeMultiplier
+                TimeMultiplier = timeMultiplier, RangeDelta = rangeDelta + source.RangeBonus, RangeMultiplier = rangeMultiplier
             });
             source.SkillCooldowns[skillId] = (int)Math.Min(int.MaxValue,
-                Math.Max(definition.DurationTicks, Math.Ceiling((double)definition.CooldownTicks * cooldownMultiplier)));
+                Math.Max(Math.Ceiling(definition.DurationTicks * timeMultiplier), Math.Ceiling((double)definition.CooldownTicks * cooldownMultiplier)));
             return true;
         }
 

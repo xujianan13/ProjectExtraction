@@ -139,6 +139,10 @@ namespace MiniGame.Tests
         {
             ProjectSession session = ProjectServices.Session;
             float baseRange = ProjectEquipmentRules.Calculate(run.Inventory, session.PowerRank, session.VitalityRank, session.AgilityRank).AttackRange;
+            Assert.That(ProjectWeaponCombat.TryGetBasicSkill(run.Inventory, out int basicSkillId), Is.True);
+            var skills = new List<CombatSkillSnapshot>();
+            run.World.GetSkillsSnapshot(run.Player, skills);
+            Assert.That(skills.Single(skill => skill.SkillType == CombatSkillType.BasicAttack).SkillId, Is.EqualTo(basicSkillId));
             await WaitRunSavedAsync(run);
             run.SetTouchMove(Vector2.zero);
             Assert.That(run.World.TrySetPosition(run.Player, run.CurrentRegion.Plan.EntryPosition), Is.True);
@@ -147,13 +151,14 @@ namespace MiniGame.Tests
             {
                 await WaitRunSavedAsync(run);
                 Assert.That(run.IsChoosingReward, Is.False, "范围断言必须在技能选择完成后执行。");
-                started = run.World.TryStartSkill(run.Player, ProjectContentConfig.Player.SkillID, default);
+                started = run.World.TryStartSkill(run.Player, basicSkillId, default);
                 if (!started) run.Advance(CombatWorld.TickSeconds);
             }
             Assert.That(started, Is.True, "已有施法必须在有界战斗时间内结束，才能观察新一轮预警。");
             var telegraphs = new List<CombatTelegraphSnapshot>();
             run.World.GetTelegraphsSnapshot(telegraphs);
-            Assert.That(telegraphs.Single(item => item.ActorId == 1).Radius, Is.EqualTo(baseRange * multiplier).Within(0.001f));
+            Assert.That(telegraphs.Single(item => item.ActorId == 1 && item.SkillId == basicSkillId).Radius,
+                Is.EqualTo(baseRange * multiplier).Within(0.001f));
             for (int tick = 0; tick < 100; tick++)
             {
                 await WaitRunSavedAsync(run);

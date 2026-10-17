@@ -117,6 +117,16 @@ namespace GameLogic.Tables
         /// CollectionID 字段。
         /// </summary>
         public string CollectionID;
+
+        /// <summary>
+        /// WeaponClass 字段。
+        /// </summary>
+        public int WeaponClass;
+
+        /// <summary>
+        /// BasicSkillID 字段。
+        /// </summary>
+        public int BasicSkillID;
     }
 
     /// <summary>
@@ -153,7 +163,7 @@ namespace GameLogic.Tables
                 TextAsset asset = lease.Asset;
                 if (asset == null) throw new InvalidOperationException("配置表资源不可用：CfgItemDefinitions");
                 var envelope = JsonUtility.FromJson(asset.text, typeof(Envelope)) as Envelope;
-                if (envelope == null || envelope.schemaHash != "7de05865f383b2f5272341f80f2e4aca033683f413d42e4f1d616fc8339b0aee" || envelope.rows == null)
+                if (envelope == null || envelope.schemaHash != "1969eb866a17ec14a41885aa07db057ae6606043038117f8dacc07d4ff06c697" || envelope.rows == null)
                     throw new InvalidOperationException("配置表结构不匹配：CfgItemDefinitions");
 
                 var table = new CfgItemDefinitionsTable();

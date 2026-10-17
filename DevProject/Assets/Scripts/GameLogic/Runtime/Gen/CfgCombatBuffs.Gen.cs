@@ -49,11 +49,6 @@ namespace GameLogic.Tables
         public double AttackRangeAddPerStack;
 
         /// <summary>
-        /// PeriodicDamagePerStack 字段。
-        /// </summary>
-        public double PeriodicDamagePerStack;
-
-        /// <summary>
         /// OnApplyEffectIDs 字段。
         /// </summary>
         public int[] OnApplyEffectIDs;
@@ -67,6 +62,11 @@ namespace GameLogic.Tables
         /// OnExpireEffectIDs 字段。
         /// </summary>
         public int[] OnExpireEffectIDs;
+
+        /// <summary>
+        /// Lifetime 字段。
+        /// </summary>
+        public int Lifetime;
     }
 
     /// <summary>
@@ -103,7 +103,7 @@ namespace GameLogic.Tables
                 TextAsset asset = lease.Asset;
                 if (asset == null) throw new InvalidOperationException("配置表资源不可用：CfgCombatBuffs");
                 var envelope = JsonUtility.FromJson(asset.text, typeof(Envelope)) as Envelope;
-                if (envelope == null || envelope.schemaHash != "48877cc242c2c8f852e554f4682e12eb576de15ee58d5d2f0bef3da7c166dc97" || envelope.rows == null)
+                if (envelope == null || envelope.schemaHash != "38dfc785baaf28b03990085fb468a56629c0005a044dbe0771116f4478971fca" || envelope.rows == null)
                     throw new InvalidOperationException("配置表结构不匹配：CfgCombatBuffs");
 
                 var table = new CfgCombatBuffsTable();

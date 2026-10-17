@@ -369,7 +369,9 @@ namespace ProjectExtraction.Tests.Editor.Combat
                 Radius = 20f, CanCritical = false, CanDodge = false });
             catalog.Skills.Add(2, kill);
             var buff = new CombatBuffDefinition { BuffId = 1, DurationTicks = 80, IntervalTicks = 7,
-                MaxStacks = 3, PeriodicDamagePerStack = 1f, MoveSpeedAddPerStack = -0.1f };
+                MaxStacks = 3, MoveSpeedAddPerStack = -0.1f };
+            buff.OnTick.Add(new CombatEffectDefinition { Kind = CombatEffectKind.Damage, DefinitionId = 101, Value = 1f,
+                CanCritical = false, CanDodge = false });
             buff.OnApply.Add(new CombatEffectDefinition { Kind = CombatEffectKind.ModifyAttribute,
                 Attribute = CombatAttributeKind.Defense, Value = 2f });
             buff.OnTick.Add(new CombatEffectDefinition { Kind = CombatEffectKind.Damage, AttackCoefficient = 0.1f });

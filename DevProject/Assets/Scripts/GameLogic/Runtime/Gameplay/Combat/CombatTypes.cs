@@ -47,6 +47,31 @@ namespace GameLogic.Gameplay.Combat
     }
 
     /// <summary>
+    /// 技能的主要效果分类。
+    /// </summary>
+    public enum CombatSkillEffectClass { Active, Auxiliary, Buff }
+
+    /// <summary>
+    /// 技能的用途分类。
+    /// </summary>
+    public enum CombatSkillType { BasicAttack, Normal, Special }
+
+    /// <summary>
+    /// 技能的施放入口。
+    /// </summary>
+    public enum CombatSkillCastMode { Automatic, Conditional, Persistent, Manual }
+
+    /// <summary>
+    /// 技能准入所需的目标。
+    /// </summary>
+    public enum CombatSkillTargetKind { Enemy, Self }
+
+    /// <summary>
+    /// 状态的显式生命周期。
+    /// </summary>
+    public enum CombatBuffLifetime { Timed, Persistent }
+
+    /// <summary>
     /// 战斗效果类型。
     /// </summary>
     public enum CombatEffectKind { Cue, Damage, Displace, SpawnProjectile, ApplyBuff, ModifyAttribute, Heal }
@@ -62,7 +87,7 @@ namespace GameLogic.Gameplay.Combat
     /// <summary>
     /// 飞弹运动类型。
     /// </summary>
-    public enum ProjectileMotionKind { Straight, GravityArc, FixedEndpointArc, Instant }
+    public enum ProjectileMotionKind { Straight, GravityArc, FixedEndpointArc, Instant, Orbit }
 
     /// <summary>
     /// 飞弹目标绑定类型。
@@ -72,7 +97,7 @@ namespace GameLogic.Gameplay.Combat
     /// <summary>
     /// 锁定目标丢失后的处理方式。
     /// </summary>
-    public enum ProjectileLostTarget { ContinueDirection, LastPoint, Expire }
+    public enum ProjectileLostTarget { ContinueDirection, LastPoint, Expire, Reacquire }
 
     /// <summary>
     /// 飞弹出生锚点。
@@ -138,8 +163,6 @@ namespace GameLogic.Gameplay.Combat
     public struct CombatEnemySkillDefinition
     {
         public int SkillId;
-        public int Priority;
-        public int Weight;
         public float MinHealthRatio;
         public float MaxHealthRatio;
         public float MinDistance;
@@ -179,6 +202,7 @@ namespace GameLogic.Gameplay.Combat
         public float Radius;
         public float AttackRange;
         public int BasicSkillId;
+        public int[] SkillIds;
         public CombatEnemySkillDefinition[] EnemySkills;
         public CombatDamageVulnerability[] DamageVulnerabilities;
         public float AggroRange;

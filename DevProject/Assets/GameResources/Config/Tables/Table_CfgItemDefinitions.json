@@ -1,5 +1,5 @@
 {
-  "schemaHash": "7de05865f383b2f5272341f80f2e4aca033683f413d42e4f1d616fc8339b0aee",
+  "schemaHash": "1969eb866a17ec14a41885aa07db057ae6606043038117f8dacc07d4ff06c697",
   "rows": [
     {
       "ID": "starter_weapon",
@@ -22,7 +22,9 @@
       "DefenseRandomExclusive": 0,
       "RangeBase": 4.9,
       "RangeRandom": 0,
-      "CollectionID": ""
+      "CollectionID": "",
+      "WeaponClass": 0,
+      "BasicSkillID": 1
     },
     {
       "ID": "ruin_weapon",
@@ -45,7 +47,9 @@
       "DefenseRandomExclusive": 0,
       "RangeBase": 4.6,
       "RangeRandom": 0.5,
-      "CollectionID": ""
+      "CollectionID": "",
+      "WeaponClass": 0,
+      "BasicSkillID": 1
     },
     {
       "ID": "ruin_armor",
@@ -68,7 +72,9 @@
       "DefenseRandomExclusive": 4,
       "RangeBase": 0,
       "RangeRandom": 0,
-      "CollectionID": ""
+      "CollectionID": "",
+      "WeaponClass": -1,
+      "BasicSkillID": 0
     },
     {
       "ID": "relic_part",
@@ -91,18 +97,20 @@
       "DefenseRandomExclusive": 0,
       "RangeBase": 0,
       "RangeRandom": 0,
-      "CollectionID": ""
+      "CollectionID": "",
+      "WeaponClass": -1,
+      "BasicSkillID": 0
     },
     {
       "ID": "ruin_heavy_blade",
-      "Name": "破阵重刃",
+      "Name": "破阵战锤",
       "Type": 0,
       "StarterEquipped": false,
       "SellBase": 8,
       "SellPerLevel": 4,
       "SellRandomExclusive": 8,
       "SellPerQuality": 6,
-      "AttackBase": 20,
+      "AttackBase": 12,
       "AttackPerLevel": 2,
       "AttackRandomExclusive": 5,
       "HealthBase": 0,
@@ -114,7 +122,9 @@
       "DefenseRandomExclusive": 0,
       "RangeBase": 4.35,
       "RangeRandom": 0.2,
-      "CollectionID": ""
+      "CollectionID": "",
+      "WeaponClass": 1,
+      "BasicSkillID": 10
     },
     {
       "ID": "ruin_poleblade",
@@ -135,9 +145,11 @@
       "DefensePerLevel": 0,
       "DefenseRandomMin": 0,
       "DefenseRandomExclusive": 0,
-      "RangeBase": 5.65,
+      "RangeBase": 8,
       "RangeRandom": 0.35,
-      "CollectionID": ""
+      "CollectionID": "",
+      "WeaponClass": 2,
+      "BasicSkillID": 11
     },
     {
       "ID": "guard_blade",
@@ -160,7 +172,9 @@
       "DefenseRandomExclusive": 3,
       "RangeBase": 4.65,
       "RangeRandom": 0.25,
-      "CollectionID": ""
+      "CollectionID": "",
+      "WeaponClass": 0,
+      "BasicSkillID": 1
     },
     {
       "ID": "gate_sigil",
@@ -183,7 +197,9 @@
       "DefenseRandomExclusive": 0,
       "RangeBase": 0,
       "RangeRandom": 0,
-      "CollectionID": "gate_sigil"
+      "CollectionID": "gate_sigil",
+      "WeaponClass": -1,
+      "BasicSkillID": 0
     },
     {
       "ID": "court_medal",
@@ -206,7 +222,9 @@
       "DefenseRandomExclusive": 0,
       "RangeBase": 0,
       "RangeRandom": 0,
-      "CollectionID": "court_medal"
+      "CollectionID": "court_medal",
+      "WeaponClass": -1,
+      "BasicSkillID": 0
     },
     {
       "ID": "core_fragment",
@@ -229,7 +247,9 @@
       "DefenseRandomExclusive": 0,
       "RangeBase": 0,
       "RangeRandom": 0,
-      "CollectionID": "core_fragment"
+      "CollectionID": "core_fragment",
+      "WeaponClass": -1,
+      "BasicSkillID": 0
     },
     {
       "ID": "explorer_token",
@@ -252,7 +272,9 @@
       "DefenseRandomExclusive": 0,
       "RangeBase": 0,
       "RangeRandom": 0,
-      "CollectionID": "explorer_token"
+      "CollectionID": "explorer_token",
+      "WeaponClass": -1,
+      "BasicSkillID": 0
     }
   ]
 }

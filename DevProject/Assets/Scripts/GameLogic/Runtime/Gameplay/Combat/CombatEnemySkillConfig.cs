@@ -29,7 +29,7 @@ namespace GameLogic.Gameplay.Combat
                 CfgEnemiesRow enemy = GameTables.CfgEnemies.GetById(row.EnemyID);
                 CfgCombatSkillsRow skill = GameTables.CfgCombatSkills.GetById(row.SkillID);
                 if (row.ID <= 0 || enemy == null || skill == null || skill.StartRangeSource != 0 ||
-                    row.Priority < 0 || row.Weight <= 0 || !Finite(row.MinHealthRatio) || !Finite(row.MaxHealthRatio) ||
+                    row.SortOrder < 0 || !Finite(row.MinHealthRatio) || !Finite(row.MaxHealthRatio) ||
                     row.MinHealthRatio < 0 || row.MaxHealthRatio > 1 || row.MinHealthRatio >= row.MaxHealthRatio ||
                     !Finite(row.MinDistance) || !Finite(row.MaxDistance) || row.MinDistance < 0 ||
                     row.MinDistance >= row.MaxDistance || row.MaxDistance > skill.StartRange || row.MaxDistance > enemy.AggroRange ||
@@ -51,13 +51,11 @@ namespace GameLogic.Gameplay.Combat
                 }
                 rows.Sort((left, right) => left.MinHealthRatio.CompareTo(right.MinHealthRatio));
                 double covered = 0;
-                long weight = 0;
                 foreach (CfgEnemySkillsRow row in rows)
                 {
-                    weight += row.Weight;
-                    if (row.MinHealthRatio > covered || weight > int.MaxValue)
+                    if (row.MinHealthRatio > covered)
                     {
-                        error = "敌人技能生命阶段存在空档或权重超出范围：" + enemy.ID;
+                        error = "敌人技能生命阶段存在空档：" + enemy.ID;
                         return false;
                     }
                     covered = Math.Max(covered, row.MaxHealthRatio);
@@ -75,20 +73,24 @@ namespace GameLogic.Gameplay.Combat
         /// 复制指定敌人的技能选择条件，避免战斗世界持有可变表行。
         /// </summary>
         /// <param name="enemyId">敌人配置编号。</param>
-        /// <returns>按配置编号排序的独立技能条件数组。</returns>
+        /// <returns>按轮询顺序和配置编号排序的独立技能条件数组。</returns>
         public static CombatEnemySkillDefinition[] Create(int enemyId)
         {
             var rows = new List<CfgEnemySkillsRow>();
             foreach (CfgEnemySkillsRow row in GameTables.CfgEnemySkills.GetAll())
                 if (row.EnemyID == enemyId) rows.Add(row);
-            rows.Sort((left, right) => left.ID.CompareTo(right.ID));
+            rows.Sort((left, right) =>
+            {
+                int comparison = left.SortOrder.CompareTo(right.SortOrder);
+                return comparison == 0 ? left.ID.CompareTo(right.ID) : comparison;
+            });
             var result = new CombatEnemySkillDefinition[rows.Count];
             for (int i = 0; i < rows.Count; i++)
             {
                 CfgEnemySkillsRow row = rows[i];
                 result[i] = new CombatEnemySkillDefinition
                 {
-                    SkillId = row.SkillID, Priority = row.Priority, Weight = row.Weight,
+                    SkillId = row.SkillID,
                     MinHealthRatio = (float)row.MinHealthRatio, MaxHealthRatio = (float)row.MaxHealthRatio,
                     MinDistance = (float)row.MinDistance, MaxDistance = (float)row.MaxDistance
                 };

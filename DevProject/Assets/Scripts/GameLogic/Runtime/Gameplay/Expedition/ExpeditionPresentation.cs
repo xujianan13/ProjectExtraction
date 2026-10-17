@@ -57,6 +57,8 @@ namespace GameLogic.Gameplay.Expedition
             public int DurationTicks;
             public Vector3 Direction;
             public float Offset;
+            public float Angle;
+            public bool Thrust;
         }
 
         /// <summary>
@@ -289,13 +291,16 @@ namespace GameLogic.Gameplay.Expedition
             {
                 if (snapshot.RoomId != run.CurrentRegion.Plan.Request.RegionId) continue;
                 visibleProjectiles.Add(snapshot.Entity);
+                CfgCombatProjectilesRow definition = GameTables.CfgCombatProjectiles.GetById(snapshot.ProjectileId);
                 if (!projectiles.TryGetValue(snapshot.Entity, out GameObject model))
                 {
                     model = CreateModel("Projectile_" + snapshot.Entity.Id, assets.Projectile);
-                    model.transform.localScale = Vector3.one * 0.35f;
+                    model.transform.localScale = new Vector3((float)definition.VisualScaleX, (float)definition.VisualScaleY, (float)definition.VisualScaleZ);
+                    ApplyTint(model, new Color((float)definition.VisualRed, (float)definition.VisualGreen, (float)definition.VisualBlue));
                     projectiles.Add(snapshot.Entity, model);
                 }
-                model.transform.position = snapshot.Position + Vector3.up * 0.7f;
+                model.transform.position = snapshot.Position + Vector3.up * (float)definition.VisualHeight;
+                if (snapshot.Direction.sqrMagnitude > 0.001f) model.transform.rotation = Quaternion.LookRotation(snapshot.Direction);
             }
             staleProjectiles.Clear();
             foreach (var pair in projectiles)
@@ -347,39 +352,40 @@ namespace GameLogic.Gameplay.Expedition
             if (duration <= 0) return;
             GameObject model = CreateModel("SkillCue", assets.MeleeCue);
             ApplyTint(model, fact.ActorId == 1 ? new Color(0.7f, 1, 1) : new Color(1, 0.55f, 0.2f));
-            bool playerBasicAttack = TryGetPlayerBasicAttackCueRange(fact, out float attackRange);
-            model.transform.localScale = new Vector3(0.14f, 0.14f, playerBasicAttack ? attackRange : 1.7f);
+            bool playerAttack = TryGetPlayerAttackCue(fact, out CombatTelegraphSnapshot telegraph);
+            float attackRange = playerAttack ? telegraph.Radius : 1.7f;
+            bool thrust = playerAttack && telegraph.Shape == CombatHitShape.ForwardBox;
+            model.transform.localScale = new Vector3(0.14f, 0.14f, attackRange);
             cues.Add(new CombatCueView { Object = model, ActorId = fact.ActorId, RoomId = fact.RoomId,
-                StartTick = fact.Tick, DurationTicks = duration, Direction = direction, Offset = playerBasicAttack ? attackRange * 0.5f : 1f });
+                StartTick = fact.Tick, DurationTicks = duration, Direction = direction, Offset = playerAttack ? attackRange * 0.5f : 1f,
+                Angle = playerAttack ? telegraph.Angle : 130f, Thrust = thrust });
         }
 
         /// <summary>
-        /// 识别玩家普攻提示并读取本次施放已经冻结的真实命中半径。
+        /// 识别玩家攻击提示并读取对应技能已经冻结的真实命中形状。
         /// </summary>
         /// <param name="fact">当前提示事件。</param>
-        /// <param name="attackRange">匹配时返回本次普攻半径。</param>
-        /// <returns>提示属于玩家普攻且存在对应命中快照时为真。</returns>
-        private bool TryGetPlayerBasicAttackCueRange(CombatEvent fact, out float attackRange)
+        /// <param name="result">匹配时返回本次攻击的预警快照。</param>
+        /// <returns>提示属于玩家攻击且存在对应命中快照时为真。</returns>
+        private bool TryGetPlayerAttackCue(CombatEvent fact, out CombatTelegraphSnapshot result)
         {
-            attackRange = 0f;
+            result = default;
             if (fact.ActorId != 1) return false;
-            bool matchingCue = false;
-            foreach (CfgCombatTimelineNodesRow node in GameTables.CfgCombatTimelineNodes.GetAll())
-            {
-                if (node.SkillID != ProjectContentConfig.Player.SkillID) continue;
-                foreach (int effectId in node.EffectIDs)
-                {
-                    CfgCombatEffectsRow effect = GameTables.CfgCombatEffects.GetById(effectId);
-                    if (effect.Kind == (int)CombatEffectKind.Cue && effect.DefinitionID == fact.DefinitionId) matchingCue = true;
-                }
-            }
-            if (!matchingCue) return false;
             run.World.GetTelegraphsSnapshot(cueTelegraphs);
             foreach (CombatTelegraphSnapshot telegraph in cueTelegraphs)
             {
                 if (telegraph.ActorId != fact.ActorId || !telegraph.IsPlayer || telegraph.IsProjectile) continue;
-                attackRange = telegraph.Radius;
-                return true;
+                foreach (CfgCombatTimelineNodesRow node in GameTables.CfgCombatTimelineNodes.GetAll())
+                {
+                    if (node.SkillID != telegraph.SkillId) continue;
+                    foreach (int effectId in node.EffectIDs)
+                    {
+                        CfgCombatEffectsRow effect = GameTables.CfgCombatEffects.GetById(effectId);
+                        if (effect.Kind != (int)CombatEffectKind.Cue || effect.DefinitionID != fact.DefinitionId) continue;
+                        result = telegraph;
+                        return true;
+                    }
+                }
             }
             return false;
         }
@@ -399,8 +405,10 @@ namespace GameLogic.Gameplay.Expedition
                     cues.RemoveAt(index);
                     continue;
                 }
-                Vector3 direction = Quaternion.Euler(0, Mathf.Lerp(-65, 65, progress), 0) * cue.Direction;
-                cue.Object.transform.position = actor.transform.position + direction * cue.Offset;
+                Vector3 direction = cue.Thrust ? cue.Direction :
+                    Quaternion.Euler(0, Mathf.Lerp(-cue.Angle * 0.5f, cue.Angle * 0.5f, progress), 0) * cue.Direction;
+                float offset = cue.Thrust ? cue.Offset * Mathf.Sin(Mathf.PI * progress) : cue.Offset;
+                cue.Object.transform.position = actor.transform.position + direction * offset;
                 cue.Object.transform.rotation = Quaternion.LookRotation(direction);
             }
         }

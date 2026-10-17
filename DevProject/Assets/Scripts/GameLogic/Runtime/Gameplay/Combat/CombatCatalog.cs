@@ -7,7 +7,7 @@ namespace GameLogic.Gameplay.Combat
     /// <summary>
     /// 技能命中形状。
     /// </summary>
-    public enum CombatHitShape { Circle, Sector, Box, Capsule }
+    public enum CombatHitShape { Circle, Sector, Box, Capsule, ForwardBox }
 
     /// <summary>
     /// 战斗效果的不可变配置候选。
@@ -18,6 +18,8 @@ namespace GameLogic.Gameplay.Combat
         public CombatEffectKind Kind;
         public CombatAttributeKind Attribute;
         public int DefinitionId;
+        public int Count = 1;
+        public float SpreadDegrees;
         public float Value;
         public float AttackCoefficient;
         public bool CanCritical = true;
@@ -27,6 +29,7 @@ namespace GameLogic.Gameplay.Combat
         public CombatHitShape Shape = CombatHitShape.Circle;
         public float Radius;
         public bool AttackRangeSource;
+        public float AttackRangeMultiplier = 1f;
         public float Angle = 360f;
         public float Width;
         public float Height = 2f;
@@ -47,11 +50,20 @@ namespace GameLogic.Gameplay.Combat
     /// </summary>
     public sealed class CombatSkillDefinition
     {
+        public CombatSkillEffectClass EffectClass;
+        public CombatSkillType SkillType;
+        public CombatSkillCastMode CastMode;
+        public CombatSkillTargetKind TargetKind;
+        public bool OccupiesAction = true;
+        public float MaxHealthRatio = 1f;
+        public int RequiredMissingBuffId;
+        public int MaintainBuffId;
         public int CombatSkillId;
         public int DurationTicks;
         public int CooldownTicks;
         public float StartRange;
         public bool AttackRangeSource;
+        public float AttackRangeMultiplier = 1f;
         public readonly List<CombatTimelineNode> Nodes = new List<CombatTimelineNode>();
     }
 
@@ -66,6 +78,10 @@ namespace GameLogic.Gameplay.Combat
         public ProjectileSpawnAnchor SpawnAnchor = ProjectileSpawnAnchor.Source;
         public ProjectileLostTarget LostTarget = ProjectileLostTarget.ContinueDirection;
         public Vector3 SpawnOffset;
+        public float ReacquireRange;
+        public float OrbitRadius;
+        public float OrbitDegreesPerSecond;
+        public float OrbitInitialAngle;
         public float Speed;
         public float Acceleration;
         public float MaxSpeed;
@@ -99,7 +115,7 @@ namespace GameLogic.Gameplay.Combat
         public CombatBuffMerge Merge = CombatBuffMerge.AddStack;
         public float MoveSpeedAddPerStack;
         public float AttackRangeAddPerStack;
-        public float PeriodicDamagePerStack;
+        public CombatBuffLifetime Lifetime;
         public readonly List<CombatEffectDefinition> OnApply = new List<CombatEffectDefinition>();
         public readonly List<CombatEffectDefinition> OnTick = new List<CombatEffectDefinition>();
         public readonly List<CombatEffectDefinition> OnExpire = new List<CombatEffectDefinition>();
@@ -122,6 +138,7 @@ namespace GameLogic.Gameplay.Combat
         public int CooldownTicks;
         public bool TargetSelf;
         public List<CombatEffectDefinition> Effects = new List<CombatEffectDefinition>();
+        public bool AffectsBasicAttack;
         public int SkillId;
         public float CooldownMultiplier = 1f;
         public float RangeMultiplier = 1f;

@@ -97,6 +97,16 @@ namespace GameLogic.Tables
         /// RequireLineOfSight 字段。
         /// </summary>
         public bool RequireLineOfSight;
+
+        /// <summary>
+        /// Count 字段。
+        /// </summary>
+        public int Count;
+
+        /// <summary>
+        /// SpreadDegrees 字段。
+        /// </summary>
+        public double SpreadDegrees;
     }
 
     /// <summary>
@@ -133,7 +143,7 @@ namespace GameLogic.Tables
                 TextAsset asset = lease.Asset;
                 if (asset == null) throw new InvalidOperationException("配置表资源不可用：CfgCombatEffects");
                 var envelope = JsonUtility.FromJson(asset.text, typeof(Envelope)) as Envelope;
-                if (envelope == null || envelope.schemaHash != "52e4219312f9aed42161c35fa1a8d45a2bb85cf37220da66da5e09960a18eebe" || envelope.rows == null)
+                if (envelope == null || envelope.schemaHash != "cd8008146332403d656f99d2c9653a85e62dab65b74052c8a7f6860790287aec" || envelope.rows == null)
                     throw new InvalidOperationException("配置表结构不匹配：CfgCombatEffects");
 
                 var table = new CfgCombatEffectsTable();

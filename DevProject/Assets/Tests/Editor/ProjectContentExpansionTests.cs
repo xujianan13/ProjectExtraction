@@ -1,9 +1,11 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using GameLogic.Gameplay.Combat;
 using GameLogic.Project;
 using GameLogic.Tables;
 using NUnit.Framework;
+using UnityEngine;
 
 namespace ProjectExtraction.Tests
 {
@@ -39,7 +41,7 @@ namespace ProjectExtraction.Tests
         }
 
         /// <summary>
-        /// 新武器与旧短刃形成明确的攻击、射程及生存取舍，冻结属性可独立复制。
+        /// 新武器以真实普攻伤害、节奏、射程及生存属性形成取舍，冻结属性可独立复制。
         /// </summary>
         [Test]
         public void NewWeaponsFreezeDistinctTradeoffs()
@@ -48,7 +50,21 @@ namespace ProjectExtraction.Tests
             ProjectItem heavy = Create("ruin_heavy_blade", 11);
             ProjectItem pole = Create("ruin_poleblade", 11);
             ProjectItem guard = Create("guard_blade", 11);
-            Assert.That(heavy.Damage, Is.GreaterThan(blade.Damage));
+            float bladeHit = BasicAttackDamage(blade);
+            float heavyHit = BasicAttackDamage(heavy);
+            float poleHit = BasicAttackDamage(pole);
+            Assert.That(heavyHit, Is.GreaterThan(bladeHit));
+            Assert.That(heavyHit, Is.EqualTo(heavy.BaseAttributes.Single(value => value.Attribute == ProjectAttributeType.Attack).Value * 1.5f)
+                .Within(0.001f), "战锤高伤害只由普攻倍率应用一次。");
+            Assert.That(poleHit, Is.EqualTo(pole.BaseAttributes.Single(value => value.Attribute == ProjectAttributeType.Attack).Value)
+                .Within(0.001f), "长柄使用普通单次伤害倍率。");
+            int bladeSkill = GameTables.CfgItemDefinitions.GetById(blade.DefinitionId).BasicSkillID;
+            int heavySkill = GameTables.CfgItemDefinitions.GetById(heavy.DefinitionId).BasicSkillID;
+            int poleSkill = GameTables.CfgItemDefinitions.GetById(pole.DefinitionId).BasicSkillID;
+            Assert.That(GameTables.CfgCombatSkills.GetById(heavySkill).CooldownTicks,
+                Is.GreaterThan(GameTables.CfgCombatSkills.GetById(bladeSkill).CooldownTicks));
+            Assert.That(GameTables.CfgCombatSkills.GetById(poleSkill).CooldownTicks,
+                Is.GreaterThan(GameTables.CfgCombatSkills.GetById(bladeSkill).CooldownTicks));
             Assert.That(heavy.Range, Is.LessThan(blade.Range));
             Assert.That(pole.Damage, Is.LessThan(blade.Damage));
             Assert.That(pole.Range, Is.GreaterThan(blade.Range));
@@ -106,5 +122,32 @@ namespace ProjectExtraction.Tests
         /// <returns>已经生成的独立物品。</returns>
         private static ProjectItem Create(string definitionId, int seed) =>
             ProjectEquipmentRules.CreateConfiguredItem(new System.Random(seed), 1, ProjectItemQuality.Common, definitionId);
+
+        /// <summary>
+        /// 用正式武器属性和时间轴执行一次普攻，读取实际扣血。
+        /// </summary>
+        /// <param name="weapon">本次验证的冻结武器。</param>
+        /// <returns>首次完整动作造成的实际生命损失。</returns>
+        private static float BasicAttackDamage(ProjectItem weapon)
+        {
+            ProjectItem equipped = weapon.Copy();
+            equipped.Equipped = true;
+            var inventory = new[] { equipped };
+            ProjectCharacterStats stats = ProjectEquipmentRules.Calculate(inventory, 0, 0, 0);
+            Assert.That(ProjectWeaponCombat.TryGetBasicSkill(inventory, out int skillId), Is.True);
+            CombatCatalog catalog = CombatContentConfig.CreateCatalog(stats.AttackRange);
+            var world = new CombatWorld(catalog);
+            world.SetRoomBounds(1, new Rect(-20f, -20f, 40f, 40f));
+            CombatEntityRef player = world.CreateActor(new CombatActorSpec { ActorId = 1, RoomId = 1, Team = 1, IsPlayer = true,
+                MaxHealth = stats.MaxHealth, Attack = stats.Attack, AttackRange = stats.AttackRange, BasicSkillId = skillId, Radius = 0.3f });
+            CombatEntityRef enemy = world.CreateActor(new CombatActorSpec { ActorId = 2, RoomId = 1, Team = 2,
+                MaxHealth = 10000f, Radius = 0.3f, Position = Vector3.forward });
+            Assert.That(world.TryStartSkill(player, skillId, enemy), Is.True);
+            for (int tick = 0; tick < catalog.Skills[skillId].DurationTicks; tick++) world.Step();
+            Assert.That(world.TryGetActor(enemy, out var target), Is.True);
+            float damage = target.MaxHealth - target.Health;
+            world.Dispose();
+            return damage;
+        }
     }
 }

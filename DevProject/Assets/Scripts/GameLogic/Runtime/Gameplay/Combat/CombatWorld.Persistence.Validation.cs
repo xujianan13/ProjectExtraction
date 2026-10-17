@@ -51,11 +51,11 @@ namespace GameLogic.Gameplay.Combat
             foreach (var cast in snapshot.Casts)
             {
                 if (cast == null || !AcceptSavedKey(cast.Key, snapshot.NextEntityKey, entityKeys) ||
-                    !actorKeys.TryGetValue(cast.OwnerKey, out var owner) || owner.DeadPending || !castOwners.Add(cast.OwnerKey) ||
-                    !catalog.Skills.TryGetValue(cast.SkillId, out var skill) || !ValidSavedSkill(skill) || cast.NextNode < 0 ||
+                    !actorKeys.TryGetValue(cast.OwnerKey, out var owner) || owner.DeadPending ||
+                    !catalog.Skills.TryGetValue(cast.SkillId, out var skill) || !ValidSavedSkill(skill) || skill.OccupiesAction && !castOwners.Add(cast.OwnerKey) || cast.NextNode < 0 ||
                     cast.NextNode > skill.Nodes.Count || cast.StartTick < 0 ||
                     cast.StartTick > (owner.Spec.IsPlayer ? snapshot.Tick : rooms[owner.Spec.RoomId].Tick) ||
-                    cast.UsesWorldClock != owner.Spec.IsPlayer || !IsFinite(cast.TargetPoint) || !IsFinite(cast.Forward) ||
+                    !ValidMultiplier(cast.TimeMultiplier) || cast.UsesWorldClock != owner.Spec.IsPlayer || !IsFinite(cast.TargetPoint) || !IsFinite(cast.Forward) ||
                     !ValidSavedRange(cast.RangeDelta, cast.RangeMultiplier) || !ValidSavedOffense(cast.Offense)) return false;
             }
             var moveOwners = new HashSet<long>();
@@ -94,8 +94,12 @@ namespace GameLogic.Gameplay.Combat
             error = "战斗目标或来源引用缺失。";
             foreach (var cast in snapshot.Casts) if (!ValidSavedReference(cast.TargetKey, actorKeys)) return false;
             foreach (var projectile in snapshot.Projectiles)
+            {
                 if (projectile.SourceKey == 0 || !ValidSavedReference(projectile.SourceKey, actorKeys) ||
                     !ValidSavedReference(projectile.TargetKey, actorKeys)) return false;
+                if (projectile.ControllerSkillId > 0 && (!actorKeys.TryGetValue(projectile.SourceKey, out var source) ||
+                    !source.EnabledPersistentSkills.Contains(projectile.ControllerSkillId))) return false;
+            }
             error = "Buff 已应用属性与角色数据不一致。";
             var orderedBuffs = new List<CombatBuffState>(snapshot.Buffs);
             orderedBuffs.Sort((left, right) => left.Key.CompareTo(right.Key));
@@ -182,7 +186,16 @@ namespace GameLogic.Gameplay.Combat
         private bool ValidSavedSkill(CombatSkillDefinition skill)
         {
             if (skill == null || skill.CombatSkillId <= 0 || skill.DurationTicks < 0 || skill.CooldownTicks < 0 ||
-                !IsFinite(skill.StartRange) || skill.StartRange < 0f) return false;
+                !IsFinite(skill.AttackRangeMultiplier) || skill.AttackRangeMultiplier < 0f || !IsFinite(skill.StartRange) || skill.StartRange < 0f) return false;
+            if (!IsFinite(skill.MaxHealthRatio) || skill.MaxHealthRatio < 0f || skill.MaxHealthRatio > 1f ||
+                skill.EffectClass < CombatSkillEffectClass.Active || skill.EffectClass > CombatSkillEffectClass.Buff ||
+                skill.SkillType < CombatSkillType.BasicAttack || skill.SkillType > CombatSkillType.Special ||
+                skill.CastMode < CombatSkillCastMode.Automatic || skill.CastMode > CombatSkillCastMode.Manual ||
+                skill.TargetKind < CombatSkillTargetKind.Enemy || skill.TargetKind > CombatSkillTargetKind.Self ||
+                skill.RequiredMissingBuffId < 0 || skill.MaintainBuffId < 0 ||
+                skill.MaintainBuffId > 0 && !catalog.Buffs.ContainsKey(skill.MaintainBuffId) ||
+                skill.CastMode == CombatSkillCastMode.Persistent && (skill.MaintainBuffId == 0 ||
+                    catalog.Buffs[skill.MaintainBuffId].Lifetime != CombatBuffLifetime.Persistent)) return false;
             int previous = -1;
             foreach (var node in skill.Nodes)
             {
@@ -218,6 +231,13 @@ namespace GameLogic.Gameplay.Combat
                 actor.LastInstigatorActorId > snapshot.HighestActorId || actor.PermanentBonuses == null ||
                 actor.PermanentBonuses.Length != 8 || actor.AugmentGroups == null || actor.SkillCooldowns == null ||
                 actor.CueDurationTicks < 0) return false;
+            if (!ValidSkillLoadout(spec.SkillIds) || !ValidSkillLoadout(actor.BaseSpec.SkillIds) || actor.SkillCursor < 0 ||
+                actor.EnabledPersistentSkills == null || actor.ActionAcceptedTick < -1 || actor.ActionAcceptedTick > snapshot.Tick) return false;
+            var enabled = new HashSet<int>();
+            var skillList = GetSkillIds(spec);
+            if (skillList.Length > 0 && actor.SkillCursor >= skillList.Length) return false;
+            foreach (var id in actor.EnabledPersistentSkills)
+                if (!enabled.Add(id) || Array.IndexOf(skillList, id) < 0 || catalog.Skills[id].CastMode != CombatSkillCastMode.Persistent) return false;
             long clock = spec.IsPlayer ? snapshot.Tick : room.Tick;
             if (!ValidSavedClock(actor.CueClock, clock) || !ValidSavedClock(actor.HitClock, clock) ||
                 !ValidSavedClock(actor.DeathClock, clock)) return false;
@@ -227,7 +247,7 @@ namespace GameLogic.Gameplay.Combat
             {
                 var skillIds = new HashSet<int>();
                 foreach (var skill in spec.EnemySkills)
-                    if (!skillIds.Add(skill.SkillId) || skill.Weight <= 0 || !IsFinite(skill.MinHealthRatio) ||
+                    if (!skillIds.Add(skill.SkillId) || !IsFinite(skill.MinHealthRatio) ||
                         !IsFinite(skill.MaxHealthRatio) || !IsFinite(skill.MinDistance) || !IsFinite(skill.MaxDistance) ||
                         skill.MinHealthRatio < 0f || skill.MaxHealthRatio > 1f || skill.MinHealthRatio > skill.MaxHealthRatio ||
                         skill.MinDistance < 0f || skill.MaxDistance < skill.MinDistance ||
@@ -278,12 +298,14 @@ namespace GameLogic.Gameplay.Combat
                 !ValidSavedRange(projectile.RangeDelta, projectile.RangeMultiplier) || !ValidSavedOffense(projectile.Offense) ||
                 !IsFinite(projectile.LastTargetPoint) || !IsFinite(projectile.Position) || !IsFinite(projectile.Previous) ||
                 !IsFinite(projectile.Origin) || !IsFinite(projectile.EndPoint) || !IsFinite(projectile.Velocity) ||
+                !IsFinite(projectile.OrbitAngle) || projectile.ControllerSkillId < 0 ||
+                projectile.ControllerSkillId > 0 && (!catalog.Skills.TryGetValue(projectile.ControllerSkillId, out var controller) || controller.CastMode != CombatSkillCastMode.Persistent) ||
                 !IsFinite(projectile.Direction) || projectile.FlightTicks < 0 || projectile.ElapsedTicks < 0 ||
                 projectile.CreatedTick < 0 || projectile.CreatedTick > snapshot.Tick || projectile.Bounces < 0 ||
                 projectile.Bounces > definition.MaxBounces || !IsFinite(projectile.Distance) || projectile.Distance < 0f ||
                 projectile.DistinctHits < 0 || projectile.DistinctHits > definition.MaxDistinctTargets ||
                 projectile.Hits == null || projectile.Terminal) return false;
-            return definition.Motion == ProjectileMotionKind.Instant || projectile.FlightTicks > 0;
+            return definition.Motion == ProjectileMotionKind.Instant || definition.Motion == ProjectileMotionKind.Orbit || projectile.FlightTicks > 0;
         }
     }
 }

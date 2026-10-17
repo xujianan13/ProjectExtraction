@@ -52,14 +52,17 @@ namespace GameLogic.Gameplay.Expedition
         }
 
         /// <summary>
-        /// 在同一同步事务内提交基础属性和装备强化，不修改角色生命恢复或冷却。
+        /// 在同一同步事务内提交基础属性、装备强化与武器技能，保留冷却和在途攻击。
         /// </summary>
         /// <param name="proposed">已经生成的装备槽候选。</param>
         /// <param name="spec">对应基础属性。</param>
-        /// <returns>两部分都更新成功时为真。</returns>
+        /// <returns>全部预检通过并完成装备更新时为真。</returns>
         private bool TryApplyEquipment(IReadOnlyList<ProjectItem> proposed, CombatActorSpec spec)
         {
+            if (!ProjectWeaponCombat.TryGetBasicSkill(proposed, out int basicSkillId)) return false;
+            int[] skillIds = ProjectWeaponCombat.CreateSkillLoadout(basicSkillId);
             if (!World.TryPreviewBaseAttributes(Player, spec, out _) ||
+                !World.CanSetSkillLoadout(Player, basicSkillId, skillIds) ||
                 !TryBuildEquipmentAugments(proposed, out List<CombatAugmentDefinition> definitions) ||
                 !World.TryReplaceAugments(Player, "equipment", definitions)) return false;
             if (!World.TryReplaceBaseAttributes(Player, spec))
@@ -67,6 +70,9 @@ namespace GameLogic.Gameplay.Expedition
                 World.TryReplaceAugments(Player, "equipment", equipmentAugments);
                 return false;
             }
+            bool skillsApplied = World.TrySetSkillLoadout(Player, basicSkillId, skillIds);
+            UnityEngine.Assertions.Assert.IsTrue(skillsApplied, "同一装备事务内已预检的技能列表必须可以提交。");
+            if (!skillsApplied) return false;
             equipmentAugments = definitions;
             return true;
         }

@@ -1,5 +1,6 @@
 using Cysharp.Threading.Tasks;
 using System.Collections.Generic;
+using System.Text;
 using GameFramework;
 using GameLogic.Gameplay.Combat;
 using GameLogic.Gameplay.Expedition;
@@ -23,6 +24,9 @@ namespace GameLogic.UI.Battle
         private UnityEngine.UI.Button cycleButton;
         private UnityEngine.UI.Text status;
         private UnityEngine.UI.Text hint;
+        private UnityEngine.UI.Text skills;
+        private readonly List<CombatSkillSnapshot> skillSnapshots = new();
+        private readonly StringBuilder skillSummary = new();
         private RectTransform map;
         private UnityEngine.UI.Button resumeChoice;
         private UnityEngine.UI.Button interactButton;
@@ -53,6 +57,12 @@ namespace GameLogic.UI.Battle
             hint.resizeTextForBestFit = true;
             hint.resizeTextMinSize = 16;
             hint.resizeTextMaxSize = 24;
+            skills = ProjectUiFactory.Label(header, string.Empty, 34, TextAnchor.UpperLeft, new Color(0.65f, 0.94f, 1f));
+            skills.name = "CombatSkills";
+            ProjectUiFactory.Height(skills.rectTransform, 206f);
+            skills.resizeTextForBestFit = true;
+            skills.resizeTextMinSize = 30;
+            skills.resizeTextMaxSize = 34;
             map = ProjectUiFactory.Panel(content, "Minimap", new Color(0.04f, 0.07f, 0.1f, 0.7f));
             mapButton = map.gameObject.AddComponent<UnityEngine.UI.Button>();
             mapButton.targetGraphic = map.GetComponent<UnityEngine.UI.Image>();
@@ -143,6 +153,14 @@ namespace GameLogic.UI.Battle
             }
             hint.text = "最终 Boss：" + finalBoss.BossName + "\n" + finalBoss.Weakness + "\n" +
                 (run.IsRogueBuildComplete && !run.IsAwaitingDeathChoice ? "本局技能构筑已完成。" : run.Message);
+            run.World.GetSkillsSnapshot(run.Player, skillSnapshots);
+            skillSummary.Clear();
+            for (int index = 0; index < skillSnapshots.Count; index++)
+            {
+                if (index > 0) skillSummary.Append('\n');
+                skillSummary.Append(CombatSkillText.Summary(skillSnapshots[index]));
+            }
+            skills.text = skillSummary.ToString();
             RefreshTarget();
             bool choosingDeath = run.IsAwaitingDeathChoice;
             bool choosing = run.IsChoosingReward || choosingDeath;

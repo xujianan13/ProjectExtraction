@@ -204,6 +204,13 @@ namespace MiniGame.Tests
             await SetupAsync(new MemorySaveBackend());
             using var scope = new LifetimeScope("NavigationRepeatedDisplacement");
             ConfigureNavigationFixture(scope);
+            foreach (int id in ProjectContentConfig.Player.SkillIDs)
+            {
+                CfgCombatSkillsRow normal = GameTables.CfgCombatSkills.GetById(id);
+                int mode = normal.CastMode;
+                scope.Defer(() => normal.CastMode = mode);
+                normal.CastMode = (int)CombatSkillCastMode.Manual;
+            }
             int skillId = ProjectContentConfig.Player.SkillID;
             int displacementId = GameTables.CfgCombatEffects.GetAll().First(value => value.Kind == (int)CombatEffectKind.Displace).ID;
             foreach (CfgCombatTimelineNodesRow node in GameTables.CfgCombatTimelineNodes.GetAll().Where(value => value.SkillID == skillId))

@@ -84,6 +84,30 @@ namespace GameLogic.Project
                 double.IsNaN(player.SpawnX) || double.IsInfinity(player.SpawnX) || double.IsNaN(player.SpawnZ) ||
                 double.IsInfinity(player.SpawnZ) || GameTables.CfgCombatSkills.GetById(player.SkillID) == null)
             { error = "玩家战斗属性或基础技能引用无效。"; return false; }
+            if (GameTables.CfgCombatSkills.GetById(player.SkillID).SkillType != (int)CombatSkillType.BasicAttack ||
+                player.SkillIDs == null || player.SkillIDs.Length == 0)
+            { error = "玩家基础攻击类型或普通技能列表无效。"; return false; }
+            var playerSkills = new System.Collections.Generic.HashSet<int>();
+            foreach (int skillId in player.SkillIDs)
+            {
+                CfgCombatSkillsRow skill = GameTables.CfgCombatSkills.GetById(skillId);
+                if (skill == null || skill.SkillType != (int)CombatSkillType.Normal || !playerSkills.Add(skillId))
+                { error = "玩家普通技能列表存在重复、缺失或类型不符：" + skillId; return false; }
+            }
+            foreach (CfgItemDefinitionsRow item in GameTables.CfgItemDefinitions.GetAll())
+            {
+                if (item.Type != (int)ProjectItemType.Weapon)
+                {
+                    if (item.WeaponClass != -1 || item.BasicSkillID != 0)
+                    { error = "非武器物品不得配置武器类别或普攻：" + item.ID; return false; }
+                    continue;
+                }
+                CfgCombatSkillsRow basic = GameTables.CfgCombatSkills.GetById(item.BasicSkillID);
+                if (item.WeaponClass < 0 || item.WeaponClass > 2 || basic == null ||
+                    basic.SkillType != (int)CombatSkillType.BasicAttack || !basic.OccupiesAction ||
+                    basic.TargetKind != (int)CombatSkillTargetKind.Enemy || basic.CastMode != (int)CombatSkillCastMode.Automatic)
+                { error = "武器类别或普攻映射无效：" + item.ID; return false; }
+            }
             if (!LevelContentConfig.Validate(out error) || !ProjectHomeShopConfig.Validate(out error) ||
                 !ProjectCombatFeedbackConfig.Validate(out error) || !ProjectGuideConfig.Validate(out error)) return false;
             foreach (CfgRegionContentRow content in GameTables.CfgRegionContent.GetAll())

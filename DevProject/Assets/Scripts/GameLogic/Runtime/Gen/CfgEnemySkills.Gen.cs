@@ -29,16 +29,6 @@ namespace GameLogic.Tables
         public int SkillID;
 
         /// <summary>
-        /// Priority 字段。
-        /// </summary>
-        public int Priority;
-
-        /// <summary>
-        /// Weight 字段。
-        /// </summary>
-        public int Weight;
-
-        /// <summary>
         /// MinHealthRatio 字段。
         /// </summary>
         public double MinHealthRatio;
@@ -57,6 +47,11 @@ namespace GameLogic.Tables
         /// MaxDistance 字段。
         /// </summary>
         public double MaxDistance;
+
+        /// <summary>
+        /// SortOrder 字段。
+        /// </summary>
+        public int SortOrder;
     }
 
     /// <summary>
@@ -93,7 +88,7 @@ namespace GameLogic.Tables
                 TextAsset asset = lease.Asset;
                 if (asset == null) throw new InvalidOperationException("配置表资源不可用：CfgEnemySkills");
                 var envelope = JsonUtility.FromJson(asset.text, typeof(Envelope)) as Envelope;
-                if (envelope == null || envelope.schemaHash != "cfef212105b4f0730c084c0905d2a9641c636190bebc5dbf38a356092913adab" || envelope.rows == null)
+                if (envelope == null || envelope.schemaHash != "df337784ea56d6f77113b6f36ebb5a905d817537b69a53084cc2141db939137c" || envelope.rows == null)
                     throw new InvalidOperationException("配置表结构不匹配：CfgEnemySkills");
 
                 var table = new CfgEnemySkillsTable();

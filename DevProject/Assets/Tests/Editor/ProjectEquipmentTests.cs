@@ -79,11 +79,13 @@ namespace ProjectExtraction.Tests
             Assert.AreEqual(135, stats.MaxHealth);
             Assert.AreEqual(4, stats.Defense);
             Assert.AreEqual(2, stats.AttackRange);
-            Assert.AreEqual(5.25f, stats.MoveSpeed, 0.001f);
+            float baseMoveSpeed = (float)ProjectRulesConfig.Profile.BaseMoveSpeed;
+            Assert.AreEqual(baseMoveSpeed * 1.05f, stats.MoveSpeed, 0.001f);
             armor.Equipped = false;
             Assert.AreEqual(115, ProjectEquipmentRules.Calculate(new[] { weapon, armor }, 0, 1, 0).MaxHealth);
             weapon.Equipped = false;
             Assert.AreEqual(10, ProjectEquipmentRules.Calculate(new[] { weapon, armor }, 0, 0, 0).Attack);
+            Assert.AreEqual(baseMoveSpeed, ProjectEquipmentRules.Calculate(new[] { weapon, armor }, 0, 0, 0).MoveSpeed, 0.001f);
         }
 
         /// <summary>

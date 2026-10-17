@@ -18,10 +18,13 @@ namespace ProjectExtraction.Tests.Editor.Combat
         public void ConfirmedDamage_TriggersOwnersWithoutRecursivePassives()
         {
             var catalog = CreateDamageCatalog(10f, 1);
-            catalog.Buffs.Add(1, new CombatBuffDefinition
+            var bleedBuff = new CombatBuffDefinition
             {
-                BuffId = 1, DurationTicks = 90, IntervalTicks = 30, MaxStacks = 1, PeriodicDamagePerStack = 2f
-            });
+                BuffId = 1, DurationTicks = 90, IntervalTicks = 30, MaxStacks = 1
+            };
+            bleedBuff.OnTick.Add(new CombatEffectDefinition { Kind = CombatEffectKind.Damage, DefinitionId = 101, Value = 2f,
+                CanCritical = false, CanDodge = false });
+            catalog.Buffs.Add(1, bleedBuff);
             var world = CreateWorld(catalog, out var player, out var enemy);
             var hit = Augment("hit", CombatTriggerKind.Hit, CombatEffectKind.Damage, 3f, 5);
             var bleed = Augment("bleed", CombatTriggerKind.Hit, CombatEffectKind.ApplyBuff, 0f);
@@ -207,10 +210,13 @@ namespace ProjectExtraction.Tests.Editor.Combat
         public void BleedBuff_MergesPerSourceAndKeepsDistinctSourceEvents()
         {
             var catalog = new CombatCatalog();
-            catalog.Buffs.Add(1, new CombatBuffDefinition
+            var bleedBuff = new CombatBuffDefinition
             {
-                BuffId = 1, DurationTicks = 4, IntervalTicks = 1, MaxStacks = 3, PeriodicDamagePerStack = 2f
-            });
+                BuffId = 1, DurationTicks = 4, IntervalTicks = 1, MaxStacks = 3
+            };
+            bleedBuff.OnTick.Add(new CombatEffectDefinition { Kind = CombatEffectKind.Damage, DefinitionId = 101, Value = 2f,
+                CanCritical = false, CanDodge = false });
+            catalog.Buffs.Add(1, bleedBuff);
             var world = CreateWorld(catalog, out var firstSource, out var target);
             var secondSource = world.CreateActor(new CombatActorSpec
             {

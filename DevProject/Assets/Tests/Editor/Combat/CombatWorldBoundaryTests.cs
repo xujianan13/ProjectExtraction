@@ -20,13 +20,17 @@ namespace ProjectExtraction.Tests.Editor.Combat
             var stack = new CombatBuffDefinition
             {
                 BuffId = 21, DurationTicks = 4, IntervalTicks = 1, MaxStacks = 2,
-                Merge = CombatBuffMerge.AddStack, PeriodicDamagePerStack = 1f
+                Merge = CombatBuffMerge.AddStack
             };
             var reset = new CombatBuffDefinition
             {
                 BuffId = 22, DurationTicks = 4, IntervalTicks = 2, MaxStacks = 1,
-                Merge = CombatBuffMerge.ResetDuration, PeriodicDamagePerStack = 1f
+                Merge = CombatBuffMerge.ResetDuration
             };
+            stack.OnTick.Add(new CombatEffectDefinition { Kind = CombatEffectKind.Damage, DefinitionId = 210, Value = 1f,
+                CanCritical = false, CanDodge = false });
+            reset.OnTick.Add(new CombatEffectDefinition { Kind = CombatEffectKind.Damage, DefinitionId = 220, Value = 1f,
+                CanCritical = false, CanDodge = false });
             catalog.Buffs.Add(21, stack);
             catalog.Buffs.Add(22, reset);
             var world = new CombatWorld(catalog);

@@ -3,7 +3,7 @@
   "sources": [
     {
       "path": "config/excel/schema.json",
-      "sha256": "3f0e27d69c26e9d2a65d8fb0a072975c47f64522184166b484388fd30658e512"
+      "sha256": "c3c322f3337d876c04d3ffef26238d41edae15c15aea483fb2afdbd197e8c748"
     },
     {
       "path": "config/excel/CfgAdvancedAffixes.xlsx",
@@ -47,31 +47,31 @@
     },
     {
       "path": "config/excel/CfgCombatAugments.xlsx",
-      "sha256": "c0a042907902bba523be007930d5e1b51ddae26a70b1e39f0164622b98002a7c"
+      "sha256": "519c38336e9d85fb46814aaa2cfbbd9992530546b4ae44104e86911d1701f045"
     },
     {
       "path": "config/excel/CfgCombatBuffs.xlsx",
-      "sha256": "f8e5c485181a2461ff4b001b317ab2b46b9bc136eac21fdb192ca460709ce737"
+      "sha256": "9f58f25be00412efaee3aac70e6210c9c620f49464980c8b3e15fc934940dd6a"
     },
     {
       "path": "config/excel/CfgCombatEffects.xlsx",
-      "sha256": "1ec1c1f4e43d12376160938c97e9d52612825cb17889af475ed1e2bb4c6dbbce"
+      "sha256": "971b170043e9ba3aff3e0199655394476fbc8373a99520c73c402ee288ebf0ab"
     },
     {
       "path": "config/excel/CfgCombatFeedback.xlsx",
-      "sha256": "bc8db05dd2b2e1ad44f5313140e4b0d728e2b90f668baf68e6859f46ecad6047"
+      "sha256": "9863a7eceff2b8ae4a3867e3d907ba05604287d4b83993acc1d06401badc99ab"
     },
     {
       "path": "config/excel/CfgCombatProjectiles.xlsx",
-      "sha256": "ff5da3f8e8e4f9dc95bcebe2f8c147db9475b2027e031dca2162eb9e4b57cb2e"
+      "sha256": "ab69338d2cc6eb748d3b2024dc21932010f7889638803ca2d2d76ca9ca7684e2"
     },
     {
       "path": "config/excel/CfgCombatSkills.xlsx",
-      "sha256": "942865d4c292d1d26d6c97c163a952dc7851afd7314c603af4d2aa422da567b2"
+      "sha256": "b49b0a16c820628f15c86c45c7e078666f8bc64768ddd2050a65ea01c50d3b6e"
     },
     {
       "path": "config/excel/CfgCombatTimelineNodes.xlsx",
-      "sha256": "0c8ff44141e21ad78b79d6939580921380f81aef576208fd74e4baadfe39e5f2"
+      "sha256": "67781204bb52a3c6179169f059a0b7bc61d70574d2b58a8ab5eee5d9e6436b05"
     },
     {
       "path": "config/excel/CfgDisplay.xlsx",
@@ -91,7 +91,7 @@
     },
     {
       "path": "config/excel/CfgEnemySkills.xlsx",
-      "sha256": "562895cf7d7159e346f7edfa1bc81511afea9267e0b9baa2af13ac48e72fc558"
+      "sha256": "a5ab6c1c619e782adb94f569995eed627b5c8e5f5dfa3f7bff31223edaea754d"
     },
     {
       "path": "config/excel/CfgGuide.xlsx",
@@ -99,11 +99,11 @@
     },
     {
       "path": "config/excel/CfgHomeShop.xlsx",
-      "sha256": "037448d9a62803f9aa58cb4b8a1dbe5a183be37037a5026bc4e802952aba8ff6"
+      "sha256": "27ed1c15d596b35105e92724b54e90c0308c83e9d54388781186b137d58e16e1"
     },
     {
       "path": "config/excel/CfgItemDefinitions.xlsx",
-      "sha256": "c3e5d866ff44c43a30d5a5ed9503878afe33e7f203483c4e2866d2ef899ba120"
+      "sha256": "3548501d0b5dbb9aaae8f8d5f1294c2f23e72bd33b906ec40da25613e0597903"
     },
     {
       "path": "config/excel/CfgLevels.xlsx",
@@ -127,7 +127,7 @@
     },
     {
       "path": "config/excel/CfgPlayerCombat.xlsx",
-      "sha256": "76079def9a80cba896661dcd7eeacdd2cd0dcc734104245e7f237ebea0a7e4a7"
+      "sha256": "37833561e478e69cf369dcced11abd44a7bc15c25271b50d288d4cf8036dcd02"
     },
     {
       "path": "config/excel/CfgProfile.xlsx",
@@ -163,7 +163,7 @@
     },
     {
       "path": "config/excel/CfgRogueRewards.xlsx",
-      "sha256": "07305bb2d250fe4b9f6fb2550bb81624f477d01132617f2e0db21063749b264f"
+      "sha256": "5ad93fdd1ecc2c2c83ca631d294ebd5df2ca002956c2602c9339691d66f3caf8"
     },
     {
       "path": "config/excel/CfgRunPersistence.xlsx",
@@ -652,6 +652,10 @@
         {
           "name": "ValueMode",
           "type": "int"
+        },
+        {
+          "name": "AffectsBasicAttack",
+          "type": "bool"
         }
       ]
     },
@@ -688,10 +692,6 @@
           "type": "number"
         },
         {
-          "name": "PeriodicDamagePerStack",
-          "type": "number"
-        },
-        {
           "name": "OnApplyEffectIDs",
           "type": "int[]"
         },
@@ -702,6 +702,10 @@
         {
           "name": "OnExpireEffectIDs",
           "type": "int[]"
+        },
+        {
+          "name": "Lifetime",
+          "type": "int"
         }
       ]
     },
@@ -776,6 +780,14 @@
         {
           "name": "RequireLineOfSight",
           "type": "bool"
+        },
+        {
+          "name": "Count",
+          "type": "int"
+        },
+        {
+          "name": "SpreadDegrees",
+          "type": "number"
         }
       ]
     },
@@ -944,6 +956,50 @@
         {
           "name": "OnExpireEffectIDs",
           "type": "int[]"
+        },
+        {
+          "name": "ReacquireRange",
+          "type": "number"
+        },
+        {
+          "name": "OrbitRadius",
+          "type": "number"
+        },
+        {
+          "name": "OrbitDegreesPerSecond",
+          "type": "number"
+        },
+        {
+          "name": "OrbitInitialAngle",
+          "type": "number"
+        },
+        {
+          "name": "VisualScaleX",
+          "type": "number"
+        },
+        {
+          "name": "VisualScaleY",
+          "type": "number"
+        },
+        {
+          "name": "VisualScaleZ",
+          "type": "number"
+        },
+        {
+          "name": "VisualRed",
+          "type": "number"
+        },
+        {
+          "name": "VisualGreen",
+          "type": "number"
+        },
+        {
+          "name": "VisualBlue",
+          "type": "number"
+        },
+        {
+          "name": "VisualHeight",
+          "type": "number"
         }
       ]
     },
@@ -969,6 +1025,46 @@
         },
         {
           "name": "StartRangeSource",
+          "type": "int"
+        },
+        {
+          "name": "Name",
+          "type": "string"
+        },
+        {
+          "name": "Description",
+          "type": "string"
+        },
+        {
+          "name": "EffectClass",
+          "type": "int"
+        },
+        {
+          "name": "SkillType",
+          "type": "int"
+        },
+        {
+          "name": "CastMode",
+          "type": "int"
+        },
+        {
+          "name": "TargetKind",
+          "type": "int"
+        },
+        {
+          "name": "OccupiesAction",
+          "type": "bool"
+        },
+        {
+          "name": "MaxHealthRatio",
+          "type": "number"
+        },
+        {
+          "name": "RequiredMissingBuffId",
+          "type": "int"
+        },
+        {
+          "name": "MaintainBuffId",
           "type": "int"
         }
       ]
@@ -1172,14 +1268,6 @@
           "type": "int"
         },
         {
-          "name": "Priority",
-          "type": "int"
-        },
-        {
-          "name": "Weight",
-          "type": "int"
-        },
-        {
           "name": "MinHealthRatio",
           "type": "number"
         },
@@ -1194,6 +1282,10 @@
         {
           "name": "MaxDistance",
           "type": "number"
+        },
+        {
+          "name": "SortOrder",
+          "type": "int"
         }
       ]
     },
@@ -1352,6 +1444,14 @@
         {
           "name": "CollectionID",
           "type": "string"
+        },
+        {
+          "name": "WeaponClass",
+          "type": "int"
+        },
+        {
+          "name": "BasicSkillID",
+          "type": "int"
         }
       ]
     },
@@ -1560,6 +1660,10 @@
         {
           "name": "ScaleZ",
           "type": "number"
+        },
+        {
+          "name": "SkillIDs",
+          "type": "int[]"
         }
       ]
     },
@@ -2203,31 +2307,31 @@
     },
     {
       "path": "DevProject/Assets/GameResources/Config/Tables/Table_CfgCombatAugments.json",
-      "sha256": "5d961b13f09ca38f2378af8118a9d91eaeebfbc7bb92ff2558412c5fc8a470d6"
+      "sha256": "2401c13934d0479bf9e9c83d16b7220d2538eefef3a0f2592a5ee2eeb238829c"
     },
     {
       "path": "DevProject/Assets/Scripts/GameLogic/Runtime/Gen/CfgCombatAugments.Gen.cs",
-      "sha256": "fcf4b64fca1623a0eb22e8d573d0bbf068229fce737e8a4df261f677cfb449fb"
+      "sha256": "62829874b0f5d6978cf70a0c5f1c3a0999ae17b7b62c0081ad7104b052eaf997"
     },
     {
       "path": "DevProject/Assets/GameResources/Config/Tables/Table_CfgCombatBuffs.json",
-      "sha256": "45a668913eaca4d8b4ad5744225bffcadc4621926163fbc78384e4c8568a357c"
+      "sha256": "c89e5ed26071b85882aece6a43e16251875a852edfba35593f7b3756066c566b"
     },
     {
       "path": "DevProject/Assets/Scripts/GameLogic/Runtime/Gen/CfgCombatBuffs.Gen.cs",
-      "sha256": "0f8f854c57d386ac3217484bfbb41a0d0471eae57ba109bf3e5041b568308091"
+      "sha256": "5eeb321083024406ef89544dfeea120612d97f613c276374aed01a3f599fb994"
     },
     {
       "path": "DevProject/Assets/GameResources/Config/Tables/Table_CfgCombatEffects.json",
-      "sha256": "f2e738e62cc1a57cd1c99cb962d0feaae5dde2d127c44fec7eed485190836fd9"
+      "sha256": "13f0d0aee40f821f39800ead13f378006e40aa3d00e2de240b4ba26655f8d9ad"
     },
     {
       "path": "DevProject/Assets/Scripts/GameLogic/Runtime/Gen/CfgCombatEffects.Gen.cs",
-      "sha256": "0989e5547c6abc8ae176e00d3543028b028f65b45d78ae18069d0c56dbe13aff"
+      "sha256": "124540ab18632bf744f6dce7590490c322bbbd2d758f7b58cde703d33d54757e"
     },
     {
       "path": "DevProject/Assets/GameResources/Config/Tables/Table_CfgCombatFeedback.json",
-      "sha256": "5b6b3e54959bea77fbb8f5cd5be7e978b66da84a89fb604d2bfc7f957ee8a2b9"
+      "sha256": "ea628512f74709d090695a741ae6ffd59f82286b16a60863eed84e6ed70afa53"
     },
     {
       "path": "DevProject/Assets/Scripts/GameLogic/Runtime/Gen/CfgCombatFeedback.Gen.cs",
@@ -2235,23 +2339,23 @@
     },
     {
       "path": "DevProject/Assets/GameResources/Config/Tables/Table_CfgCombatProjectiles.json",
-      "sha256": "cc3dbb460ecef9190d0bb21482e11468f33dd8d47f329b0307d45d81005bb5c2"
+      "sha256": "f540707753b958c13b7488acd45400ea79ea09ec89f8e6a55ae9e9230694b4f9"
     },
     {
       "path": "DevProject/Assets/Scripts/GameLogic/Runtime/Gen/CfgCombatProjectiles.Gen.cs",
-      "sha256": "77aec8483d4cafc071bafa4fcda977bb9992b453aed34a9daac3a59211fddab2"
+      "sha256": "d964ba2fcbec0486831024da45e4f3952076ed2e6fd20273b87a6993d49e28b0"
     },
     {
       "path": "DevProject/Assets/GameResources/Config/Tables/Table_CfgCombatSkills.json",
-      "sha256": "e2c5a689ecf3b81a8910b554b98e1c8f053dd56168a80f6e869bb72a1effbc20"
+      "sha256": "9f52437c816fb2ca09f040eea1a5e05a14574bc5acfe4eae8821565aadcec5f4"
     },
     {
       "path": "DevProject/Assets/Scripts/GameLogic/Runtime/Gen/CfgCombatSkills.Gen.cs",
-      "sha256": "2e583ff12f2532bd43554a4826733e45105d54814d0a1b1acf82a7139b77785c"
+      "sha256": "f62c29374d772743ac0e15b4224e9f885705f8ef6353072bd4d21cb5dabd0653"
     },
     {
       "path": "DevProject/Assets/GameResources/Config/Tables/Table_CfgCombatTimelineNodes.json",
-      "sha256": "90f2b4c0f5aaa8400634481bfad9d94c24fc7f4919202009b19eab6b25287407"
+      "sha256": "5e661a8f847af376279c4be43cfbe08538a52ba9618986c7c4df4202d92e47ac"
     },
     {
       "path": "DevProject/Assets/Scripts/GameLogic/Runtime/Gen/CfgCombatTimelineNodes.Gen.cs",
@@ -2291,11 +2395,11 @@
     },
     {
       "path": "DevProject/Assets/GameResources/Config/Tables/Table_CfgEnemySkills.json",
-      "sha256": "85e7ac684a7642b19481854db764619a7b1830efd41b240f22e3928fdb1278b8"
+      "sha256": "920aab609d2cb68cb5c7d42bc34f578875397c85d2708b2060f4baf2ecd53ff8"
     },
     {
       "path": "DevProject/Assets/Scripts/GameLogic/Runtime/Gen/CfgEnemySkills.Gen.cs",
-      "sha256": "787c10b5248899de5c87888d3ef4abd8bc78c0a5ab5306f40da1d54ed48b05d3"
+      "sha256": "aa4adbdb1f22139c818ac464a9f17ad9dcbe4acf1d3c04efa78253f575173299"
     },
     {
       "path": "DevProject/Assets/GameResources/Config/Tables/Table_CfgGuide.json",
@@ -2307,7 +2411,7 @@
     },
     {
       "path": "DevProject/Assets/GameResources/Config/Tables/Table_CfgHomeShop.json",
-      "sha256": "ff1c2b2e8f3b00cbec01c8a5ddf55092d163929dfe645263004fa086582be622"
+      "sha256": "1af7f6141ed51023e2419c1d49a7eb14cdab3bbf1d6a9037f84b3da92a34d213"
     },
     {
       "path": "DevProject/Assets/Scripts/GameLogic/Runtime/Gen/CfgHomeShop.Gen.cs",
@@ -2315,11 +2419,11 @@
     },
     {
       "path": "DevProject/Assets/GameResources/Config/Tables/Table_CfgItemDefinitions.json",
-      "sha256": "05d417628d72ce8c96272407fb727e78e6c0d4824cd960b9f95ea58866a2baaa"
+      "sha256": "e31a46d00c5c96bdce9ecb58df69f6e9dde93f7e9e120ae52fecb29a1669a2f7"
     },
     {
       "path": "DevProject/Assets/Scripts/GameLogic/Runtime/Gen/CfgItemDefinitions.Gen.cs",
-      "sha256": "af0f0662c777ad8dc2b9a26ab4f63c1beab7aed2796bbed540ed8250cc4e69e3"
+      "sha256": "64fd3b3a78b71c5f05068f91655a3948b486576ee91e9a35446b609dd6a5e54f"
     },
     {
       "path": "DevProject/Assets/GameResources/Config/Tables/Table_CfgLevels.json",
@@ -2363,11 +2467,11 @@
     },
     {
       "path": "DevProject/Assets/GameResources/Config/Tables/Table_CfgPlayerCombat.json",
-      "sha256": "5df8b26b85010d1cb36565f9f72b637dac11c48c94432487b7d20cc79fdc7a6b"
+      "sha256": "cefeb2ef3e36e97f8c5f7e87f1e37fae720f8634f23de6f68c7087400fb06814"
     },
     {
       "path": "DevProject/Assets/Scripts/GameLogic/Runtime/Gen/CfgPlayerCombat.Gen.cs",
-      "sha256": "cd2a3f15be857231740669cfa9f90c6e069a97d3f6e38063086a26994d5138fe"
+      "sha256": "7eade4563df02590988f6c975a53bb174880c1173d2154ecc3970be700e98de6"
     },
     {
       "path": "DevProject/Assets/GameResources/Config/Tables/Table_CfgProfile.json",
@@ -2435,7 +2539,7 @@
     },
     {
       "path": "DevProject/Assets/GameResources/Config/Tables/Table_CfgRogueRewards.json",
-      "sha256": "549e8f59417ed02bb1f7ebab58e9de6a2bb137fdbac3aed008200636fa5c7880"
+      "sha256": "99606859a07d1f71ba6043ed4206fa4f89912463410c76a4e0669dfd73ee775a"
     },
     {
       "path": "DevProject/Assets/Scripts/GameLogic/Runtime/Gen/CfgRogueRewards.Gen.cs",

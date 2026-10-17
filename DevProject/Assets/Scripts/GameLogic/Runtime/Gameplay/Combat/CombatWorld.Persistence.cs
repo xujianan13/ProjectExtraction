@@ -59,7 +59,7 @@ namespace GameLogic.Gameplay.Combat
                 result.Casts.Add(new CombatCastState { Key = slots[id].PersistentKey, OwnerKey = slots[cast.Owner].PersistentKey,
                     SkillId = cast.SkillId, StartTick = cast.StartTick, TargetKey = ExportReference(cast.Target, invalidReferences),
                     TargetPoint = cast.TargetPoint, Forward = cast.Forward, NextNode = cast.NextNode, RangeDelta = cast.RangeDelta,
-                    RangeMultiplier = cast.RangeMultiplier, UsesWorldClock = cast.UsesWorldClock, Offense = ExportOffense(cast.Offense) });
+                    TimeMultiplier = cast.TimeMultiplier, RangeMultiplier = cast.RangeMultiplier, UsesWorldClock = cast.UsesWorldClock, Offense = ExportOffense(cast.Offense) });
             }
             foreach (int id in OrderedEntityIds(displacements.Keys))
             {
@@ -79,7 +79,7 @@ namespace GameLogic.Gameplay.Combat
                     Position = value.Position, Previous = value.Previous, Origin = value.Origin, EndPoint = value.EndPoint,
                     Velocity = value.Velocity, Direction = value.Direction, FlightTicks = value.FlightTicks,
                     ElapsedTicks = value.ElapsedTicks, CreatedTick = value.CreatedTick, Bounces = value.Bounces,
-                    Distance = value.Distance, DistinctHits = value.DistinctHits, Terminal = value.Terminal };
+                    Distance = value.Distance, DistinctHits = value.DistinctHits, Terminal = value.Terminal, OrbitAngle = value.OrbitAngle, ControllerSkillId = value.ControllerSkillId };
                 foreach (var hit in value.Hits)
                     projectile.Hits.Add(new CombatProjectileHitState { TargetKey = ExportReference(hit.Key, invalidReferences),
                         Tick = hit.Value.Tick, Count = hit.Value.Count });
@@ -111,7 +111,7 @@ namespace GameLogic.Gameplay.Combat
         {
             world = null;
             error = "战斗快照版本、随机状态或集合无效。";
-            if (catalog == null || snapshot == null || snapshot.Version != 1 ||
+            if (catalog == null || snapshot == null || snapshot.Version != 2 ||
                 snapshot.RandomAlgorithmVersion != PersistentRandom.AlgorithmVersion ||
                 !PersistentRandom.TryRestore(snapshot.RandomState, out var restoredRandom) || snapshot.Rooms == null ||
                 snapshot.Actors == null || snapshot.Casts == null || snapshot.Displacements == null ||
@@ -236,6 +236,7 @@ namespace GameLogic.Gameplay.Combat
         /// <returns>不共享技能数组的配置。</returns>
         private static CombatActorSpec CopySpec(CombatActorSpec spec)
         {
+            if (spec.SkillIds != null) spec.SkillIds = (int[])spec.SkillIds.Clone();
             if (spec.EnemySkills != null) spec.EnemySkills = (CombatEnemySkillDefinition[])spec.EnemySkills.Clone();
             if (spec.DamageVulnerabilities != null)
                 spec.DamageVulnerabilities = (CombatDamageVulnerability[])spec.DamageVulnerabilities.Clone();
@@ -251,7 +252,7 @@ namespace GameLogic.Gameplay.Combat
         {
             var copy = new CombatAugmentDefinition { Id = definition.Id, Trigger = definition.Trigger,
                 Chance = definition.Chance, CooldownTicks = definition.CooldownTicks, TargetSelf = definition.TargetSelf,
-                SkillId = definition.SkillId, CooldownMultiplier = definition.CooldownMultiplier,
+                AffectsBasicAttack = definition.AffectsBasicAttack, SkillId = definition.SkillId, CooldownMultiplier = definition.CooldownMultiplier,
                 RangeMultiplier = definition.RangeMultiplier, DamageMultiplier = definition.DamageMultiplier };
             foreach (var effect in definition.Effects) copy.Effects.Add(CopyEffectWithRadius(effect, effect.Radius));
             return copy;
@@ -272,6 +273,10 @@ namespace GameLogic.Gameplay.Combat
                 DeathPublished = actor.DeathPublished, LastInstigatorActorId = actor.LastInstigatorActorId, Velocity = actor.Velocity,
                 CueDirection = actor.CueDirection, CueId = actor.CueId, CueDurationTicks = actor.CueDurationTicks,
                 CueClock = actor.CueClock, HitClock = actor.HitClock, DeathClock = actor.DeathClock };
+            result.SkillCursor = actor.SkillCursor;
+            result.ActionAcceptedTick = actor.ActionAcceptedTick;
+            result.EnabledPersistentSkills.AddRange(actor.EnabledPersistentSkills);
+            result.EnabledPersistentSkills.Sort();
             var skillIds = new List<int>(actor.SkillCooldowns.Keys);
             skillIds.Sort();
             foreach (int skillId in skillIds) result.SkillCooldowns.Add(new CombatSkillCooldownState

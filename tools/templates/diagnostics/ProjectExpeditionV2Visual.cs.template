@@ -87,7 +87,16 @@ namespace MiniGame.Tests
                 GameWindow hud = await WaitForWindowAsync(ProjectServices.BattleHudWindow);
                 await WaitRunSavedAsync(run);
                 await WaitForAsync(() => run.CanAcceptPlayerInput);
+                run.Advance(CombatWorld.TickSeconds);
+                await WaitRunSavedAsync(run);
+                var combatSkills = new List<CombatSkillSnapshot>();
+                run.World.GetSkillsSnapshot(run.Player, combatSkills);
+                Assert.That(combatSkills.Single(skill => skill.SkillId == 102).IsPersistentActive, Is.True);
+                AssertSkillOrbitCount(run, 3);
                 await SettleVisualLayoutAsync();
+                GameObject presentation = GameObject.Find("ExpeditionPresentation");
+                Assert.That(presentation.GetComponentsInChildren<Transform>(false).Count(item => item.name.StartsWith("Projectile_")),
+                    Is.EqualTo(3), "剑阵战斗实体必须同步为三个可见表现实例。");
                 RegionMapMarker bossMarker = run.GetMapProjection().Markers.Single(item => item.Kind == RegionMapMarkerKind.Boss);
                 Assert.That(hud.Root.GetComponentsInChildren<Text>(false).Single(item => item.name == "Marker_" + bossMarker.Id).text,
                     Is.EqualTo("▲"), "远处且未追踪的尾王应显示边缘指向。");
@@ -97,6 +106,14 @@ namespace MiniGame.Tests
                 Rect mapBounds = CheckVisualRect((RectTransform)minimap.transform, "HUD/Minimap", record, failures);
                 Rect stickBounds = CheckVisualRect(FindVisualRect(hud, "MoveStick"), "HUD/MoveStick", record, failures);
                 Rect actionBounds = CheckVisualRect(FindVisualRect(hud, "ControlActions"), "HUD/ControlActions", record, failures);
+                Rect skillsBounds = CheckVisualRect(FindVisualRect(hud, "CombatSkills"), "HUD/CombatSkills", record, failures);
+                Text skillsLabel = hud.Root.GetComponentsInChildren<Text>(false).Single(item => item.name == "CombatSkills");
+                foreach (string skillName in new[] { "裂地斩", "追魂飞剑", "环身剑阵", "复苏" })
+                    Assert.That(skillsLabel.text, Does.Contain(skillName));
+                Assert.That(skillsLabel.text, Does.Contain("环身剑阵 持续"));
+                File.AppendAllText(record, "CombatSkills: WorldTick=" + run.World.TickIndex + "; OrbitCount=3; Persistent=True\n");
+                CheckVisualOverlap(skillsBounds, mapBounds, "HUD 技能状态与小地图", failures);
+                CheckVisualOverlap(skillsBounds, stickBounds, "HUD 技能状态与摇杆", failures);
                 if (mapBounds.center.x <= Screen.safeArea.center.x || mapBounds.center.y <= Screen.safeArea.center.y)
                     failures.Add("HUD 小地图没有位于安全区右上方。");
                 CheckVisualOverlap(mapBounds, actionBounds, "HUD 小地图与操作区", failures);
@@ -302,13 +319,14 @@ namespace MiniGame.Tests
         }
 
         /// <summary>
-        /// 等待安全区、布局组件和 Canvas 完成真实逐帧更新。
+        /// 更新隔离测试的场景表现，等待安全区、布局组件和 Canvas 完成真实逐帧更新。
         /// </summary>
         /// <returns>四帧布局稳定任务。</returns>
         private static async UniTask SettleVisualLayoutAsync()
         {
             for (int frame = 0; frame < 4; frame++)
             {
+                if (!GameEntry.HasHost) ((GameplayModule)GameEntry.Get<IGameplayModule>()).OnLateUpdate(0f);
                 Canvas.ForceUpdateCanvases();
                 await UniTask.Yield(PlayerLoopTiming.LastPostLateUpdate);
             }

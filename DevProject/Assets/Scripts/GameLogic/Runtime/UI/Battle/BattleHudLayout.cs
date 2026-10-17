@@ -64,7 +64,7 @@ namespace GameLogic.UI.Battle
             bool besideMap = false;
             float controlsHeight = FitActions(height, mapSize, padding, besideMap);
             float headerWidth = width - mapSize - padding * 3f;
-            Pin(header, new Vector2(0f, 1f), new Vector2(padding, -padding), new Vector2(headerWidth, 214f));
+            Pin(header, new Vector2(0f, 1f), new Vector2(padding, -padding), new Vector2(headerWidth, 430f));
             Pin(minimap, Vector2.one, new Vector2(-padding, -padding), Vector2.one * mapSize);
             Pin(stick, Vector2.zero, new Vector2(padding, padding * 2f), Vector2.one * diameter);
             Pin(actions, Vector2.right, new Vector2(-padding, padding * 2f), new Vector2(actionWidth, controlsHeight));

@@ -37,7 +37,7 @@ namespace GameLogic.Gameplay.Combat
                 if (ContainsDamageEffect(projectile.OnHit, effectId) || ContainsDamageEffect(projectile.OnArrive, effectId) ||
                     ContainsDamageEffect(projectile.OnExpire, effectId)) return true;
             foreach (var buff in catalog.Buffs.Values)
-                if (buff.BuffId == effectId && buff.PeriodicDamagePerStack > 0f || ContainsDamageEffect(buff.OnApply, effectId) ||
+                if (ContainsDamageEffect(buff.OnApply, effectId) ||
                     ContainsDamageEffect(buff.OnTick, effectId) || ContainsDamageEffect(buff.OnExpire, effectId)) return true;
             return false;
         }

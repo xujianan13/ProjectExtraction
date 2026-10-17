@@ -29,15 +29,28 @@ namespace GameLogic.Gameplay.Combat
                 return Fail("技能、效果或动画设置表为空或行数无效。", out error);
 
             foreach (CfgCombatSkillsRow row in GameTables.CfgCombatSkills.GetAll())
-                if (row.ID <= 0 || row.DurationTicks <= 0 || row.CooldownTicks < 0 ||
-                    !FiniteNonnegative(row.StartRange) || row.StartRangeSource < 0 || row.StartRangeSource > 1)
+                if (row.ID <= 0 || row.DurationTicks < 0 || row.CooldownTicks < 0 ||
+                    !FiniteNonnegative(row.StartRange) || row.StartRangeSource < 0 || row.StartRangeSource > 1 ||
+                    string.IsNullOrWhiteSpace(row.Name) || string.IsNullOrWhiteSpace(row.Description) ||
+                    row.EffectClass < 0 || row.EffectClass > (int)CombatSkillEffectClass.Buff ||
+                    row.SkillType < 0 || row.SkillType > (int)CombatSkillType.Special ||
+                    row.CastMode < 0 || row.CastMode > (int)CombatSkillCastMode.Manual ||
+                    row.TargetKind < 0 || row.TargetKind > (int)CombatSkillTargetKind.Self ||
+                    !FiniteNonnegative(row.MaxHealthRatio) || row.MaxHealthRatio > 1 ||
+                    row.RequiredMissingBuffId < 0 || row.MaintainBuffId < 0 ||
+                    row.RequiredMissingBuffId > 0 && GameTables.CfgCombatBuffs.GetById(row.RequiredMissingBuffId) == null ||
+                    row.MaintainBuffId > 0 && GameTables.CfgCombatBuffs.GetById(row.MaintainBuffId) == null ||
+                    row.CastMode == (int)CombatSkillCastMode.Persistent &&
+                    (row.TargetKind != (int)CombatSkillTargetKind.Self || row.MaintainBuffId <= 0 ||
+                     GameTables.CfgCombatBuffs.GetById(row.MaintainBuffId)?.Lifetime != (int)CombatBuffLifetime.Persistent))
                     return Fail("技能参数无效：" + row.ID, out error);
 
             var nodeCounts = new Dictionary<int, int>();
             foreach (CfgCombatTimelineNodesRow row in GameTables.CfgCombatTimelineNodes.GetAll())
             {
                 CfgCombatSkillsRow skill = GameTables.CfgCombatSkills.GetById(row.SkillID);
-                if (row.ID <= 0 || skill == null || row.Tick < 0 || row.Tick >= skill.DurationTicks ||
+                if (row.ID <= 0 || skill == null || row.Tick < 0 ||
+                    (skill.DurationTicks == 0 ? row.Tick != 0 : row.Tick >= skill.DurationTicks) ||
                     row.EffectIDs == null || row.EffectIDs.Length == 0 ||
                     !ValidateEffectIds(row.EffectIDs, "时间轴 " + row.ID, out error))
                     return error == null ? Fail("时间轴参数或技能引用无效：" + row.ID, out error) : false;
@@ -50,11 +63,12 @@ namespace GameLogic.Gameplay.Combat
             {
                 if (row.ID <= 0 || row.DefinitionID <= 0 || row.Kind < 0 || row.Kind > (int)CombatEffectKind.Heal ||
                     row.Attribute < 0 || row.Attribute > (int)CombatAttributeKind.DamageReduction ||
-                    row.Shape < 0 || row.Shape > (int)CombatHitShape.Capsule ||
+                    row.Shape < 0 || row.Shape > (int)CombatHitShape.ForwardBox ||
                     row.RadiusSource < 0 || row.RadiusSource > 1 || row.DurationTicks < 0 ||
                     !Finite(row.Value) || !FiniteNonnegative(row.AttackCoefficient) ||
                     !FiniteNonnegative(row.Radius) || !FiniteNonnegative(row.Width) ||
-                    !FiniteNonnegative(row.Height) || !Finite(row.Angle) || row.Angle < 0 || row.Angle > 360)
+                    !FiniteNonnegative(row.Height) || !Finite(row.Angle) || row.Angle < 0 || row.Angle > 360 ||
+                    row.Count <= 0 || row.Count > 64 || !FiniteNonnegative(row.SpreadDegrees) || row.SpreadDegrees > 360)
                     return Fail("效果参数无效：" + row.ID, out error);
                 var kind = (CombatEffectKind)row.Kind;
                 if ((kind == CombatEffectKind.Damage || kind == CombatEffectKind.Heal) && row.Value < 0 ||
@@ -68,25 +82,39 @@ namespace GameLogic.Gameplay.Combat
 
             foreach (CfgCombatProjectilesRow row in GameTables.CfgCombatProjectiles.GetAll())
             {
-                if (row.ID <= 0 || row.Motion < 0 || row.Motion > (int)ProjectileMotionKind.Instant ||
+                if (row.ID <= 0 || row.Motion < 0 || row.Motion > (int)ProjectileMotionKind.Orbit ||
                     row.Target < 0 || row.Target > (int)ProjectileTargetKind.EntityLock ||
                     row.SpawnAnchor < 0 || row.SpawnAnchor > (int)ProjectileSpawnAnchor.TargetEntityAtSpawn ||
-                    row.LostTarget < 0 || row.LostTarget > (int)ProjectileLostTarget.Expire ||
+                    row.LostTarget < 0 || row.LostTarget > (int)ProjectileLostTarget.Reacquire ||
                     !Finite(row.SpawnOffsetX) || !Finite(row.SpawnOffsetY) || !Finite(row.SpawnOffsetZ) ||
                     !Finite(row.GravityX) || !Finite(row.GravityY) || !Finite(row.GravityZ) ||
                     !Finite(row.Speed) || !Finite(row.Acceleration) || !Finite(row.MaxSpeed) ||
                     !FiniteNonnegative(row.TurnDegreesPerSecond) || !Finite(row.ArcHeight) ||
                     !FiniteNonnegative(row.MaxDistance) || !FiniteNonnegative(row.Radius) ||
                     row.FlightTicks < 0 || row.LifetimeTicks < 0 || row.MaxDistinctTargets <= 0 ||
-                    row.MaxHitsPerTarget <= 0 || row.MaxBounces < 0 || row.SameTargetIntervalTicks < 0)
+                    row.MaxHitsPerTarget <= 0 || row.MaxBounces < 0 || row.SameTargetIntervalTicks < 0 ||
+                    !FiniteNonnegative(row.ReacquireRange) || !FiniteNonnegative(row.OrbitRadius) ||
+                    !Finite(row.OrbitDegreesPerSecond) || !Finite(row.OrbitInitialAngle) ||
+                    !FinitePositive(row.VisualScaleX) || !FinitePositive(row.VisualScaleY) || !FinitePositive(row.VisualScaleZ) ||
+                    !UnitInterval(row.VisualRed) || !UnitInterval(row.VisualGreen) || !UnitInterval(row.VisualBlue) ||
+                    !Finite(row.VisualHeight))
                     return Fail("飞弹参数无效：" + row.ID, out error);
                 if (row.Motion == (int)ProjectileMotionKind.Instant)
                 {
                     if (row.FlightTicks != 0 || row.Acceleration != 0 || row.TurnDegreesPerSecond != 0)
                         return Fail("瞬发飞弹参数无效：" + row.ID, out error);
                 }
+                else if (row.Motion == (int)ProjectileMotionKind.Orbit)
+                {
+                    if (row.OrbitRadius <= 0 || row.OrbitDegreesPerSecond == 0 || row.SameTargetIntervalTicks <= 0 ||
+                        !row.RemoveOnSourceDeath || row.Target == (int)ProjectileTargetKind.EntityLock)
+                        return Fail("环绕飞弹需要有效轨道、命中间隔和来源清理：" + row.ID, out error);
+                }
                 else if (row.Speed <= 0 || row.LifetimeTicks <= 0 || row.MaxDistance <= 0)
                     return Fail("飞行飞弹需要速度、寿命和距离：" + row.ID, out error);
+                if (row.LostTarget == (int)ProjectileLostTarget.Reacquire &&
+                    (row.Target != (int)ProjectileTargetKind.EntityLock || row.ReacquireRange <= 0))
+                    return Fail("目标重选需要锁定目标和有效范围：" + row.ID, out error);
                 if (row.Motion == (int)ProjectileMotionKind.FixedEndpointArc &&
                     (row.Acceleration != 0 || row.Target == (int)ProjectileTargetKind.EntityLock || row.MaxBounces > 0) ||
                     row.Motion == (int)ProjectileMotionKind.GravityArc && row.Target == (int)ProjectileTargetKind.EntityLock ||
@@ -99,10 +127,11 @@ namespace GameLogic.Gameplay.Combat
 
             foreach (CfgCombatBuffsRow row in GameTables.CfgCombatBuffs.GetAll())
             {
-                if (row.ID <= 0 || row.DurationTicks <= 0 || row.IntervalTicks <= 0 || row.MaxStacks <= 0 ||
+                if (row.ID <= 0 || row.Lifetime < 0 || row.Lifetime > (int)CombatBuffLifetime.Persistent ||
+                    row.DurationTicks < 0 || row.Lifetime == (int)CombatBuffLifetime.Timed && row.DurationTicks == 0 ||
+                    row.Lifetime == (int)CombatBuffLifetime.Persistent && row.DurationTicks != 0 || row.IntervalTicks <= 0 || row.MaxStacks <= 0 ||
                     row.Merge < 0 || row.Merge > (int)CombatBuffMerge.ResetDuration ||
-                    !Finite(row.MoveSpeedAddPerStack) || !Finite(row.AttackRangeAddPerStack) ||
-                    !FiniteNonnegative(row.PeriodicDamagePerStack))
+                    !Finite(row.MoveSpeedAddPerStack) || !Finite(row.AttackRangeAddPerStack))
                     return Fail("Buff 参数无效：" + row.ID, out error);
                 if (!ValidateEffectIds(row.OnApplyEffectIDs, "Buff 应用 " + row.ID, out error) ||
                     !ValidateEffectIds(row.OnTickEffectIDs, "Buff 周期 " + row.ID, out error) ||
@@ -143,7 +172,11 @@ namespace GameLogic.Gameplay.Combat
                 {
                     CombatSkillId = row.ID, DurationTicks = row.DurationTicks, CooldownTicks = row.CooldownTicks,
                     StartRange = (float)row.StartRange + (row.StartRangeSource == 1 ? attackRange : 0),
-                    AttackRangeSource = row.StartRangeSource == 1
+                    AttackRangeSource = row.StartRangeSource == 1,
+                    EffectClass = (CombatSkillEffectClass)row.EffectClass, SkillType = (CombatSkillType)row.SkillType,
+                    CastMode = (CombatSkillCastMode)row.CastMode, TargetKind = (CombatSkillTargetKind)row.TargetKind,
+                    OccupiesAction = row.OccupiesAction, MaxHealthRatio = (float)row.MaxHealthRatio,
+                    RequiredMissingBuffId = row.RequiredMissingBuffId, MaintainBuffId = row.MaintainBuffId
                 });
             var nodes = new List<CfgCombatTimelineNodesRow>(GameTables.CfgCombatTimelineNodes.GetAll());
             nodes.Sort((left, right) =>
@@ -172,7 +205,9 @@ namespace GameLogic.Gameplay.Combat
                     MaxDistance = (float)row.MaxDistance, Radius = (float)row.Radius,
                     MaxDistinctTargets = row.MaxDistinctTargets, MaxBounces = row.MaxBounces,
                     SameTargetIntervalTicks = row.SameTargetIntervalTicks, MaxHitsPerTarget = row.MaxHitsPerTarget,
-                    OnlyLockedTarget = row.OnlyLockedTarget, RemoveOnSourceDeath = row.RemoveOnSourceDeath
+                    OnlyLockedTarget = row.OnlyLockedTarget, RemoveOnSourceDeath = row.RemoveOnSourceDeath,
+                    ReacquireRange = (float)row.ReacquireRange, OrbitRadius = (float)row.OrbitRadius,
+                    OrbitDegreesPerSecond = (float)row.OrbitDegreesPerSecond, OrbitInitialAngle = (float)row.OrbitInitialAngle
                 };
                 AddEffects(projectile.OnHit, row.OnHitEffectIDs, attackRange);
                 AddEffects(projectile.OnArrive, row.OnArriveEffectIDs, attackRange);
@@ -186,8 +221,7 @@ namespace GameLogic.Gameplay.Combat
                     BuffId = row.ID, DurationTicks = row.DurationTicks, IntervalTicks = row.IntervalTicks,
                     MaxStacks = row.MaxStacks, Merge = (CombatBuffMerge)row.Merge,
                     MoveSpeedAddPerStack = (float)row.MoveSpeedAddPerStack,
-                    AttackRangeAddPerStack = (float)row.AttackRangeAddPerStack,
-                    PeriodicDamagePerStack = (float)row.PeriodicDamagePerStack
+                    AttackRangeAddPerStack = (float)row.AttackRangeAddPerStack, Lifetime = (CombatBuffLifetime)row.Lifetime
                 };
                 AddEffects(buff.OnApply, row.OnApplyEffectIDs, attackRange);
                 AddEffects(buff.OnTick, row.OnTickEffectIDs, attackRange);
@@ -238,7 +272,7 @@ namespace GameLogic.Gameplay.Combat
                     Radius = (float)row.Radius + (row.RadiusSource == 1 ? attackRange : 0),
                     AttackRangeSource = row.RadiusSource == 1,
                     Angle = (float)row.Angle, Width = (float)row.Width, Height = (float)row.Height,
-                    RequireLineOfSight = row.RequireLineOfSight
+                    RequireLineOfSight = row.RequireLineOfSight, Count = row.Count, SpreadDegrees = (float)row.SpreadDegrees
                 });
             }
         }
@@ -288,5 +322,12 @@ namespace GameLogic.Gameplay.Combat
         /// <param name="value">待验证数值。</param>
         /// <returns>数值有效则为真。</returns>
         private static bool FinitePositive(double value) => Finite(value) && value > 0;
+
+        /// <summary>
+        /// 判断颜色或比例是否位于零到一的有限区间。
+        /// </summary>
+        /// <param name="value">待检查的比例。</param>
+        /// <returns>比例合法时为真。</returns>
+        private static bool UnitInterval(double value) => Finite(value) && value >= 0 && value <= 1;
     }
 }

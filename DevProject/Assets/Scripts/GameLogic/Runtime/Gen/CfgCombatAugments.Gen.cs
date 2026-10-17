@@ -72,6 +72,11 @@ namespace GameLogic.Tables
         /// ValueMode 字段。
         /// </summary>
         public int ValueMode;
+
+        /// <summary>
+        /// AffectsBasicAttack 字段。
+        /// </summary>
+        public bool AffectsBasicAttack;
     }
 
     /// <summary>
@@ -108,7 +113,7 @@ namespace GameLogic.Tables
                 TextAsset asset = lease.Asset;
                 if (asset == null) throw new InvalidOperationException("配置表资源不可用：CfgCombatAugments");
                 var envelope = JsonUtility.FromJson(asset.text, typeof(Envelope)) as Envelope;
-                if (envelope == null || envelope.schemaHash != "c22b1feff90c46cedd141cc3fb3e81cb746ab380a80202d3787d294d71cdc6b3" || envelope.rows == null)
+                if (envelope == null || envelope.schemaHash != "5619682e4cee585a299accc07f58571a4edaea016b5a919242a3ef4be6c08f69" || envelope.rows == null)
                     throw new InvalidOperationException("配置表结构不匹配：CfgCombatAugments");
 
                 var table = new CfgCombatAugmentsTable();

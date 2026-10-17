@@ -1,5 +1,5 @@
 {
-  "schemaHash": "52e4219312f9aed42161c35fa1a8d45a2bb85cf37220da66da5e09960a18eebe",
+  "schemaHash": "cd8008146332403d656f99d2c9653a85e62dab65b74052c8a7f6860790287aec",
   "rows": [
     {
       "ID": 1,
@@ -18,26 +18,9 @@
       "Angle": 360,
       "Width": 0,
       "Height": 2,
-      "RequireLineOfSight": false
-    },
-    {
-      "ID": 2,
-      "Kind": 2,
-      "Attribute": 0,
-      "DefinitionID": 2,
-      "Value": 0.35,
-      "AttackCoefficient": 0,
-      "CanCritical": true,
-      "CanDodge": true,
-      "DurationTicks": 5,
-      "LinkedID": 0,
-      "Shape": 0,
-      "Radius": 0,
-      "RadiusSource": 0,
-      "Angle": 360,
-      "Width": 0,
-      "Height": 2,
-      "RequireLineOfSight": false
+      "RequireLineOfSight": false,
+      "Count": 1,
+      "SpreadDegrees": 0
     },
     {
       "ID": 3,
@@ -50,13 +33,15 @@
       "CanDodge": true,
       "DurationTicks": 0,
       "LinkedID": 0,
-      "Shape": 0,
+      "Shape": 1,
       "Radius": 0,
       "RadiusSource": 1,
-      "Angle": 360,
+      "Angle": 120,
       "Width": 0,
       "Height": 2,
-      "RequireLineOfSight": true
+      "RequireLineOfSight": true,
+      "Count": 1,
+      "SpreadDegrees": 0
     },
     {
       "ID": 4,
@@ -75,7 +60,9 @@
       "Angle": 360,
       "Width": 0,
       "Height": 2,
-      "RequireLineOfSight": false
+      "RequireLineOfSight": false,
+      "Count": 1,
+      "SpreadDegrees": 0
     },
     {
       "ID": 5,
@@ -94,7 +81,9 @@
       "Angle": 100,
       "Width": 0,
       "Height": 2,
-      "RequireLineOfSight": true
+      "RequireLineOfSight": true,
+      "Count": 1,
+      "SpreadDegrees": 0
     },
     {
       "ID": 6,
@@ -113,7 +102,9 @@
       "Angle": 360,
       "Width": 0,
       "Height": 2,
-      "RequireLineOfSight": false
+      "RequireLineOfSight": false,
+      "Count": 1,
+      "SpreadDegrees": 0
     },
     {
       "ID": 7,
@@ -132,7 +123,9 @@
       "Angle": 360,
       "Width": 0,
       "Height": 2,
-      "RequireLineOfSight": false
+      "RequireLineOfSight": false,
+      "Count": 1,
+      "SpreadDegrees": 0
     },
     {
       "ID": 8,
@@ -151,7 +144,9 @@
       "Angle": 360,
       "Width": 0,
       "Height": 2,
-      "RequireLineOfSight": false
+      "RequireLineOfSight": false,
+      "Count": 1,
+      "SpreadDegrees": 0
     },
     {
       "ID": 9,
@@ -170,7 +165,9 @@
       "Angle": 360,
       "Width": 0,
       "Height": 2,
-      "RequireLineOfSight": false
+      "RequireLineOfSight": false,
+      "Count": 1,
+      "SpreadDegrees": 0
     },
     {
       "ID": 10,
@@ -189,7 +186,9 @@
       "Angle": 360,
       "Width": 0,
       "Height": 2,
-      "RequireLineOfSight": false
+      "RequireLineOfSight": false,
+      "Count": 1,
+      "SpreadDegrees": 0
     },
     {
       "ID": 11,
@@ -208,7 +207,9 @@
       "Angle": 360,
       "Width": 0,
       "Height": 2,
-      "RequireLineOfSight": false
+      "RequireLineOfSight": false,
+      "Count": 1,
+      "SpreadDegrees": 0
     },
     {
       "ID": 12,
@@ -227,7 +228,9 @@
       "Angle": 360,
       "Width": 0,
       "Height": 2,
-      "RequireLineOfSight": false
+      "RequireLineOfSight": false,
+      "Count": 1,
+      "SpreadDegrees": 0
     },
     {
       "ID": 13,
@@ -246,7 +249,9 @@
       "Angle": 360,
       "Width": 0,
       "Height": 2,
-      "RequireLineOfSight": false
+      "RequireLineOfSight": false,
+      "Count": 1,
+      "SpreadDegrees": 0
     },
     {
       "ID": 14,
@@ -265,7 +270,9 @@
       "Angle": 100,
       "Width": 2,
       "Height": 2.5,
-      "RequireLineOfSight": true
+      "RequireLineOfSight": true,
+      "Count": 1,
+      "SpreadDegrees": 0
     },
     {
       "ID": 15,
@@ -284,7 +291,9 @@
       "Angle": 360,
       "Width": 0,
       "Height": 2,
-      "RequireLineOfSight": false
+      "RequireLineOfSight": false,
+      "Count": 1,
+      "SpreadDegrees": 0
     },
     {
       "ID": 16,
@@ -303,7 +312,9 @@
       "Angle": 360,
       "Width": 0,
       "Height": 2,
-      "RequireLineOfSight": true
+      "RequireLineOfSight": true,
+      "Count": 1,
+      "SpreadDegrees": 0
     },
     {
       "ID": 17,
@@ -322,7 +333,9 @@
       "Angle": 360,
       "Width": 0,
       "Height": 2,
-      "RequireLineOfSight": false
+      "RequireLineOfSight": false,
+      "Count": 1,
+      "SpreadDegrees": 0
     },
     {
       "ID": 18,
@@ -341,7 +354,9 @@
       "Angle": 360,
       "Width": 0,
       "Height": 2,
-      "RequireLineOfSight": true
+      "RequireLineOfSight": true,
+      "Count": 1,
+      "SpreadDegrees": 0
     },
     {
       "ID": 19,
@@ -360,7 +375,9 @@
       "Angle": 360,
       "Width": 0,
       "Height": 2,
-      "RequireLineOfSight": false
+      "RequireLineOfSight": false,
+      "Count": 1,
+      "SpreadDegrees": 0
     },
     {
       "ID": 20,
@@ -379,7 +396,9 @@
       "Angle": 360,
       "Width": 0,
       "Height": 2,
-      "RequireLineOfSight": false
+      "RequireLineOfSight": false,
+      "Count": 1,
+      "SpreadDegrees": 0
     },
     {
       "ID": 21,
@@ -398,7 +417,9 @@
       "Angle": 100,
       "Width": 1.8,
       "Height": 2.5,
-      "RequireLineOfSight": true
+      "RequireLineOfSight": true,
+      "Count": 1,
+      "SpreadDegrees": 0
     },
     {
       "ID": 1001,
@@ -417,7 +438,9 @@
       "Angle": 360,
       "Width": 0,
       "Height": 2,
-      "RequireLineOfSight": false
+      "RequireLineOfSight": false,
+      "Count": 1,
+      "SpreadDegrees": 0
     },
     {
       "ID": 1002,
@@ -436,7 +459,9 @@
       "Angle": 360,
       "Width": 0,
       "Height": 2,
-      "RequireLineOfSight": false
+      "RequireLineOfSight": false,
+      "Count": 1,
+      "SpreadDegrees": 0
     },
     {
       "ID": 1003,
@@ -455,7 +480,9 @@
       "Angle": 360,
       "Width": 0,
       "Height": 2,
-      "RequireLineOfSight": false
+      "RequireLineOfSight": false,
+      "Count": 1,
+      "SpreadDegrees": 0
     },
     {
       "ID": 1004,
@@ -474,7 +501,9 @@
       "Angle": 360,
       "Width": 0,
       "Height": 2,
-      "RequireLineOfSight": false
+      "RequireLineOfSight": false,
+      "Count": 1,
+      "SpreadDegrees": 0
     },
     {
       "ID": 22,
@@ -493,7 +522,9 @@
       "Angle": 360,
       "Width": 0,
       "Height": 2,
-      "RequireLineOfSight": false
+      "RequireLineOfSight": false,
+      "Count": 1,
+      "SpreadDegrees": 0
     },
     {
       "ID": 23,
@@ -512,7 +543,9 @@
       "Angle": 100,
       "Width": 0,
       "Height": 2,
-      "RequireLineOfSight": true
+      "RequireLineOfSight": true,
+      "Count": 1,
+      "SpreadDegrees": 0
     },
     {
       "ID": 24,
@@ -531,7 +564,9 @@
       "Angle": 360,
       "Width": 0,
       "Height": 2,
-      "RequireLineOfSight": false
+      "RequireLineOfSight": false,
+      "Count": 1,
+      "SpreadDegrees": 0
     },
     {
       "ID": 25,
@@ -550,7 +585,240 @@
       "Angle": 55,
       "Width": 0,
       "Height": 2,
-      "RequireLineOfSight": true
+      "RequireLineOfSight": true,
+      "Count": 1,
+      "SpreadDegrees": 0
+    },
+    {
+      "ID": 200,
+      "Kind": 1,
+      "Attribute": 0,
+      "DefinitionID": 200,
+      "Value": 0,
+      "AttackCoefficient": 1.5,
+      "CanCritical": true,
+      "CanDodge": true,
+      "DurationTicks": 0,
+      "LinkedID": 0,
+      "Shape": 1,
+      "Radius": 0,
+      "RadiusSource": 1,
+      "Angle": 120,
+      "Width": 0,
+      "Height": 2,
+      "RequireLineOfSight": true,
+      "Count": 1,
+      "SpreadDegrees": 0
+    },
+    {
+      "ID": 201,
+      "Kind": 1,
+      "Attribute": 0,
+      "DefinitionID": 201,
+      "Value": 0,
+      "AttackCoefficient": 1,
+      "CanCritical": true,
+      "CanDodge": true,
+      "DurationTicks": 0,
+      "LinkedID": 0,
+      "Shape": 4,
+      "Radius": 0,
+      "RadiusSource": 1,
+      "Angle": 120,
+      "Width": 2,
+      "Height": 2,
+      "RequireLineOfSight": true,
+      "Count": 1,
+      "SpreadDegrees": 0
+    },
+    {
+      "ID": 202,
+      "Kind": 1,
+      "Attribute": 0,
+      "DefinitionID": 202,
+      "Value": 0,
+      "AttackCoefficient": 1.6,
+      "CanCritical": true,
+      "CanDodge": true,
+      "DurationTicks": 0,
+      "LinkedID": 0,
+      "Shape": 4,
+      "Radius": 7,
+      "RadiusSource": 0,
+      "Angle": 120,
+      "Width": 3,
+      "Height": 2,
+      "RequireLineOfSight": true,
+      "Count": 1,
+      "SpreadDegrees": 0
+    },
+    {
+      "ID": 203,
+      "Kind": 3,
+      "Attribute": 0,
+      "DefinitionID": 203,
+      "Value": 0,
+      "AttackCoefficient": 0,
+      "CanCritical": true,
+      "CanDodge": true,
+      "DurationTicks": 0,
+      "LinkedID": 100,
+      "Shape": 1,
+      "Radius": 0,
+      "RadiusSource": 0,
+      "Angle": 120,
+      "Width": 0,
+      "Height": 2,
+      "RequireLineOfSight": true,
+      "Count": 1,
+      "SpreadDegrees": 0
+    },
+    {
+      "ID": 204,
+      "Kind": 4,
+      "Attribute": 0,
+      "DefinitionID": 204,
+      "Value": 0,
+      "AttackCoefficient": 0,
+      "CanCritical": true,
+      "CanDodge": true,
+      "DurationTicks": 0,
+      "LinkedID": 100,
+      "Shape": 1,
+      "Radius": 0,
+      "RadiusSource": 0,
+      "Angle": 120,
+      "Width": 0,
+      "Height": 2,
+      "RequireLineOfSight": true,
+      "Count": 1,
+      "SpreadDegrees": 0
+    },
+    {
+      "ID": 205,
+      "Kind": 3,
+      "Attribute": 0,
+      "DefinitionID": 205,
+      "Value": 0,
+      "AttackCoefficient": 0,
+      "CanCritical": true,
+      "CanDodge": true,
+      "DurationTicks": 0,
+      "LinkedID": 101,
+      "Shape": 1,
+      "Radius": 0,
+      "RadiusSource": 0,
+      "Angle": 120,
+      "Width": 0,
+      "Height": 2,
+      "RequireLineOfSight": true,
+      "Count": 3,
+      "SpreadDegrees": 360
+    },
+    {
+      "ID": 206,
+      "Kind": 1,
+      "Attribute": 0,
+      "DefinitionID": 206,
+      "Value": 0,
+      "AttackCoefficient": 0.35,
+      "CanCritical": true,
+      "CanDodge": true,
+      "DurationTicks": 0,
+      "LinkedID": 0,
+      "Shape": 0,
+      "Radius": 0,
+      "RadiusSource": 0,
+      "Angle": 120,
+      "Width": 0,
+      "Height": 2,
+      "RequireLineOfSight": false,
+      "Count": 1,
+      "SpreadDegrees": 0
+    },
+    {
+      "ID": 207,
+      "Kind": 1,
+      "Attribute": 0,
+      "DefinitionID": 207,
+      "Value": 0,
+      "AttackCoefficient": 0.8,
+      "CanCritical": true,
+      "CanDodge": true,
+      "DurationTicks": 0,
+      "LinkedID": 0,
+      "Shape": 0,
+      "Radius": 0,
+      "RadiusSource": 0,
+      "Angle": 120,
+      "Width": 0,
+      "Height": 2,
+      "RequireLineOfSight": false,
+      "Count": 1,
+      "SpreadDegrees": 0
+    },
+    {
+      "ID": 208,
+      "Kind": 4,
+      "Attribute": 0,
+      "DefinitionID": 208,
+      "Value": 0,
+      "AttackCoefficient": 0,
+      "CanCritical": true,
+      "CanDodge": true,
+      "DurationTicks": 0,
+      "LinkedID": 101,
+      "Shape": 1,
+      "Radius": 0,
+      "RadiusSource": 0,
+      "Angle": 120,
+      "Width": 0,
+      "Height": 2,
+      "RequireLineOfSight": true,
+      "Count": 1,
+      "SpreadDegrees": 0
+    },
+    {
+      "ID": 209,
+      "Kind": 6,
+      "Attribute": 0,
+      "DefinitionID": 209,
+      "Value": 6,
+      "AttackCoefficient": 0,
+      "CanCritical": false,
+      "CanDodge": false,
+      "DurationTicks": 0,
+      "LinkedID": 0,
+      "Shape": 0,
+      "Radius": 0,
+      "RadiusSource": 0,
+      "Angle": 120,
+      "Width": 0,
+      "Height": 2,
+      "RequireLineOfSight": false,
+      "Count": 1,
+      "SpreadDegrees": 0
+    },
+    {
+      "ID": 210,
+      "Kind": 1,
+      "Attribute": 0,
+      "DefinitionID": 5,
+      "Value": 3,
+      "AttackCoefficient": 0,
+      "CanCritical": false,
+      "CanDodge": false,
+      "DurationTicks": 0,
+      "LinkedID": 0,
+      "Shape": 0,
+      "Radius": 0,
+      "RadiusSource": 0,
+      "Angle": 120,
+      "Width": 0,
+      "Height": 2,
+      "RequireLineOfSight": false,
+      "Count": 1,
+      "SpreadDegrees": 0
     }
   ]
 }

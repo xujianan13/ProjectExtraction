@@ -29,7 +29,7 @@ namespace ProjectExtraction.Tests
             Assert.AreEqual("+{value}", heal.Text);
             Assert.IsFalse(heal.ShowHit || heal.ShowFlash);
             Assert.Greater(heal.ColorG, heal.ColorR);
-            var bleed = ProjectCombatFeedbackConfig.Event(new CombatEvent(CombatEventKind.Damage, 1, 1, 1, 2, 1001, 3f, Vector3.zero));
+            var bleed = ProjectCombatFeedbackConfig.Event(new CombatEvent(CombatEventKind.Damage, 1, 1, 1, 2, 5, 3f, Vector3.zero));
             Assert.That(bleed.Text, Does.Contain("流血"));
             var critical = ProjectCombatFeedbackConfig.Event(new CombatEvent(CombatEventKind.Damage, 1, 1, 1, 2, 0, 10f, Vector3.zero, true));
             Assert.That(critical.Text, Does.Contain("暴击"));
@@ -47,7 +47,8 @@ namespace ProjectExtraction.Tests
             row.DefinitionID = 99999;
             Assert.IsFalse(ProjectCombatFeedbackConfig.Validate(out string invalidReference));
             Assert.That(invalidReference, Does.Contain("引用"));
-            row.DefinitionID = 1001;
+            row.DefinitionID = 5;
+            Assert.IsTrue(ProjectCombatFeedbackConfig.Validate(out string restoredReference), restoredReference);
             GameTables.CfgCombatFeedback.GetById("heal").ShowHit = true;
             Assert.IsFalse(ProjectCombatFeedbackConfig.Validate(out _));
         }

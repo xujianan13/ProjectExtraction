@@ -80,7 +80,7 @@ namespace GameLogic.Gameplay.Combat
         private bool HasCast(int owner)
         {
             foreach (var cast in casts.Values)
-                if (cast.Owner == owner) return true;
+                if (cast.Owner == owner && catalog.Skills[cast.SkillId].OccupiesAction) return true;
             return false;
         }
 
@@ -132,7 +132,7 @@ namespace GameLogic.Gameplay.Combat
             {
                 var buff = buffs[id];
                 if (!actors.TryGetValue(buff.Owner, out var owner) || owner.Spec.RoomId != activeRoomId) continue;
-                if (GetBuffClock(owner) < buff.ExpireTick) continue;
+                if (catalog.Buffs[buff.BuffId].Lifetime == CombatBuffLifetime.Persistent || GetBuffClock(owner) < buff.ExpireTick) continue;
                 RemoveBuff(id, true);
             }
         }
@@ -159,30 +159,19 @@ namespace GameLogic.Gameplay.Combat
                     !actors.TryGetValue(buff.Owner, out var owner) || owner.DeadPending ||
                     owner.Spec.RoomId != activeRoomId) continue;
                 var now = GetBuffClock(owner);
-                if (now < buff.NextTick || now >= buff.ExpireTick) continue;
+                if (now < buff.NextTick || definition.Lifetime == CombatBuffLifetime.Timed && now >= buff.ExpireTick) continue;
                 foreach (var effect in definition.OnTick)
                 {
-                    if (effect.Kind == CombatEffectKind.Damage)
+                    if (effect.Kind == CombatEffectKind.Damage || effect.Kind == CombatEffectKind.Heal)
                     {
-                        var scaled = new CombatEffectDefinition
-                        {
-                            Kind = effect.Kind, DefinitionId = effect.DefinitionId, Value = effect.Value * buff.Stacks,
-                            AttackCoefficient = effect.AttackCoefficient * buff.Stacks,
-                            CanCritical = effect.CanCritical, CanDodge = effect.CanDodge, AttackRangeSource = effect.AttackRangeSource,
-                            LinkedId = effect.LinkedId, Shape = effect.Shape, Radius = effect.Radius,
-                            Angle = effect.Angle, Width = effect.Width, Height = effect.Height,
-                            RequireLineOfSight = effect.RequireLineOfSight
-                        };
-                        Enqueue(scaled, buff.Owner, Ref(buff.Owner), owner.Position, owner.Forward, buff.SourceActorId, buff.Offense, buff.RangeDelta, buff.RangeMultiplier, buff.PassiveDerived);
+                        var scaled = CopyEffectWithRadius(effect, effect.Radius);
+                        scaled.Value *= buff.Stacks;
+                        scaled.AttackCoefficient *= buff.Stacks;
+                        Enqueue(scaled, buff.Owner, Ref(buff.Owner), owner.Position, owner.Forward, buff.SourceActorId,
+                            buff.Offense, buff.RangeDelta, buff.RangeMultiplier, buff.PassiveDerived);
                     }
                     else Enqueue(effect, buff.Owner, Ref(buff.Owner), owner.Position, owner.Forward, buff.SourceActorId, buff.Offense, buff.RangeDelta, buff.RangeMultiplier, buff.PassiveDerived);
                 }
-                if (definition.PeriodicDamagePerStack > 0f)
-                    Enqueue(new CombatEffectDefinition
-                    {
-                        Kind = CombatEffectKind.Damage, DefinitionId = definition.BuffId,
-                        Value = definition.PeriodicDamagePerStack * buff.Stacks, CanCritical = false, CanDodge = false
-                    }, buff.Owner, Ref(buff.Owner), owner.Position, owner.Forward, buff.SourceActorId, buff.Offense, buff.RangeDelta, buff.RangeMultiplier, buff.PassiveDerived);
                 buff.NextTick += Mathf.Max(1, definition.IntervalTicks);
             }
         }
@@ -232,81 +221,59 @@ namespace GameLogic.Gameplay.Combat
         /// </summary>
         private void AutoCombat()
         {
-            var actorIds = new List<int>(actors.Keys);
-            SortEntityIds(actorIds);
-            foreach (var id in actorIds)
+            foreach (var id in OrderedEntityIds(actors.Keys))
             {
                 var source = actors[id];
-                var enemySkills = !source.Spec.IsPlayer && source.Spec.EnemySkills != null && source.Spec.EnemySkills.Length > 0;
-                if (source.DeadPending || source.Spec.RoomId != activeRoomId ||
-                    (!enemySkills && source.Spec.BasicSkillId <= 0)) continue;
-                GetSkillModifiers(source, source.Spec.BasicSkillId, out _, out var basicRangeMultiplier, out _);
-                var basicRange = (source.Spec.AttackRange + source.RangeBonus) * basicRangeMultiplier;
-                var searchRange = source.Spec.IsPlayer ? basicRange :
-                    Mathf.Max(basicRange, source.Spec.AggroRange);
-                if (enemySkills)
-                    foreach (var skill in source.Spec.EnemySkills)
-                        searchRange = Mathf.Max(searchRange, skill.MaxDistance + source.RangeBonus);
-                var targetId = FindNearestEnemy(id, searchRange);
-                if (targetId == 0)
+                if (source.DeadPending || source.Spec.RoomId != activeRoomId) continue;
+                var skillIds = GetSkillIds(source.Spec);
+                if (skillIds.Length == 0) continue;
+                var start = source.SkillCursor % skillIds.Length;
+                var chaseTarget = FindNearestEnemy(id, Mathf.Max(source.Spec.AttackRange, source.Spec.AggroRange));
+                var acceptedAction = false;
+                for (var offset = 0; offset < skillIds.Length; offset++)
                 {
-                    if (!source.Spec.IsPlayer) source.Move = Vector2.zero;
-                    continue;
+                    var index = (start + offset) % skillIds.Length;
+                    var skillId = skillIds[index];
+                    var definition = catalog.Skills[skillId];
+                    if (definition.CastMode == CombatSkillCastMode.Manual) continue;
+                    if (source.EnabledPersistentSkills.Contains(skillId))
+                    {
+                        MaintainPersistentSkill(id, skillId, definition);
+                        continue;
+                    }
+                    if (definition.OccupiesAction && acceptedAction) continue;
+                    var range = GetSkillStartRange(source, skillId, definition);
+                    var targetId = definition.TargetKind == CombatSkillTargetKind.Self ? id : FindNearestEnemy(id, range);
+                    if (targetId == 0) continue;
+                    var target = actors[targetId];
+                    var delta = target.Position - source.Position;
+                    delta.y = 0f;
+                    if (targetId != id && HasWallBetween(source.Spec.RoomId, source.Position, target.Position)) continue;
+                    if (!source.Spec.IsPlayer && !EnemyLoadoutCondition(source, skillId, delta.magnitude)) continue;
+                    if (!HasCast(id) && targetId != id && delta.sqrMagnitude > 0.0001f) source.Forward = delta.normalized;
+                    if (!TryStartSkill(Ref(id), skillId, Ref(targetId))) continue;
+                    if (definition.OccupiesAction)
+                    {
+                        acceptedAction = true;
+                        source.SkillCursor = (index + 1) % skillIds.Length;
+                    }
+                    AdvanceCasts();
+                    if (!DrainEffects()) return;
                 }
-                var target = actors[targetId];
-                var delta = target.Position - source.Position;
-                delta.y = 0f;
-                var distance = delta.magnitude;
-                var hasLineOfSight = !HasWallBetween(source.Spec.RoomId, source.Position, target.Position);
-                var casting = HasCast(id);
-                var skillId = casting || !hasLineOfSight ? 0 :
-                    enemySkills ? SelectEnemySkill(source, distance) : source.Spec.BasicSkillId;
-                var inRange = enemySkills ? skillId > 0 : distance <= basicRange;
                 if (!source.Spec.IsPlayer)
                 {
-                    var retreatDistance = enemySkills && !casting && !inRange ? EnemyRetreatDistance(source, distance) : 0f;
-                    var retreatDirection = delta.sqrMagnitude > 0.0001f ? delta.normalized : source.Forward;
-                    var retreatGoal = source.Position - retreatDirection * (retreatDistance + 0.1f);
-                    source.Move = casting || (inRange && hasLineOfSight) ? Vector2.zero : retreatDistance > 0f ?
-                        FindPursuitDirection(source.Spec.RoomId, source.Position, retreatGoal, source.Spec.Radius) :
-                        FindPursuitDirection(source.Spec.RoomId, source.Position, target.Position, source.Spec.Radius);
+                    source.Move = Vector2.zero;
+                    if (!HasCast(id) && !acceptedAction && chaseTarget != 0)
+                    {
+                        var target = actors[chaseTarget];
+                        var distance = Vector3.Distance(source.Position, target.Position);
+                        var retreat = source.Spec.EnemySkills != null ? EnemyRetreatDistance(source, distance) : 0f;
+                        var direction = (target.Position - source.Position).normalized;
+                        var goal = retreat > 0f ? source.Position - direction * (retreat + 0.1f) : target.Position;
+                        source.Move = FindPursuitDirection(source.Spec.RoomId, source.Position, goal, source.Spec.Radius);
+                    }
                 }
-                if (!casting && delta.sqrMagnitude > 0.0001f) source.Forward = delta.normalized;
-                if (inRange && hasLineOfSight && !casting)
-                    TryStartSkill(Ref(id), skillId, Ref(targetId));
             }
-        }
-
-        /// <summary>
-        /// 选择当前生命阶段与距离内优先级最高的可用敌人技能，并按权重决定同级技能。
-        /// </summary>
-        /// <param name="source">敌人状态。</param>
-        /// <param name="distance">敌人与目标的 XZ 距离。</param>
-        /// <returns>选中的技能编号；没有可用技能时为零。</returns>
-        private int SelectEnemySkill(ActorComponent source, float distance)
-        {
-            var healthRatio = source.Health / source.Spec.MaxHealth;
-            var bestPriority = int.MinValue;
-            long totalWeight = 0;
-            foreach (var skill in source.Spec.EnemySkills)
-            {
-                if (!EnemySkillAvailable(source, skill, healthRatio, distance)) continue;
-                if (skill.Priority > bestPriority)
-                {
-                    bestPriority = skill.Priority;
-                    totalWeight = 0;
-                }
-                if (skill.Priority == bestPriority) totalWeight += skill.Weight;
-            }
-            if (totalWeight == 0) return 0;
-            var draw = (long)(random.NextDouble() * totalWeight);
-            foreach (var skill in source.Spec.EnemySkills)
-            {
-                if (skill.Priority != bestPriority || !EnemySkillAvailable(source, skill, healthRatio, distance)) continue;
-                draw -= skill.Weight;
-                if (draw < 0) return skill.SkillId;
-            }
-            return 0;
         }
 
         /// <summary>
@@ -391,7 +358,7 @@ namespace GameLogic.Gameplay.Combat
                 }
                 if (owner.Spec.RoomId != activeRoomId || !catalog.Skills.TryGetValue(cast.SkillId, out var definition)) continue;
                 var elapsed = (cast.UsesWorldClock ? TickIndex : GetRoomTick(owner.Spec.RoomId)) - cast.StartTick;
-                while (cast.NextNode < definition.Nodes.Count && definition.Nodes[cast.NextNode].Tick <= elapsed)
+                while (cast.NextNode < definition.Nodes.Count && definition.Nodes[cast.NextNode].Tick * cast.TimeMultiplier <= elapsed)
                 {
                     var node = definition.Nodes[cast.NextNode++];
                     foreach (var effect in node.Effects)
@@ -399,10 +366,16 @@ namespace GameLogic.Gameplay.Combat
                         var target = effect.Kind == CombatEffectKind.SpawnProjectile ||
                             effect.Kind == CombatEffectKind.ApplyBuff || effect.Kind == CombatEffectKind.ModifyAttribute ||
                             effect.Kind == CombatEffectKind.Cue || effect.Kind == CombatEffectKind.Heal ? cast.Target : default;
-                        Enqueue(effect, cast.Owner, target, cast.TargetPoint, cast.Forward, owner.Spec.ActorId, cast.Offense, cast.RangeDelta, cast.RangeMultiplier);
+                        var timedEffect = effect;
+                        if (effect.Kind == CombatEffectKind.Cue && cast.TimeMultiplier != 1f)
+                        {
+                            timedEffect = CopyEffectWithRadius(effect, effect.Radius);
+                            timedEffect.DurationTicks = Mathf.CeilToInt(effect.DurationTicks * cast.TimeMultiplier);
+                        }
+                        Enqueue(timedEffect, cast.Owner, target, cast.TargetPoint, cast.Forward, owner.Spec.ActorId, cast.Offense, cast.RangeDelta, cast.RangeMultiplier);
                     }
                 }
-                if (elapsed < definition.DurationTicks) continue;
+                if (elapsed < definition.DurationTicks * cast.TimeMultiplier) continue;
                 casts.Remove(id);
                 Release(id);
             }
@@ -421,19 +394,21 @@ namespace GameLogic.Gameplay.Combat
         /// <param name="rangeDelta">施放时攻击范围相对目录初值的差值。</param>
         /// <param name="rangeMultiplier">施放时冻结的技能范围倍率。</param>
         /// <param name="passiveDerived">效果是否由被动衍生，不再触发被动。</param>
+        /// <param name="controllerSkillId">拥有生成实例的常驻技能编号，零表示独立效果。</param>
         private void Enqueue(CombatEffectDefinition effect, int source, CombatEntityRef target, Vector3 position,
             Vector3 direction, int instigatorActorId, CombatOffense offense, float rangeDelta = 0f,
-            float rangeMultiplier = 1f, bool passiveDerived = false)
+            float rangeMultiplier = 1f, bool passiveDerived = false, int controllerSkillId = 0)
         {
             if (effect != null && (effect.AttackRangeSource && rangeDelta != 0f || rangeMultiplier != 1f))
             {
-                var radius = effect.Radius + (effect.AttackRangeSource ? rangeDelta : 0f);
+                var radius = effect.Radius + (effect.AttackRangeSource ? rangeDelta * effect.AttackRangeMultiplier : 0f);
                 effect = CopyEffectWithRadius(effect, Mathf.Min(AttributeCeiling, Mathf.Max(0f, radius * rangeMultiplier)));
+                effect.Width *= rangeMultiplier;
             }
             if (!ValidEffect(effect)) { MarkFault("Invalid effect definition"); return; }
             effectQueue.Enqueue(new EffectCommand
             {
-                Definition = effect, RangeDelta = rangeDelta, RangeMultiplier = rangeMultiplier, PassiveDerived = passiveDerived, Source = source, Target = target, Position = position, Direction = direction,
+                ControllerSkillId = controllerSkillId, Definition = effect, RangeDelta = rangeDelta, RangeMultiplier = rangeMultiplier, PassiveDerived = passiveDerived, Source = source, Target = target, Position = position, Direction = direction,
                 InstigatorActorId = instigatorActorId, Offense = offense,
                 RootId = activeRootId != 0 ? activeRootId : ++nextRootId,
                 TriggerId = ++nextTriggerId, Depth = activeRootId != 0 ? activeDepth + 1 : 0
@@ -454,6 +429,7 @@ namespace GameLogic.Gameplay.Combat
                 CanCritical = effect.CanCritical, CanDodge = effect.CanDodge, DurationTicks = effect.DurationTicks,
                 LinkedId = effect.LinkedId, Shape = effect.Shape, Radius = radius, Angle = effect.Angle,
                 Width = effect.Width, Height = effect.Height, RequireLineOfSight = effect.RequireLineOfSight,
+                Count = effect.Count, SpreadDegrees = effect.SpreadDegrees, AttackRangeMultiplier = effect.AttackRangeMultiplier,
                 AttackRangeSource = effect.AttackRangeSource
             };
 
@@ -528,14 +504,23 @@ namespace GameLogic.Gameplay.Combat
                     if (!catalog.Projectiles.TryGetValue(effect.LinkedId, out var projectileDefinition) ||
                         !ValidProjectile(projectileDefinition))
                     { MarkFault("Invalid projectile definition"); break; }
-                    if (actors.ContainsKey(command.Source))
-                        TrySpawnProjectileInternal(Ref(command.Source), effect.LinkedId, command.Target,
-                            command.Position, command.Direction, null, false, command.Offense, command.RangeDelta,
-                            command.RangeMultiplier, command.PassiveDerived, command.InstigatorActorId);
-                    else if (projectiles.TryGetValue(command.Source, out var parentProjectile))
-                        TrySpawnProjectileInternal(parentProjectile.Source, effect.LinkedId, command.Target,
-                            command.Position, command.Direction, command.Position, true, command.Offense, command.RangeDelta,
-                            command.RangeMultiplier, command.PassiveDerived, command.InstigatorActorId, parentProjectile);
+                    for (var index = 0; index < effect.Count; index++)
+                    {
+                        var angle = effect.Count == 1 ? 0f : effect.SpreadDegrees >= 360f ?
+                            effect.SpreadDegrees * index / effect.Count : effect.SpreadDegrees * (index / (effect.Count - 1f) - 0.5f);
+                        var direction = Quaternion.AngleAxis(angle, Vector3.up) * command.Direction;
+                        var target = command.Target;
+                        if (effect.Count > 1 && projectileDefinition.Target == ProjectileTargetKind.EntityLock && actors.ContainsKey(command.Source))
+                            target = SelectProjectileTarget(command.Source, projectileDefinition.ReacquireRange, index);
+                        if (actors.ContainsKey(command.Source))
+                            TrySpawnProjectileInternal(Ref(command.Source), effect.LinkedId, target, command.Position, direction,
+                                null, false, command.Offense, command.RangeDelta, command.RangeMultiplier, command.PassiveDerived,
+                                command.InstigatorActorId, null, command.ControllerSkillId, angle);
+                        else if (projectiles.TryGetValue(command.Source, out var parentProjectile))
+                            TrySpawnProjectileInternal(parentProjectile.Source, effect.LinkedId, target, command.Position, direction,
+                                command.Position, true, command.Offense, command.RangeDelta, command.RangeMultiplier, command.PassiveDerived,
+                                command.InstigatorActorId, parentProjectile, command.ControllerSkillId, angle);
+                    }
                     break;
                 case CombatEffectKind.ApplyBuff:
                     if (!catalog.Buffs.TryGetValue(effect.LinkedId, out var buffDefinition) || !ValidBuff(buffDefinition))
@@ -651,13 +636,20 @@ namespace GameLogic.Gameplay.Combat
             if (Mathf.Abs(delta.y) > effect.Height) return false;
             delta.y = 0f;
             var radius = Mathf.Max(0f, effect.Radius);
-            if (effect.Shape == CombatHitShape.Circle) return delta.sqrMagnitude <= radius * radius;
+            var radiusSquared = radius * radius;
+            var withinRadius = delta.sqrMagnitude <= radiusSquared + 0.000001f * Mathf.Max(1f, radiusSquared);
+            if (effect.Shape == CombatHitShape.Circle) return withinRadius;
             var direction = new Vector3(forward.x, 0f, forward.z).normalized;
             if (direction.sqrMagnitude < 0.001f) direction = Vector3.forward;
             if (effect.Shape == CombatHitShape.Sector)
-                return delta.sqrMagnitude <= radius * radius && Vector3.Angle(direction, delta) <= effect.Angle * 0.5f;
+                return withinRadius && Vector3.Angle(direction, delta) <= effect.Angle * 0.5f;
             var ahead = Vector3.Dot(delta, direction);
             var side = Vector3.Dot(delta, new Vector3(-direction.z, 0f, direction.x));
+            if (effect.Shape == CombatHitShape.ForwardBox)
+            {
+                var tolerance = 0.000001f * Mathf.Max(1f, Mathf.Max(radius, effect.Width));
+                return ahead >= -tolerance && ahead <= radius + tolerance && Mathf.Abs(side) <= effect.Width * 0.5f + tolerance;
+            }
             if (effect.Shape == CombatHitShape.Box)
                 return Mathf.Abs(ahead) <= radius && Mathf.Abs(side) <= effect.Width * 0.5f;
             return Mathf.Clamp(ahead, 0f, radius) >= 0f &&
@@ -761,8 +753,9 @@ namespace GameLogic.Gameplay.Combat
         /// <param name="rangeDelta">施加时攻击范围相对目录初值的差值。</param>
         /// <param name="rangeMultiplier">施加时冻结的技能范围倍率。</param>
         /// <param name="passiveDerived">Buff 是否由被动衍生。</param>
+        /// <param name="applyEffects">是否执行首次应用事件，维护控制器时为假。</param>
         /// <returns>配置与目标有效则为真。</returns>
-        private bool ApplyBuff(CombatEntityRef targetRef, int buffId, int sourceActorId, CombatOffense offense, float rangeDelta, float rangeMultiplier, bool passiveDerived)
+        private bool ApplyBuff(CombatEntityRef targetRef, int buffId, int sourceActorId, CombatOffense offense, float rangeDelta, float rangeMultiplier, bool passiveDerived, bool applyEffects = true)
         {
             if (!IsValid(targetRef) || !actors.TryGetValue(targetRef.Id, out var target) || target.DeadPending ||
                 !catalog.Buffs.TryGetValue(buffId, out var definition) || !ValidBuff(definition)) return false;
@@ -782,7 +775,7 @@ namespace GameLogic.Gameplay.Combat
                 if (definition.Merge == CombatBuffMerge.AddStack)
                     current.Stacks = Mathf.Min(definition.MaxStacks, current.Stacks + 1);
                 else if (definition.Merge == CombatBuffMerge.ResetDuration)
-                    current.ExpireTick = now + definition.DurationTicks;
+                    current.ExpireTick = definition.Lifetime == CombatBuffLifetime.Persistent ? long.MaxValue : now + definition.DurationTicks;
                 else RemoveBuff(existing, false);
                 if (definition.Merge != CombatBuffMerge.Replace)
                 {
@@ -795,11 +788,16 @@ namespace GameLogic.Gameplay.Combat
             {
                 Owner = targetRef.Id, BuffId = buffId, SourceActorId = sourceActorId, Offense = offense, RangeDelta = rangeDelta, RangeMultiplier = rangeMultiplier,
                 PassiveDerived = passiveDerived, Stacks = 1,
-                ExpireTick = now + definition.DurationTicks, NextTick = now + definition.IntervalTicks
+                ExpireTick = definition.Lifetime == CombatBuffLifetime.Persistent ? long.MaxValue : now + definition.DurationTicks, NextTick = now + definition.IntervalTicks
             });
             RecalculateBonuses(targetRef.Id);
-            foreach (var effect in definition.OnApply)
-                Enqueue(effect, targetRef.Id, targetRef, target.Position, target.Forward, sourceActorId, offense, rangeDelta, rangeMultiplier, passiveDerived);
+            var controllerSkillId = 0;
+            foreach (var id in target.EnabledPersistentSkills)
+                if (catalog.Skills[id].MaintainBuffId == buffId) { controllerSkillId = id; break; }
+            if (applyEffects)
+                foreach (var effect in definition.OnApply)
+                    Enqueue(effect, targetRef.Id, targetRef, target.Position, target.Forward, sourceActorId, offense,
+                        rangeDelta, rangeMultiplier, passiveDerived, controllerSkillId);
             events.Add(new CombatEvent(CombatEventKind.BuffApplied, TickIndex, target.Spec.RoomId,
                 sourceActorId, target.Spec.ActorId, buffId, 1f, target.Position));
             return true;

@@ -6,7 +6,7 @@
           "min": 1
         },
         "DurationTicks": {
-          "min": 1
+          "min": 0
         },
         "CooldownTicks": {
           "min": 0
@@ -17,6 +17,38 @@
         "StartRangeSource": {
           "min": 0,
           "max": 1
+        },
+        "Name": {
+          "required": true
+        },
+        "Description": {
+          "required": true
+        },
+        "EffectClass": {
+          "min": 0,
+          "max": 2
+        },
+        "SkillType": {
+          "min": 0,
+          "max": 2
+        },
+        "CastMode": {
+          "min": 0,
+          "max": 3
+        },
+        "TargetKind": {
+          "min": 0,
+          "max": 1
+        },
+        "MaxHealthRatio": {
+          "min": 0,
+          "max": 1
+        },
+        "RequiredMissingBuffId": {
+          "min": 0
+        },
+        "MaintainBuffId": {
+          "min": 0
         }
       }
     },
@@ -64,7 +96,7 @@
         },
         "Shape": {
           "min": 0,
-          "max": 3
+          "max": 4
         },
         "Radius": {
           "min": 0
@@ -82,6 +114,14 @@
         },
         "Height": {
           "min": 0
+        },
+        "Count": {
+          "min": 1,
+          "max": 64
+        },
+        "SpreadDegrees": {
+          "min": 0,
+          "max": 360
         }
       }
     },
@@ -92,7 +132,7 @@
         },
         "Motion": {
           "min": 0,
-          "max": 3
+          "max": 4
         },
         "Target": {
           "min": 0,
@@ -104,7 +144,7 @@
         },
         "LostTarget": {
           "min": 0,
-          "max": 2
+          "max": 3
         },
         "FlightTicks": {
           "min": 0
@@ -138,7 +178,37 @@
         },
         "OnExpireEffectIDs": {
           "ref": "CfgCombatEffects"
-        }
+        },
+        "ReacquireRange": {
+          "min": 0
+        },
+        "OrbitRadius": {
+          "min": 0
+        },
+        "OrbitDegreesPerSecond": {},
+        "OrbitInitialAngle": {},
+        "VisualScaleX": {
+          "min": 0.001
+        },
+        "VisualScaleY": {
+          "min": 0.001
+        },
+        "VisualScaleZ": {
+          "min": 0.001
+        },
+        "VisualRed": {
+          "min": 0,
+          "max": 1
+        },
+        "VisualGreen": {
+          "min": 0,
+          "max": 1
+        },
+        "VisualBlue": {
+          "min": 0,
+          "max": 1
+        },
+        "VisualHeight": {}
       }
     },
     "CfgCombatBuffs": {
@@ -147,7 +217,7 @@
           "min": 1
         },
         "DurationTicks": {
-          "min": 1
+          "min": 0
         },
         "IntervalTicks": {
           "min": 1
@@ -159,9 +229,6 @@
           "min": 0,
           "max": 2
         },
-        "PeriodicDamagePerStack": {
-          "min": 0
-        },
         "OnApplyEffectIDs": {
           "ref": "CfgCombatEffects"
         },
@@ -170,6 +237,10 @@
         },
         "OnExpireEffectIDs": {
           "ref": "CfgCombatEffects"
+        },
+        "Lifetime": {
+          "min": 0,
+          "max": 1
         }
       }
     },
@@ -326,6 +397,13 @@
         "Type": {
           "min": 0,
           "max": 4
+        },
+        "WeaponClass": {
+          "min": -1,
+          "max": 2
+        },
+        "BasicSkillID": {
+          "min": 0
         }
       }
     },
@@ -430,6 +508,10 @@
         },
         "ScaleZ": {
           "min": 0.01
+        },
+        "SkillIDs": {
+          "ref": "CfgCombatSkills",
+          "required": true
         }
       }
     },
@@ -463,12 +545,6 @@
         "SkillID": {
           "ref": "CfgCombatSkills"
         },
-        "Priority": {
-          "min": 0
-        },
-        "Weight": {
-          "min": 1
-        },
         "MinHealthRatio": {
           "min": 0,
           "max": 1
@@ -481,6 +557,9 @@
           "min": 0
         },
         "MaxDistance": {
+          "min": 0
+        },
+        "SortOrder": {
           "min": 0
         }
       }

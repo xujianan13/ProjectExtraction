@@ -83,6 +83,12 @@ namespace GameLogic.Gameplay.Expedition
                 error = "活动区域与玩家战斗身份不一致。";
                 return false;
             }
+            if (!ProjectWeaponCombat.TryGetBasicSkill(snapshot.Inventory, out int basicSkillId) ||
+                !MatchesSkillLoadout(savedPlayer.Spec, basicSkillId) || !MatchesSkillLoadout(savedPlayer.BaseSpec, basicSkillId))
+            {
+                error = "玩家已装备武器与保存的技能列表不一致。";
+                return false;
+            }
             bool playerDead = savedPlayer.Health <= 0 && savedPlayer.DeadPending && savedPlayer.DeathPublished;
             if (snapshot.PendingPlayerDeathId < 0 || snapshot.PendingPlayerDeathId > snapshot.World.NextDeathId ||
                 (snapshot.PendingPlayerDeathId > 0) != playerDead)

@@ -52,7 +52,7 @@
     {
       "ID": "bleed_damage",
       "EventKind": 1,
-      "DefinitionID": 1001,
+      "DefinitionID": 5,
       "Critical": false,
       "Text": "流血 {value}",
       "ColorR": 1,
@@ -118,6 +118,30 @@
       "ColorR": 1,
       "ColorG": 0.35,
       "ColorB": 0.4,
+      "ShowHit": false,
+      "ShowFlash": false
+    },
+    {
+      "ID": "orbit_status",
+      "EventKind": 6,
+      "DefinitionID": 100,
+      "Critical": false,
+      "Text": "环身剑阵",
+      "ColorR": 1,
+      "ColorG": 0.85,
+      "ColorB": 0.25,
+      "ShowHit": false,
+      "ShowFlash": false
+    },
+    {
+      "ID": "regeneration_status",
+      "EventKind": 6,
+      "DefinitionID": 101,
+      "Critical": false,
+      "Text": "复苏",
+      "ColorR": 0.35,
+      "ColorG": 1,
+      "ColorB": 0.45,
       "ShowHit": false,
       "ShowFlash": false
     }

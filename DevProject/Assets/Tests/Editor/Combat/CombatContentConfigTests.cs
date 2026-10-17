@@ -1,4 +1,5 @@
 using GameLogic.Gameplay.Combat;
+using System.Linq;
 using GameLogic.Tables;
 using NUnit.Framework;
 
@@ -19,8 +20,9 @@ namespace ProjectExtraction.Tests.Editor.Combat
             CombatCatalog catalog = CombatContentConfig.CreateCatalog(2.4f);
             Assert.That(catalog.Skills.Count, Is.EqualTo(GameTables.CfgCombatSkills.GetAll().Count));
             Assert.That(catalog.Skills.ContainsKey(7), Is.True, "Boss 阶段冲刺技能必须进入战斗目录。");
-            Assert.That(catalog.Skills[1].StartRange, Is.EqualTo(3f).Within(0.0001f));
-            Assert.That(catalog.Skills[1].Nodes[2].Effects[0].Radius, Is.EqualTo(2.4f).Within(0.0001f));
+            Assert.That(catalog.Skills[1].StartRange, Is.EqualTo(2.4f).Within(0.0001f));
+            Assert.That(catalog.Skills[1].Nodes.SelectMany(node => node.Effects)
+                .Single(effect => effect.Kind == CombatEffectKind.Damage).Radius, Is.EqualTo(2.4f).Within(0.0001f));
             Assert.That(catalog.Projectiles[1].OnHit.Count, Is.EqualTo(2));
             Assert.That(catalog.Projectiles[1].OnHit[1].LinkedId, Is.EqualTo(1));
             Assert.That(catalog.Buffs[1].OnTick[0].DefinitionId, Is.EqualTo(5));

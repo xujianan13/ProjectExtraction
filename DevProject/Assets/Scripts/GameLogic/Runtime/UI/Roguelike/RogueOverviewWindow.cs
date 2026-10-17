@@ -1,8 +1,11 @@
 using Cysharp.Threading.Tasks;
+using System.Collections.Generic;
 using GameFramework;
+using GameLogic.Gameplay.Combat;
 using GameLogic.Gameplay.Expedition;
 using GameLogic.Gameplay.Roguelike;
 using GameLogic.UI.Common;
+using GameLogic.Tables;
 using UnityEngine;
 
 namespace GameLogic.UI.Roguelike
@@ -15,6 +18,7 @@ namespace GameLogic.UI.Roguelike
         private ExpeditionRun run;
         private RectTransform entries;
         private UnityEngine.UI.Text summary;
+        private readonly List<CombatSkillSnapshot> skills = new();
 
         /// <summary>
         /// 创建安全区内的标题、滚动强化列表与关闭入口。
@@ -78,6 +82,11 @@ namespace GameLogic.UI.Roguelike
             var upgrades = run.RogueUpgrades;
             summary.text = "整关目标 · 已获强化 " + upgrades.Count + " 种";
             ProjectUiFactory.Clear(entries);
+            run.World.GetSkillsSnapshot(run.Player, skills);
+            AddOverviewEntry("战斗技能 · 按当前顺序自动判断施放");
+            foreach (CombatSkillSnapshot skill in skills)
+                AddOverviewEntry(CombatSkillText.Summary(skill) + "\n" + CombatSkillText.Categories(skill) + "\n" +
+                    GameTables.CfgCombatSkills.GetById(skill.SkillId).Description);
             var plans = run.GetRegionOverview();
             ExpeditionRegionOverview final = plans[plans.Count - 1];
             AddOverviewEntry("最终 Boss：" + final.BossName + "\n场地：" + final.MapName + "\n弱点与应对：" + final.Weakness +
@@ -110,7 +119,7 @@ namespace GameLogic.UI.Roguelike
         /// <param name="text">玩家可读的计划或分区标题。</param>
         private void AddOverviewEntry(string text)
         {
-            UnityEngine.UI.Text entry = ProjectUiFactory.Label(entries, text, 24, TextAnchor.UpperLeft, Color.white);
+            UnityEngine.UI.Text entry = ProjectUiFactory.Label(entries, text, 30, TextAnchor.UpperLeft, Color.white);
             entry.gameObject.AddComponent<UnityEngine.UI.LayoutElement>().minHeight = 42f;
         }
 

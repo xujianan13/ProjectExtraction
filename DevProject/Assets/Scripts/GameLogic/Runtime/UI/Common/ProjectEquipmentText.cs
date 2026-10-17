@@ -139,7 +139,14 @@ namespace GameLogic.UI.Common
             }
             var builder = new StringBuilder();
             builder.Append("需求等级 ").Append(item.RequiredLevel);
-            if (item.Type == ProjectItemType.Weapon) builder.Append(" · 攻击范围 ").Append(item.Range.ToString("0.#"));
+            if (item.Type == ProjectItemType.Weapon)
+            {
+                CfgItemDefinitionsRow weapon = ProjectRulesConfig.Item(item.DefinitionId);
+                CfgCombatSkillsRow attack = GameTables.CfgCombatSkills.GetById(weapon.BasicSkillID);
+                builder.Append(" · 攻击范围 ").Append(item.Range.ToString("0.#"));
+                builder.AppendLine().Append(ProjectWeaponCombat.ClassName(weapon.WeaponClass)).Append(" · ").Append(attack.Name);
+                builder.AppendLine().Append(attack.Description);
+            }
             builder.AppendLine().AppendLine("基础属性");
             int baseCount = 0;
             if (item.EquipmentVersion > 0 && item.BaseAttributes != null)

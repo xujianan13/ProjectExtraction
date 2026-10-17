@@ -1,11 +1,11 @@
 {
-  "schemaHash": "c22b1feff90c46cedd141cc3fb3e81cb746ab380a80202d3787d294d71cdc6b3",
+  "schemaHash": "5619682e4cee585a299accc07f58571a4edaea016b5a919242a3ef4be6c08f69",
   "rows": [
     {
       "ID": "bleed",
       "Version": 1,
       "Title": "割裂",
-      "Description": "命中有{value}概率施加流血：3秒内每秒每层3伤害，最多3层；触发间隔0.5秒。",
+      "Description": "命中有{value}概率施加流血：持续3秒，第1、2秒各造成每层3伤害，最多3层；触发间隔0.5秒。",
       "Trigger": 1,
       "Chance": 1,
       "CooldownTicks": 30,
@@ -15,7 +15,8 @@
         1001
       ],
       "ModifierKind": 0,
-      "ValueMode": 1
+      "ValueMode": 1,
+      "AffectsBasicAttack": false
     },
     {
       "ID": "critical_echo",
@@ -31,7 +32,8 @@
         1002
       ],
       "ModifierKind": 0,
-      "ValueMode": 0
+      "ValueMode": 0,
+      "AffectsBasicAttack": false
     },
     {
       "ID": "kill_leech",
@@ -47,7 +49,8 @@
         1003
       ],
       "ModifierKind": 0,
-      "ValueMode": 0
+      "ValueMode": 0,
+      "AffectsBasicAttack": false
     },
     {
       "ID": "retaliation",
@@ -63,7 +66,8 @@
         1004
       ],
       "ModifierKind": 0,
-      "ValueMode": 0
+      "ValueMode": 0,
+      "AffectsBasicAttack": false
     },
     {
       "ID": "swift_blade",
@@ -77,7 +81,8 @@
       "SkillID": 0,
       "EffectIDs": [],
       "ModifierKind": 1,
-      "ValueMode": 2
+      "ValueMode": 2,
+      "AffectsBasicAttack": true
     },
     {
       "ID": "wide_blade",
@@ -91,7 +96,8 @@
       "SkillID": 0,
       "EffectIDs": [],
       "ModifierKind": 2,
-      "ValueMode": 2
+      "ValueMode": 2,
+      "AffectsBasicAttack": true
     },
     {
       "ID": "heavy_blade",
@@ -105,7 +111,8 @@
       "SkillID": 0,
       "EffectIDs": [],
       "ModifierKind": 3,
-      "ValueMode": 2
+      "ValueMode": 2,
+      "AffectsBasicAttack": true
     }
   ]
 }

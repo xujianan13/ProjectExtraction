@@ -157,6 +157,61 @@ namespace GameLogic.Tables
         /// OnExpireEffectIDs 字段。
         /// </summary>
         public int[] OnExpireEffectIDs;
+
+        /// <summary>
+        /// ReacquireRange 字段。
+        /// </summary>
+        public double ReacquireRange;
+
+        /// <summary>
+        /// OrbitRadius 字段。
+        /// </summary>
+        public double OrbitRadius;
+
+        /// <summary>
+        /// OrbitDegreesPerSecond 字段。
+        /// </summary>
+        public double OrbitDegreesPerSecond;
+
+        /// <summary>
+        /// OrbitInitialAngle 字段。
+        /// </summary>
+        public double OrbitInitialAngle;
+
+        /// <summary>
+        /// VisualScaleX 字段。
+        /// </summary>
+        public double VisualScaleX;
+
+        /// <summary>
+        /// VisualScaleY 字段。
+        /// </summary>
+        public double VisualScaleY;
+
+        /// <summary>
+        /// VisualScaleZ 字段。
+        /// </summary>
+        public double VisualScaleZ;
+
+        /// <summary>
+        /// VisualRed 字段。
+        /// </summary>
+        public double VisualRed;
+
+        /// <summary>
+        /// VisualGreen 字段。
+        /// </summary>
+        public double VisualGreen;
+
+        /// <summary>
+        /// VisualBlue 字段。
+        /// </summary>
+        public double VisualBlue;
+
+        /// <summary>
+        /// VisualHeight 字段。
+        /// </summary>
+        public double VisualHeight;
     }
 
     /// <summary>
@@ -193,7 +248,7 @@ namespace GameLogic.Tables
                 TextAsset asset = lease.Asset;
                 if (asset == null) throw new InvalidOperationException("配置表资源不可用：CfgCombatProjectiles");
                 var envelope = JsonUtility.FromJson(asset.text, typeof(Envelope)) as Envelope;
-                if (envelope == null || envelope.schemaHash != "d3ca45d7f89b7a93baf7e4e0dbe3389cb36dac3d6c7bd16d67bb323232903c2b" || envelope.rows == null)
+                if (envelope == null || envelope.schemaHash != "dedfbf914af96bc57d6f8af7375e75c3a3812cf60018f0f3e2309b8b42e07ec9" || envelope.rows == null)
                     throw new InvalidOperationException("配置表结构不匹配：CfgCombatProjectiles");
 
                 var table = new CfgCombatProjectilesTable();

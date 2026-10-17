@@ -157,7 +157,8 @@ namespace GameLogic.Gameplay.Expedition
                 !LevelContentConfig.TryGetLevel(levelId, out LevelDefinition level) ||
                 !LevelContentConfig.TryCreateRegionRequests(runId, seed, level, out List<RegionGenerationRequest> requests, out _)) return false;
             var created = new ExpeditionRun(session, runId, level, seed, requests, items, roguePolicy, rogueAccess);
-            if (created.Player.Id == 0 || !created.InitializeEquipmentAugments()) { created.Dispose(); return false; }
+            if (created.Player.Id == 0 || !created.InitializeCombatSkills() || !created.InitializeEquipmentAugments())
+            { created.Dispose(); return false; }
             run = created;
             return true;
         }
