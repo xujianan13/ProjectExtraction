@@ -1,6 +1,6 @@
 # AI 开发入口
 
-ProjectExtraction 的当前玩法开发从 [v2 项目文档](../project/v2/README.md)开始，模块与阶段要求见[模块职责与开发验收](../project/v2/模块职责与开发验收.md)。本文提供通用框架调用与模板复用指南；下文 Demo、默认三关等内容属于框架样例，不是本项目 v2 的玩法或验收状态。
+ProjectExtraction 的当前玩法开发从 [V3 项目文档](../project/v3/README.md)开始，阶段与验证要求见[V3 实施计划与验收](../project/v3/实施计划与验收.md)。当前代码仍为 V2 基线，V3 尚未实施。本文提供通用框架调用与模板复用指南；下文 Demo、默认三关等内容属于框架样例，不是本项目的玩法或验收状态。
 
 按任务检索当前已注册模块及准确签名，从 [框架 API 索引](api/README.md) 开始；所有权与退出顺序见 [API 生命周期约定](api/生命周期约定.md)，可编译调用见 [ApiRecipes.cs](../../DevProject/Assets/Tests/PlayMode/ApiRecipes.cs)。
 
