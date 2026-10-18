@@ -4,7 +4,7 @@ using System.Collections.Generic;
 namespace GameLogic.Gameplay.Level
 {
     /// <summary>
-    /// 稳定槽位的生命身份和刷新状态，不复制活体战斗真值。
+    /// 稳定槽位的当前出生身份和收益确认账本。
     /// </summary>
     [Serializable]
     public sealed class RegionSpawnSlotState
@@ -13,11 +13,9 @@ namespace GameLogic.Gameplay.Level
         public int LifeSequence = 1;
         public int CurrentActorId;
         public int LastProcessedLife;
+        public bool RewardClaimed;
         public RegionSpawnPhase Phase;
         public long DeathTick = -1;
-        public long ReadyTick = -1;
-        public long WarningStartTick = -1;
-        public RegionSpawnWaitReason WaitingReason;
 
         /// <summary>
         /// 创建独立槽位状态副本。
@@ -61,7 +59,7 @@ namespace GameLogic.Gameplay.Level
     }
 
     /// <summary>
-    /// 由统一会话提交的区域组合、交互和个体刷新事实。
+    /// 由统一会话提交的房间组合、交互和单次击杀事实。
     /// </summary>
     [Serializable]
     public sealed class RegionRuntimeState
@@ -71,15 +69,9 @@ namespace GameLogic.Gameplay.Level
         public bool BossDefeated;
         public bool BossRewardsCompleted;
         public bool ExitEnabled;
-        public string TrackingTargetId;
         public List<RegionSpawnSlotState> Slots = new();
         public List<RegionChestState> Chests = new();
         public List<RegionNpcState> Npcs = new();
-
-        /// <summary>
-        /// 取得本区域出口的稳定追踪身份。
-        /// </summary>
-        public string ExitTargetId => Plan.Request.RunId + ":region:" + Plan.Request.RegionId + ":exit";
 
         /// <summary>
         /// 从有效冻结计划建立未激活状态，初生生命序号始终为一。
@@ -104,6 +96,7 @@ namespace GameLogic.Gameplay.Level
             }
             foreach (RegionChestPlan chest in plan.Chests) created.Chests.Add(new RegionChestState { Id = chest.Id });
             foreach (RegionNpcPlan npc in plan.Npcs) created.Npcs.Add(new RegionNpcState { Id = npc.Id });
+            created.RefreshCompletion();
             state = created;
             return true;
         }
@@ -115,7 +108,7 @@ namespace GameLogic.Gameplay.Level
         public RegionRuntimeState Copy() => new RegionRuntimeState
         {
             Plan = Plan.Copy(), EffectiveTick = EffectiveTick, BossDefeated = BossDefeated, BossRewardsCompleted = BossRewardsCompleted,
-            ExitEnabled = ExitEnabled, TrackingTargetId = TrackingTargetId, Slots = Slots.ConvertAll(value => value.Copy()),
+            ExitEnabled = ExitEnabled, Slots = Slots.ConvertAll(value => value.Copy()),
             Chests = Chests.ConvertAll(value => value.Copy()), Npcs = Npcs.ConvertAll(value => value.Copy())
         };
 
@@ -130,24 +123,10 @@ namespace GameLogic.Gameplay.Level
         {
             RegionSpawnSlotState slot = Slots.Find(value => value.SlotId == slotId);
             if (slot == null || slot.Phase != RegionSpawnPhase.Alive || slot.CurrentActorId != actorId || slot.LifeSequence != lifeSequence) return false;
-            RegionSpawnSlotPlan definition = SlotPlan(slotId);
-            RegionRespawnRule rule = Rule(definition.Kind);
-            if (definition.Kind != RegionEnemyKind.Boss && EffectiveTick > long.MaxValue - rule.DelayTicks) return false;
             slot.DeathTick = EffectiveTick;
-            slot.WarningStartTick = -1;
-            if (definition.Kind == RegionEnemyKind.Boss)
-            {
-                slot.Phase = RegionSpawnPhase.Defeated;
-                slot.ReadyTick = -1;
-                slot.WaitingReason = RegionSpawnWaitReason.None;
-                BossDefeated = true;
-            }
-            else
-            {
-                slot.Phase = RegionSpawnPhase.DeadWaiting;
-                slot.ReadyTick = EffectiveTick + rule.DelayTicks;
-                slot.WaitingReason = RegionSpawnWaitReason.Countdown;
-            }
+            slot.Phase = RegionSpawnPhase.Defeated;
+            if (SlotPlan(slotId).Kind == RegionEnemyKind.Boss) BossDefeated = true;
+            RefreshCompletion();
             return true;
         }
 
@@ -163,51 +142,19 @@ namespace GameLogic.Gameplay.Level
             if (slot == null || slot.Phase == RegionSpawnPhase.Alive || slot.Phase == RegionSpawnPhase.InitialSpawn ||
                 slot.LifeSequence != lifeSequence || slot.LastProcessedLife != lifeSequence - 1) return false;
             slot.LastProcessedLife = lifeSequence;
+            slot.RewardClaimed = true;
+            RefreshCompletion();
             return true;
         }
 
         /// <summary>
         /// 推进一个完整的区域有效帧，调用方在暂停、离区和保存门禁时不调用。
         /// </summary>
-        /// <param name="safety">主协调器提供的合法占位、玩家距离和相机结果。</param>
         /// <returns>有效时钟成功推进时为真。</returns>
-        public bool AdvanceTick(Func<RegionSpawnSlotPlan, RegionSpawnSafety> safety)
+        public bool AdvanceTick()
         {
-            if (EffectiveTick == long.MaxValue || safety == null) return false;
+            if (EffectiveTick == long.MaxValue) return false;
             EffectiveTick++;
-            foreach (RegionSpawnSlotState slot in Slots)
-            {
-                if (slot.Phase == RegionSpawnPhase.InitialSpawn || slot.Phase == RegionSpawnPhase.Alive || slot.Phase == RegionSpawnPhase.Defeated) continue;
-                if (slot.Phase == RegionSpawnPhase.DeadWaiting)
-                {
-                    if (EffectiveTick < slot.ReadyTick) continue;
-                    slot.Phase = RegionSpawnPhase.WaitingSafety;
-                }
-                if (slot.LastProcessedLife != slot.LifeSequence)
-                {
-                    slot.Phase = RegionSpawnPhase.WaitingSafety;
-                    slot.WaitingReason = RegionSpawnWaitReason.UnprocessedDeath;
-                    slot.WarningStartTick = -1;
-                    continue;
-                }
-                RegionSpawnSlotPlan definition = SlotPlan(slot.SlotId);
-                RegionSpawnSafety availability = safety(definition);
-                if (!availability.IsSafe)
-                {
-                    slot.Phase = RegionSpawnPhase.WaitingSafety;
-                    slot.WaitingReason = availability.Reason;
-                    slot.WarningStartTick = -1;
-                    continue;
-                }
-                slot.WaitingReason = RegionSpawnWaitReason.None;
-                if (slot.Phase == RegionSpawnPhase.WaitingSafety)
-                {
-                    slot.Phase = RegionSpawnPhase.Warning;
-                    slot.WarningStartTick = EffectiveTick;
-                }
-                if (slot.Phase == RegionSpawnPhase.Warning && EffectiveTick - slot.WarningStartTick >= Rule(definition.Kind).WarningTicks)
-                    slot.Phase = RegionSpawnPhase.ReadyToSpawn;
-            }
             return true;
         }
 
@@ -221,12 +168,11 @@ namespace GameLogic.Gameplay.Level
             destination.Clear();
             foreach (RegionSpawnSlotState slot in Slots)
             {
-                bool initial = slot.Phase == RegionSpawnPhase.InitialSpawn;
-                if (!initial && slot.Phase != RegionSpawnPhase.ReadyToSpawn || !initial && slot.LifeSequence == int.MaxValue) continue;
+                if (slot.Phase != RegionSpawnPhase.InitialSpawn) continue;
                 RegionSpawnSlotPlan definition = SlotPlan(slot.SlotId);
                 destination.Add(new RegionSpawnRequest
                 {
-                    SlotId = slot.SlotId, ExpectedLifeSequence = slot.LifeSequence, IsInitial = initial, EnemyId = definition.EnemyId,
+                    SlotId = slot.SlotId, ExpectedLifeSequence = slot.LifeSequence, IsInitial = true, EnemyId = definition.EnemyId,
                     EnemyLevel = definition.EnemyLevel, Kind = definition.Kind, Position = definition.HomePosition
                 });
             }
@@ -250,25 +196,21 @@ namespace GameLogic.Gameplay.Level
         }
 
         /// <summary>
-        /// 在复活 ECS 实体创建成功后提交新生命，失败重试保持原请求。
+        /// 重开未完成战斗房间，敌人恢复初生且已确认收益继续去重。
         /// </summary>
-        /// <param name="slotId">稳定生成槽位。</param>
-        /// <param name="expectedLifeSequence">请求所依据的旧生命序号。</param>
-        /// <param name="newActorId">本次新分配且已经创建的全局身份。</param>
-        /// <returns>新生命首次提交成功时为真。</returns>
-        public bool CommitRespawn(string slotId, int expectedLifeSequence, int newActorId)
+        /// <param name="state">重建的独立运行态。</param>
+        /// <param name="error">失败原因。</param>
+        /// <returns>当前房间允许重开且计划完整时为真。</returns>
+        public bool CreateReplay(out RegionRuntimeState state, out string error)
         {
-            RegionSpawnSlotState slot = Slots.Find(value => value.SlotId == slotId);
-            if (slot == null || slot.Phase != RegionSpawnPhase.ReadyToSpawn || slot.LifeSequence != expectedLifeSequence ||
-                expectedLifeSequence == int.MaxValue || slot.LastProcessedLife != expectedLifeSequence ||
-                newActorId <= slot.CurrentActorId || !ActorIdAvailable(newActorId)) return false;
-            slot.LifeSequence++;
-            slot.CurrentActorId = newActorId;
-            slot.Phase = RegionSpawnPhase.Alive;
-            slot.DeathTick = -1;
-            slot.ReadyTick = -1;
-            slot.WarningStartTick = -1;
-            slot.WaitingReason = RegionSpawnWaitReason.None;
+            state = null;
+            error = null;
+            if (Plan.Request.RoomKind != ExpeditionRoomKind.Combat && Plan.Request.RoomKind != ExpeditionRoomKind.Boss || ExitEnabled || BossDefeated)
+            { error = "只有未完成战斗房间可以重开。"; return false; }
+            if (!TryCreate(Plan, out RegionRuntimeState replay, out error)) return false;
+            foreach (RegionSpawnSlotState slot in replay.Slots)
+                slot.RewardClaimed = Slots.Find(value => value.SlotId == slot.SlotId).RewardClaimed;
+            state = replay;
             return true;
         }
 
@@ -297,6 +239,7 @@ namespace GameLogic.Gameplay.Level
             RegionChestPlan plan = Plan.Chests.Find(value => value.Id == chestId);
             if (chest == null || !chest.Opened || chest.ClaimedItemIds.Contains(itemId) || !plan.Items.Exists(value => value.Id == itemId)) return false;
             chest.ClaimedItemIds.Add(itemId);
+            RefreshCompletion();
             return true;
         }
 
@@ -337,19 +280,7 @@ namespace GameLogic.Gameplay.Level
         {
             if (!BossDefeated || BossRewardsCompleted) return false;
             BossRewardsCompleted = true;
-            ExitEnabled = true;
-            return true;
-        }
-
-        /// <summary>
-        /// 设置一个合法的关键点追踪目标，空身份用于主动取消。
-        /// </summary>
-        /// <param name="targetId">稳定地图目标身份。</param>
-        /// <returns>目标合法时为真。</returns>
-        public bool TrySetTrackingTarget(string targetId)
-        {
-            if (!string.IsNullOrEmpty(targetId) && !HasTrackingTarget(targetId)) return false;
-            TrackingTargetId = targetId;
+            RefreshCompletion();
             return true;
         }
 
@@ -364,8 +295,7 @@ namespace GameLogic.Gameplay.Level
             error = null;
             if (Plan == null || !Plan.TryValidate(map, out error)) return false;
             if (EffectiveTick < 0 || Slots == null || Chests == null || Npcs == null || Slots.Count != Plan.SpawnSlots.Count ||
-                Chests.Count != Plan.Chests.Count || Npcs.Count != Plan.Npcs.Count || BossRewardsCompleted && !BossDefeated ||
-                ExitEnabled != BossRewardsCompleted || !string.IsNullOrEmpty(TrackingTargetId) && !HasTrackingTarget(TrackingTargetId))
+                Chests.Count != Plan.Chests.Count || Npcs.Count != Plan.Npcs.Count || BossRewardsCompleted && !BossDefeated)
             { error = "区域运行态结构、目标或完成状态无效。"; return false; }
             var slotIds = new HashSet<string>(StringComparer.Ordinal);
             var actorIds = new HashSet<int>();
@@ -375,7 +305,7 @@ namespace GameLogic.Gameplay.Level
                 if (slot == null || !slotIds.Add(slot.SlotId) || !Plan.SpawnSlots.Exists(value => value.SlotId == slot.SlotId) ||
                     slot.LifeSequence <= 0 || slot.LastProcessedLife < 0 || slot.LastProcessedLife > slot.LifeSequence ||
                     slot.LastProcessedLife < slot.LifeSequence - 1 || !Enum.IsDefined(typeof(RegionSpawnPhase), slot.Phase) ||
-                    !Enum.IsDefined(typeof(RegionSpawnWaitReason), slot.WaitingReason) || !ValidateSlot(slot, actorIds))
+                    !ValidateSlot(slot, actorIds))
                 { error = "区域槽位生命、计时或战斗身份无效。"; return false; }
                 if (SlotPlan(slot.SlotId).Kind == RegionEnemyKind.Boss) defeatedBoss = slot.Phase == RegionSpawnPhase.Defeated;
             }
@@ -398,6 +328,7 @@ namespace GameLogic.Gameplay.Level
                     !ValidateClaims(npc.SoldOfferIds, definition.Offers.ConvertAll(value => value.Id)))
                 { error = "NPC 售出状态无效。"; return false; }
             }
+            if (ExitEnabled != CompletionReached()) { error = "房间完成状态与已确认事实不一致。"; return false; }
             return true;
         }
 
@@ -409,29 +340,15 @@ namespace GameLogic.Gameplay.Level
         /// <returns>当前阶段的所有字段一致时为真。</returns>
         private bool ValidateSlot(RegionSpawnSlotState slot, HashSet<int> actorIds)
         {
-            bool initial = slot.Phase == RegionSpawnPhase.InitialSpawn;
-            if (initial) return slot.LifeSequence == 1 && slot.CurrentActorId == 0 && slot.LastProcessedLife == 0 &&
-                slot.DeathTick == -1 && slot.ReadyTick == -1 && slot.WarningStartTick == -1 && slot.WaitingReason == RegionSpawnWaitReason.None;
-            if (slot.CurrentActorId <= 1 || !actorIds.Add(slot.CurrentActorId)) return false;
-            if (slot.Phase == RegionSpawnPhase.Alive) return slot.LastProcessedLife == slot.LifeSequence - 1 &&
-                slot.DeathTick == -1 && slot.ReadyTick == -1 && slot.WarningStartTick == -1 && slot.WaitingReason == RegionSpawnWaitReason.None;
-            if (slot.DeathTick < 0 || slot.DeathTick > EffectiveTick) return false;
-            RegionEnemyKind kind = SlotPlan(slot.SlotId).Kind;
-            if (kind == RegionEnemyKind.Boss) return slot.Phase == RegionSpawnPhase.Defeated && slot.LifeSequence == 1 &&
-                slot.ReadyTick == -1 && slot.WarningStartTick == -1 && slot.WaitingReason == RegionSpawnWaitReason.None;
-            RegionRespawnRule rule = Rule(kind);
-            if (slot.Phase == RegionSpawnPhase.Defeated || slot.DeathTick > long.MaxValue - rule.DelayTicks ||
-                slot.ReadyTick != slot.DeathTick + rule.DelayTicks) return false;
-            if (slot.Phase == RegionSpawnPhase.DeadWaiting) return slot.ReadyTick > EffectiveTick && slot.WarningStartTick == -1 &&
-                slot.WaitingReason == RegionSpawnWaitReason.Countdown;
-            if (slot.ReadyTick > EffectiveTick) return false;
-            if (slot.Phase == RegionSpawnPhase.WaitingSafety) return slot.WarningStartTick == -1 &&
-                slot.WaitingReason != RegionSpawnWaitReason.None && slot.WaitingReason != RegionSpawnWaitReason.Countdown;
-            if (slot.LastProcessedLife != slot.LifeSequence || slot.WaitingReason != RegionSpawnWaitReason.None ||
-                slot.WarningStartTick < slot.ReadyTick || slot.WarningStartTick > EffectiveTick) return false;
-            long elapsed = EffectiveTick - slot.WarningStartTick;
-            return slot.Phase == RegionSpawnPhase.Warning ? elapsed < rule.WarningTicks :
-                slot.Phase == RegionSpawnPhase.ReadyToSpawn && elapsed >= rule.WarningTicks;
+            if (slot.LifeSequence != 1) return false;
+            if (slot.Phase == RegionSpawnPhase.InitialSpawn)
+                return slot.CurrentActorId == 0 && slot.LastProcessedLife == 0 && slot.DeathTick == -1;
+            if (slot.Phase == RegionSpawnPhase.Alive)
+                return slot.CurrentActorId > 1 && actorIds.Add(slot.CurrentActorId) && slot.LastProcessedLife == 0 && slot.DeathTick == -1;
+            bool inactive = slot.CurrentActorId == 0 && slot.DeathTick == -1;
+            bool active = slot.CurrentActorId > 1 && actorIds.Add(slot.CurrentActorId) && slot.DeathTick >= 0 && slot.DeathTick <= EffectiveTick;
+            return slot.Phase == RegionSpawnPhase.Defeated && (inactive || active) &&
+                (slot.LastProcessedLife == 0 || slot.LastProcessedLife == 1 && slot.RewardClaimed);
         }
 
         /// <summary>
@@ -448,14 +365,6 @@ namespace GameLogic.Gameplay.Level
         }
 
         /// <summary>
-        /// 判断追踪身份是否属于当前区域关键目标。
-        /// </summary>
-        /// <param name="id">追踪身份。</param>
-        /// <returns>目标存在时为真。</returns>
-        private bool HasTrackingTarget(string id) => id == ExitTargetId || Plan.SpawnSlots.Exists(value => value.Kind != RegionEnemyKind.Normal && value.SlotId == id) ||
-            Plan.Chests.Exists(value => value.Id == id) || Plan.Npcs.Exists(value => value.Id == id);
-
-        /// <summary>
         /// 检查新战斗身份在当前区域未被使用，跨区域唯一性由主协调器保证。
         /// </summary>
         /// <param name="actorId">新分配身份。</param>
@@ -470,10 +379,22 @@ namespace GameLogic.Gameplay.Level
         private RegionSpawnSlotPlan SlotPlan(string slotId) => Plan.SpawnSlots.Find(value => value.SlotId == slotId);
 
         /// <summary>
-        /// 取得敌人类别对应的刷新规则，Boss 调用者不读取该返回值。
+        /// 根据房型计算当前房间完成事实。
         /// </summary>
-        /// <param name="kind">敌人类别。</param>
-        /// <returns>普通或精英刷新规则。</returns>
-        private RegionRespawnRule Rule(RegionEnemyKind kind) => kind == RegionEnemyKind.Elite ? Plan.EliteRespawn : Plan.NormalRespawn;
+        /// <returns>满足对应房型离房条件时为真。</returns>
+        private bool CompletionReached()
+        {
+            if (Plan.Request.RoomKind == ExpeditionRoomKind.Npc) return true;
+            if (Plan.Request.RoomKind == ExpeditionRoomKind.Boss) return BossRewardsCompleted;
+            if (Plan.Request.RoomKind == ExpeditionRoomKind.Combat)
+                return Slots.Count > 0 && Slots.TrueForAll(value => value.Phase == RegionSpawnPhase.Defeated && value.LastProcessedLife == value.LifeSequence);
+            return Chests.Count > 0 && Chests.TrueForAll(value => value.Opened &&
+                value.ClaimedItemIds.Count == Plan.Chests.Find(plan => plan.Id == value.Id).Items.Count);
+        }
+
+        /// <summary>
+        /// 刷新可保存的离房条件。
+        /// </summary>
+        private void RefreshCompletion() => ExitEnabled = CompletionReached();
     }
 }

@@ -15,7 +15,7 @@ namespace GameLogic.Scenes.Expedition
         private GameplayHandle gameplay;
         private ExpeditionPresentation presentation;
         private ExpeditionRun run;
-        private bool openingRogueChoice;
+        private bool openingBossChoice;
 
         /// <summary>
         /// 创建关卡逻辑场景。
@@ -40,10 +40,8 @@ namespace GameLogic.Scenes.Expedition
             if (assets == null) throw new InvalidOperationException("关卡测试资源加载失败。");
             ct.ThrowIfCancellationRequested();
             run = current;
-            current.RogueChoiceChanged += OnRogueChoiceChanged;
-            current.BossChoiceChanged += OnRogueChoiceChanged;
-            scope.Defer(() => current.RogueChoiceChanged -= OnRogueChoiceChanged);
-            scope.Defer(() => current.BossChoiceChanged -= OnRogueChoiceChanged);
+            current.BossChoiceChanged += OnBossChoiceChanged;
+            scope.Defer(() => current.BossChoiceChanged -= OnBossChoiceChanged);
             scope.Defer(() =>
             {
                 if (gameplay.IsValid) GameEntry.Get<IGameplayModule>().Stop(gameplay);
@@ -51,7 +49,7 @@ namespace GameLogic.Scenes.Expedition
             });
             presentation = new ExpeditionPresentation(run, assets);
             run.AttachScene(assets, presentation.Root);
-            if (run.RegionView == null) throw new System.InvalidOperationException("当前区域准备失败。");
+            if (run.RegionView == null) throw new System.InvalidOperationException("当前房间准备失败。");
             presentation.Refresh();
             var inputContext = GameEntry.Get<IInputModule>().PushContext("Gameplay");
             scope.Defer(inputContext.Dispose);
@@ -76,11 +74,12 @@ namespace GameLogic.Scenes.Expedition
         protected override async UniTask OnExitSceneAsync(CancellationToken ct)
         {
             run?.Stop();
-            await GameEntry.Get<IUIModule>().CloseWindowAsync(ProjectServices.RogueChoiceWindow, GameWindowCloseReason.ScopeExit);
             await GameEntry.Get<IUIModule>().CloseWindowAsync(ProjectServices.BossLootWindow, GameWindowCloseReason.ScopeExit);
-            await GameEntry.Get<IUIModule>().CloseWindowAsync(ProjectServices.ExpeditionMapWindow, GameWindowCloseReason.ScopeExit);
             await GameEntry.Get<IUIModule>().CloseWindowAsync(ProjectServices.RegionExitWindow, GameWindowCloseReason.ScopeExit);
-            await GameEntry.Get<IUIModule>().CloseWindowAsync(ProjectServices.RogueOverviewWindow, GameWindowCloseReason.ScopeExit);
+            await GameEntry.Get<IUIModule>().CloseWindowAsync(ProjectServices.ProgressionWindow, GameWindowCloseReason.ScopeExit);
+            await GameEntry.Get<IUIModule>().CloseWindowAsync(ProjectServices.AdExtractionWindow, GameWindowCloseReason.ScopeExit);
+            await GameEntry.Get<IUIModule>().CloseWindowAsync(ProjectServices.DeathChoiceWindow, GameWindowCloseReason.ScopeExit);
+            await GameEntry.Get<IUIModule>().CloseWindowAsync(ProjectServices.PauseWindow, GameWindowCloseReason.ScopeExit);
             await GameEntry.Get<IUIModule>().CloseWindowAsync(ProjectServices.ExpeditionInventoryWindow, GameWindowCloseReason.ScopeExit);
             await GameEntry.Get<IUIModule>().CloseWindowAsync(ProjectServices.ExpeditionMerchantWindow, GameWindowCloseReason.ScopeExit);
             await GameEntry.Get<IUIModule>().CloseWindowAsync(ProjectServices.BattleHudWindow, GameWindowCloseReason.ScopeExit);
@@ -101,37 +100,36 @@ namespace GameLogic.Scenes.Expedition
         /// <summary>
         /// 在单局停在安全帧边界后安排弹出当前奖励。
         /// </summary>
-        private void OnRogueChoiceChanged()
+        private void OnBossChoiceChanged()
         {
-            if (run?.IsRunning == true && (run.PendingRogueChoice != null || run.PendingBossChoice != null) && SceneScope.IsActive && !openingRogueChoice)
-                OpenRogueChoiceAsync(run, SceneScope).Forget();
+            if (run?.IsRunning == true && run.PendingBossChoice != null && SceneScope.IsActive && !openingBossChoice)
+                OpenBossChoiceAsync(run, SceneScope).Forget();
         }
 
         /// <summary>
-        /// 使用场景作用域打开三选一，失败时保留冻结状态与 HUD 重开入口。
+        /// 使用场景作用域打开 Boss 奖励，失败时保留冻结状态与 HUD 重开入口。
         /// </summary>
         /// <param name="owner">发起选择的单局。</param>
         /// <param name="scope">当前场景作用域。</param>
         /// <returns>弹窗打开任务。</returns>
-        private async UniTask OpenRogueChoiceAsync(ExpeditionRun owner, LifetimeScope scope)
+        private async UniTask OpenBossChoiceAsync(ExpeditionRun owner, LifetimeScope scope)
         {
-            openingRogueChoice = true;
+            openingBossChoice = true;
             try
             {
                 await UniTask.Yield(PlayerLoopTiming.Update, scope.Token);
                 if (!scope.IsActive || !ReferenceEquals(run, owner) || !owner.IsRunning ||
-                    owner.PendingRogueChoice == null && owner.PendingBossChoice == null) return;
-                int windowId = owner.PendingBossChoice != null ? ProjectServices.BossLootWindow : ProjectServices.RogueChoiceWindow;
-                GameWindow window = await GameEntry.Get<IUIModule>().OpenWindowAsync(windowId,
+                    owner.PendingBossChoice == null) return;
+                GameWindow window = await GameEntry.Get<IUIModule>().OpenWindowAsync(ProjectServices.BossLootWindow,
                     new GameWindowOpenArgs(owner), scope.Token);
-                if (window == null) GameEntry.Get<ILogModule>()?.Error("Roguelike", "三选一窗口未打开，请从 HUD 继续选择。");
+                if (window == null) GameEntry.Get<ILogModule>()?.Error("BossLoot", "Boss 奖励窗口未打开，请从 HUD 继续选择。");
             }
             catch (OperationCanceledException) when (!scope.IsActive) { }
             catch (Exception error)
             {
-                if (scope.IsActive) GameEntry.Get<ILogModule>()?.Error("Roguelike", "三选一窗口打开失败：" + error.Message);
+                if (scope.IsActive) GameEntry.Get<ILogModule>()?.Error("BossLoot", "Boss 奖励窗口打开失败：" + error.Message);
             }
-            finally { openingRogueChoice = false; }
+            finally { openingBossChoice = false; }
         }
 
         /// <summary>

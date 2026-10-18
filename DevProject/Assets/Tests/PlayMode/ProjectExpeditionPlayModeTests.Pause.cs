@@ -67,11 +67,11 @@ namespace MiniGame.Tests
         });
 
         /// <summary>
-        /// 取消放弃不结算；确认后损失全部本局物品，入场体力和撤离经验均不返还。
+        /// 取消放弃不结算；确认后保留固定装备，入场体力不返还。
         /// </summary>
         /// <returns>真实确认框、终局保存与返场验证的逐帧测试。</returns>
         [UnityTest]
-        public IEnumerator PauseWindow_AbandonConfirmationSettlesOnceAndLosesAllItems() => UniTask.ToCoroutine(async () =>
+        public IEnumerator PauseWindow_AbandonConfirmationSettlesOnceAndProtectsEntryEquipment() => UniTask.ToCoroutine(async () =>
         {
             ProjectSaveData initial = ProjectSaveData.CreateDefault();
             ProjectItem armor = ProjectEquipmentRules.CreateEquipment(new System.Random(73), ProjectItemType.Armor, 1, ProjectItemQuality.Common);
@@ -84,14 +84,7 @@ namespace MiniGame.Tests
             ProjectSession session = ProjectServices.Session;
             Assert.That(await ProjectServices.Coordinator.StartRunAsync(1), Is.True);
             ExpeditionRun run = session.CurrentRun;
-            Assert.That(session.Stamina, Is.EqualTo(initialStamina - PrototypeRules.EntryCost));
-            Assert.That(run.TryOpenInventory(), Is.True);
-            await WaitForWindowAsync(ProjectServices.ExpeditionInventoryWindow);
-            Assert.That(run.TryEquip(starterId), Is.True);
-            await WaitRunSavedAsync(run);
-            await GameEntry.Get<IUIModule>().CloseWindowAsync(ProjectServices.ExpeditionInventoryWindow);
-            Assert.That(run.ActivePanel, Is.EqualTo(ExpeditionPanelKind.None));
-
+            Assert.That(session.Stamina, Is.EqualTo(initialStamina - PrototypeRules.EntryCost - PrototypeRules.RoomEntryCost));
             GameWindow hud = await WaitForWindowAsync(ProjectServices.BattleHudWindow);
             ClickButton(hud, "暂停");
             GameWindow pause = await WaitForWindowAsync(ProjectServices.PauseWindow);
@@ -100,22 +93,21 @@ namespace MiniGame.Tests
             Assert.That(ProjectServices.Coordinator.Phase, Is.EqualTo(ProjectRunPhase.Playing));
             Assert.That(run.IsRunning, Is.True);
             Assert.That(session.LastResult, Is.Null);
-            Assert.That(session.Stamina, Is.EqualTo(initialStamina - PrototypeRules.EntryCost));
+            Assert.That(session.Stamina, Is.EqualTo(initialStamina - PrototypeRules.EntryCost - PrototypeRules.RoomEntryCost));
 
             ClickButton(pause, "放弃本局");
             await ClickPauseConfirmationAsync("确认放弃");
             await WaitForPhaseAsync(ProjectRunPhase.ResultsReady);
             ProjectRunResult result = session.LastResult;
-            Assert.That(result.Outcome.Abandoned, Is.True);
-            Assert.That(result.Outcome.Extracted, Is.False);
+            Assert.That(result.Outcome.ExitKind, Is.EqualTo(ProjectRunExitKind.Abandoned));
             Assert.That(result.Outcome.ExtractionExperience, Is.Zero);
-            Assert.That(result.RetainedItems, Is.Empty);
-            Assert.That(result.LostItems.Select(item => item.Id), Is.EquivalentTo(new[] { starterId, armor.Id }));
-            Assert.That(session.Stamina, Is.EqualTo(initialStamina - PrototypeRules.EntryCost));
+            Assert.That(result.LostItems, Is.Empty);
+            Assert.That(result.RetainedItems.Select(item => item.Id), Is.EquivalentTo(new[] { starterId, armor.Id }));
+            Assert.That(session.Stamina, Is.EqualTo(initialStamina - PrototypeRules.EntryCost - PrototypeRules.RoomEntryCost));
             Assert.That(session.Experience, Is.EqualTo(initialExperience));
             Assert.That(ProjectServices.Coordinator.TryAbandonRun(run), Is.False);
             Assert.That(await ProjectServices.Coordinator.ReturnHomeAsync(), Is.True);
-            Assert.That(session.Warehouse, Is.Empty);
+            Assert.That(session.Warehouse.Select(item => item.Id), Is.EquivalentTo(new[] { starterId, armor.Id }));
         });
 
         /// <summary>

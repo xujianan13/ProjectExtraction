@@ -65,7 +65,7 @@ namespace GameLogic.Gameplay.Expedition
         {
             string previous = SelectedInteractionId;
             interactionTargets.Clear();
-            RegionRuntimeState region = CurrentRegion;
+            RegionRuntimeState region = CurrentRoom;
             float radius = region.Plan.InteractionRadius;
             foreach (ExpeditionDrop drop in drops)
                 if (!drop.Collected && drop.RoomId == region.Plan.Request.RegionId)
@@ -80,7 +80,7 @@ namespace GameLogic.Gameplay.Expedition
             foreach (RegionNpcPlan npc in region.Plan.Npcs)
                 AddInteractionTarget(new InteractionTarget { Id = npc.Id, Kind = InteractionTargetKind.Merchant }, position, npc.Position, radius);
             if (region.ExitEnabled)
-                AddInteractionTarget(new InteractionTarget { Id = region.ExitTargetId, Kind = InteractionTargetKind.Extraction },
+                AddInteractionTarget(new InteractionTarget { Id = RunId + ":exit:" + region.Plan.Request.RegionId, Kind = InteractionTargetKind.Extraction },
                     position, region.Plan.ExitPosition, radius);
             interactionTargets.Sort((left, right) => left.DistanceSquared != right.DistanceSquared ?
                 left.DistanceSquared.CompareTo(right.DistanceSquared) : string.CompareOrdinal(left.Id, right.Id));
@@ -123,11 +123,11 @@ namespace GameLogic.Gameplay.Expedition
                     break;
                 case InteractionTargetKind.Merchant:
                     InteractionLabel = "查看商店 / E";
-                    InteractionDescription = "本区商人 · 固定库存与价格";
+                    InteractionDescription = "本房商人 · 固定库存与价格";
                     break;
                 case InteractionTargetKind.Extraction:
-                    InteractionLabel = "区域出口 / E";
-                    InteractionDescription = IsFinalRegion ? "已通关 · 确认携出全部物品" : "带回结束，或继续深入下一区域";
+                    InteractionLabel = "房间出口 / E";
+                    InteractionDescription = IsFinalRoom ? "已通关 · 确认携出全部物品" : "当前房间已完成 · 进入下一房";
                     break;
             }
         }
@@ -152,15 +152,15 @@ namespace GameLogic.Gameplay.Expedition
                 SaveMutation("已拾取：" + target.Drop.Item.Name, () => UpdateInteractionLabel(position));
                 return;
             }
-            RegionChestPlan chest = CurrentRegion.Plan.Chests.Find(value => value.Id == target.Id);
-            RegionChestState state = CurrentRegion.Chests.Find(value => value.Id == target.Id);
+            RegionChestPlan chest = CurrentRoom.Plan.Chests.Find(value => value.Id == target.Id);
+            RegionChestState state = CurrentRoom.Chests.Find(value => value.Id == target.Id);
             if (chest == null || state == null) return;
-            if (!state.Opened && !CurrentRegion.TryOpenChest(chest.Id)) return;
+            if (!state.Opened && !CurrentRoom.TryOpenChest(chest.Id)) return;
             var received = new List<ProjectItem>();
             foreach (ProjectItem item in chest.Items)
             {
                 if (state.ClaimedItemIds.Contains(item.Id)) continue;
-                if (!CurrentRegion.TryClaimChestItem(chest.Id, item.Id)) { HandleFault("宝箱物品归属异常。"); return; }
+                if (!CurrentRoom.TryClaimChestItem(chest.Id, item.Id)) { HandleFault("宝箱物品归属异常。"); return; }
                 inventory.Add(item.Copy());
                 received.Add(item.Copy());
             }

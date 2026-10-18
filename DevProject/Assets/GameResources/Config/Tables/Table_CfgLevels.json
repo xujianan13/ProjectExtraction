@@ -1,50 +1,56 @@
 {
-  "schemaHash": "28e1f5a855d542ab1d8f7b62b5aa626eff71f657b41feb80236599ea1ae99c32",
+  "schemaHash": "452ed5e5c4d071ced7939b683c154a95257c3ca5c538084518867edec10d71e8",
   "rows": [
     {
       "ID": 1,
       "Name": "荒野遗迹",
-      "Description": "探索连续区域，完成尾王奖励后带回结束或继续深入",
+      "Description": "V3可调原型：怪物、宝箱、怪物、商人、怪物、最终Boss",
       "RequiredLevel": 1,
       "IsDefault": true,
       "LootPoolID": "default",
       "LootLevel": 1,
-      "RegionCount": 3,
-      "BossPoolID": "region",
-      "FinalBossPoolID": "final",
-      "ContentID": 1,
-      "SkillPoolID": "expedition",
-      "ProgressRuleID": 1
+      "RoomIDs": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6
+      ]
     },
     {
       "ID": 2,
       "Name": "深层遗迹",
-      "Description": "探索连续区域，完成尾王奖励后带回结束或继续深入",
+      "Description": "V3可调原型：怪物、宝箱、怪物、商人、怪物、最终Boss",
       "RequiredLevel": 3,
       "IsDefault": false,
       "LootPoolID": "default",
       "LootLevel": 3,
-      "RegionCount": 3,
-      "BossPoolID": "region",
-      "FinalBossPoolID": "final",
-      "ContentID": 1,
-      "SkillPoolID": "expedition",
-      "ProgressRuleID": 1
+      "RoomIDs": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6
+      ]
     },
     {
       "ID": 3,
       "Name": "禁地",
-      "Description": "探索连续区域，完成尾王奖励后带回结束或继续深入",
+      "Description": "V3可调原型：怪物、宝箱、怪物、商人、怪物、最终Boss",
       "RequiredLevel": 6,
       "IsDefault": false,
       "LootPoolID": "default",
       "LootLevel": 6,
-      "RegionCount": 3,
-      "BossPoolID": "region",
-      "FinalBossPoolID": "final",
-      "ContentID": 1,
-      "SkillPoolID": "expedition",
-      "ProgressRuleID": 1
+      "RoomIDs": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6
+      ]
     }
   ]
 }

@@ -24,7 +24,8 @@ namespace MiniGame.Tests
             await SetupAsync(new MemorySaveBackend());
             Assert.That(await ProjectServices.Coordinator.StartRunAsync(1), Is.True);
             ExpeditionRun run = ProjectServices.Session.CurrentRun;
-            Vector3 position = run.CurrentRegion.Plan.Npcs.First().Position;
+            await AdvanceToRoomAsync(run, GameLogic.Gameplay.Level.ExpeditionRoomKind.Npc);
+            Vector3 position = run.CurrentRoom.Plan.Npcs.First().Position;
             Assert.That(run.World.TrySetPosition(run.Player, position), Is.True);
             ExpeditionDrop first = AddInteractionDrop(run, "interaction-a", position);
             ExpeditionDrop second = AddInteractionDrop(run, "interaction-b", position + Vector3.right * 0.4f);
@@ -58,13 +59,14 @@ namespace MiniGame.Tests
             await SetupAsync(new MemorySaveBackend());
             Assert.That(await ProjectServices.Coordinator.StartRunAsync(1), Is.True);
             ExpeditionRun run = ProjectServices.Session.CurrentRun;
-            Vector3 position = run.CurrentRegion.Plan.Npcs.First().Position;
+            await AdvanceToRoomAsync(run, GameLogic.Gameplay.Level.ExpeditionRoomKind.Npc);
+            Vector3 position = run.CurrentRoom.Plan.Npcs.First().Position;
             Assert.That(run.World.TrySetPosition(run.Player, position), Is.True);
             ExpeditionDrop drop = AddInteractionDrop(run, "invalidated-loot", position);
             run.Advance(CombatWorld.TickSeconds);
             SelectInteractionLoot(run, drop.Item.Id);
             run.RequestInteraction();
-            drop.Position = run.CurrentRegion.Plan.EntryPosition;
+            drop.Position = run.CurrentRoom.Plan.EntryPosition;
             run.Advance(CombatWorld.TickSeconds);
             Assert.That(drop.Collected, Is.False);
             Assert.That(run.ActivePanel, Is.EqualTo(ExpeditionPanelKind.None));
@@ -86,7 +88,7 @@ namespace MiniGame.Tests
         {
             ProjectItem item = ProjectEquipmentRules.CreateLoot(new System.Random(42), 1);
             item.Id = id;
-            var drop = new ExpeditionDrop { RoomId = run.CurrentRegion.Plan.Request.RegionId, Position = position, Item = item };
+            var drop = new ExpeditionDrop { RoomId = run.CurrentRoom.Plan.Request.RegionId, Position = position, Item = item };
             ((List<ExpeditionDrop>)run.Drops).Add(drop);
             return drop;
         }

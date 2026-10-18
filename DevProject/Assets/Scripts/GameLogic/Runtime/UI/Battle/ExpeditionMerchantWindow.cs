@@ -137,32 +137,19 @@ namespace GameLogic.UI.Battle
         }
 
         /// <summary>
-        /// 展示商品、同部位当前装备和属性差值，已购买商品使用背包中的穿戴状态。
+        /// 展示商品与固定出战装备，购买只收入关卡背包。
         /// </summary>
         /// <param name="offer">当前选中商品。</param>
         private void RefreshDetails(ExpeditionMerchantOffer offer)
         {
             ProjectUiFactory.Clear(details);
             ProjectItem item = offer?.Item;
-            var inventory = run.Inventory;
-            if (item != null)
-            {
-                foreach (ProjectItem owned in inventory)
-                {
-                    if (owned.Id != item.Id) continue;
-                    item = owned;
-                    break;
-                }
-            }
             string text = item == null ? "选择商品查看详情" : "选中商品\n" + ProjectEquipmentText.ColoredTitle(item) + "\n价格 " +
                 offer.Price + " 金币 · " + (offer.Sold ? "已售" : "可购买") + "\n" + ProjectEquipmentText.Details(item);
             if (item != null && item.Type != ProjectItemType.Item && item.Type != ProjectItemType.Collection)
             {
-                text += "\n\n" + ProjectEquipmentText.EquippedDetails(item, inventory);
-                string action = item.Equipped ? "卸下后" : item.RequiredLevel > run.PlayerLevel ? "满足等级后穿戴" : "穿戴后";
-                if (run.TryPreviewEquipment(item, out ProjectCharacterStats current, out ProjectCharacterStats preview))
-                    text += "\n\n属性预览（当前 → " + action + "）\n" + ExpeditionEquipmentComparison.Format(current, preview);
-                else text += "\n\n属性预览暂不可用。";
+                text += "\n\n" + ProjectEquipmentText.EquippedDetails(item, run.EntryEquipment) +
+                    "\n\n购买后收入关卡背包，带回主城后可装备，本关中不能更换出战装备。";
             }
             UnityEngine.UI.Text label = ProjectUiFactory.Label(details, text, 22, TextAnchor.UpperLeft, Color.white);
             label.supportRichText = true;

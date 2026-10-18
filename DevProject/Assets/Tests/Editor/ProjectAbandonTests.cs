@@ -6,12 +6,12 @@ using UnityEngine;
 namespace ProjectExtraction.Tests
 {
     /// <summary>
-    /// 验证放弃标记的持久化、死亡损失规则与旧档兼容。
+    /// 验证主动放弃的持久化、装备保护与终局互斥。
     /// </summary>
     public sealed class ProjectAbandonTests
     {
         /// <summary>
-        /// 放弃可在记录后重启恢复，损失全部本局物品且不重复结算或退体力。
+        /// 放弃可在记录后重启恢复，保护出战装备、损失关卡背包物品且不重复结算或退体力。
         /// </summary>
         [Test]
         public void RecordedAbandonSurvivesReloadAndSettlesExactlyOnce()
@@ -29,20 +29,20 @@ namespace ProjectExtraction.Tests
             var outcome = new ProjectRunOutcome
             {
                 RunId = "abandon-1", LevelId = 1, Seed = 42, RulesVersion = ProjectRunRecordRules.RulesVersion,
-                Abandoned = true, Items = new List<ProjectItem> { entry, loot }
+                ExitKind = ProjectRunExitKind.Abandoned, Items = new List<ProjectItem> { loot }
             };
             Assert.That(ProjectRunRecordRules.TryRecordOutcome(data, outcome, out error), Is.True, error);
             var codec = new ProjectSaveCodec();
             ProjectSaveData restored = codec.Decode(codec.Encode(data));
             Assert.That(ProjectSaveData.Validate(restored), Is.Null);
-            Assert.That(restored.Outcome.Abandoned, Is.True);
+            Assert.That(restored.Outcome.ExitKind, Is.EqualTo(ProjectRunExitKind.Abandoned));
             Assert.That(ProjectRunRecordRules.TrySettleOutcome(restored, out error), Is.True, error);
-            Assert.That(restored.Stamina, Is.EqualTo(stamina - PrototypeRules.EntryCost));
+            Assert.That(restored.Stamina, Is.EqualTo(stamina - PrototypeRules.EntryCost - PrototypeRules.RoomEntryCost));
             Assert.That(restored.Experience, Is.EqualTo(0));
-            Assert.That(restored.LastResult.RetainedItems, Is.Empty);
-            Assert.That(restored.Warehouse, Is.Empty);
-            Assert.That(restored.LastResult.LostItems.Count, Is.EqualTo(2));
-            Assert.That(restored.LastResult.LostItems[0].Id, Is.EqualTo(entry.Id), "锁定不能防止放弃损失。");
+            Assert.That(restored.LastResult.RetainedItems[0].Id, Is.EqualTo(entry.Id));
+            Assert.That(restored.Warehouse.Count, Is.EqualTo(1));
+            Assert.That(restored.LastResult.LostItems.Count, Is.EqualTo(1));
+            Assert.That(restored.LastResult.LostItems[0].Id, Is.EqualTo(loot.Id), "放弃只损失关卡背包物品。");
             Assert.That(ProjectSaveData.Validate(restored), Is.Null);
             string settled = codec.Encode(restored);
             Assert.That(ProjectRunRecordRules.TrySettleOutcome(restored, out error), Is.True, error);
@@ -51,10 +51,10 @@ namespace ProjectExtraction.Tests
         }
 
         /// <summary>
-        /// 终局不能同时表示撤离与放弃，拒绝后保持原运行阶段。
+        /// 无效终局类型被拒绝，原运行阶段保持不变。
         /// </summary>
         [Test]
-        public void ExtractedAbandonIsRejectedWithoutMutatingRun()
+        public void InvalidExitKindIsRejectedWithoutMutatingRun()
         {
             ProjectSaveData data = ProjectSaveData.CreateDefault();
             Assert.That(ProjectRunRecordRules.TryAdmit(data, "invalid", 1, 1, new ProjectItem[0], out string error), Is.True, error);
@@ -62,27 +62,12 @@ namespace ProjectExtraction.Tests
             var outcome = new ProjectRunOutcome
             {
                 RunId = "invalid", LevelId = 1, Seed = 1, RulesVersion = ProjectRunRecordRules.RulesVersion,
-                Extracted = true, Abandoned = true
+                ExitKind = (ProjectRunExitKind)999
             };
             Assert.That(ProjectRunRecordRules.TryRecordOutcome(data, outcome, out error), Is.False);
             Assert.That(data.Stage, Is.EqualTo(ProjectRunStage.Running));
             Assert.That(data.Outcome, Is.Null);
         }
 
-        /// <summary>
-        /// 第一版旧档迁移前校验也采用兼容偏好默认值。
-        /// </summary>
-        [Test]
-        public void LegacyMigrationAcceptsMissingPreferenceAndLockFields()
-        {
-            ProjectSaveData data = ProjectSaveData.CreateDefault();
-            string json = JsonUtility.ToJson(data).Replace(",\"Preferences\":" + JsonUtility.ToJson(data.Preferences), string.Empty)
-                .Replace(",\"Locked\":false", string.Empty);
-            Assert.That(ProjectRunRecordRules.ValidateLegacyJson(json), Is.Null);
-            ProjectSaveData migrated = new ProjectSaveCodec().Decode(ProjectRunRecordRules.MigrateLegacyJson(json));
-            Assert.That(ProjectSaveData.Validate(migrated), Is.Null);
-            Assert.That(migrated.Preferences.MusicVolume, Is.EqualTo(1f));
-            Assert.That(migrated.Warehouse[0].Locked, Is.False);
-        }
     }
 }

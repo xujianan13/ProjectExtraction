@@ -54,6 +54,33 @@ namespace GameLogic.Gameplay.Combat
         }
 
         /// <summary>
+        /// 同步玩家永久成长后的基础属性，死亡玩家保持零生命与待确认死亡状态。
+        /// </summary>
+        /// <param name="player">当前世界登记的玩家引用。</param>
+        /// <param name="baseSpec">由装备与永久成长计算的基础属性。</param>
+        /// <returns>玩家和基础属性有效且替换成功时为真。</returns>
+        public bool TryRefreshPlayerBaseAttributes(CombatEntityRef player, CombatActorSpec baseSpec)
+        {
+            if (faulted || stepping || !IsValid(player) || player.Id != playerId ||
+                !actors.TryGetValue(player.Id, out var state) || !state.Spec.IsPlayer || !ValidBaseAttributes(baseSpec)) return false;
+            state.Spec = CopySpec(ComposeAttributes(state, baseSpec));
+            var refreshed = state.BaseSpec;
+            refreshed.MaxHealth = baseSpec.MaxHealth;
+            refreshed.Attack = baseSpec.Attack;
+            refreshed.Defense = baseSpec.Defense;
+            refreshed.CriticalRating = baseSpec.CriticalRating;
+            refreshed.CriticalDamage = baseSpec.CriticalDamage;
+            refreshed.DodgeChance = baseSpec.DodgeChance;
+            refreshed.DamageIncrease = baseSpec.DamageIncrease;
+            refreshed.DamageReduction = baseSpec.DamageReduction;
+            refreshed.MoveSpeed = baseSpec.MoveSpeed;
+            refreshed.AttackRange = baseSpec.AttackRange;
+            state.BaseSpec = CopySpec(refreshed);
+            state.Health = Mathf.Min(state.Health, state.Spec.MaxHealth);
+            return true;
+        }
+
+        /// <summary>
         /// 检查基础属性是否适合战斗角色。
         /// </summary>
         /// <param name="spec">基础属性。</param>

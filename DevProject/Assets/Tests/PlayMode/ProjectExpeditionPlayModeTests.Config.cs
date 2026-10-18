@@ -15,28 +15,28 @@ namespace MiniGame.Tests
     public sealed partial class ProjectExpeditionPlayModeTests
     {
         /// <summary>
-        /// 实际运行从关卡配置读取区域数量，并由整图资源提供几何和出生点。
+        /// 实际运行从关卡配置读取线性房间数量，并由整图资源提供几何和出生点。
         /// </summary>
         /// <returns>配置、地图资源与角色实体接入验证任务。</returns>
         [UnityTest]
-        public IEnumerator ConfiguredRegionsAndActorsReachRuntime() => UniTask.ToCoroutine(async () =>
+        public IEnumerator ConfiguredRoomsAndActorsReachRuntime() => UniTask.ToCoroutine(async () =>
         {
             await SetupAsync(new MemorySaveBackend());
             Assert.That(ProjectContentConfig.Validate(out string error), Is.True, error);
             Assert.That(await ProjectServices.Coordinator.StartRunAsync(1), Is.True);
             ExpeditionRun run = ProjectServices.Session.CurrentRun;
-            Assert.That(run.RegionCount, Is.EqualTo(GameTables.CfgLevels.GetById(1).RegionCount));
+            Assert.That(run.RoomCount, Is.EqualTo(GameTables.CfgLevels.GetById(1).RoomIDs.Length));
             Assert.That(run.RegionView, Is.Not.Null);
-            Assert.That(run.CurrentMap.MapId, Is.EqualTo(run.CurrentRegion.Plan.Request.MapId));
+            Assert.That(run.CurrentMap.MapId, Is.EqualTo(run.CurrentRoom.Plan.Request.MapId));
             Assert.That(run.World.TryGetActor(run.Player, out CombatActorSnapshot player), Is.True);
-            Assert.That(player.Position, Is.EqualTo(run.CurrentRegion.Plan.EntryPosition));
+            Assert.That(player.Position, Is.EqualTo(run.CurrentRoom.Plan.EntryPosition));
             Assert.That(run.World.TrySetPosition(run.Player, new Vector3(run.CurrentMap.Bounds.xMax + 1, 0, 0)), Is.False);
-            foreach (var slot in run.CurrentRegion.Slots)
+            foreach (var slot in run.CurrentRoom.Slots)
             {
                 Assert.That(run.World.TryFindActor(slot.CurrentActorId, out CombatEntityRef actor), Is.True);
                 Assert.That(run.World.TryGetActor(actor, out CombatActorSnapshot enemy), Is.True);
-                var plan = run.CurrentRegion.Plan.SpawnSlots.Single(value => value.SlotId == slot.SlotId);
-                Assert.That(enemy.RoomId, Is.EqualTo(run.CurrentRegion.Plan.Request.RegionId));
+                var plan = run.CurrentRoom.Plan.SpawnSlots.Single(value => value.SlotId == slot.SlotId);
+                Assert.That(enemy.RoomId, Is.EqualTo(run.CurrentRoom.Plan.Request.RegionId));
                 Assert.That(enemy.Attack, Is.EqualTo(GameTables.CfgEnemies.GetById(plan.EnemyId).Attack).Within(0.001));
             }
         });

@@ -17,7 +17,7 @@ namespace GameLogic.Gameplay.Expedition
         public bool IsAwaitingDeathChoice => pendingPlayerDeathId > 0;
         public bool IsReviveAdPending => reviveAdCancellation != null;
         public bool CanChooseDeath => IsAwaitingDeathChoice && IsRunning && IsReady && !disposed && !stopped && !paused &&
-            !IsSavingRun && !session.HasUncommittedSave && !IsReviveAdPending && !GameEntry.IsInBackground &&
+            !IsSavingRun && !session.HasUncommittedSave && !IsReviveAdPending && !IsExtractionAdPending && !GameEntry.IsInBackground &&
             ProjectServices.Coordinator.Phase == ProjectRunPhase.Playing;
 
         /// <summary>
@@ -27,7 +27,6 @@ namespace GameLogic.Gameplay.Expedition
         private void BeginDeathChoice(int deathId)
         {
             pendingPlayerDeathId = deathId;
-            EndNavigation(null);
             ClearInteractionTargets();
             ClearPlayerInput();
             ActivePanel = ExpeditionPanelKind.DeathChoice;
@@ -38,7 +37,7 @@ namespace GameLogic.Gameplay.Expedition
         }
 
         /// <summary>
-        /// 续关时重新展示未处理的死亡选择，不重新扣体力或发放奖励。
+        /// 续关时重新展示未处理的死亡选择，不再次发放击杀奖励。
         /// </summary>
         private void RestoreDeathChoice()
         {
@@ -66,7 +65,7 @@ namespace GameLogic.Gameplay.Expedition
         public bool TryConfirmDeath()
         {
             if (!CanChooseDeath) return false;
-            return ProjectServices.Coordinator.TryEndRun(this, false);
+            return ProjectServices.Coordinator.TryEndRun(this, ProjectRunExitKind.Death);
         }
 
         /// <summary>
@@ -100,7 +99,7 @@ namespace GameLogic.Gameplay.Expedition
                 Changed?.Invoke();
                 return false;
             }
-            if (!World.TryRevivePlayer(Player))
+            if (!RefreshPermanentAttributes() || !World.TryRevivePlayer(Player))
             {
                 HandleFault("玩家复活状态无法恢复，已保留死亡选择存档。");
                 return false;

@@ -39,9 +39,9 @@ namespace GameLogic.Gameplay.Expedition
             get
             {
                 var result = new List<ExpeditionMerchantOffer>();
-                RegionNpcPlan npc = CurrentRegion?.Plan.Npcs.Find(value => value.Id == activeNpcId);
+                RegionNpcPlan npc = CurrentRoom?.Plan.Npcs.Find(value => value.Id == activeNpcId);
                 if (npc == null) return result;
-                RegionNpcState state = CurrentRegion.Npcs.Find(value => value.Id == activeNpcId);
+                RegionNpcState state = CurrentRoom.Npcs.Find(value => value.Id == activeNpcId);
                 foreach (RegionNpcOfferPlan offer in npc.Offers)
                     result.Add(new ExpeditionMerchantOffer(offer.Id, offer.Item, offer.Price, state.SoldOfferIds.Contains(offer.Id)));
                 return result;
@@ -62,11 +62,11 @@ namespace GameLogic.Gameplay.Expedition
         private bool TryOpenMerchant(string npcId)
         {
             if (!CanInteract || !CanManagePanel || !World.TryGetActor(Player, out CombatActorSnapshot player)) return false;
-            RegionNpcPlan npc = CurrentRegion.Plan.Npcs.Find(value => value.Id == npcId);
-            float radius = CurrentRegion.Plan.InteractionRadius;
+            RegionNpcPlan npc = CurrentRoom.Plan.Npcs.Find(value => value.Id == npcId);
+            float radius = CurrentRoom.Plan.InteractionRadius;
             if (npc == null || (player.Position - npc.Position).sqrMagnitude > radius * radius) return false;
             activeNpcId = npcId;
-            CurrentRegion.TryVisitNpc(npcId);
+            CurrentRoom.TryVisitNpc(npcId);
             SaveMutation("商人库存已就绪。", () => SetActivePanel(ExpeditionPanelKind.Merchant));
             return true;
         }
@@ -79,15 +79,15 @@ namespace GameLogic.Gameplay.Expedition
         public bool TryBuyMerchantOffer(string offerId)
         {
             if (!CanManageMerchant || !World.TryGetActor(Player, out CombatActorSnapshot player)) return false;
-            RegionNpcPlan npc = CurrentRegion.Plan.Npcs.Find(value => value.Id == activeNpcId);
-            float radius = CurrentRegion.Plan.InteractionRadius;
+            RegionNpcPlan npc = CurrentRoom.Plan.Npcs.Find(value => value.Id == activeNpcId);
+            float radius = CurrentRoom.Plan.InteractionRadius;
             if (npc == null || (player.Position - npc.Position).sqrMagnitude > radius * radius) return ReportInventoryFailure("已离开商人范围。");
             RegionNpcOfferPlan offer = npc.Offers.Find(value => value.Id == offerId);
-            RegionNpcState state = CurrentRegion.Npcs.Find(value => value.Id == activeNpcId);
+            RegionNpcState state = CurrentRoom.Npcs.Find(value => value.Id == activeNpcId);
             if (offer == null || state.SoldOfferIds.Contains(offerId)) return ReportInventoryFailure("该商品已售出。");
             if (AvailableGold < offer.Price) return ReportInventoryFailure("金币不足。");
             if (PlayerLevel < offer.Item.RequiredLevel) return ReportInventoryFailure("角色等级不足。");
-            if (!CurrentRegion.TrySellNpcOffer(activeNpcId, offerId)) return false;
+            if (!CurrentRoom.TrySellNpcOffer(activeNpcId, offerId)) return false;
             GoldSpent += offer.Price;
             inventory.Add(offer.Item.Copy());
             SaveMutation("已购买：" + offer.Item.Name);

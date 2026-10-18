@@ -25,7 +25,6 @@ namespace GameLogic.Gameplay.Expedition
         private int presentedRegionId = -1;
         private readonly Dictionary<string, GameObject> regionObjects = new();
         private readonly List<AnimatorPlayback> ambientAnimations = new();
-        private readonly Dictionary<string, GameObject> warnings = new();
         private readonly Dictionary<string, GameObject> loot = new();
         private readonly List<CombatActorSnapshot> snapshots = new();
         private readonly Dictionary<CombatEntityRef, GameObject> projectiles = new();
@@ -91,14 +90,27 @@ namespace GameLogic.Gameplay.Expedition
             if (disposed) return;
             if (run.IsSavingRun)
             {
-                feedbackAudio.Refresh(true, run.CurrentRegion.Plan.Request.RegionId);
+                feedbackAudio.Refresh(true, run.CurrentRoom.Plan.Request.RegionId);
                 return;
+            }
+            if (presentedRegionId != run.CurrentRoom.Plan.Request.RegionId)
+            {
+                foreach (CombatCharacterAnimation animation in animations.Values) animation.Dispose();
+                foreach (GameObject actor in actors.Values) ReleaseObject(actor);
+                foreach (GameObject projectile in projectiles.Values) ReleaseObject(projectile);
+                foreach (CombatCueView cue in cues) ReleaseObject(cue.Object);
+                foreach (GameObject item in loot.Values) ReleaseObject(item);
+                animations.Clear();
+                actors.Clear();
+                projectiles.Clear();
+                cues.Clear();
+                loot.Clear();
             }
             visibleActors.Clear();
             run.World.GetActorsSnapshot(snapshots);
             foreach (CombatActorSnapshot snapshot in snapshots)
             {
-                if (snapshot.RoomId != run.CurrentRegion.Plan.Request.RegionId || !run.World.TryGetAnimationSnapshot(snapshot.Entity, out var motion)) continue;
+                if (snapshot.RoomId != run.CurrentRoom.Plan.Request.RegionId || !run.World.TryGetAnimationSnapshot(snapshot.Entity, out var motion)) continue;
                 if (snapshot.Dead && snapshot.ActorId != 1 && motion.DeathElapsedTicks * CombatWorld.TickSeconds +
                     run.DeathPresentationElapsed >= CombatCharacterAnimation.DeathDurationTicks * CombatWorld.TickSeconds) continue;
                 if (!actors.TryGetValue(snapshot.ActorId, out GameObject actor))
@@ -136,7 +148,7 @@ namespace GameLogic.Gameplay.Expedition
             foreach (GameObject item in loot.Values) item.SetActive(false);
             foreach (ExpeditionDrop drop in run.Drops)
             {
-                if (drop.RoomId != run.CurrentRegion.Plan.Request.RegionId || drop.Collected) continue;
+                if (drop.RoomId != run.CurrentRoom.Plan.Request.RegionId || drop.Collected) continue;
                 if (!loot.TryGetValue(drop.Item.Id, out GameObject item))
                 {
                     item = CreateModel("Loot_" + drop.Item.Id, assets.Loot);
@@ -151,8 +163,8 @@ namespace GameLogic.Gameplay.Expedition
             }
             RefreshProjectiles();
             RefreshCues();
-            feedback.Refresh(run.World, run.CurrentRegion.Plan.Request.RegionId, actors, run.PresentationSeconds);
-            feedbackAudio.Refresh(run.FeedbackPaused, run.CurrentRegion.Plan.Request.RegionId);
+            feedback.Refresh(run.World, run.CurrentRoom.Plan.Request.RegionId, actors, run.PresentationSeconds);
+            feedbackAudio.Refresh(run.FeedbackPaused, run.CurrentRoom.Plan.Request.RegionId);
         }
 
         /// <summary>
@@ -170,7 +182,6 @@ namespace GameLogic.Gameplay.Expedition
             foreach (AnimatorPlayback animation in ambientAnimations) animation.Dispose();
             ambientAnimations.Clear();
             regionObjects.Clear();
-            warnings.Clear();
             ReleaseObject(root);
             actors.Clear();
             loot.Clear();
@@ -183,17 +194,15 @@ namespace GameLogic.Gameplay.Expedition
         /// </summary>
         private void RefreshRegionObjects()
         {
-            RegionRuntimeState region = run.CurrentRegion;
+            RegionRuntimeState region = run.CurrentRoom;
             RegionPlan plan = region.Plan;
             if (presentedRegionId != plan.Request.RegionId)
             {
                 foreach (AnimatorPlayback animation in ambientAnimations) animation.Dispose();
                 ambientAnimations.Clear();
                 foreach (GameObject instance in regionObjects.Values) ReleaseObject(instance);
-                foreach (GameObject warning in warnings.Values) ReleaseObject(warning);
                 regionObjects.Clear();
-                warnings.Clear();
-                presentedRegionId = plan.Request.RegionId;
+                    presentedRegionId = plan.Request.RegionId;
                 foreach (RegionChestPlan chest in plan.Chests)
                 {
                     GameObject instance = CreateModel("Chest_" + chest.Id, assets.Chest);
@@ -226,17 +235,7 @@ namespace GameLogic.Gameplay.Expedition
             var settings = GameTables.CfgCombatAnimationSettings.GetById(1);
             float idlePhase = Mathf.Repeat((float)(run.World.TickIndex * CombatWorld.TickSeconds) / (float)settings.IdleSeconds, 1f);
             foreach (AnimatorPlayback animation in ambientAnimations) animation.TrySample(settings.IdleState, idlePhase);
-            foreach (RegionSpawnSlotState slot in region.Slots)
-            {
-                bool visible = slot.Phase == RegionSpawnPhase.Warning || slot.Phase == RegionSpawnPhase.ReadyToSpawn;
-                if (visible && !warnings.TryGetValue(slot.SlotId, out GameObject warning))
-                {
-                    RegionSpawnSlotPlan definition = plan.SpawnSlots.Find(value => value.SlotId == slot.SlotId);
-                    warning = CreateRing("RespawnWarning", definition.HomePosition, definition.Radius * 2f, new Color(1f, 0.45f, 0.1f));
-                    warnings.Add(slot.SlotId, warning);
-                }
-                if (warnings.TryGetValue(slot.SlotId, out GameObject existing)) existing.SetActive(visible);
-            }
+
         }
 
         /// <summary>
@@ -289,7 +288,7 @@ namespace GameLogic.Gameplay.Expedition
             visibleProjectiles.Clear();
             foreach (CombatProjectileSnapshot snapshot in projectileSnapshots)
             {
-                if (snapshot.RoomId != run.CurrentRegion.Plan.Request.RegionId) continue;
+                if (snapshot.RoomId != run.CurrentRoom.Plan.Request.RegionId) continue;
                 visibleProjectiles.Add(snapshot.Entity);
                 CfgCombatProjectilesRow definition = GameTables.CfgCombatProjectiles.GetById(snapshot.ProjectileId);
                 if (!projectiles.TryGetValue(snapshot.Entity, out GameObject model))
@@ -319,10 +318,10 @@ namespace GameLogic.Gameplay.Expedition
         private void PresentEvent(CombatEvent fact)
         {
             if (disposed) return;
-            if (fact.RoomId == run.CurrentRegion.Plan.Request.RegionId)
+            if (fact.RoomId == run.CurrentRoom.Plan.Request.RegionId)
             {
                 feedback.Present(fact);
-                feedbackAudio.Refresh(run.FeedbackPaused, run.CurrentRegion.Plan.Request.RegionId);
+                feedbackAudio.Refresh(run.FeedbackPaused, run.CurrentRoom.Plan.Request.RegionId);
                 feedbackAudio.Present(fact);
             }
             if (fact.Kind == CombatEventKind.Death || fact.Kind == CombatEventKind.CastCancelled)
@@ -336,7 +335,7 @@ namespace GameLogic.Gameplay.Expedition
                 }
                 return;
             }
-            if (fact.RoomId != run.CurrentRegion.Plan.Request.RegionId || fact.Kind != CombatEventKind.Cue) return;
+            if (fact.RoomId != run.CurrentRoom.Plan.Request.RegionId || fact.Kind != CombatEventKind.Cue) return;
             if (GameTables.CfgCombatAnimationCues.GetById(fact.DefinitionId)?.IsAttack != true) return;
             Vector3 direction = Vector3.forward;
             int duration = 0;
@@ -399,7 +398,7 @@ namespace GameLogic.Gameplay.Expedition
             {
                 CombatCueView cue = cues[index];
                 float progress = (run.World.TickIndex - cue.StartTick) / (float)cue.DurationTicks;
-                if (progress >= 1 || cue.RoomId != run.CurrentRegion.Plan.Request.RegionId || !actors.TryGetValue(cue.ActorId, out GameObject actor) || !actor.activeSelf)
+                if (progress >= 1 || cue.RoomId != run.CurrentRoom.Plan.Request.RegionId || !actors.TryGetValue(cue.ActorId, out GameObject actor) || !actor.activeSelf)
                 {
                     ReleaseObject(cue.Object);
                     cues.RemoveAt(index);

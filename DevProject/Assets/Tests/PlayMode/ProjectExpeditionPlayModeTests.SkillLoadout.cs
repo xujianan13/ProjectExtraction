@@ -26,7 +26,7 @@ namespace MiniGame.Tests
             Assert.That(await ProjectServices.Coordinator.StartRunAsync(1), Is.True);
             ExpeditionRun run = ProjectServices.Session.CurrentRun;
             Assert.That(ProjectContentConfig.Player.SkillIDs, Is.EqualTo(new[] { 100, 101, 102, 103 }));
-            Assert.That(ProjectWeaponCombat.TryGetBasicSkill(run.Inventory, out int basicSkill), Is.True);
+            Assert.That(ProjectWeaponCombat.TryGetBasicSkill(run.EntryEquipment, out int basicSkill), Is.True);
             var skills = new List<CombatSkillSnapshot>();
             run.World.GetSkillsSnapshot(run.Player, skills);
             Assert.That(skills.Select(skill => skill.SkillId), Is.EqualTo(ProjectWeaponCombat.CreateSkillLoadout(basicSkill)));
@@ -80,7 +80,7 @@ namespace MiniGame.Tests
             Assert.That(run.TryCaptureState(out var saved, out string error), Is.True, error);
             Assert.That(ExpeditionRun.TryRestore(ProjectServices.Session, saved, out var restored, out error), Is.True, error);
             restored.Dispose();
-            CombatActorState player = saved.World.Actors.Single(actor => actor.Spec.IsPlayer);
+            CombatPlayerCheckpoint player = saved.PlayerState;
             int alternate = player.Spec.BasicSkillId == 10 ? 11 : 10;
             player.Spec.BasicSkillId = alternate;
             player.BaseSpec.BasicSkillId = alternate;
@@ -95,11 +95,11 @@ namespace MiniGame.Tests
             run.World.GetSkillsSnapshot(run.Player, skills);
             int[] skillIds = skills.Select(skill => skill.SkillId).ToArray();
             int remaining = skills.Single(skill => skill.SkillId == 102).CooldownTicks;
-            int region = run.CurrentRegionIndex;
-            await ClickExtractionConfirmationAsync("继续下一区域");
+            int region = run.CurrentRoomIndex;
+            await ClickExtractionConfirmationAsync("进入下一房");
             await WaitRunSavedAsync(run);
             run.World.GetSkillsSnapshot(run.Player, skills);
-            Assert.That(run.CurrentRegionIndex, Is.EqualTo(region + 1));
+            Assert.That(run.CurrentRoomIndex, Is.EqualTo(region + 1));
             Assert.That(skills.Select(skill => skill.SkillId), Is.EqualTo(skillIds));
             Assert.That(skills.Single(skill => skill.SkillId == 102).CooldownTicks, Is.EqualTo(remaining));
             run.Advance(CombatWorld.TickSeconds);

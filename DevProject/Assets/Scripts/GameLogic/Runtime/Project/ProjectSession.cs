@@ -124,7 +124,7 @@ namespace GameLogic.Project
             }
             var session = new ProjectSession(opened.Session, opened.Session.LoadResult.Data);
             string collectionError = ProjectCollectionRules.ValidateState(session.profile,
-                ProjectV2RewardConfig.CollectionDefinitions(), ProjectV2RewardConfig.CollectionAchievements(out _));
+                ProjectRewardConfig.CollectionDefinitions(), ProjectRewardConfig.CollectionAchievements(out _));
             if (collectionError != null)
             {
                 GameEntry.Get<ILogModule>().Error("ProjectSession", collectionError);
@@ -189,16 +189,7 @@ namespace GameLogic.Project
         {
             if (!CanEdit()) return Rejected("技能只能在局外提升。");
             ProjectSaveData candidate = Candidate();
-            int rank = skillId == "power" ? candidate.PowerRank : skillId == "vitality" ? candidate.VitalityRank :
-                skillId == "agility" ? candidate.AgilityRank : -1;
-            CfgSkillsRow skill = ProjectRulesConfig.Skill(skillId);
-            if (rank < 0 || skill == null || rank >= skill.MaxRank) return Rejected("技能不存在或已经满级。");
-            int cost = skill.CostBase + rank * skill.CostPerRank;
-            if (candidate.SkillPoints < cost) return Rejected("技能点不足。");
-            candidate.SkillPoints -= cost;
-            if (skillId == "power") candidate.PowerRank++;
-            else if (skillId == "vitality") candidate.VitalityRank++;
-            else candidate.AgilityRank++;
+            if (!TryApplySkillUpgrade(candidate, skillId, out string error)) return Rejected(error);
             return CommitAsync(candidate, "技能升级成功。");
         }
 
@@ -251,8 +242,8 @@ namespace GameLogic.Project
             ProjectLevelOption level = Array.Find(levels, value => value.Id == levelId);
             error = "关卡未解锁。";
             if (level == null || candidate.Level < level.RequiredLevel) return false;
-            error = "体力不足，需要 " + PrototypeRules.EntryCost + " 点体力。";
-            if (candidate.Stamina < PrototypeRules.EntryCost) return false;
+            error = "体力不足，需要 " + RequiredEntryStamina + " 点体力。";
+            if (candidate.Stamina < RequiredEntryStamina) return false;
             var items = candidate.Warehouse.FindAll(item => item.Equipped);
             error = "携入装备等级不符合要求。";
             if (items.Exists(item => item.RequiredLevel > candidate.Level)) return false;
@@ -319,7 +310,7 @@ namespace GameLogic.Project
             ProjectSaveData candidate = Candidate();
             if (!ProjectRunRecordRules.TrySettleOutcome(candidate, out string error)) return Rejected(error);
             if (!ProjectCollectionRules.RegisterRetainedItems(candidate, candidate.LastResult.RetainedItems,
-                ProjectV2RewardConfig.CollectionDefinitions(), ProjectV2RewardConfig.CollectionAchievements(out _), out error)) return Rejected(error);
+                ProjectRewardConfig.CollectionDefinitions(), ProjectRewardConfig.CollectionAchievements(out _), out error)) return Rejected(error);
             return CommitAsync(candidate, candidate.LastRunSummary);
         }
 

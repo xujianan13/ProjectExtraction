@@ -305,24 +305,9 @@
           "min": 1,
           "max": 1000
         },
-        "RegionCount": {
-          "min": 1,
-          "max": 8
-        },
-        "BossPoolID": {
+        "RoomIDs": {
+          "ref": "CfgRooms",
           "required": true
-        },
-        "FinalBossPoolID": {
-          "required": true
-        },
-        "ContentID": {
-          "ref": "CfgRegionContent"
-        },
-        "SkillPoolID": {
-          "required": true
-        },
-        "ProgressRuleID": {
-          "ref": "CfgRogueProgress"
         }
       }
     },
@@ -386,6 +371,16 @@
         "RunHistoryLimit": {
           "min": 1,
           "max": 100
+        },
+        "AdExtractionItemLimit": {
+          "min": 1,
+          "max": 20
+        },
+        "EntryCost": {
+          "min": 0
+        },
+        "RoomEntryCost": {
+          "min": 0
         }
       }
     },
@@ -441,39 +436,6 @@
           "ref": "CfgQualities"
         },
         "Weight": {
-          "min": 0
-        }
-      }
-    },
-    "CfgRoguePolicy": {
-      "fields": {
-        "ID": {
-          "min": 1
-        },
-        "SelectedUpgradeWeightMultiplier": {
-          "min": 1,
-          "max": 16
-        },
-        "UnlockedComboWeightMultiplier": {
-          "min": 1,
-          "max": 16
-        }
-      }
-    },
-    "CfgRogueRewards": {
-      "fields": {
-        "Kind": {
-          "min": 0,
-          "max": 2
-        },
-        "Attribute": {
-          "min": 0,
-          "max": 7
-        },
-        "MaxRank": {
-          "min": 0
-        },
-        "PrerequisiteRank": {
           "min": 0
         }
       }
@@ -705,138 +667,6 @@
         }
       }
     },
-    "CfgRegionMaps": {
-      "fields": {
-        "ID": {
-          "min": 1
-        },
-        "Version": {
-          "required": true
-        },
-        "PrefabAddress": {
-          "required": true,
-          "asset": true
-        },
-        "GeometryAddress": {
-          "required": true,
-          "asset": true
-        },
-        "MinimapAddress": {
-          "required": true,
-          "asset": true
-        },
-        "Name": {
-          "required": true
-        }
-      }
-    },
-    "CfgRespawnRules": {
-      "fields": {
-        "ID": {
-          "min": 1
-        },
-        "DelaySeconds": {
-          "min": 1
-        },
-        "WarningSeconds": {
-          "min": 1
-        },
-        "SafeDistance": {
-          "min": 0
-        },
-        "ExperienceMultiplier": {
-          "min": 0
-        }
-      }
-    },
-    "CfgRegionContent": {
-      "fields": {
-        "ID": {
-          "min": 1
-        },
-        "MonsterGroupCount": {
-          "min": 0
-        },
-        "EliteCount": {
-          "min": 0
-        },
-        "ChestCount": {
-          "min": 0
-        },
-        "NpcCount": {
-          "min": 0
-        },
-        "NormalRespawnID": {
-          "ref": "CfgRespawnRules"
-        },
-        "EliteRespawnID": {
-          "ref": "CfgRespawnRules"
-        },
-        "InteractionRadius": {
-          "min": 0.1
-        },
-        "ReachabilityGridSpacing": {
-          "min": 0.25
-        },
-        "ReachabilityMaxCells": {
-          "min": 1
-        },
-        "MaxSpawnSlots": {
-          "min": 1
-        }
-      }
-    },
-    "CfgRogueProgress": {
-      "fields": {
-        "ID": {
-          "min": 1
-        },
-        "NormalContribution": {
-          "min": 0
-        },
-        "EliteContribution": {
-          "min": 0
-        },
-        "Threshold": {
-          "min": 1
-        }
-      }
-    },
-    "CfgRoguePools": {
-      "fields": {
-        "ID": {
-          "required": true
-        },
-        "PoolID": {
-          "required": true
-        },
-        "RewardID": {
-          "ref": "CfgRogueRewards"
-        }
-      }
-    },
-    "CfgElitePool": {
-      "fields": {
-        "ID": {
-          "min": 1
-        },
-        "PoolID": {
-          "required": true
-        },
-        "EnemyID": {
-          "ref": "CfgEnemies"
-        },
-        "Weight": {
-          "min": 1
-        },
-        "MinLevel": {
-          "min": 1
-        },
-        "MaxLevel": {
-          "min": 1
-        }
-      }
-    },
     "CfgChestPool": {
       "fields": {
         "ID": {
@@ -888,21 +718,6 @@
         },
         "EnemyID": {
           "ref": "CfgEnemies"
-        },
-        "MapID": {
-          "ref": "CfgRegionMaps"
-        },
-        "PoolID": {
-          "required": true
-        },
-        "Weight": {
-          "min": 1
-        },
-        "MinLevel": {
-          "min": 1
-        },
-        "MaxLevel": {
-          "min": 1
         },
         "RewardID": {
           "ref": "CfgBossRewards"
@@ -1000,34 +815,6 @@
         }
       }
     },
-    "CfgNavigation": {
-      "fields": {
-        "ID": {
-          "min": 1,
-          "max": 1
-        },
-        "CornerClearance": {
-          "min": 0.0001,
-          "max": 1
-        },
-        "ArrivalDistance": {
-          "min": 0.0001,
-          "max": 1
-        },
-        "TargetApproachDistance": {
-          "min": 0.0001,
-          "max": 10
-        },
-        "StuckSeconds": {
-          "min": 0.0001,
-          "max": 60
-        },
-        "ProgressDistance": {
-          "min": 0.0001,
-          "max": 1
-        }
-      }
-    },
     "CfgRunPersistence": {
       "fields": {
         "ID": {
@@ -1047,6 +834,95 @@
         "MaxStateBytes": {
           "min": 65536,
           "max": 33554432
+        }
+      }
+    },
+    "CfgRooms": {
+      "fields": {
+        "ID": {
+          "min": 1
+        },
+        "Name": {
+          "required": true
+        },
+        "Kind": {
+          "min": 0,
+          "max": 3
+        },
+        "MapID": {
+          "ref": "CfgRoomMaps"
+        },
+        "InteractionRadius": {
+          "min": 0.1
+        },
+        "ReachabilityGridSpacing": {
+          "min": 0.25
+        },
+        "ReachabilityMaxCells": {
+          "min": 1
+        },
+        "MaxSpawnSlots": {
+          "min": 1
+        }
+      }
+    },
+    "CfgRoomMaps": {
+      "fields": {
+        "ID": {
+          "min": 1
+        },
+        "Version": {
+          "required": true
+        },
+        "PrefabAddress": {
+          "required": true,
+          "asset": true
+        },
+        "GeometryAddress": {
+          "required": true,
+          "asset": true
+        },
+        "Name": {
+          "required": true
+        },
+        "Width": {
+          "min": 1
+        },
+        "Length": {
+          "min": 1
+        }
+      }
+    },
+    "CfgRoomAnchors": {
+      "fields": {
+        "ID": {
+          "required": true
+        },
+        "MapID": {
+          "ref": "CfgRoomMaps"
+        },
+        "AnchorID": {
+          "required": true
+        },
+        "Kind": {
+          "min": 0,
+          "max": 6
+        },
+        "Capacity": {
+          "min": 1
+        },
+        "NoSpawnRadius": {
+          "min": 0
+        }
+      }
+    },
+    "CfgRoomObstacles": {
+      "fields": {
+        "ID": {
+          "min": 1
+        },
+        "MapID": {
+          "ref": "CfgRoomMaps"
         }
       }
     }

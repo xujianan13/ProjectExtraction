@@ -19,7 +19,6 @@ namespace GameLogic.Gameplay.Expedition
         private readonly Dictionary<int, GameObject> enemies = new();
         private readonly Dictionary<int, RegionMapDefinition> maps = new();
         private readonly Dictionary<int, GameObject> mapPrefabs = new();
-        private readonly Dictionary<int, Texture2D> mapTextures = new();
 
         /// <summary>
         /// 读取完整资源组中的关卡预制件。
@@ -69,12 +68,6 @@ namespace GameLogic.Gameplay.Expedition
         /// <returns>地图预制件；未加载时为空。</returns>
         public GameObject GetMapPrefab(int mapId) => mapPrefabs.TryGetValue(mapId, out GameObject prefab) ? prefab : null;
 
-        /// <summary>
-        /// 取得同一几何生成的固定北向地图底图。
-        /// </summary>
-        /// <param name="mapId">地图配置编号。</param>
-        /// <returns>地图底图；未加载时为空。</returns>
-        public Texture2D GetMapTexture(int mapId) => mapTextures.TryGetValue(mapId, out Texture2D texture) ? texture : null;
         public GameObject Scene { get; }
         public GameObject Player { get; }
         public GameObject Npc { get; }
@@ -157,18 +150,17 @@ namespace GameLogic.Gameplay.Expedition
         }
 
         /// <summary>
-        /// 校验并绑定每张完整地图及同版本几何和底图。
+        /// 校验并绑定每张完整地图及同版本几何。
         /// </summary>
         /// <param name="group">完整资源组。</param>
         /// <param name="error">首个资源错误说明。</param>
         /// <returns>全部地图可用时为真。</returns>
         private bool TryLoadMaps(ResourceGroupLease group, out string error)
         {
-            foreach (CfgRegionMapsRow row in GameTables.CfgRegionMaps.GetAll())
+            foreach (CfgRoomMapsRow row in GameTables.CfgRoomMaps.GetAll())
             {
                 if (!group.TryGet(row.PrefabAddress, out GameObject prefab) ||
-                    !group.TryGet(row.GeometryAddress, out TextAsset geometry) ||
-                    !group.TryGet(row.MinimapAddress, out Texture2D texture) || texture.width <= 0 || texture.height <= 0)
+                    !group.TryGet(row.GeometryAddress, out TextAsset geometry))
                 { error = "区域地图资源缺失或类型错误：" + row.ID; return false; }
                 RegionMapDefinition map;
                 try
@@ -187,7 +179,6 @@ namespace GameLogic.Gameplay.Expedition
                 { error = "区域预制件与几何定义不一致：" + row.ID; return false; }
                 maps.Add(row.ID, map);
                 mapPrefabs.Add(row.ID, prefab);
-                mapTextures.Add(row.ID, texture);
             }
             error = null;
             return true;
@@ -256,11 +247,10 @@ namespace GameLogic.Gameplay.Expedition
             var items = new List<ResourceGroupDefinition.Item>();
             foreach (string address in addresses)
                 items.Add(new ResourceGroupDefinition.Item(address, address, ResourceGroupDefinition.AssetKind.GameObject));
-            foreach (CfgRegionMapsRow row in GameTables.CfgRegionMaps.GetAll())
+            foreach (CfgRoomMapsRow row in GameTables.CfgRoomMaps.GetAll())
             {
                 items.Add(new ResourceGroupDefinition.Item(row.PrefabAddress, row.PrefabAddress, ResourceGroupDefinition.AssetKind.GameObject));
                 items.Add(new ResourceGroupDefinition.Item(row.GeometryAddress, row.GeometryAddress, ResourceGroupDefinition.AssetKind.TextAsset));
-                items.Add(new ResourceGroupDefinition.Item(row.MinimapAddress, row.MinimapAddress, ResourceGroupDefinition.AssetKind.Texture2D));
             }
             return new ResourceGroupDefinition("ExpeditionVisuals", items.ToArray());
         }

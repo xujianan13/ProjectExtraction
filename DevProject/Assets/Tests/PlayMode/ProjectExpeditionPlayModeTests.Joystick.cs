@@ -99,7 +99,7 @@ namespace MiniGame.Tests
             first = Pointer(20, rect, Vector2.right * radius);
             ExecuteEvents.Execute<IPointerDownHandler>(joystick.gameObject, first, ExecuteEvents.pointerDownHandler);
             run.Advance(CombatWorld.TickSeconds);
-            await EarnRogueChoiceAsync(run);
+            Assert.That(run.TryOpenProgression(), Is.True);
             Assert.That(joystick.enabled, Is.False);
             Assert.That(run.World.TryGetActor(run.Player, out CombatActorSnapshot choosing), Is.True);
             run.Advance(1f);
@@ -141,11 +141,10 @@ namespace MiniGame.Tests
             {
                 var area = (RectTransform)host.transform;
                 RectTransform header = GeometryChild(area, "Status");
-                RectTransform map = GeometryChild(area, "Minimap");
                 RectTransform stick = GeometryChild(area, "MoveStick");
                 RectTransform actions = GeometryChild(area, "ControlActions");
                 BattleHudLayout layout = host.AddComponent<BattleHudLayout>();
-                layout.Configure(header, map, stick, actions);
+                layout.Configure(header, stick, actions);
                 var sizes = new[]
                 {
                     new Vector2(1080f, 1920f), new Vector2(720f, 1280f),
@@ -159,13 +158,13 @@ namespace MiniGame.Tests
                     layout.Refresh();
                     Canvas.ForceUpdateCanvases();
                     Rect headerRect = GeometryRect(area, header);
-                    Rect mapRect = GeometryRect(area, map);
                     Rect stickRect = GeometryRect(area, stick);
                     Rect actionRect = GeometryRect(area, actions);
                     Assert.That(stickRect.width, Is.EqualTo(stickRect.height).Within(0.01f), size.ToString());
-                    Assert.That(headerRect.Overlaps(mapRect), Is.False, size.ToString());
+                    Assert.That(headerRect.Overlaps(actionRect), Is.False, size.ToString());
+                    Assert.That(headerRect.Overlaps(stickRect), Is.False, size.ToString());
                     Assert.That(stickRect.Overlaps(actionRect), Is.False, size.ToString());
-                    foreach (Rect child in new[] { headerRect, mapRect, stickRect, actionRect })
+                    foreach (Rect child in new[] { headerRect, stickRect, actionRect })
                     {
                         Assert.That(child.xMin, Is.GreaterThanOrEqualTo(area.rect.xMin - 0.01f), size.ToString());
                         Assert.That(child.xMax, Is.LessThanOrEqualTo(area.rect.xMax + 0.01f), size.ToString());

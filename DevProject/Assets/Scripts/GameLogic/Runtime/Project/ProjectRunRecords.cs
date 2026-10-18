@@ -11,6 +11,11 @@ namespace GameLogic.Project
     public enum ProjectRunStage { None, Admitted, Running, OutcomeRecorded }
 
     /// <summary>
+    /// 本局唯一终局原因，暂离主城不属于终局。
+    /// </summary>
+    public enum ProjectRunExitKind { Completed, Death, Abandoned, AdExtraction }
+
+    /// <summary>
     /// 已冻结的单局事实与结算规则参数。
     /// </summary>
     [Serializable]
@@ -22,14 +27,14 @@ namespace GameLogic.Project
         public int RulesVersion;
         public long Tick;
         public float ElapsedSeconds;
-        public bool Extracted;
-        public bool Abandoned;
+        public ProjectRunExitKind ExitKind;
         public int KillExperience;
         public int AwardedKillExperience;
         public int ExtractionExperience;
         public int GoldSpent;
         public ProjectRunStatistics Statistics;
         public List<ProjectItem> Items = new();
+        public List<string> RetainedItemIds = new();
 
         /// <summary>
         /// 创建不共享物品集合的终局副本。
@@ -40,6 +45,7 @@ namespace GameLogic.Project
             var copy = (ProjectRunOutcome)MemberwiseClone();
             copy.Statistics = Statistics?.Copy();
             copy.Items = Items?.ConvertAll(item => item?.Copy());
+            copy.RetainedItemIds = RetainedItemIds == null ? null : new List<string>(RetainedItemIds);
             return copy;
         }
     }
@@ -53,6 +59,8 @@ namespace GameLogic.Project
         public ProjectRunOutcome Outcome;
         public List<ProjectItem> RetainedItems = new();
         public List<ProjectItem> LostItems = new();
+        public bool HasEntryItemsSnapshot;
+        public List<ProjectItem> EntryItems = new();
         public int LevelBefore;
         public int LevelAfter;
         public int ExperienceBefore;
@@ -75,6 +83,7 @@ namespace GameLogic.Project
             copy.Outcome = Outcome?.Copy();
             copy.RetainedItems = RetainedItems?.ConvertAll(item => item?.Copy());
             copy.LostItems = LostItems?.ConvertAll(item => item?.Copy());
+            copy.EntryItems = EntryItems?.ConvertAll(item => item?.Copy());
             return copy;
         }
     }
@@ -117,10 +126,10 @@ namespace GameLogic.Project
         /// <returns>是否没有实际终局内容。</returns>
         private static bool EmptyOutcome(ProjectRunOutcome outcome) => outcome == null ||
             string.IsNullOrEmpty(outcome.RunId) && outcome.LevelId == 0 && outcome.Seed == 0 && outcome.RulesVersion == 0 &&
-            outcome.Tick == 0 && outcome.ElapsedSeconds == 0 && !outcome.Extracted && !outcome.Abandoned && outcome.KillExperience == 0 &&
+            outcome.Tick == 0 && outcome.ElapsedSeconds == 0 && outcome.KillExperience == 0 &&
             outcome.AwardedKillExperience == 0 && outcome.ExtractionExperience == 0 && outcome.GoldSpent == 0 &&
             (outcome.Statistics == null || outcome.Statistics.Version == 0 && ProjectRunStatistics.IsValid(outcome.Statistics)) &&
-            (outcome.Items == null || outcome.Items.Count == 0);
+            (outcome.Items == null || outcome.Items.Count == 0) && (outcome.RetainedItemIds == null || outcome.RetainedItemIds.Count == 0);
 
         /// <summary>
         /// 判断 Unity 内联解码产生的空结果壳。
@@ -139,7 +148,7 @@ namespace GameLogic.Project
     /// </summary>
     public static class ProjectRunRecordRules
     {
-        public const int RulesVersion = 1;
+        public const int RulesVersion = 2;
 
         /// <summary>
         /// 创建旧版存档到当前结构的迁移步骤。
@@ -196,10 +205,13 @@ namespace GameLogic.Project
             if (data == null || !Enum.IsDefined(typeof(ProjectRunStage), data.Stage)) return false;
             bool active = !string.IsNullOrEmpty(data.ActiveRunId);
             if (active != (data.Stage != ProjectRunStage.None)) return false;
-            if (!active && (data.ActiveLevelId != 0 || data.ActiveSeed != 0 || data.ActiveRulesVersion != 0 || data.ActiveRunVersion != 0 || data.Outcome != null)) return false;
-            if (active && data.ActiveRunVersion != 0 && data.ActiveRunVersion != 2) return false;
-            if (active && data.ActiveRulesVersion != RulesVersion && data.ActiveRulesVersion != 0) return false;
-            if (active && data.ActiveRulesVersion == RulesVersion && (data.ActiveLevelId < 1 ||
+            if (data.ActiveRunAwardedKillExperience < 0 || !active && (data.ActiveLevelId != 0 || data.ActiveSeed != 0 ||
+                data.ActiveRulesVersion != 0 || data.ActiveRunVersion != 0 || data.ActiveRunAwardedKillExperience != 0 ||
+                data.ActiveRoomAdmissionSerial != 0 || data.Outcome != null)) return false;
+            if (active && data.ActiveRunVersion != 0 && data.ActiveRunVersion != 2 && data.ActiveRunVersion != 3) return false;
+            if (active && (data.ActiveRunVersion == 3 ? data.ActiveRulesVersion != RulesVersion :
+                data.ActiveRulesVersion != 0 && data.ActiveRulesVersion != 1)) return false;
+            if (active && data.ActiveRunVersion == 3 && (data.ActiveLevelId < 1 || data.ActiveRoomAdmissionSerial < 1 ||
                 data.ActiveRunEntryCost <= 0)) return false;
             if (data.Stage == ProjectRunStage.OutcomeRecorded)
             {
@@ -230,7 +242,7 @@ namespace GameLogic.Project
             if (data.ActiveRunId == runId && data.Stage == ProjectRunStage.Admitted)
             {
                 error = "重复入场参数与已保存记录不同。";
-                if (data.ActiveLevelId != levelId || data.ActiveSeed != seed || data.ActiveRulesVersion != RulesVersion ||
+                if (data.ActiveRunVersion != 3 || data.ActiveLevelId != levelId || data.ActiveSeed != seed || data.ActiveRulesVersion != RulesVersion ||
                     data.ActiveRunEntryCost <= 0 || data.EntryItems.Count != entryItems.Count) return false;
                 var savedItems = new Dictionary<string, ProjectItem>();
                 foreach (ProjectItem saved in data.EntryItems)
@@ -245,7 +257,11 @@ namespace GameLogic.Project
             error = "已有未结束的单局。";
             if (!string.IsNullOrEmpty(data.ActiveRunId) || data.Stage != ProjectRunStage.None || data.Outcome != null) return false;
             error = "体力不足。";
-            if (data.Stamina < PrototypeRules.EntryCost) return false;
+            var profileRules = ProjectRulesConfig.Profile;
+            if (profileRules == null || profileRules.EntryCost < 0 || profileRules.RoomEntryCost < 0 ||
+                profileRules.EntryCost > int.MaxValue - profileRules.RoomEntryCost) return false;
+            int entryCost = profileRules.EntryCost + profileRules.RoomEntryCost;
+            if (entryCost <= 0 || data.Stamina < entryCost) return false;
             var chosen = new List<ProjectItem>();
             var ids = new HashSet<string>();
             error = "携入物品不在仓库或身份重复。";
@@ -256,15 +272,17 @@ namespace GameLogic.Project
                 if (owned == null || !owned.Equipped || owned.RequiredLevel > data.Level) return false;
                 chosen.Add(owned.Copy());
             }
-            data.Stamina -= PrototypeRules.EntryCost;
+            data.Stamina -= entryCost;
             data.Warehouse.RemoveAll(item => ids.Contains(item.Id));
             data.EntryItems.AddRange(chosen);
             data.ActiveRunId = runId;
-            data.ActiveRunEntryCost = PrototypeRules.EntryCost;
+            data.ActiveRunEntryCost = entryCost;
             data.ActiveLevelId = levelId;
             data.ActiveSeed = seed;
             data.ActiveRulesVersion = RulesVersion;
-            data.ActiveRunVersion = 2;
+            data.ActiveRunVersion = 3;
+            data.ActiveRunAwardedKillExperience = 0;
+            data.ActiveRoomAdmissionSerial = 1;
             data.Stage = ProjectRunStage.Admitted;
             error = null;
             return true;
@@ -280,7 +298,8 @@ namespace GameLogic.Project
         public static bool TryMarkRunning(ProjectSaveData data, string runId, out string error)
         {
             error = "开始授权与当前单局不匹配。";
-            if (data == null || string.IsNullOrEmpty(runId) || data.ActiveRunId != runId || data.ActiveRulesVersion != RulesVersion) return false;
+            if (data == null || string.IsNullOrEmpty(runId) || data.ActiveRunId != runId ||
+                data.ActiveRunVersion != 3 || data.ActiveRulesVersion != RulesVersion) return false;
             if (data.Stage == ProjectRunStage.Running) { error = null; return true; }
             if (data.Stage != ProjectRunStage.Admitted) return false;
             data.Stage = ProjectRunStage.Running;
@@ -298,7 +317,8 @@ namespace GameLogic.Project
         public static bool TryRecordOutcome(ProjectSaveData data, ProjectRunOutcome outcome, out string error)
         {
             error = "终局不属于当前运行的单局。";
-            if (data == null || data.Stage != ProjectRunStage.Running && data.Stage != ProjectRunStage.OutcomeRecorded) return false;
+            if (data == null || data.ActiveRunVersion != 3 ||
+                data.Stage != ProjectRunStage.Running && data.Stage != ProjectRunStage.OutcomeRecorded) return false;
             if (!ValidOutcome(outcome, data, out error)) return false;
             if (data.Stage == ProjectRunStage.OutcomeRecorded)
             {
@@ -331,29 +351,25 @@ namespace GameLogic.Project
             if (data.Stage != ProjectRunStage.OutcomeRecorded || !ValidOutcome(data.Outcome, data, out error)) return false;
             ProjectRunOutcome outcome = data.Outcome;
             error = "本局金币支出或经验超过可表示范围。";
-            if (outcome.AwardedKillExperience > int.MaxValue - outcome.ExtractionExperience) return false;
-            int awarded = outcome.AwardedKillExperience + outcome.ExtractionExperience;
+            int remainingKillExperience = outcome.KillExperience - data.ActiveRunAwardedKillExperience;
+            if (remainingKillExperience < 0 || remainingKillExperience > int.MaxValue - outcome.ExtractionExperience) return false;
+            int awarded = remainingKillExperience + outcome.ExtractionExperience;
             int possibleLevels = Math.Max(0, ProjectRulesConfig.Profile.MaxLevel - data.Level);
             if (data.Gold < outcome.GoldSpent || data.Experience > int.MaxValue - awarded ||
                 (long)data.SkillPoints + (long)possibleLevels * PrototypeRules.SkillPointsPerLevel > int.MaxValue) return false;
             var warehouseIds = new HashSet<string>();
             foreach (ProjectItem item in data.Warehouse) warehouseIds.Add(item.Id);
-            foreach (ProjectItem item in outcome.Items)
-                if (outcome.Extracted && warehouseIds.Contains(item.Id))
+            if (!TryClassifyItems(outcome, data.EntryItems, out var retained, out var lost, out error)) return false;
+            foreach (ProjectItem item in retained)
+                if (warehouseIds.Contains(item.Id))
                 {
                     error = "结算物品已存在仓库。";
                     return false;
                 }
-            var retained = new List<ProjectItem>();
-            var lost = new List<ProjectItem>();
-            foreach (ProjectItem item in outcome.Items)
-            {
-                if (outcome.Extracted) retained.Add(item.Copy());
-                else lost.Add(item.Copy());
-            }
             var receipt = new ProjectRunResult
             {
                 Outcome = outcome.Copy(), RetainedItems = retained.ConvertAll(item => item.Copy()), LostItems = lost.ConvertAll(item => item.Copy()),
+                HasEntryItemsSnapshot = true, EntryItems = data.EntryItems.ConvertAll(item => item.Copy()),
                 LevelBefore = data.Level, ExperienceBefore = data.Experience, SkillPointsBefore = data.SkillPoints,
                 HasSkillPointsRuleSnapshot = true, SkillPointsPerLevelApplied = PrototypeRules.SkillPointsPerLevel, GoldBefore = data.Gold
             };
@@ -362,6 +378,11 @@ namespace GameLogic.Project
                 error = "单局历史记录参数无效。";
                 return false;
             }
+            foreach (ProjectItem returned in retained)
+                if (returned.Equipped)
+                    foreach (ProjectItem stored in data.Warehouse)
+                        if (ProjectEquipmentRules.IsArmor(returned.Type) ? ProjectEquipmentRules.IsArmor(stored.Type) : returned.Type == stored.Type)
+                            stored.Equipped = false;
             data.Warehouse.AddRange(retained);
             data.Gold -= outcome.GoldSpent;
             ProjectProfileRules.AddExperience(data, awarded);
@@ -370,10 +391,10 @@ namespace GameLogic.Project
             receipt.SkillPointsAfter = data.SkillPoints;
             receipt.GoldAfter = data.Gold;
             data.LastSettledRunId = outcome.RunId;
-            data.LastRunSummary = outcome.Extracted ? outcome.Statistics?.HasRegionData == true ?
-                outcome.Statistics.IsFinalCompletion ? "最终通关，已带回全部物品。" : "提前带回，已保留全部持有物品。" :
-                "撤离成功，已带回物品。" : outcome.Abandoned ?
-                "已放弃本局，本局全部持有物品丢失，体力不退还。" : "角色死亡，本局全部持有物品丢失。";
+            data.LastRunSummary = outcome.ExitKind == ProjectRunExitKind.Completed ? "最终通关，已带回全部物品。" :
+                outcome.ExitKind == ProjectRunExitKind.AdExtraction ? "广告撤离，携入装备与所选本关物品已带回。" :
+                outcome.ExitKind == ProjectRunExitKind.Abandoned ? "已放弃本局，携入装备已退回，本关获得物品丢失，体力不退还。" :
+                "角色死亡，携入装备已退回，本关获得物品丢失。";
             data.LastResult = receipt;
             data.EntryItems.Clear();
             data.ActiveRunId = "";
@@ -382,8 +403,61 @@ namespace GameLogic.Project
             data.ActiveSeed = 0;
             data.ActiveRulesVersion = 0;
             data.ActiveRunVersion = 0;
+            data.ActiveRunAwardedKillExperience = 0;
+            data.ActiveRoomAdmissionSerial = 0;
             data.Outcome = null;
             data.Stage = ProjectRunStage.None;
+            error = null;
+            return true;
+        }
+
+        /// <summary>
+        /// 按唯一终局分类携入装备与独立关卡背包；携入装备始终归还，广告只选择本关所得实例。
+        /// </summary>
+        /// <param name="outcome">冻结终局及关卡背包中的本关所得物。</param>
+        /// <param name="entryItems">本次入场托管的原始实例证据。</param>
+        /// <param name="retained">成功时返回带回仓库的独立物品副本。</param>
+        /// <param name="lost">成功时返回本关损失的独立物品副本。</param>
+        /// <param name="error">失败原因，成功时为空。</param>
+        /// <returns>物品身份完整且保留与损失形成互斥完整分区时为真。</returns>
+        public static bool TryClassifyItems(ProjectRunOutcome outcome, IReadOnlyList<ProjectItem> entryItems,
+            out List<ProjectItem> retained, out List<ProjectItem> lost, out string error)
+        {
+            retained = new List<ProjectItem>();
+            lost = new List<ProjectItem>();
+            error = "终局类别、物品集合或携入证据无效。";
+            if (outcome == null || !Enum.IsDefined(typeof(ProjectRunExitKind), outcome.ExitKind) || outcome.Items == null ||
+                outcome.RetainedItemIds == null || entryItems == null) return false;
+            var items = new Dictionary<string, ProjectItem>(StringComparer.Ordinal);
+            foreach (var item in outcome.Items)
+            {
+                if (ProjectEquipmentRules.ValidateItem(item) != null || item.Equipped || !items.TryAdd(item.Id, item)) return false;
+            }
+            error = "携入实例重复、无效或混入关卡背包。";
+            var entryIds = new HashSet<string>(StringComparer.Ordinal);
+            var equippedSlots = new HashSet<ProjectItemType>();
+            foreach (var item in entryItems)
+            {
+                if (ProjectEquipmentRules.ValidateItem(item) != null || !entryIds.Add(item.Id) || items.ContainsKey(item.Id)) return false;
+                if (!item.Equipped) continue;
+                var slot = ProjectEquipmentRules.IsArmor(item.Type) ? ProjectItemType.Armor : ProjectItemType.Weapon;
+                if (!equippedSlots.Add(slot)) return false;
+            }
+            error = "广告选取包含重复、外来或受保护携入实例，或者当前终局不允许额外选取。";
+            var selectedIds = new HashSet<string>(StringComparer.Ordinal);
+            if (outcome.ExitKind != ProjectRunExitKind.AdExtraction && outcome.RetainedItemIds.Count != 0) return false;
+            if (outcome.ExitKind == ProjectRunExitKind.AdExtraction)
+            {
+                var rules = ProjectRulesConfig.Profile;
+                if (rules == null || rules.AdExtractionItemLimit < 0 || outcome.RetainedItemIds.Count > rules.AdExtractionItemLimit) return false;
+                foreach (var id in outcome.RetainedItemIds)
+                    if (string.IsNullOrWhiteSpace(id) || !selectedIds.Add(id) || entryIds.Contains(id) || !items.ContainsKey(id)) return false;
+            }
+            foreach (var item in entryItems) retained.Add(item.Copy());
+            foreach (var item in outcome.Items)
+                if (outcome.ExitKind == ProjectRunExitKind.Completed || selectedIds.Contains(item.Id))
+                    retained.Add(item.Copy());
+                else lost.Add(item.Copy());
             error = null;
             return true;
         }
@@ -415,6 +489,7 @@ namespace GameLogic.Project
         {
             ProjectRunOutcome outcome = result.Outcome;
             if (outcome == null || outcome.RunId != settledRunId || result.RetainedItems == null || result.LostItems == null ||
+                !result.HasEntryItemsSnapshot || result.EntryItems == null ||
                 result.LevelBefore < 1 || result.LevelAfter < result.LevelBefore || result.ExperienceBefore < 0 ||
                 result.ExperienceAfter < 0 || result.SkillPointsBefore < 0 || result.SkillPointsAfter < result.SkillPointsBefore ||
                 result.GoldBefore < 0 || result.GoldAfter < 0 || result.GoldBefore < outcome.GoldSpent ||
@@ -430,7 +505,7 @@ namespace GameLogic.Project
             var identity = new ProjectSaveData
             {
                 ActiveRunId = outcome.RunId, ActiveLevelId = outcome.LevelId, ActiveSeed = outcome.Seed,
-                ActiveRulesVersion = outcome.RulesVersion
+                ActiveRulesVersion = outcome.RulesVersion, ActiveRunVersion = 3, EntryItems = result.EntryItems
             };
             if (outcome.LevelId < 1 || !ValidOutcome(outcome, identity, out _)) return false;
             var retained = new Dictionary<string, ProjectItem>();
@@ -441,12 +516,15 @@ namespace GameLogic.Project
             foreach (ProjectItem item in result.LostItems)
                 if (item == null || string.IsNullOrEmpty(item.Id) || retained.ContainsKey(item.Id) || lost.ContainsKey(item.Id)) return false;
                 else lost.Add(item.Id, item);
-            if (retained.Count + lost.Count != outcome.Items.Count) return false;
-            foreach (ProjectItem item in outcome.Items)
+            if (retained.Count + lost.Count != outcome.Items.Count + result.EntryItems.Count) return false;
+            if (!TryClassifyItems(outcome, result.EntryItems, out var expectedRetained, out var expectedLost, out _)) return false;
+            if (retained.Count != expectedRetained.Count || lost.Count != expectedLost.Count) return false;
+            foreach (ProjectItem item in expectedRetained)
             {
-                var map = outcome.Extracted ? retained : lost;
-                if (!map.TryGetValue(item.Id, out ProjectItem actual) || JsonUtility.ToJson(item) != JsonUtility.ToJson(actual)) return false;
+                if (!retained.TryGetValue(item.Id, out ProjectItem actual) || JsonUtility.ToJson(item) != JsonUtility.ToJson(actual)) return false;
             }
+            foreach (ProjectItem item in expectedLost)
+                if (!lost.TryGetValue(item.Id, out ProjectItem actual) || JsonUtility.ToJson(item) != JsonUtility.ToJson(actual)) return false;
             return true;
         }
 
@@ -460,26 +538,18 @@ namespace GameLogic.Project
         private static bool ValidOutcome(ProjectRunOutcome outcome, ProjectSaveData data, out string error)
         {
             error = "终局身份或规则版本不匹配。";
-            if (outcome == null || outcome.RunId != data.ActiveRunId || data.ActiveRulesVersion != RulesVersion ||
+            if (outcome == null || data.ActiveRunVersion != 3 || outcome.RunId != data.ActiveRunId || data.ActiveRulesVersion != RulesVersion ||
                 outcome.LevelId != data.ActiveLevelId || outcome.Seed != data.ActiveSeed || outcome.RulesVersion != RulesVersion) return false;
             error = "终局时间或奖励参数无效。";
             if (outcome.Tick < 0 || float.IsNaN(outcome.ElapsedSeconds) || float.IsInfinity(outcome.ElapsedSeconds) ||
-                outcome.ElapsedSeconds < 0 || outcome.KillExperience < 0 || outcome.AwardedKillExperience < 0 ||
-                outcome.AwardedKillExperience > outcome.KillExperience || outcome.ExtractionExperience < 0 || outcome.GoldSpent < 0 ||
-                (outcome.Extracted && outcome.Abandoned) || (!outcome.Extracted && outcome.ExtractionExperience != 0) ||
+                outcome.ElapsedSeconds < 0 || outcome.KillExperience < 0 || outcome.AwardedKillExperience != outcome.KillExperience ||
+                data.ActiveRunAwardedKillExperience < 0 || data.ActiveRunAwardedKillExperience > outcome.KillExperience ||
+                outcome.ExtractionExperience < 0 || outcome.GoldSpent < 0 ||
+                (outcome.ExitKind != ProjectRunExitKind.Completed && outcome.ExtractionExperience != 0) ||
                 outcome.Items == null) return false;
             error = "终局统计无效。";
             if (!ProjectRunStatistics.IsValid(outcome.Statistics)) return false;
-            var ids = new HashSet<string>();
-            var equippedSlots = new HashSet<ProjectItemType>();
-            error = "终局物品身份、词条或装备槽无效。";
-            foreach (ProjectItem item in outcome.Items)
-            {
-                if (ProjectEquipmentRules.ValidateItem(item) != null || !ids.Add(item.Id)) return false;
-                if (!item.Equipped) continue;
-                ProjectItemType slot = ProjectEquipmentRules.IsArmor(item.Type) ? ProjectItemType.Armor : ProjectItemType.Weapon;
-                if (!equippedSlots.Add(slot)) return false;
-            }
+            if (!TryClassifyItems(outcome, data.EntryItems, out _, out _, out error)) return false;
             error = null;
             return true;
         }

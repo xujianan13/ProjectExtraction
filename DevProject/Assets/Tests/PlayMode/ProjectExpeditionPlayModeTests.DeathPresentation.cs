@@ -75,7 +75,7 @@ namespace MiniGame.Tests
             await WaitForPhaseAsync(ProjectRunPhase.ResultsReady);
             Assert.That(run.DeathPresentationElapsed, Is.EqualTo(ExpeditionRun.DeathPresentationDuration));
             Assert.That(ProjectServices.Session.LastResult.Outcome.RunId, Is.EqualTo(run.RunId));
-            Assert.That(ProjectServices.Session.LastResult.Outcome.Extracted, Is.False);
+            Assert.That(ProjectServices.Session.LastResult.Outcome.ExitKind, Is.EqualTo(ProjectRunExitKind.Death));
             Assert.That(GameEntry.Get<ISceneModule>().CurrentScene, Is.Null);
             Assert.That(GameObject.Find("ExpeditionPresentation"), Is.Null);
         });

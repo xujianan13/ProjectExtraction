@@ -15,6 +15,8 @@ namespace GameLogic.Gameplay.Level
         public int RegionId;
         public int RegionIndex;
         public int LevelId;
+        public int RoomDefinitionId;
+        public ExpeditionRoomKind RoomKind;
         public int LootLevel;
         public int EnemyLevel;
         public int BossDefinitionId;
@@ -123,8 +125,6 @@ namespace GameLogic.Gameplay.Level
         public float ReachabilityGridSpacing;
         public int ReachabilityMaxCells;
         public int MaxSpawnSlots;
-        public RegionRespawnRule NormalRespawn;
-        public RegionRespawnRule EliteRespawn;
         public List<RegionEncounterCandidate> MonsterEncounters = new();
         public List<RegionEliteCandidate> EliteCandidates = new();
         public List<RegionChestCandidate> ChestCandidates = new();
@@ -229,8 +229,6 @@ namespace GameLogic.Gameplay.Level
         public Vector3 ExitPosition;
         public float PlayerRadius;
         public float InteractionRadius;
-        public RegionRespawnRule NormalRespawn;
-        public RegionRespawnRule EliteRespawn;
         public long MonsterRandomState;
         public long EliteRandomState;
         public long ChestRandomState;
@@ -242,12 +240,12 @@ namespace GameLogic.Gameplay.Level
         /// <summary>
         /// 创建可提交保存的完整独立候选。
         /// </summary>
-        /// <returns>不共享集合、规则及物品的区域副本。</returns>
+        /// <returns>不共享集合及物品的房间副本。</returns>
         public RegionPlan Copy() => new RegionPlan
         {
             Request = Request.Copy(), EntryAnchorId = EntryAnchorId, ExitAnchorId = ExitAnchorId,
             EntryPosition = EntryPosition, ExitPosition = ExitPosition, PlayerRadius = PlayerRadius, InteractionRadius = InteractionRadius,
-            NormalRespawn = NormalRespawn.Copy(), EliteRespawn = EliteRespawn.Copy(), MonsterRandomState = MonsterRandomState,
+            MonsterRandomState = MonsterRandomState,
             EliteRandomState = EliteRandomState, ChestRandomState = ChestRandomState, NpcRandomState = NpcRandomState,
             SpawnSlots = SpawnSlots.ConvertAll(value => value.Copy()), Chests = Chests.ConvertAll(value => value.Copy()),
             Npcs = Npcs.ConvertAll(value => value.Copy())
@@ -266,10 +264,9 @@ namespace GameLogic.Gameplay.Level
             if (map == null) { error = "区域地图描述缺失。"; return false; }
             if (!map.TryValidate(out error)) return false;
             if (Request == null || string.IsNullOrWhiteSpace(Request.RunId) || Request.RegionId <= 0 || Request.RegionIndex < 0 ||
-                Request.LevelId <= 0 || Request.LootLevel <= 0 || Request.EnemyLevel <= 0 || Request.BossDefinitionId <= 0 || Request.BossEnemyId <= 0 ||
-                Request.BossEnemyLevel <= 0 || string.IsNullOrWhiteSpace(Request.ConfigVersion) ||
+                Request.LevelId <= 0 || Request.LootLevel <= 0 || Request.EnemyLevel <= 0 || !ValidRoomRequest(Request) ||
+                string.IsNullOrWhiteSpace(Request.ConfigVersion) ||
                 Request.MapId != map.MapId || Request.MapVersion != map.Version || SpawnSlots == null || Chests == null || Npcs == null ||
-                NormalRespawn == null || !NormalRespawn.IsValid() || EliteRespawn == null || !EliteRespawn.IsValid() ||
                 !RegionValueRules.Finite(InteractionRadius) || InteractionRadius <= 0f ||
                 !PersistentRandom.TryRestore(MonsterRandomState, out _) || !PersistentRandom.TryRestore(EliteRandomState, out _) ||
                 !PersistentRandom.TryRestore(ChestRandomState, out _) || !PersistentRandom.TryRestore(NpcRandomState, out _))
@@ -306,7 +303,8 @@ namespace GameLogic.Gameplay.Level
                     slot.AnchorId != Request.BossAnchorId || slot.HomePosition != anchor.Position)
                 { error = "Boss 槽位与开局绑定不匹配。"; return false; }
             }
-            if (bosses != 1) { error = "区域必须有且只有一个 Boss 槽位。"; return false; }
+            if (bosses != (Request.RoomKind == ExpeditionRoomKind.Boss ? 1 : 0))
+            { error = "房间 Boss 数量与类型不匹配。"; return false; }
             foreach (RegionChestPlan chest in Chests)
             {
                 if (chest == null || string.IsNullOrWhiteSpace(chest.Id) || !ids.Add(chest.Id) || chest.DefinitionId <= 0 ||
@@ -337,17 +335,21 @@ namespace GameLogic.Gameplay.Level
         {
             error = null;
             if (Request == null || string.IsNullOrWhiteSpace(Request.RunId) || Request.RegionId <= 0 || Request.RegionIndex < 0 ||
-                Request.LevelId <= 0 || Request.LootLevel <= 0 || Request.EnemyLevel <= 0 || Request.BossDefinitionId <= 0 || Request.BossEnemyId <= 0 ||
-                Request.BossEnemyLevel <= 0 || Request.MapId <= 0 || string.IsNullOrWhiteSpace(Request.MapVersion) ||
-                string.IsNullOrWhiteSpace(Request.ConfigVersion) || string.IsNullOrWhiteSpace(Request.BossAnchorId) ||
+                Request.LevelId <= 0 || Request.LootLevel <= 0 || Request.EnemyLevel <= 0 || !ValidRoomRequest(Request) ||
+                Request.MapId <= 0 || string.IsNullOrWhiteSpace(Request.MapVersion) ||
+                string.IsNullOrWhiteSpace(Request.ConfigVersion) ||
                 string.IsNullOrWhiteSpace(EntryAnchorId) || string.IsNullOrWhiteSpace(ExitAnchorId) ||
                 !RegionValueRules.Finite(EntryPosition) || !RegionValueRules.Finite(ExitPosition) ||
                 !RegionValueRules.Finite(PlayerRadius) || PlayerRadius <= 0f || !RegionValueRules.Finite(InteractionRadius) || InteractionRadius <= 0f ||
-                NormalRespawn == null || !NormalRespawn.IsValid() || EliteRespawn == null || !EliteRespawn.IsValid() ||
                 SpawnSlots == null || Chests == null || Npcs == null || !PersistentRandom.TryRestore(MonsterRandomState, out _) ||
                 !PersistentRandom.TryRestore(EliteRandomState, out _) || !PersistentRandom.TryRestore(ChestRandomState, out _) ||
                 !PersistentRandom.TryRestore(NpcRandomState, out _))
             { error = "区域计划字段、随机状态或规则不完整。"; return false; }
+            if (Request.RoomKind == ExpeditionRoomKind.Combat && (SpawnSlots.Count == 0 || Chests.Count != 0 || Npcs.Count != 0) ||
+                Request.RoomKind == ExpeditionRoomKind.Npc && (SpawnSlots.Count != 0 || Chests.Count != 0 || Npcs.Count != 1) ||
+                Request.RoomKind == ExpeditionRoomKind.Chest && (SpawnSlots.Count != 0 || Chests.Count != 1 || Npcs.Count != 0) ||
+                Request.RoomKind == ExpeditionRoomKind.Boss && (SpawnSlots.Count != 1 || Chests.Count != 0 || Npcs.Count != 0))
+            { error = "冻结内容与房间类型不匹配。"; return false; }
             var ids = new HashSet<string>(StringComparer.Ordinal);
             var itemIds = new HashSet<string>(StringComparer.Ordinal);
             int bosses = 0;
@@ -363,7 +365,8 @@ namespace GameLogic.Gameplay.Level
                 if (slot.EnemyId != Request.BossEnemyId || slot.EnemyLevel != Request.BossEnemyLevel || slot.AnchorId != Request.BossAnchorId)
                 { error = "Boss 身份与冻结绑定不一致。"; return false; }
             }
-            if (bosses != 1) { error = "区域必须有且只有一个 Boss 槽位。"; return false; }
+            if (bosses != (Request.RoomKind == ExpeditionRoomKind.Boss ? 1 : 0))
+            { error = "房间 Boss 数量与类型不匹配。"; return false; }
             foreach (RegionChestPlan chest in Chests)
             {
                 if (chest == null || string.IsNullOrWhiteSpace(chest.Id) || !ids.Add(chest.Id) || chest.DefinitionId <= 0 ||
@@ -384,6 +387,16 @@ namespace GameLogic.Gameplay.Level
             }
             return true;
         }
+
+        /// <summary>
+        /// 检查房间类型与可选 Boss 身份一致。
+        /// </summary>
+        /// <param name="request">冻结的房间请求。</param>
+        /// <returns>房间定义及 Boss 字段一致时为真。</returns>
+        internal static bool ValidRoomRequest(RegionGenerationRequest request) => request.RoomDefinitionId > 0 &&
+            Enum.IsDefined(typeof(ExpeditionRoomKind), request.RoomKind) && (request.RoomKind == ExpeditionRoomKind.Boss
+                ? request.BossDefinitionId > 0 && request.BossEnemyId > 0 && request.BossEnemyLevel > 0 && !string.IsNullOrWhiteSpace(request.BossAnchorId)
+                : request.BossDefinitionId == 0 && request.BossEnemyId == 0 && request.BossEnemyLevel == 0 && string.IsNullOrEmpty(request.BossAnchorId));
 
         /// <summary>
         /// 根据敌人类别取得锚点用途。

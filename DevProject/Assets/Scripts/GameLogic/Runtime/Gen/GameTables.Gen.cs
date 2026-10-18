@@ -101,11 +101,6 @@ namespace GameLogic.Tables
         public static CfgDisplayTable CfgDisplay { get; private set; }
 
         /// <summary>
-        /// CfgElitePool 配置表。
-        /// </summary>
-        public static CfgElitePoolTable CfgElitePool { get; private set; }
-
-        /// <summary>
         /// CfgEncounters 配置表。
         /// </summary>
         public static CfgEncountersTable CfgEncounters { get; private set; }
@@ -151,11 +146,6 @@ namespace GameLogic.Tables
         public static CfgLootQualitiesTable CfgLootQualities { get; private set; }
 
         /// <summary>
-        /// CfgNavigation 配置表。
-        /// </summary>
-        public static CfgNavigationTable CfgNavigation { get; private set; }
-
-        /// <summary>
         /// CfgNpcPool 配置表。
         /// </summary>
         public static CfgNpcPoolTable CfgNpcPool { get; private set; }
@@ -176,39 +166,24 @@ namespace GameLogic.Tables
         public static CfgQualitiesTable CfgQualities { get; private set; }
 
         /// <summary>
-        /// CfgRegionContent 配置表。
+        /// CfgRoomAnchors 配置表。
         /// </summary>
-        public static CfgRegionContentTable CfgRegionContent { get; private set; }
+        public static CfgRoomAnchorsTable CfgRoomAnchors { get; private set; }
 
         /// <summary>
-        /// CfgRegionMaps 配置表。
+        /// CfgRoomMaps 配置表。
         /// </summary>
-        public static CfgRegionMapsTable CfgRegionMaps { get; private set; }
+        public static CfgRoomMapsTable CfgRoomMaps { get; private set; }
 
         /// <summary>
-        /// CfgRespawnRules 配置表。
+        /// CfgRoomObstacles 配置表。
         /// </summary>
-        public static CfgRespawnRulesTable CfgRespawnRules { get; private set; }
+        public static CfgRoomObstaclesTable CfgRoomObstacles { get; private set; }
 
         /// <summary>
-        /// CfgRoguePolicy 配置表。
+        /// CfgRooms 配置表。
         /// </summary>
-        public static CfgRoguePolicyTable CfgRoguePolicy { get; private set; }
-
-        /// <summary>
-        /// CfgRoguePools 配置表。
-        /// </summary>
-        public static CfgRoguePoolsTable CfgRoguePools { get; private set; }
-
-        /// <summary>
-        /// CfgRogueProgress 配置表。
-        /// </summary>
-        public static CfgRogueProgressTable CfgRogueProgress { get; private set; }
-
-        /// <summary>
-        /// CfgRogueRewards 配置表。
-        /// </summary>
-        public static CfgRogueRewardsTable CfgRogueRewards { get; private set; }
+        public static CfgRoomsTable CfgRooms { get; private set; }
 
         /// <summary>
         /// CfgRunPersistence 配置表。
@@ -253,7 +228,6 @@ namespace GameLogic.Tables
             CfgCombatSkillsTable nextCfgCombatSkills = await CfgCombatSkillsTable.LoadAsync(resources, ct);
             CfgCombatTimelineNodesTable nextCfgCombatTimelineNodes = await CfgCombatTimelineNodesTable.LoadAsync(resources, ct);
             CfgDisplayTable nextCfgDisplay = await CfgDisplayTable.LoadAsync(resources, ct);
-            CfgElitePoolTable nextCfgElitePool = await CfgElitePoolTable.LoadAsync(resources, ct);
             CfgEncountersTable nextCfgEncounters = await CfgEncountersTable.LoadAsync(resources, ct);
             CfgEnemiesTable nextCfgEnemies = await CfgEnemiesTable.LoadAsync(resources, ct);
             CfgEnemySkillsTable nextCfgEnemySkills = await CfgEnemySkillsTable.LoadAsync(resources, ct);
@@ -263,18 +237,14 @@ namespace GameLogic.Tables
             CfgLevelsTable nextCfgLevels = await CfgLevelsTable.LoadAsync(resources, ct);
             CfgLootPoolTable nextCfgLootPool = await CfgLootPoolTable.LoadAsync(resources, ct);
             CfgLootQualitiesTable nextCfgLootQualities = await CfgLootQualitiesTable.LoadAsync(resources, ct);
-            CfgNavigationTable nextCfgNavigation = await CfgNavigationTable.LoadAsync(resources, ct);
             CfgNpcPoolTable nextCfgNpcPool = await CfgNpcPoolTable.LoadAsync(resources, ct);
             CfgPlayerCombatTable nextCfgPlayerCombat = await CfgPlayerCombatTable.LoadAsync(resources, ct);
             CfgProfileTable nextCfgProfile = await CfgProfileTable.LoadAsync(resources, ct);
             CfgQualitiesTable nextCfgQualities = await CfgQualitiesTable.LoadAsync(resources, ct);
-            CfgRegionContentTable nextCfgRegionContent = await CfgRegionContentTable.LoadAsync(resources, ct);
-            CfgRegionMapsTable nextCfgRegionMaps = await CfgRegionMapsTable.LoadAsync(resources, ct);
-            CfgRespawnRulesTable nextCfgRespawnRules = await CfgRespawnRulesTable.LoadAsync(resources, ct);
-            CfgRoguePolicyTable nextCfgRoguePolicy = await CfgRoguePolicyTable.LoadAsync(resources, ct);
-            CfgRoguePoolsTable nextCfgRoguePools = await CfgRoguePoolsTable.LoadAsync(resources, ct);
-            CfgRogueProgressTable nextCfgRogueProgress = await CfgRogueProgressTable.LoadAsync(resources, ct);
-            CfgRogueRewardsTable nextCfgRogueRewards = await CfgRogueRewardsTable.LoadAsync(resources, ct);
+            CfgRoomAnchorsTable nextCfgRoomAnchors = await CfgRoomAnchorsTable.LoadAsync(resources, ct);
+            CfgRoomMapsTable nextCfgRoomMaps = await CfgRoomMapsTable.LoadAsync(resources, ct);
+            CfgRoomObstaclesTable nextCfgRoomObstacles = await CfgRoomObstaclesTable.LoadAsync(resources, ct);
+            CfgRoomsTable nextCfgRooms = await CfgRoomsTable.LoadAsync(resources, ct);
             CfgRunPersistenceTable nextCfgRunPersistence = await CfgRunPersistenceTable.LoadAsync(resources, ct);
             CfgSkillsTable nextCfgSkills = await CfgSkillsTable.LoadAsync(resources, ct);
             CfgSpawnsTable nextCfgSpawns = await CfgSpawnsTable.LoadAsync(resources, ct);
@@ -296,7 +266,6 @@ namespace GameLogic.Tables
             CfgCombatSkills = nextCfgCombatSkills;
             CfgCombatTimelineNodes = nextCfgCombatTimelineNodes;
             CfgDisplay = nextCfgDisplay;
-            CfgElitePool = nextCfgElitePool;
             CfgEncounters = nextCfgEncounters;
             CfgEnemies = nextCfgEnemies;
             CfgEnemySkills = nextCfgEnemySkills;
@@ -306,18 +275,14 @@ namespace GameLogic.Tables
             CfgLevels = nextCfgLevels;
             CfgLootPool = nextCfgLootPool;
             CfgLootQualities = nextCfgLootQualities;
-            CfgNavigation = nextCfgNavigation;
             CfgNpcPool = nextCfgNpcPool;
             CfgPlayerCombat = nextCfgPlayerCombat;
             CfgProfile = nextCfgProfile;
             CfgQualities = nextCfgQualities;
-            CfgRegionContent = nextCfgRegionContent;
-            CfgRegionMaps = nextCfgRegionMaps;
-            CfgRespawnRules = nextCfgRespawnRules;
-            CfgRoguePolicy = nextCfgRoguePolicy;
-            CfgRoguePools = nextCfgRoguePools;
-            CfgRogueProgress = nextCfgRogueProgress;
-            CfgRogueRewards = nextCfgRogueRewards;
+            CfgRoomAnchors = nextCfgRoomAnchors;
+            CfgRoomMaps = nextCfgRoomMaps;
+            CfgRoomObstacles = nextCfgRoomObstacles;
+            CfgRooms = nextCfgRooms;
             CfgRunPersistence = nextCfgRunPersistence;
             CfgSkills = nextCfgSkills;
             CfgSpawns = nextCfgSpawns;

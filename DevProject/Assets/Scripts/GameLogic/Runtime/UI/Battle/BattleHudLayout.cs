@@ -9,25 +9,25 @@ namespace GameLogic.UI.Battle
     {
         private RectTransform area;
         private RectTransform header;
-        private RectTransform minimap;
         private RectTransform stick;
         private RectTransform actions;
         private float[] baseActionHeights;
         private UnityEngine.UI.Text[] actionLabels;
         private int[] baseFontSizes;
+        private float[] baseHeaderHeights;
+        private UnityEngine.UI.Text[] headerLabels;
+        private int[] baseHeaderFontSizes;
 
         /// <summary>
         /// 绑定现有控件并按安全区实际尺寸布局。
         /// </summary>
         /// <param name="header">顶部状态区。</param>
-        /// <param name="minimap">右上小地图。</param>
         /// <param name="stick">左下圆形摇杆。</param>
         /// <param name="actions">右下操作区。</param>
-        public void Configure(RectTransform header, RectTransform minimap, RectTransform stick, RectTransform actions)
+        public void Configure(RectTransform header, RectTransform stick, RectTransform actions)
         {
             area = (RectTransform)transform;
             this.header = header;
-            this.minimap = minimap;
             this.stick = stick;
             this.actions = actions;
             baseActionHeights = new float[actions.childCount];
@@ -39,6 +39,12 @@ namespace GameLogic.UI.Battle
             actionLabels = actions.GetComponentsInChildren<UnityEngine.UI.Text>(true);
             baseFontSizes = new int[actionLabels.Length];
             for (int index = 0; index < actionLabels.Length; index++) baseFontSizes[index] = actionLabels[index].fontSize;
+            baseHeaderHeights = new float[header.childCount];
+            for (int index = 0; index < header.childCount; index++)
+                baseHeaderHeights[index] = header.GetChild(index).GetComponent<UnityEngine.UI.LayoutElement>().preferredHeight;
+            headerLabels = header.GetComponentsInChildren<UnityEngine.UI.Text>(true);
+            baseHeaderFontSizes = new int[headerLabels.Length];
+            for (int index = 0; index < headerLabels.Length; index++) baseHeaderFontSizes[index] = headerLabels[index].fontSize;
             Refresh();
         }
 
@@ -52,33 +58,29 @@ namespace GameLogic.UI.Battle
         /// </summary>
         public void Refresh()
         {
-            if (area == null || header == null || minimap == null || stick == null || actions == null) return;
+            if (area == null || header == null || stick == null || actions == null) return;
             float width = area.rect.width;
             float height = area.rect.height;
             if (width <= 0f || height <= 0f) return;
             float padding = 24f;
             float diameter = Mathf.Clamp(Mathf.Min(width, height) * 0.25f, 180f, 280f);
-            float mapSize = Mathf.Clamp(Mathf.Min(width * 0.29f, height * 0.25f), 160f, 300f);
             float actionWidth = Mathf.Min(330f, width * 0.38f);
             bool landscape = width > height;
-            bool besideMap = false;
-            float controlsHeight = FitActions(height, mapSize, padding, besideMap);
-            float headerWidth = width - mapSize - padding * 3f;
-            Pin(header, new Vector2(0f, 1f), new Vector2(padding, -padding), new Vector2(headerWidth, 430f));
-            Pin(minimap, Vector2.one, new Vector2(-padding, -padding), Vector2.one * mapSize);
+            float headerHeight = landscape ? Mathf.Min(430f, height - diameter - padding * 4f) : Mathf.Min(430f, height * 0.36f);
+            float headerWidth = landscape ? width - actionWidth - padding * 3f : width - padding * 2f;
+            float controlsHeight = FitActions(height - padding * 3f - (landscape ? 0f : headerHeight));
+            FitHeader(headerHeight);
+            Pin(header, new Vector2(0f, 1f), new Vector2(padding, -padding), new Vector2(headerWidth, headerHeight));
             Pin(stick, Vector2.zero, new Vector2(padding, padding * 2f), Vector2.one * diameter);
             Pin(actions, Vector2.right, new Vector2(-padding, padding * 2f), new Vector2(actionWidth, controlsHeight));
         }
 
         /// <summary>
-        /// 按可见按钮的原始首选高度缩放操作区，避免小屏幕上压住小地图。
+        /// 按可见按钮的原始首选高度缩放操作区，避免超出房间信息下方或右侧空间。
         /// </summary>
-        /// <param name="height">安全区高度。</param>
-        /// <param name="mapSize">小地图边长。</param>
-        /// <param name="padding">边缘留白。</param>
-        /// <param name="besideMap">操作区是否可在地图右侧独立排布。</param>
+        /// <param name="available">操作区可用高度。</param>
         /// <returns>操作区实际高度。</returns>
-        private float FitActions(float height, float mapSize, float padding, bool besideMap)
+        private float FitActions(float available)
         {
             float sum = 0f;
             int count = 0;
@@ -86,7 +88,6 @@ namespace GameLogic.UI.Battle
                 if (actions.GetChild(index).gameObject.activeSelf) { sum += baseActionHeights[index]; count++; }
             UnityEngine.UI.VerticalLayoutGroup group = actions.GetComponent<UnityEngine.UI.VerticalLayoutGroup>();
             float spacing = (group == null ? 0f : group.spacing) * Mathf.Max(0, count - 1);
-            float available = besideMap ? height - padding * 3f : height - mapSize - padding * 4f;
             float scale = sum > 0f ? Mathf.Clamp01((available - spacing) / sum) : 1f;
             for (int index = 0; index < actions.childCount; index++)
             {
@@ -104,6 +105,32 @@ namespace GameLogic.UI.Battle
                 label.resizeTextMaxSize = baseFontSizes[index];
             }
             return sum * scale + spacing;
+        }
+
+        /// <summary>
+        /// 将房间信息与技能状态适配到上方可用空间。
+        /// </summary>
+        /// <param name="height">信息区可用高度。</param>
+        private void FitHeader(float height)
+        {
+            float sum = 0f;
+            foreach (float value in baseHeaderHeights) sum += value;
+            UnityEngine.UI.VerticalLayoutGroup group = header.GetComponent<UnityEngine.UI.VerticalLayoutGroup>();
+            float spacing = (group == null ? 0f : group.spacing) * Mathf.Max(0, header.childCount - 1);
+            float scale = sum > 0f ? Mathf.Clamp01((height - spacing) / sum) : 1f;
+            for (int index = 0; index < header.childCount; index++)
+            {
+                UnityEngine.UI.LayoutElement element = header.GetChild(index).GetComponent<UnityEngine.UI.LayoutElement>();
+                element.preferredHeight = element.minHeight = baseHeaderHeights[index] * scale;
+            }
+            for (int index = 0; index < headerLabels.Length; index++)
+            {
+                UnityEngine.UI.Text label = headerLabels[index];
+                label.fontSize = Mathf.Max(12, Mathf.RoundToInt(baseHeaderFontSizes[index] * scale));
+                label.resizeTextForBestFit = true;
+                label.resizeTextMinSize = 10;
+                label.resizeTextMaxSize = label.fontSize;
+            }
         }
 
         /// <summary>

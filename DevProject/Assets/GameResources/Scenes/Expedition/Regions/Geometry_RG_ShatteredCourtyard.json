@@ -1,93 +1,33 @@
 {
     "MapId": 2,
-    "Version": "v2-region-1",
+    "Version": "v3-room-prototype-1",
     "Bounds": {
         "serializedVersion": "2",
-        "x": -50.0,
-        "y": -60.0,
-        "width": 100.0,
-        "height": 120.0
+        "x": -10.0,
+        "y": -24.0,
+        "width": 20.0,
+        "height": 48.0
     },
     "NorthYawDegrees": 0.0,
     "Obstacles": [
         {
             "Min": {
-                "x": -7.0,
-                "y": -28.0
-            },
-            "Max": {
-                "x": 7.0,
-                "y": -16.0
-            }
-        },
-        {
-            "Min": {
-                "x": -7.0,
-                "y": 4.0
-            },
-            "Max": {
-                "x": 7.0,
-                "y": 18.0
-            }
-        },
-        {
-            "Min": {
-                "x": -39.0,
-                "y": -35.0
-            },
-            "Max": {
-                "x": -30.0,
-                "y": -22.0
-            }
-        },
-        {
-            "Min": {
-                "x": 30.0,
-                "y": -35.0
-            },
-            "Max": {
-                "x": 39.0,
-                "y": -22.0
-            }
-        },
-        {
-            "Min": {
-                "x": -40.0,
-                "y": -4.0
-            },
-            "Max": {
-                "x": -34.0,
-                "y": 16.0
-            }
-        },
-        {
-            "Min": {
-                "x": 34.0,
-                "y": -4.0
-            },
-            "Max": {
-                "x": 40.0,
-                "y": 16.0
-            }
-        },
-        {
-            "Min": {
-                "x": -50.0,
-                "y": 34.0
-            },
-            "Max": {
                 "x": -10.0,
-                "y": 37.0
+                "y": -4.0
+            },
+            "Max": {
+                "x": -6.0,
+                "y": 0.0
             }
         },
         {
             "Min": {
-                "x": 10.0,
-                "y": 34.0
+                "x": 6.0,
+                "y": 8.0
             },
             "Max": {
-                "x": 50.0,
-                "y": 37.0
+                "x": 10.0,
+                "y": 12.0
             }
         }
     ],
@@ -99,18 +39,7 @@
             "Position": {
                 "x": 0.0,
                 "y": 0.0,
-                "z": -52.0
-            },
-            "Capacity": 1
-        },
-        {
-            "Id": "boss",
-            "Kind": 5,
-            "Tag": "",
-            "Position": {
-                "x": 0.0,
-                "y": 0.0,
-                "z": 46.0
+                "z": -20.0
             },
             "Capacity": 1
         },
@@ -121,205 +50,51 @@
             "Position": {
                 "x": 0.0,
                 "y": 0.0,
-                "z": 54.0
+                "z": 20.0
             },
             "Capacity": 1
         },
         {
-            "Id": "monster-1",
+            "Id": "monster",
             "Kind": 1,
             "Tag": "monster",
             "Position": {
-                "x": -22.0,
+                "x": 0.0,
                 "y": 0.0,
-                "z": -38.0
+                "z": 2.0
             },
-            "Capacity": 5
+            "Capacity": 10
         },
         {
-            "Id": "monster-2",
-            "Kind": 1,
-            "Tag": "monster",
-            "Position": {
-                "x": 22.0,
-                "y": 0.0,
-                "z": -38.0
-            },
-            "Capacity": 5
-        },
-        {
-            "Id": "monster-3",
-            "Kind": 1,
-            "Tag": "monster",
-            "Position": {
-                "x": -22.0,
-                "y": 0.0,
-                "z": -20.0
-            },
-            "Capacity": 5
-        },
-        {
-            "Id": "monster-4",
-            "Kind": 1,
-            "Tag": "monster",
-            "Position": {
-                "x": 22.0,
-                "y": 0.0,
-                "z": -20.0
-            },
-            "Capacity": 5
-        },
-        {
-            "Id": "monster-5",
-            "Kind": 1,
-            "Tag": "monster",
-            "Position": {
-                "x": -22.0,
-                "y": 0.0,
-                "z": 0.0
-            },
-            "Capacity": 5
-        },
-        {
-            "Id": "monster-6",
-            "Kind": 1,
-            "Tag": "monster",
-            "Position": {
-                "x": 22.0,
-                "y": 0.0,
-                "z": 0.0
-            },
-            "Capacity": 5
-        },
-        {
-            "Id": "monster-7",
-            "Kind": 1,
-            "Tag": "monster",
-            "Position": {
-                "x": -22.0,
-                "y": 0.0,
-                "z": 22.0
-            },
-            "Capacity": 5
-        },
-        {
-            "Id": "monster-8",
-            "Kind": 1,
-            "Tag": "monster",
-            "Position": {
-                "x": 22.0,
-                "y": 0.0,
-                "z": 22.0
-            },
-            "Capacity": 5
-        },
-        {
-            "Id": "elite-1",
-            "Kind": 2,
-            "Tag": "elite",
-            "Position": {
-                "x": -39.0,
-                "y": 0.0,
-                "z": -46.0
-            },
-            "Capacity": 1
-        },
-        {
-            "Id": "elite-2",
-            "Kind": 2,
-            "Tag": "elite",
-            "Position": {
-                "x": 39.0,
-                "y": 0.0,
-                "z": -46.0
-            },
-            "Capacity": 1
-        },
-        {
-            "Id": "elite-3",
-            "Kind": 2,
-            "Tag": "elite",
-            "Position": {
-                "x": -36.0,
-                "y": 0.0,
-                "z": 26.0
-            },
-            "Capacity": 1
-        },
-        {
-            "Id": "elite-4",
-            "Kind": 2,
-            "Tag": "elite",
-            "Position": {
-                "x": 36.0,
-                "y": 0.0,
-                "z": 26.0
-            },
-            "Capacity": 1
-        },
-        {
-            "Id": "chest-1",
+            "Id": "chest",
             "Kind": 3,
             "Tag": "chest",
             "Position": {
-                "x": -43.0,
+                "x": 0.0,
                 "y": 0.0,
-                "z": -12.0
+                "z": 6.0
             },
             "Capacity": 1
         },
         {
-            "Id": "chest-2",
-            "Kind": 3,
-            "Tag": "chest",
-            "Position": {
-                "x": 43.0,
-                "y": 0.0,
-                "z": -12.0
-            },
-            "Capacity": 1
-        },
-        {
-            "Id": "chest-3",
-            "Kind": 3,
-            "Tag": "chest",
-            "Position": {
-                "x": -12.0,
-                "y": 0.0,
-                "z": 29.0
-            },
-            "Capacity": 1
-        },
-        {
-            "Id": "chest-4",
-            "Kind": 3,
-            "Tag": "chest",
-            "Position": {
-                "x": 12.0,
-                "y": 0.0,
-                "z": 29.0
-            },
-            "Capacity": 1
-        },
-        {
-            "Id": "npc-1",
+            "Id": "npc",
             "Kind": 4,
             "Tag": "npc",
             "Position": {
-                "x": -12.0,
+                "x": 0.0,
                 "y": 0.0,
-                "z": -42.0
+                "z": 6.0
             },
             "Capacity": 1
         },
         {
-            "Id": "npc-2",
-            "Kind": 4,
-            "Tag": "npc",
+            "Id": "boss",
+            "Kind": 5,
+            "Tag": "",
             "Position": {
-                "x": 12.0,
+                "x": 0.0,
                 "y": 0.0,
-                "z": 25.0
+                "z": 9.0
             },
             "Capacity": 1
         }
@@ -327,43 +102,19 @@
     "NoSpawnZones": [
         {
             "Center": {
-                "x": -12.0,
+                "x": 0.0,
                 "y": 0.0,
-                "z": -42.0
+                "z": -20.0
             },
-            "Radius": 6.0
-        },
-        {
-            "Center": {
-                "x": 12.0,
-                "y": 0.0,
-                "z": 25.0
-            },
-            "Radius": 6.0
+            "Radius": 3.0
         },
         {
             "Center": {
                 "x": 0.0,
                 "y": 0.0,
-                "z": -52.0
+                "z": 20.0
             },
-            "Radius": 6.0
-        },
-        {
-            "Center": {
-                "x": 0.0,
-                "y": 0.0,
-                "z": 31.0
-            },
-            "Radius": 5.0
-        },
-        {
-            "Center": {
-                "x": 0.0,
-                "y": 0.0,
-                "z": 54.0
-            },
-            "Radius": 6.0
+            "Radius": 3.0
         }
     ]
 }

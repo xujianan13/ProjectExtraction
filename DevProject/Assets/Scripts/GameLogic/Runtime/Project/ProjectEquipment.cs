@@ -376,7 +376,7 @@ namespace GameLogic.Project
             if (definition == null || random == null) return null;
             if (definition.Type == (int)ProjectItemType.Collection)
             {
-                ProjectCollectionDefinition collection = ProjectV2RewardConfig.Collection(definition.CollectionID);
+                ProjectCollectionDefinition collection = ProjectRewardConfig.Collection(definition.CollectionID);
                 ProjectItem retained = ProjectCollectionRules.CreateItem(random, collection);
                 if (retained != null) retained.DefinitionId = definition.ID;
                 return retained;

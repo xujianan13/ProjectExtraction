@@ -1,0 +1,41 @@
+{
+  "schemaHash": "f71b009dc825b18c9e6ed1d7375c9c8f9713b462d52ae7721a567c070b97f170",
+  "rows": [
+    {
+      "ID": 1,
+      "Version": "v3-room-prototype-1",
+      "PrefabAddress": "RG_AncientCrossroads",
+      "GeometryAddress": "Geometry_RG_AncientCrossroads",
+      "Name": "V3可调长条房间·1",
+      "BoundsX": -10,
+      "BoundsZ": -24,
+      "Width": 20,
+      "Length": 48,
+      "NorthYawDegrees": 0
+    },
+    {
+      "ID": 2,
+      "Version": "v3-room-prototype-1",
+      "PrefabAddress": "RG_ShatteredCourtyard",
+      "GeometryAddress": "Geometry_RG_ShatteredCourtyard",
+      "Name": "V3可调长条房间·2",
+      "BoundsX": -10,
+      "BoundsZ": -24,
+      "Width": 20,
+      "Length": 48,
+      "NorthYawDegrees": 0
+    },
+    {
+      "ID": 3,
+      "Version": "v3-room-prototype-1",
+      "PrefabAddress": "RG_FinalArena",
+      "GeometryAddress": "Geometry_RG_FinalArena",
+      "Name": "V3可调长条房间·3",
+      "BoundsX": -10,
+      "BoundsZ": -24,
+      "Width": 20,
+      "Length": 48,
+      "NorthYawDegrees": 0
+    }
+  ]
+}

@@ -51,7 +51,7 @@ namespace MiniGame.Tests
             await ProjectServices.Coordinator.SetApplicationPausedAsync(true);
             Assert.That(run.TryBuyMerchantOffer(offer.Id), Is.False);
             await ProjectServices.Coordinator.SetApplicationPausedAsync(false);
-            Assert.That(run.World.TrySetPosition(run.Player, run.CurrentRegion.Plan.EntryPosition), Is.True);
+            Assert.That(run.World.TrySetPosition(run.Player, run.CurrentRoom.Plan.EntryPosition), Is.True);
             Assert.That(run.TryBuyMerchantOffer(offer.Id), Is.False);
             Assert.That(run.GoldSpent, Is.Zero);
             Assert.That(run.MerchantOffers.First().Sold, Is.False);
@@ -64,7 +64,8 @@ namespace MiniGame.Tests
         /// <returns>商人面板可用任务。</returns>
         private static async UniTask OpenRegionMerchantAsync(ExpeditionRun run)
         {
-            Assert.That(run.World.TrySetPosition(run.Player, run.CurrentRegion.Plan.Npcs.First().Position), Is.True);
+            await AdvanceToRoomAsync(run, GameLogic.Gameplay.Level.ExpeditionRoomKind.Npc);
+            Assert.That(run.World.TrySetPosition(run.Player, run.CurrentRoom.Plan.Npcs.First().Position), Is.True);
             run.Advance(CombatWorld.TickSeconds);
             run.RequestInteraction();
             run.Advance(CombatWorld.TickSeconds);

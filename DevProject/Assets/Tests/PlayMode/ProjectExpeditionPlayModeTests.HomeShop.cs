@@ -21,7 +21,7 @@ namespace MiniGame.Tests
     public sealed partial class ProjectExpeditionPlayModeTests
     {
         /// <summary>
-        /// 购买武器后从仓库装备并出战，死亡丢失武器后仍可再次购买并入场。
+        /// 购买武器后从仓库装备并出战，死亡保护固定装备，下一局仍可使用。
         /// </summary>
         /// <returns>真实窗口、战斗和结算的逐帧测试。</returns>
         [UnityTest]
@@ -59,32 +59,20 @@ namespace MiniGame.Tests
             ClickButton(home, "出战");
             await WaitForPhaseAsync(ProjectRunPhase.Playing);
             ExpeditionRun run = session.CurrentRun;
-            Assert.That(run.Inventory.Any(item => item.Id == first.Id && item.Equipped), Is.True);
+            Assert.That(run.EntryEquipment.Any(item => item.Id == first.Id && item.Equipped), Is.True);
             TriggerDeath(run);
             await ConfirmPendingDeathAsync(run);
             await WaitForPhaseAsync(ProjectRunPhase.ResultsReady);
-            Assert.That(session.LastResult.Outcome.Extracted, Is.False);
+            Assert.That(session.LastResult.Outcome.ExitKind, Is.EqualTo(ProjectRunExitKind.Death));
             Assert.That(await ProjectServices.Coordinator.ReturnHomeAsync(), Is.True);
-            Assert.That(session.Warehouse.Any(item => item.Id == first.Id), Is.False);
+            Assert.That(session.Warehouse.Count(item => item.Id == first.Id), Is.EqualTo(1));
             Assert.That(session.Gold, Is.EqualTo(initialGold - offer.PriceGold));
 
             home = await WaitForWindowAsync(ContentIds.HomeWindow);
-            ClickButton(home, "商店");
-            shop = await WaitForWindowAsync(ProjectServices.HomeShopWindow);
-            ClickButton(shop, "购买");
-            await WaitForAsync(() => session.Gold == initialGold - offer.PriceGold * 2);
-            ProjectItem replacement = session.Warehouse.Single(item => item.Type == ProjectItemType.Weapon && item.Id != starterId);
-            Assert.That(replacement.Id, Is.Not.EqualTo(first.Id));
-            ClickButton(shop, "前往仓库");
-            warehouse = await WaitForWindowAsync(2101);
-            SelectWarehouseItem(warehouse, replacement.Name);
-            ClickWarehouseEquipButton(warehouse);
-            await WaitForAsync(() => session.Warehouse.Any(item => item.Id == replacement.Id && item.Equipped));
-            ClickButton(warehouse, "关闭");
-            await WaitForAsync(() => ui.OpenedWindows.All(window => window.Id != 2101));
             ClickButton(home, "出战");
             await WaitForPhaseAsync(ProjectRunPhase.Playing);
-            Assert.That(session.CurrentRun.Inventory.Any(item => item.Id == replacement.Id && item.Equipped), Is.True);
+            Assert.That(session.CurrentRun.EntryEquipment.Any(item => item.Id == first.Id && item.Equipped), Is.True);
+            Assert.That(session.CurrentRun.Inventory, Is.Empty);
         });
 
         /// <summary>
@@ -166,7 +154,8 @@ namespace MiniGame.Tests
         /// <param name="caption">按钮完整文本。</param>
         /// <returns>匹配的按钮。</returns>
         private static Button FindButton(GameWindow window, string caption) => window.Root.GetComponentsInChildren<Button>(true)
-            .Single(button => button.GetComponentInChildren<Text>()?.text == caption);
+            .Single(button => button.GetComponentInChildren<Text>()?.text == caption ||
+                button.GetComponentInChildren<Text>()?.text.StartsWith(caption + " · ") == true);
 
 
         /// <summary>

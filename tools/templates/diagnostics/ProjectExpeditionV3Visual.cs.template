@@ -1,0 +1,631 @@
+using System;
+using System.Collections;
+using System.Collections.Generic;
+using System.IO;
+using System.Linq;
+using System.Reflection;
+using Cysharp.Threading.Tasks;
+using GameFramework;
+using GameLogic.Gameplay.Combat;
+using GameLogic.Gameplay.Expedition;
+using GameLogic.Gameplay.Level;
+using GameLogic.Project;
+using GameLogic.Scaffold;
+using NUnit.Framework;
+using UnityEngine;
+using UnityEngine.Rendering;
+using UnityEngine.TestTools;
+using UnityEngine.UI;
+
+namespace MiniGame.Tests
+{
+    /// <summary>
+    /// 显式启用的 V3 真实房间、业务窗口和横竖屏布局探针。
+    /// </summary>
+    public sealed partial class ProjectExpeditionPlayModeTests
+    {
+        /// <summary>
+        /// 捕获窄竖屏的线性关卡、永久成长、携物选择和死亡处理。
+        /// </summary>
+        /// <returns>受环境开关控制的图形测试协程。</returns>
+        [UnityTest]
+        public IEnumerator VisualV3_NarrowPortrait_RealRoomsAndWindows()
+        {
+            if (Environment.GetEnvironmentVariable("PROJECT_V3_UI_CAPTURE") != "1") yield break;
+            yield return UniTask.ToCoroutine(() => CaptureV3FlowAsync(360, 800, "portrait-360x800"));
+        }
+
+        /// <summary>
+        /// 捕获横屏的线性关卡、永久成长、携物选择和死亡处理。
+        /// </summary>
+        /// <returns>受环境开关控制的图形测试协程。</returns>
+        [UnityTest]
+        public IEnumerator VisualV3_Landscape_RealRoomsAndWindows()
+        {
+            if (Environment.GetEnvironmentVariable("PROJECT_V3_UI_CAPTURE") != "1") yield break;
+            yield return UniTask.ToCoroutine(() => CaptureV3FlowAsync(1280, 720, "landscape-1280x720"));
+        }
+
+        /// <summary>
+        /// 在隔离内存存档中推进六房原型，保存真实窗口画面与布局证据。
+        /// </summary>
+        /// <param name="width">要求的实际渲染宽度。</param>
+        /// <param name="height">要求的实际渲染高度。</param>
+        /// <param name="prefix">当前方向的输出文件前缀。</param>
+        /// <returns>完整图形探针任务。</returns>
+        private static async UniTask CaptureV3FlowAsync(int width, int height, string prefix)
+        {
+            Assert.That(SystemInfo.graphicsDeviceType, Is.Not.EqualTo(GraphicsDeviceType.Null), "图形探针不能使用 -nographics。");
+            using (var resolution = new VisualResolutionScope(width, height))
+            {
+                await WaitForAsync(() => Screen.width == width && Screen.height == height);
+                string directory = Path.GetFullPath(Path.Combine(Application.dataPath, "..", "..", "Verification", "v3-ui"));
+                Directory.CreateDirectory(directory);
+                string record = Path.Combine(directory, prefix + "-layout.txt");
+                File.WriteAllText(record, "Version=3; Backend=Memory; Screen=" + width + "x" + height + "; SafeArea=" + Screen.safeArea + "\n");
+                var failures = new List<string>();
+                await SetupRealHomeAsync(new MemorySaveBackend());
+                GameWindow home = await WaitForWindowAsync(ContentIds.HomeWindow);
+                await CaptureV3WindowAsync(home, "home", directory, prefix, width, height, record, failures, "Levels");
+                CheckVisualButtons(home, record, failures, "出战", "仓库", "技能", "收藏");
+                ClickButton(home, "出战");
+                await WaitForAsync(() => ProjectServices.Session.CurrentRun != null);
+                ExpeditionRun run = ProjectServices.Session.CurrentRun;
+                GameWindow hud = await WaitForWindowAsync(ProjectServices.BattleHudWindow);
+                await WaitRunSavedAsync(run);
+                await WaitForAsync(() => run.CanAcceptPlayerInput);
+                await CaptureV3WindowAsync(hud, "hud", directory, prefix, width, height, record, failures,
+                    "Status", "CombatSkills", "MoveStick", "ControlActions");
+                CheckVisualButtons(hud, record, failures, "切换目标 / Tab", "背包", "成长与进度", "暂停");
+                Rect stick = CheckVisualRect(FindVisualRect(hud, "MoveStick"), "HUD/Stick", record, failures);
+                Rect actions = CheckVisualRect(FindVisualRect(hud, "ControlActions"), "HUD/Actions", record, failures);
+                CheckVisualOverlap(stick, actions, "HUD 摇杆与操作区", failures);
+                ClickButton(hud, "成长与进度");
+                GameWindow growth = await WaitForWindowAsync(ProjectServices.ProgressionWindow);
+                await AssertV3PanelPausedAsync(run);
+                await CaptureV3WindowAsync(growth, "progression", directory, prefix, width, height, record, failures,
+                    "ProgressionPanel", "ProgressionEntries");
+                Assert.That(growth.Root.GetComponentsInChildren<Text>(false).Any(value => value.text.Contains("永久等级")), Is.True);
+                ClickButton(growth, "关闭");
+                await WaitForAsync(() => run.ActivePanel == ExpeditionPanelKind.None);
+
+                var expected = new[] { ExpeditionRoomKind.Combat, ExpeditionRoomKind.Chest, ExpeditionRoomKind.Combat,
+                    ExpeditionRoomKind.Npc, ExpeditionRoomKind.Combat, ExpeditionRoomKind.Boss };
+                Assert.That(run.RoomCount, Is.EqualTo(expected.Length), "本探针验证当前可调六房原型。");
+                int entryStamina = ProjectServices.Session.Stamina;
+                for (int index = 0; index < expected.Length; index++)
+                {
+                    Assert.That(run.CurrentRoomIndex, Is.EqualTo(index));
+                    Assert.That(run.CurrentRoomKind, Is.EqualTo(expected[index]));
+                    Assert.That(ProjectServices.Session.Stamina, Is.EqualTo(entryStamina - index * PrototypeRules.RoomEntryCost));
+                    File.AppendAllText(record, "Room=" + index + "; Kind=" + run.CurrentRoomKind + "; Stamina=" + ProjectServices.Session.Stamina + "\n");
+                    if (run.CurrentRoomKind == ExpeditionRoomKind.Chest)
+                    {
+                        await CaptureV3ChestAsync(run, directory, prefix, width, height, record, failures);
+                        await CaptureV3InventoryAndLeaveOptionsAsync(run, directory, prefix, width, height, record, failures);
+                    }
+                    if (run.CurrentRoomKind == ExpeditionRoomKind.Npc)
+                        await CaptureV3WindowAsync(hud, "npc-room", directory, prefix, width, height, record, failures, "Status", "ControlActions");
+                    if (run.IsFinalRoom)
+                    {
+                        await CaptureV3BossAsync(run, directory, prefix, width, height, record, failures);
+                        break;
+                    }
+                    await EnterExtractionConfirmationAsync(run);
+                    GameWindow exit = await WaitForWindowAsync(ProjectServices.RegionExitWindow);
+                    if (index == 0)
+                    {
+                        await CaptureV3WindowAsync(exit, "room-exit",
+                            directory, prefix, width, height, record, failures, "ExitPanel", "ExitActions");
+                        await CheckV3ScrollableButtonsAsync(exit, record, failures, "进入下一房", "留在本房");
+                    }
+                    ClickButton(exit, "进入下一房");
+                    await WaitForAsync(() => run.CurrentRoomIndex == index + 1 && run.ActivePanel == ExpeditionPanelKind.None);
+                    await WaitRunSavedAsync(run);
+                }
+                string[] acquired = run.Inventory.Select(item => item.Id).ToArray();
+                await WaitForPhaseAsync(ProjectRunPhase.ResultsReady);
+                GameWindow result = await WaitForWindowAsync(ProjectServices.ResultWindow);
+                Assert.That(ProjectServices.Session.LastResult.Outcome.ExitKind, Is.EqualTo(ProjectRunExitKind.Completed));
+                Assert.That(ProjectServices.Session.LastResult.RetainedItems.Select(item => item.Id), Is.SupersetOf(acquired));
+                await CaptureV3WindowAsync(result, "result", directory, prefix, width, height, record, failures,
+                    "ResultLayout", "ResultSummary", "ResultItems");
+                CheckVisualButtons(result, record, failures, "返回主界面");
+                ClickButton(result, "返回主界面");
+                home = await WaitForWindowAsync(ContentIds.HomeWindow);
+                await WaitForAsync(() => ProjectServices.Coordinator.CanStart);
+                ClickButton(home, "出战");
+                await WaitForAsync(() => ProjectServices.Session.CurrentRun != null && !ReferenceEquals(ProjectServices.Session.CurrentRun, run));
+                run = ProjectServices.Session.CurrentRun;
+                await WaitRunSavedAsync(run);
+                await WaitForAsync(() => run.CanAcceptPlayerInput);
+                await CaptureV3DeathAsync(run, directory, prefix, width, height, record, failures);
+                File.AppendAllText(record, failures.Count == 0 ? "LayoutChecks=PASS\n" : string.Join("\n", failures) + "\n");
+                Assert.That(failures, Is.Empty, string.Join("\n", failures));
+            }
+        }
+
+        /// <summary>
+        /// 通过真实宝箱交互捕获领取结果，再用窗口按钮继续房间。
+        /// </summary>
+        /// <param name="run">当前宝箱房单局。</param>
+        /// <param name="directory">输出目录。</param>
+        /// <param name="prefix">方向前缀。</param>
+        /// <param name="width">实际宽度。</param>
+        /// <param name="height">实际高度。</param>
+        /// <param name="record">布局记录。</param>
+        /// <param name="failures">布局失败集合。</param>
+        /// <returns>宝箱领取与窗口关闭任务。</returns>
+        private static async UniTask CaptureV3ChestAsync(ExpeditionRun run, string directory, string prefix,
+            int width, int height, string record, List<string> failures)
+        {
+            RegionChestPlan chest = run.CurrentRoom.Plan.Chests.Single();
+            Assert.That(run.World.TrySetPosition(run.Player, chest.Position), Is.True);
+            run.Advance(CombatWorld.TickSeconds);
+            await WaitRunSavedAsync(run);
+            for (int index = 0; index < run.InteractionCount && run.SelectedInteractionId != chest.Id; index++) run.CycleInteraction();
+            Assert.That(run.SelectedInteractionId, Is.EqualTo(chest.Id));
+            run.RequestInteraction();
+            run.Advance(CombatWorld.TickSeconds);
+            await WaitRunSavedAsync(run);
+            GameWindow loot = await WaitForWindowAsync(ProjectServices.ChestLootWindow);
+            Assert.That(run.ChestLootItems.Select(item => item.Id), Is.EqualTo(chest.Items.Select(item => item.Id)));
+            await AssertV3PanelPausedAsync(run);
+            await CaptureV3WindowAsync(loot, "chest-loot", directory, prefix, width, height, record, failures,
+                "ChestLootPanel", "Items", "Details");
+            CheckVisualButtons(loot, record, failures, "继续探索");
+            ClickButton(loot, "继续探索");
+            await WaitForAsync(() => run.ActivePanel == ExpeditionPanelKind.None);
+        }
+
+        /// <summary>
+        /// 捕获只读背包、固定出战装备及暂停中的实际广告选物流程。
+        /// </summary>
+        /// <param name="run">已领取宝箱的活动关卡。</param>
+        /// <param name="directory">输出目录。</param>
+        /// <param name="prefix">方向前缀。</param>
+        /// <param name="width">实际宽度。</param>
+        /// <param name="height">实际高度。</param>
+        /// <param name="record">布局记录。</param>
+        /// <param name="failures">布局失败集合。</param>
+        /// <returns>各模态窗口验证和恢复任务。</returns>
+        private static async UniTask CaptureV3InventoryAndLeaveOptionsAsync(ExpeditionRun run, string directory, string prefix,
+            int width, int height, string record, List<string> failures)
+        {
+            GameWindow hud = await WaitForWindowAsync(ProjectServices.BattleHudWindow);
+            ClickButton(hud, "背包");
+            GameWindow inventory = await WaitForWindowAsync(ProjectServices.ExpeditionInventoryWindow);
+            await AssertV3PanelPausedAsync(run);
+            await CaptureV3WindowAsync(inventory, "inventory", directory, prefix, width, height, record, failures,
+                "InventoryPanel", "Filters", "Items", "Details");
+            CheckVisualButtons(inventory, record, failures, "关闭", "全部", "武器", "防具", "物品", "出战装备");
+            Assert.That(inventory.Root.GetComponentsInChildren<Button>(true).Any(button =>
+                button.GetComponentInChildren<Text>()?.text == "装备" || button.GetComponentInChildren<Text>()?.text == "卸下"), Is.False);
+            ClickButton(inventory, "出战装备");
+            await CaptureV3WindowAsync(inventory, "entry-equipment", directory, prefix, width, height, record, failures, "Items", "Details");
+            Assert.That(inventory.Root.GetComponentsInChildren<Text>(false).Any(value => value.text.Contains("本关中不能更换")), Is.True);
+            ClickButton(inventory, "关闭");
+            await WaitForAsync(() => run.ActivePanel == ExpeditionPanelKind.None);
+            ClickButton(hud, "暂停");
+            GameWindow pause = await WaitForWindowAsync(ProjectServices.PauseWindow);
+            await AssertV3PanelPausedAsync(run);
+            await CaptureV3WindowAsync(pause, "pause", directory, prefix, width, height, record, failures, "PausePanel", "Actions");
+            await CheckV3ScrollableButtonsAsync(pause, record, failures, "继续游戏", "暂离主城", "看广告携物撤离", "放弃本局");
+            ClickButton(pause, "看广告携物撤离");
+            GameWindow selection = await WaitForWindowAsync(ProjectServices.AdExtractionWindow);
+            await WaitRunSavedAsync(run);
+            Assert.That(run.HasAdExtractionAuthorization, Is.True);
+            Assert.That(run.AdExtractionCandidates.Count, Is.GreaterThan(0));
+            Button itemButton = selection.Root.GetComponentsInChildren<Button>(false).First(button =>
+                button.GetComponentInChildren<Text>()?.text.StartsWith("[") == true && button.interactable);
+            itemButton.onClick.Invoke();
+            await AssertV3PanelPausedAsync(run);
+            await CaptureV3WindowAsync(selection, "ad-extraction", directory, prefix, width, height, record, failures,
+                "AdExtractionPanel", "Candidates");
+            CheckVisualButtons(selection, record, failures, "返回", "确认撤离");
+            Assert.That(selection.Root.GetComponentsInChildren<Text>(false).Any(value =>
+                value.text.Contains("出战装备保留，不占名额")), Is.True);
+            ClickButton(selection, "返回");
+            pause = await WaitForWindowAsync(ProjectServices.PauseWindow);
+            ClickButton(pause, "继续游戏");
+            await WaitForAsync(() => run.ActivePanel == ExpeditionPanelKind.None);
+        }
+
+        /// <summary>
+        /// 捕获最终 Boss、首轮和最后一轮真实候选，最后领奖后等待自动通关。
+        /// </summary>
+        /// <param name="run">当前最终 Boss 房。</param>
+        /// <param name="directory">输出目录。</param>
+        /// <param name="prefix">方向前缀。</param>
+        /// <param name="width">实际宽度。</param>
+        /// <param name="height">实际高度。</param>
+        /// <param name="record">布局记录。</param>
+        /// <param name="failures">布局失败集合。</param>
+        /// <returns>Boss 战斗、所有奖励领取和自动结果确认任务。</returns>
+        private static async UniTask CaptureV3BossAsync(ExpeditionRun run, string directory, string prefix,
+            int width, int height, string record, List<string> failures)
+        {
+            GameWindow hud = await WaitForWindowAsync(ProjectServices.BattleHudWindow);
+            await CaptureV3WindowAsync(hud, "boss-room", directory, prefix, width, height, record, failures, "Status", "CombatSkills");
+            foreach (string id in run.CurrentRoom.Slots.Select(slot => slot.SlotId).ToArray()) await DefeatSlotAsync(run, id);
+            GameWindow loot = await WaitForWindowAsync(ProjectServices.BossLootWindow);
+            await CaptureV3WindowAsync(loot, "boss-loot", directory, prefix, width, height, record, failures,
+                "BossLootPanel", "BossCandidates", "BossItemDetails");
+            CheckVisualButtons(loot, record, failures, "领取所选物品");
+            int rounds = run.PendingBossChoice.TotalRounds;
+            for (int round = 1; round <= rounds; round++)
+            {
+                var choice = run.PendingBossChoice;
+                Assert.That(choice, Is.Not.Null, "每轮保存确认后必须存在下一轮冻结候选。");
+                Assert.That(choice.Round, Is.EqualTo(round));
+                Assert.That(choice.TotalRounds, Is.EqualTo(rounds));
+                loot = await WaitForWindowAsync(ProjectServices.BossLootWindow);
+                if (round == rounds)
+                {
+                    File.AppendAllText(record, "FinalTransition=LastBossRewardThenAutomaticResult; Round=" + round + "\n");
+                    await CaptureV3WindowAsync(loot, "boss-final-reward", directory, prefix, width, height, record, failures,
+                        "BossLootPanel", "BossCandidates", "BossItemDetails");
+                    CheckVisualButtons(loot, record, failures, "领取所选物品");
+                }
+                ClickButton(loot, "领取所选物品");
+                await WaitRunSavedAsync(run);
+                await UniTask.Yield();
+            }
+            await WaitForPhaseAsync(ProjectRunPhase.ResultsReady);
+            Assert.That(run.CurrentRoom.BossDefeated, Is.True);
+            Assert.That(run.CurrentRoom.BossRewardsCompleted, Is.True);
+            Assert.That(run.PendingBossChoice, Is.Null);
+            Assert.That(run.IsRunning, Is.False);
+            Assert.That(ProjectServices.Coordinator.TryEndRun(run, ProjectRunExitKind.Completed), Is.False, "最终领奖后自动通关，不再提交出口终局。");
+            Assert.That(ProjectServices.Session.LastResult.Outcome.RunId, Is.EqualTo(run.RunId));
+            Assert.That(ProjectServices.Session.RunHistory.Count(entry => entry.RunId == run.RunId), Is.EqualTo(1));
+        }
+
+        /// <summary>
+        /// 以实际敌方伤害触发死亡，捕获滚动上下文后通过广告复活继续。
+        /// </summary>
+        /// <param name="run">新的未完成战斗房间。</param>
+        /// <param name="directory">输出目录。</param>
+        /// <param name="prefix">方向前缀。</param>
+        /// <param name="width">实际宽度。</param>
+        /// <param name="height">实际高度。</param>
+        /// <param name="record">布局记录。</param>
+        /// <param name="failures">布局失败集合。</param>
+        /// <returns>死亡选项与广告复活验证任务。</returns>
+        private static async UniTask CaptureV3DeathAsync(ExpeditionRun run, string directory, string prefix,
+            int width, int height, string record, List<string> failures)
+        {
+            RegionSpawnSlotState slot = run.CurrentRoom.Slots.First(value => value.Phase == RegionSpawnPhase.Alive);
+            Assert.That(run.World.TryFindActor(slot.CurrentActorId, out CombatEntityRef killer), Is.True);
+            foreach (CombatAttributeKind kind in new[] { CombatAttributeKind.Attack, CombatAttributeKind.Defense, CombatAttributeKind.MaxHealth })
+                Assert.That(run.World.TryAddAttributeBonus(killer, kind, 1000000f), Is.True);
+            Assert.That(TryPlacePlayerNearActor(run, killer), Is.True);
+            for (int tick = 0; tick < 600 && !run.IsAwaitingDeathChoice; tick++)
+            {
+                await WaitRunSavedAsync(run);
+                run.Advance(CombatWorld.TickSeconds);
+            }
+            await WaitRunSavedAsync(run);
+            await WaitForAsync(() => run.CanChooseDeath);
+            GameWindow death = await WaitForWindowAsync(ProjectServices.DeathChoiceWindow);
+            await CaptureV3WindowAsync(death, "death-choice", directory, prefix, width, height, record, failures,
+                "DeathPanel", "DeathActions");
+            await CheckV3ScrollableButtonsAsync(death, record, failures, "看广告复活", "暂离主城", "看广告携物撤离", "结算返回");
+            await CaptureVisualScreenshotAsync(directory, prefix + "-death-actions", width, height);
+            string[] items = run.Inventory.Select(item => item.Id).ToArray();
+            int experience = run.KillExperience;
+            ClickButton(death, "看广告复活");
+            await WaitForAsync(() => !run.IsAwaitingDeathChoice && run.ActivePanel == ExpeditionPanelKind.None);
+            await WaitRunSavedAsync(run);
+            Assert.That(run.World.TryGetActor(run.Player, out CombatActorSnapshot player) && !player.Dead, Is.True);
+            Assert.That(player.Health, Is.EqualTo(player.MaxHealth));
+            Assert.That(run.Inventory.Select(item => item.Id), Is.EqualTo(items));
+            Assert.That(run.KillExperience, Is.EqualTo(experience));
+            await CaptureV3WindowAsync(await WaitForWindowAsync(ProjectServices.BattleHudWindow), "revived-hud",
+                directory, prefix, width, height, record, failures, "Status", "ControlActions");
+        }
+
+        /// <summary>
+        /// 等待模态面板稳定并检查暂停期间世界与房间时钟都不前进。
+        /// </summary>
+        /// <param name="run">已经进入面板的单局。</param>
+        /// <returns>暂停检查任务。</returns>
+        private static async UniTask AssertV3PanelPausedAsync(ExpeditionRun run)
+        {
+            await SettleVisualLayoutAsync();
+            long tick = run.World.TickIndex, roomTick = run.CurrentRoom.EffectiveTick;
+            run.Advance(0.5f);
+            Assert.That(run.World.TickIndex, Is.EqualTo(tick));
+            Assert.That(run.CurrentRoom.EffectiveTick, Is.EqualTo(roomTick));
+            Assert.That(run.CanAcceptPlayerInput, Is.False);
+        }
+
+        /// <summary>
+        /// 记录关键布局节点并捕获当前真实窗口。
+        /// </summary>
+        /// <param name="window">已经打开的真实窗口。</param>
+        /// <param name="name">画面角色名。</param>
+        /// <param name="directory">输出目录。</param>
+        /// <param name="prefix">方向前缀。</param>
+        /// <param name="width">实际宽度。</param>
+        /// <param name="height">实际高度。</param>
+        /// <param name="record">布局记录。</param>
+        /// <param name="failures">布局失败集合。</param>
+        /// <param name="nodes">需要验证的布局节点。</param>
+        /// <returns>布局与截图完成任务。</returns>
+        private static async UniTask CaptureV3WindowAsync(GameWindow window, string name, string directory, string prefix,
+            int width, int height, string record, List<string> failures, params string[] nodes)
+        {
+            await SettleVisualLayoutAsync();
+            File.AppendAllText(record, "Window=" + name + "; Id=" + window.Id + "\n");
+            foreach (string node in nodes) CheckVisualRect(FindVisualRect(window, node), name + "/" + node, record, failures);
+            await CaptureVisualScreenshotAsync(directory, prefix + "-" + name, width, height);
+        }
+
+        /// <summary>
+        /// 对可滚动按钮逐项滚动定位，检查实际可见时的边界，避免把合法滚动内容当作屏幕溢出。
+        /// </summary>
+        /// <param name="window">当前模态窗口。</param>
+        /// <param name="record">布局记录。</param>
+        /// <param name="failures">布局失败集合。</param>
+        /// <param name="captions">需要验证的真实按钮文字。</param>
+        /// <returns>逐项布局检查完成任务。</returns>
+        private static async UniTask CheckV3ScrollableButtonsAsync(GameWindow window, string record, List<string> failures, params string[] captions)
+        {
+            foreach (string caption in captions)
+            {
+                Button button = FindButton(window, caption);
+                ScrollRect scroll = button.GetComponentInParent<ScrollRect>();
+                if (scroll != null && scroll.vertical)
+                {
+                    scroll.verticalNormalizedPosition = 1f;
+                    await SettleVisualLayoutAsync();
+                    Bounds bounds = RectTransformUtility.CalculateRelativeRectTransformBounds(scroll.viewport, button.transform);
+                    float travel = scroll.content.rect.height - scroll.viewport.rect.height;
+                    if (travel > 0f)
+                    {
+                        float offset = scroll.viewport.rect.yMax - bounds.max.y + bounds.size.y * 0.5f - scroll.viewport.rect.height * 0.5f;
+                        scroll.verticalNormalizedPosition = Mathf.Clamp01(1f - offset / travel);
+                        await SettleVisualLayoutAsync();
+                    }
+                    Bounds visible = RectTransformUtility.CalculateRelativeRectTransformBounds(scroll.viewport, button.transform);
+                    if (visible.min.y < scroll.viewport.rect.yMin - 1f || visible.max.y > scroll.viewport.rect.yMax + 1f)
+                        failures.Add(window.Id + "/" + caption + " 滚动定位后仍超出可见列表范围。");
+                }
+                CheckVisualRect((RectTransform)button.transform, window.Id + "/" + caption, record, failures);
+            }
+        }
+
+        /// <summary>
+        /// 更新隔离测试的场景表现，等待安全区、布局组件和 Canvas 完成真实逐帧更新。
+        /// </summary>
+        /// <returns>四帧布局稳定任务。</returns>
+        private static async UniTask SettleVisualLayoutAsync()
+        {
+            for (int frame = 0; frame < 4; frame++)
+            {
+                if (!GameEntry.HasHost) ((GameplayModule)GameEntry.Get<IGameplayModule>()).OnLateUpdate(0f);
+                Canvas.ForceUpdateCanvases();
+                await UniTask.Yield(PlayerLoopTiming.LastPostLateUpdate);
+            }
+            Canvas.ForceUpdateCanvases();
+        }
+
+        /// <summary>
+        /// 捕获真实游戏屏幕，通过逐帧轮询等待文件，不依赖批处理下的帧末协程。
+        /// </summary>
+        /// <param name="directory">截图输出目录。</param>
+        /// <param name="name">不含扩展名的截图名称。</param>
+        /// <param name="width">期望的 PNG 像素宽度。</param>
+        /// <param name="height">期望的 PNG 像素高度。</param>
+        /// <returns>截图文件完整写入并检查尺寸的任务。</returns>
+        private static async UniTask CaptureVisualScreenshotAsync(string directory, string name, int width, int height)
+        {
+            await WaitForVisualRenderAsync();
+            Assert.That(Screen.width, Is.EqualTo(width));
+            Assert.That(Screen.height, Is.EqualTo(height));
+            string path = Path.Combine(directory, name + ".png");
+            if (File.Exists(path)) File.Delete(path);
+            ScreenCapture.CaptureScreenshot(path);
+            await WaitForAsync(() => File.Exists(path) && new FileInfo(path).Length > 32);
+            await SettleVisualLayoutAsync();
+            byte[] png = File.ReadAllBytes(path);
+            Assert.That(png.Take(8), Is.EqualTo(new byte[] { 137, 80, 78, 71, 13, 10, 26, 10 }), path);
+            Assert.That(ReadVisualPngInt(png, 16), Is.EqualTo(width), path);
+            Assert.That(ReadVisualPngInt(png, 20), Is.EqualTo(height), path);
+            Assert.That(png.Skip(png.Length - 8).Take(4), Is.EqualTo(new byte[] { 73, 69, 78, 68 }), "PNG 尚未完整写入：" + path);
+            var image = new Texture2D(2, 2, TextureFormat.RGBA32, false);
+            try
+            {
+                Assert.That(ImageConversion.LoadImage(image, png), Is.True, path);
+                Color32[] pixels = image.GetPixels32();
+                int placeholders = pixels.Count(pixel => pixel.r == 0 && pixel.g == 255 && pixel.b == 255);
+                Assert.That(placeholders, Is.LessThan(pixels.Length / 100), "画面仍包含大面积 cyan 着色器编译占位：" + path);
+            }
+            finally { UnityEngine.Object.Destroy(image); }
+            TestContext.Progress.WriteLine("UI screenshot: " + path);
+        }
+
+        /// <summary>
+        /// 等待已提交的着色器任务和真实渲染帧完成，避免把首次异步编译占位作为验收截图。
+        /// </summary>
+        /// <returns>当前画面可以捕获的任务。</returns>
+        private static async UniTask WaitForVisualRenderAsync()
+        {
+            await SettleVisualLayoutAsync();
+#if UNITY_EDITOR
+            float deadline = Time.realtimeSinceStartup + 60f;
+            while (UnityEditor.ShaderUtil.anythingCompiling && Time.realtimeSinceStartup < deadline) await UniTask.Yield();
+            Assert.That(UnityEditor.ShaderUtil.anythingCompiling, Is.False, "等待着色器编译完成超时。");
+#endif
+            await SettleVisualLayoutAsync();
+        }
+
+        /// <summary>
+        /// 读取 PNG 中采用网络字节序的整数。
+        /// </summary>
+        /// <param name="bytes">完整 PNG 内容。</param>
+        /// <param name="offset">整数起始字节位置。</param>
+        /// <returns>四字节整数值。</returns>
+        private static int ReadVisualPngInt(byte[] bytes, int offset) =>
+            (bytes[offset] << 24) | (bytes[offset + 1] << 16) | (bytes[offset + 2] << 8) | bytes[offset + 3];
+
+        /// <summary>
+        /// 查找窗口内具有唯一名称的真实布局节点。
+        /// </summary>
+        /// <param name="window">已经打开的业务窗口。</param>
+        /// <param name="name">布局节点名称。</param>
+        /// <returns>唯一且正在显示的矩形节点。</returns>
+        private static RectTransform FindVisualRect(GameWindow window, string name) =>
+            window.Root.GetComponentsInChildren<RectTransform>(false).Single(item => item.name == name);
+
+        /// <summary>
+        /// 检查关键按钮处于安全区内且互相没有覆盖，禁用按钮仍检查显示布局。
+        /// </summary>
+        /// <param name="window">已经打开的业务窗口。</param>
+        /// <param name="record">布局证据文件。</param>
+        /// <param name="failures">待最终汇总的布局失败。</param>
+        /// <param name="captions">需要检查的按钮完整文字。</param>
+        private static void CheckVisualButtons(GameWindow window, string record, List<string> failures, params string[] captions)
+        {
+            var bounds = new List<Rect>();
+            foreach (string caption in captions)
+            {
+                Button button = FindButton(window, caption);
+                Assert.That(button.gameObject.activeInHierarchy, Is.True, caption);
+                bounds.Add(CheckVisualRect((RectTransform)button.transform, window.Id + "/" + caption, record, failures));
+            }
+            for (int left = 0; left < bounds.Count; left++)
+                for (int right = left + 1; right < bounds.Count; right++)
+                    CheckVisualOverlap(bounds[left], bounds[right], captions[left] + "与" + captions[right], failures);
+        }
+
+        /// <summary>
+        /// 将真实矩形投影到屏幕，记录尺寸并检查其完全位于安全区内。
+        /// </summary>
+        /// <param name="rect">实际显示的矩形节点。</param>
+        /// <param name="name">诊断中使用的节点名称。</param>
+        /// <param name="record">布局证据文件。</param>
+        /// <param name="failures">待最终汇总的布局失败。</param>
+        /// <returns>矩形的屏幕像素边界。</returns>
+        private static Rect CheckVisualRect(RectTransform rect, string name, string record, List<string> failures)
+        {
+            Canvas canvas = rect.GetComponentInParent<Canvas>().rootCanvas;
+            Camera camera = canvas.renderMode == RenderMode.ScreenSpaceOverlay ? null : canvas.worldCamera;
+            var corners = new Vector3[4];
+            rect.GetWorldCorners(corners);
+            Vector2[] points = corners.Select(point => RectTransformUtility.WorldToScreenPoint(camera, point)).ToArray();
+            Rect bounds = Rect.MinMaxRect(points.Min(point => point.x), points.Min(point => point.y),
+                points.Max(point => point.x), points.Max(point => point.y));
+            File.AppendAllText(record, name + ": " + bounds + "\n");
+            Rect safe = Screen.safeArea;
+            if (float.IsNaN(bounds.xMin) || float.IsNaN(bounds.yMin) || bounds.width <= 1f || bounds.height <= 1f)
+                failures.Add(name + " 布局为空或尺寸无效：" + bounds);
+            if (bounds.xMin < safe.xMin - 1f || bounds.yMin < safe.yMin - 1f || bounds.xMax > safe.xMax + 1f || bounds.yMax > safe.yMax + 1f)
+                failures.Add(name + " 超出屏幕安全区：" + bounds + "; SafeArea=" + safe);
+            return bounds;
+        }
+
+        /// <summary>
+        /// 检查两个可操作区域是否存在超过浮点布局误差的实际重叠。
+        /// </summary>
+        /// <param name="left">第一个屏幕矩形。</param>
+        /// <param name="right">第二个屏幕矩形。</param>
+        /// <param name="name">两个区域的诊断名称。</param>
+        /// <param name="failures">待最终汇总的布局失败。</param>
+        private static void CheckVisualOverlap(Rect left, Rect right, string name, List<string> failures)
+        {
+            float width = Mathf.Min(left.xMax, right.xMax) - Mathf.Max(left.xMin, right.xMin);
+            float height = Mathf.Min(left.yMax, right.yMax) - Mathf.Max(left.yMin, right.yMin);
+            if (width > 1f && height > 1f) failures.Add(name + " 重叠 " + width + "×" + height + " 像素。");
+        }
+
+        /// <summary>
+        /// 为图形测试临时设置真实 GameView 固定分辨率，并在结束时恢复选择与移除自定义尺寸。
+        /// </summary>
+        private sealed class VisualResolutionScope : IDisposable
+        {
+#if UNITY_EDITOR
+            private readonly UnityEditor.EditorWindow gameView;
+            private readonly PropertyInfo selectedSize;
+            private readonly object group;
+            private readonly MethodInfo removeCustomSize;
+            private readonly int previousIndex;
+            private readonly int addedIndex;
+            private readonly bool previousAsyncCompilation;
+#else
+            private readonly int previousWidth = Screen.width;
+            private readonly int previousHeight = Screen.height;
+            private readonly FullScreenMode previousMode = Screen.fullScreenMode;
+#endif
+
+            /// <summary>
+            /// 通过本机 Editor 的固定分辨率接口设置屏幕，不以窗口缩放代替真实渲染尺寸。
+            /// </summary>
+            /// <param name="width">目标渲染宽度。</param>
+            /// <param name="height">目标渲染高度。</param>
+            public VisualResolutionScope(int width, int height)
+            {
+#if UNITY_EDITOR
+                const BindingFlags flags = BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.Static;
+                Assembly editor = typeof(UnityEditor.Editor).Assembly;
+                Type gameViewType = editor.GetType("UnityEditor.GameView", true);
+                Type sizesType = editor.GetType("UnityEditor.GameViewSizes", true);
+                Type sizeType = editor.GetType("UnityEditor.GameViewSize", true);
+                Type sizeKind = editor.GetType("UnityEditor.GameViewSizeType", true);
+                Type singleton = typeof(UnityEditor.ScriptableSingleton<>).MakeGenericType(sizesType);
+                object sizes = singleton.GetProperty("instance", flags).GetValue(null);
+                group = sizesType.GetProperty("currentGroup", flags).GetValue(sizes);
+                int builtins = (int)group.GetType().GetMethod("GetBuiltinCount", flags).Invoke(group, null);
+                removeCustomSize = group.GetType().GetMethod("RemoveCustomSize", flags);
+                gameView = UnityEditor.EditorWindow.GetWindow(gameViewType);
+                selectedSize = gameViewType.GetProperty("selectedSizeIndex", flags);
+                int restoreIndex = (int)selectedSize.GetValue(gameView);
+                int count = (int)group.GetType().GetMethod("GetTotalCount", flags).Invoke(group, null);
+                MethodInfo getSize = group.GetType().GetMethod("GetGameViewSize", flags);
+                PropertyInfo baseText = sizeType.GetProperty("baseText", flags);
+                for (int index = count - 1; index >= builtins; index--)
+                {
+                    object existing = getSize.Invoke(group, new object[] { index });
+                    if ((string)baseText.GetValue(existing) != "Project v3 UI capture") continue;
+                    selectedSize.SetValue(gameView, 0);
+                    if (restoreIndex == index) restoreIndex = 0;
+                    else if (restoreIndex > index) restoreIndex--;
+                    removeCustomSize.Invoke(group, new object[] { index });
+                }
+                previousIndex = restoreIndex;
+                selectedSize.SetValue(gameView, previousIndex);
+                addedIndex = (int)group.GetType().GetMethod("GetTotalCount", flags).Invoke(group, null);
+                object fixedSize = sizeType.GetConstructor(flags, null, new[] { sizeKind, typeof(int), typeof(int), typeof(string) }, null)
+                    .Invoke(new[] { Enum.Parse(sizeKind, "FixedResolution"), (object)width, height, "Project v3 UI capture" });
+                group.GetType().GetMethod("AddCustomSize", flags).Invoke(group, new[] { fixedSize });
+                selectedSize.SetValue(gameView, addedIndex);
+                gameView.Show();
+                gameView.Repaint();
+                previousAsyncCompilation = UnityEditor.ShaderUtil.allowAsyncCompilation;
+                UnityEditor.ShaderUtil.allowAsyncCompilation = false;
+#else
+                Screen.SetResolution(width, height, FullScreenMode.Windowed);
+#endif
+            }
+
+            /// <summary>
+            /// 恢复测试前的显示分辨率与 Editor 自定义尺寸列表。
+            /// </summary>
+            public void Dispose()
+            {
+#if UNITY_EDITOR
+                try
+                {
+                    selectedSize.SetValue(gameView, previousIndex);
+                    removeCustomSize.Invoke(group, new object[] { addedIndex });
+                    gameView.Repaint();
+                }
+                finally { UnityEditor.ShaderUtil.allowAsyncCompilation = previousAsyncCompilation; }
+#else
+                Screen.SetResolution(previousWidth, previousHeight, previousMode);
+#endif
+            }
+        }
+    }
+}

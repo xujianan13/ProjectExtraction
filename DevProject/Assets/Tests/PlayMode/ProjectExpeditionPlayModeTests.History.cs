@@ -47,7 +47,7 @@ namespace MiniGame.Tests
             Assert.That(session.RunHistory.Count, Is.EqualTo(1));
             ProjectRunHistoryEntry entry = session.RunHistory[0];
             Assert.That(entry.RunId, Is.EqualTo(runId));
-            Assert.That(entry.Outcome, Is.EqualTo(ProjectRunHistoryOutcome.Extracted));
+            Assert.That(entry.Outcome, Is.EqualTo(ProjectRunHistoryOutcome.Completed));
             Assert.That(entry.LevelId, Is.EqualTo(1));
             Assert.That(entry.EndUtc, Is.GreaterThan(0));
             Assert.That(entry.Statistics.HasData, Is.True);
@@ -61,8 +61,8 @@ namespace MiniGame.Tests
             foreach (string name in new[] { "LevelSummaries", "HistoryEntries", "HistoryDetails" })
                 Assert.That(scrolls.Any(scroll => scroll.name == name), Is.True, name);
             Text[] labels = window.Root.GetComponentsInChildren<Text>(true);
-            Assert.That(labels.Any(label => label.text.Contains("成功带回率")), Is.True);
-            Assert.That(labels.Any(label => label.text.Contains("提前带回 1") && label.text.Contains("最终通关 0")), Is.True);
+            Assert.That(labels.Any(label => label.text.Contains("广告撤离")), Is.True);
+            Assert.That(labels.Any(label => label.text.Contains("最终通关 1")), Is.True);
             Assert.That(labels.Any(label => label.text.Contains("净资产变化")), Is.True);
             await UniTask.Yield();
             Canvas.ForceUpdateCanvases();

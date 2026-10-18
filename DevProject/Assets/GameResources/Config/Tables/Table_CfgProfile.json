@@ -1,5 +1,5 @@
 {
-  "schemaHash": "ded41526368e6e0d985f0cc5c3cd30806f57421dbf09b56e9d46cd50d26d07ea",
+  "schemaHash": "1467aac4bc77a5f9eef08e165f34f3b9f56ecbbec9c6dd487fa4ffeba0830cd9",
   "rows": [
     {
       "ID": 1,
@@ -37,7 +37,9 @@
       "SupplyHourSecond": 12,
       "SupplyHourThird": 18,
       "StarterQuality": 0,
-      "RunHistoryLimit": 20
+      "RunHistoryLimit": 20,
+      "AdExtractionItemLimit": 3,
+      "RoomEntryCost": 1
     }
   ]
 }

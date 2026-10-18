@@ -30,7 +30,7 @@ namespace MiniGame.Tests
             Canvas.ForceUpdateCanvases();
             ScrollRect scroll = window.Root.GetComponentInChildren<ScrollRect>();
             Assert.That(scroll.content, Is.Not.Null);
-            var definitions = ProjectV2RewardConfig.CollectionDefinitions();
+            var definitions = ProjectRewardConfig.CollectionDefinitions();
             Assert.That(definitions.Count, Is.EqualTo(4));
             Assert.That(scroll.content.Cast<Transform>().Count(value => value.name.StartsWith("Collection_")), Is.EqualTo(definitions.Count));
             foreach (ProjectCollectionDefinition definition in definitions)
@@ -45,7 +45,7 @@ namespace MiniGame.Tests
                 Assert.That(text, Does.Contain("重复售价：" + definition.SellGold + " 金币"));
             }
 
-            var achievements = ProjectV2RewardConfig.CollectionAchievements(out string error);
+            var achievements = ProjectRewardConfig.CollectionAchievements(out string error);
             Assert.That(error, Is.Null);
             Assert.That(scroll.content.Cast<Transform>().Count(value => value.name.StartsWith("Achievement_")), Is.EqualTo(achievements.Count));
             foreach (ProjectCollectionAchievementDefinition achievement in achievements)
@@ -55,7 +55,7 @@ namespace MiniGame.Tests
                 string text = string.Join("\n", card.GetComponentsInChildren<Text>().Select(value => value.text));
                 Assert.That(text, Does.Contain(achievement.Name + " · 0/" + achievement.RequiredCollectionIds.Count + " · 未完成"));
                 foreach (string id in achievement.RequiredCollectionIds)
-                    Assert.That(text, Does.Contain("○ " + ProjectV2RewardConfig.Collection(id).Name));
+                    Assert.That(text, Does.Contain("○ " + ProjectRewardConfig.Collection(id).Name));
                 foreach (ProjectAttributeValue bonus in achievement.AttributeRewards)
                     Assert.That(text, Does.Contain("永久奖励：" + ProjectEquipmentText.FinalAttribute(bonus.Attribute, bonus.Value)));
             }

@@ -79,16 +79,19 @@ namespace GameLogic.UI.Run
                 return;
             }
             ProjectRunOutcome outcome = result.Outcome;
-            title.text = outcome.Extracted ? outcome.Statistics?.IsFinalCompletion == true ? "最终通关" :
-                outcome.Statistics?.HasRegionData == true ? "提前带回成功" : "撤离成功（通关类型未记录）" :
-                outcome.Abandoned ? "已放弃本局" : "角色死亡";
+            title.text = outcome.ExitKind == ProjectRunExitKind.Completed ? "最终通关" :
+                outcome.ExitKind == ProjectRunExitKind.AdExtraction ? "广告携物撤离" :
+                outcome.ExitKind == ProjectRunExitKind.Abandoned ? "已放弃本局" : "死亡结算";
             summary.text = $"关卡 {outcome.LevelId}  ·  有效游玩 {Mathf.CeilToInt(outcome.ElapsedSeconds)} 秒\n" +
-                $"等级 {result.LevelBefore} → {result.LevelAfter}  ·  经验 {result.ExperienceBefore} → {result.ExperienceAfter}\n" +
-                $"打怪经验 {outcome.AwardedKillExperience}  ·  撤离经验 {outcome.ExtractionExperience}\n" +
-                $"技能点 {result.SkillPointsBefore} → {result.SkillPointsAfter}  ·  金币 {result.GoldBefore} → {result.GoldAfter}";
+                $"永久等级 {result.LevelAfter}  ·  经验 {result.ExperienceAfter}\n" +
+                $"本局击杀经验 {outcome.KillExperience}（已实时计入永久成长）\n" +
+                $"剩余技能点 {result.SkillPointsAfter}  ·  金币 {result.GoldBefore} → {result.GoldAfter}";
             AddRunDetails(result);
-            AddSection("带回物品", result.RetainedItems);
-            AddSection("丢失物品", result.LostItems);
+            AddDetailBlock("带回规则", outcome.ExitKind == ProjectRunExitKind.Completed ? "通关带回全部持有物品。" :
+                outcome.ExitKind == ProjectRunExitKind.AdExtraction ? "携入装备自动退回，已选择的本关物品一并带出，其余本关所得丢失。" :
+                "携入装备自动退回，本关所得丢失；永久经验与技能成长保留。");
+            AddSection("带回及退回物品", result.RetainedItems);
+            AddSection("未带回的本关物品", result.LostItems);
             returnButton.interactable = coordinator != null && coordinator.CanReturn && !returning;
         }
 

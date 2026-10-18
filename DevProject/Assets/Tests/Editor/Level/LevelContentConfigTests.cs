@@ -9,7 +9,7 @@ using ProjectExtraction.Tests.Shared;
 namespace GameLogic.Tests.Editor.Level
 {
     /// <summary>
-    /// 验证 v2 区域请求、强度映射及跨表配置门禁。
+    /// 验证 V3 房间请求、强度映射及跨表配置门禁。
     /// </summary>
     public sealed class LevelContentConfigTests
     {
@@ -26,52 +26,47 @@ namespace GameLogic.Tests.Editor.Level
         public void RestoreConfiguration() => TestGameTables.LoadAll();
 
         /// <summary>
-        /// 开局请求完整保存区域 Boss 绑定与独立内容种子。
+        /// 开局请求完整保存房间 Boss 绑定与独立内容种子。
         /// </summary>
         [Test]
         public void RequestsFreezeBossMapAndIndependentSeeds()
         {
             Assert.That(LevelContentConfig.TryGetLevel(2, out LevelDefinition level), Is.True);
-            Assert.That(LevelContentConfig.TryCreateRegionRequests("run", 17, level, out var first, out string error), Is.True, error);
-            Assert.That(LevelContentConfig.TryCreateRegionRequests("run", 17, level, out var second, out error), Is.True, error);
-            Assert.That(first.Count, Is.EqualTo(level.Row.RegionCount + 1));
+            Assert.That(LevelContentConfig.TryCreateRoomRequests("run", 17, level, out var first, out string error), Is.True, error);
+            Assert.That(LevelContentConfig.TryCreateRoomRequests("run", 17, level, out var second, out error), Is.True, error);
+            Assert.That(first.Count, Is.EqualTo(level.Row.RoomIDs.Length));
             for (int index = 0; index < first.Count; index++)
             {
                 RegionGenerationRequest request = first[index];
-                CfgBossesRow boss = GameTables.CfgBosses.GetById(request.BossDefinitionId);
+                CfgRoomsRow room = GameTables.CfgRooms.GetById(level.Row.RoomIDs[index]);
                 Assert.That(request.RegionId, Is.EqualTo(index + 1));
                 Assert.That(request.RegionIndex, Is.EqualTo(index));
-                Assert.That(request.EnemyLevel, Is.EqualTo(level.LootLevel + index));
-                Assert.That(request.BossEnemyLevel, Is.EqualTo(request.EnemyLevel));
+                Assert.That(request.EnemyLevel, Is.EqualTo(level.LootLevel + room.EnemyLevelOffset));
+                Assert.That(request.RoomKind, Is.EqualTo((ExpeditionRoomKind)room.Kind));
                 Assert.That(request.LootLevel, Is.EqualTo(level.LootLevel));
-                Assert.That(request.MapId, Is.EqualTo(boss.MapID));
-                Assert.That(request.BossEnemyId, Is.EqualTo(boss.EnemyID));
-                Assert.That(request.MapVersion, Is.EqualTo(GameTables.CfgRegionMaps.GetById(boss.MapID).Version));
+                Assert.That(request.MapId, Is.EqualTo(room.MapID));
+                Assert.That(request.MapVersion, Is.EqualTo(GameTables.CfgRoomMaps.GetById(room.MapID).Version));
                 Assert.That(request.ConfigVersion, Is.EqualTo(GameTables.CfgRunPersistence.GetById(1).ConfigVersion));
                 Assert.That(UnityEngine.JsonUtility.ToJson(request), Is.EqualTo(UnityEngine.JsonUtility.ToJson(second[index])));
                 Assert.That(new HashSet<int> { request.MonsterSeed, request.EliteSeed, request.ChestSeed, request.NpcSeed }.Count, Is.EqualTo(4));
             }
-            Assert.That(GameTables.CfgBosses.GetById(first[first.Count - 1].BossDefinitionId).PoolID, Is.EqualTo(level.Row.FinalBossPoolID));
+            Assert.That(first[first.Count - 1].RoomKind, Is.EqualTo(ExpeditionRoomKind.Boss));
         }
 
         /// <summary>
-        /// 最终区域只包含 Boss，不生成普通、精英、宝箱和商人。
+        /// 最终房间只包含 Boss，不生成普通、精英、宝箱和商人。
         /// </summary>
         [Test]
         public void FinalRegionHasOnlyBossContent()
         {
             LevelContentConfig.TryGetLevel(1, out LevelDefinition level);
-            Assert.That(LevelContentConfig.TryCreateRegionRequests("run", 1, level, out var requests, out string error), Is.True, error);
+            Assert.That(LevelContentConfig.TryCreateRoomRequests("run", 1, level, out var requests, out string error), Is.True, error);
             RegionContentDefinition normal = LevelContentConfig.CreateRegionContent(requests[0]);
             RegionContentDefinition final = LevelContentConfig.CreateRegionContent(requests[requests.Count - 1]);
-            CfgRegionContentRow content = GameTables.CfgRegionContent.GetById(level.Row.ContentID);
-            Assert.That(normal.MonsterGroupCount, Is.EqualTo(content.MonsterGroupCount));
-            Assert.That(normal.EliteCount, Is.EqualTo(content.EliteCount));
-            Assert.That(normal.ChestCount, Is.EqualTo(content.ChestCount));
-            Assert.That(normal.NpcCount, Is.EqualTo(content.NpcCount));
-            Assert.That(final.MonsterGroupCount + final.EliteCount + final.ChestCount + final.NpcCount, Is.Zero);
-            Assert.That(normal.NormalRespawn.DelayTicks,
-                Is.EqualTo((long)System.Math.Ceiling(GameTables.CfgRespawnRules.GetById(content.NormalRespawnID).DelaySeconds / CombatWorld.TickSeconds)));
+            Assert.That(normal.MonsterGroupCount, Is.EqualTo(1));
+            Assert.That(normal.ChestCount + normal.NpcCount, Is.Zero);
+            Assert.That(final.MonsterGroupCount + final.ChestCount + final.NpcCount, Is.Zero);
+            Assert.That(final.BossRadius, Is.GreaterThan(0f));
         }
 
         /// <summary>
@@ -95,15 +90,15 @@ namespace GameLogic.Tests.Editor.Level
         /// 局次身份或配置缺失时不产生部分请求。
         /// </summary>
         [Test]
-        public void RejectsInvalidRunIdentityAndMissingBossPool()
+        public void RejectsInvalidRunIdentityAndMissingRoomDefinition()
         {
             LevelContentConfig.TryGetLevel(1, out LevelDefinition level);
-            Assert.That(LevelContentConfig.TryCreateRegionRequests("", 1, level, out var requests, out _), Is.False);
+            Assert.That(LevelContentConfig.TryCreateRoomRequests("", 1, level, out var requests, out _), Is.False);
             Assert.That(requests, Is.Null);
-            level.Row.BossPoolID = "missing-pool";
-            Assert.That(LevelContentConfig.TryCreateRegionRequests("run", 1, level, out requests, out string error), Is.False);
+            level.Row.RoomIDs[0] = -1;
+            Assert.That(LevelContentConfig.TryCreateRoomRequests("run", 1, level, out requests, out string error), Is.False);
             Assert.That(requests, Is.Null);
-            Assert.That(error, Does.Contain("Boss 池"));
+            Assert.That(error, Does.Contain("房间顺序"));
         }
 
         /// <summary>
@@ -122,14 +117,14 @@ namespace GameLogic.Tests.Editor.Level
         }
 
         /// <summary>
-        /// 商人商品池缺失时拒绝区域配置，不回退默认物品。
+        /// 商人商品池缺失时拒绝房间配置，不回退默认物品。
         /// </summary>
         [Test]
         public void RejectsMissingNpcLootPool()
         {
             GameTables.CfgNpcPool.GetAll()[0].LootPoolID = "missing-pool";
             Assert.That(LevelContentConfig.Validate(out string error), Is.False);
-            Assert.That(error, Does.Contain("商人候选"));
+            Assert.That(error, Does.Contain("商人"));
         }
 
         /// <summary>
@@ -144,16 +139,16 @@ namespace GameLogic.Tests.Editor.Level
         }
 
         /// <summary>
-        /// 物品等级与关卡编号分离，区域强度按物品等级递增。
+        /// 物品等级与关卡编号分离，房间强度按物品等级递增。
         /// </summary>
         [Test]
         public void IntensityUsesLootLevelRatherThanLevelId()
         {
             LevelContentConfig.TryGetLevel(3, out LevelDefinition level);
             Assert.That(level.ID, Is.Not.EqualTo(level.LootLevel));
-            Assert.That(LevelContentConfig.TryCreateRegionRequests("run", 1, level, out var requests, out string error), Is.True, error);
+            Assert.That(LevelContentConfig.TryCreateRoomRequests("run", 1, level, out var requests, out string error), Is.True, error);
             Assert.That(requests[0].EnemyLevel, Is.EqualTo(level.LootLevel));
-            Assert.That(requests[requests.Count - 1].EnemyLevel, Is.EqualTo(level.LootLevel + level.Row.RegionCount));
+            Assert.That(requests[requests.Count - 1].EnemyLevel, Is.EqualTo(level.LootLevel + GameTables.CfgRooms.GetById(level.Row.RoomIDs[level.Row.RoomIDs.Length - 1]).EnemyLevelOffset));
         }
 
         /// <summary>

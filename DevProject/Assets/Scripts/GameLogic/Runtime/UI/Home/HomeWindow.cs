@@ -180,12 +180,16 @@ namespace GameLogic.UI.Home
             foreach (ProjectLevelOption option in session.Levels)
                 if (option.Id == selectedLevelId) selected = option;
             levelDetails.text = selected == null ? "暂无可选关卡" : selected.Description + (session.Level < selected.RequiredLevel ? "\n等级不足" : string.Empty);
-            bool canStart = selected != null && session.Level >= selected.RequiredLevel && session.Stamina >= PrototypeRules.EntryCost &&
+            bool hasActiveRun = !string.IsNullOrEmpty(session.ActiveRunId);
+            bool canStart = !hasActiveRun && selected != null && session.Level >= selected.RequiredLevel &&
                 coordinator.CanStart && !session.IsBusy && !launching;
-            bool canResume = coordinator.CanResume && !launching;
+            bool canResume = hasActiveRun && coordinator.CanResume && !launching;
             startButton.interactable = canStart || canResume;
-            startButton.GetComponentInChildren<UnityEngine.UI.Text>().text = canResume ? "继续上次关卡" : "出战";
-            if (canResume) levelDetails.text = "上次关卡尚未结束，将恢复原区域、生命、物品与奖励。继续不再消耗体力。";
+            long staminaCost = hasActiveRun ? coordinator.RequiredResumeStamina : coordinator.RequiredEntryStamina;
+            startButton.GetComponentInChildren<UnityEngine.UI.Text>().text = (hasActiveRun ? "继续本局" : "出战") + " · 体力 " + staminaCost;
+            if (hasActiveRun) levelDetails.text = "保留玩家状态和关卡背包；未完成战斗房重开，已领奖敌人不重复给奖。\n出战装备固定；暂离期间仓库、商店与整备锁定。本次继续消耗 " + staminaCost + " 体力。";
+            else if (selected != null) levelDetails.text += "\n首次出战共消耗 " + staminaCost + " 体力（含第一房）；后续每次进入房间另扣体力。";
+            if (session.Stamina < staminaCost) levelDetails.text += "\n体力不足，当前 " + session.Stamina + " / 所需 " + staminaCost + "。";
             bool canEdit = coordinator.Phase == ProjectRunPhase.HomeReady && !session.IsBusy && !launching && string.IsNullOrEmpty(session.ActiveRunId);
             supplyButton.interactable = canEdit;
             warehouseButton.interactable = canEdit;
@@ -232,7 +236,8 @@ namespace GameLogic.UI.Home
             if (session == null || coordinator == null || session.IsBusy || launching || !startButton.interactable) return;
             launching = true;
             Refresh();
-            bool started = coordinator.CanResume ? await coordinator.ResumeRunAsync() : await coordinator.StartRunAsync(coordinator.SelectedLevelId);
+            bool started = !string.IsNullOrEmpty(session.ActiveRunId) ? await coordinator.ResumeRunAsync() :
+                await coordinator.StartRunAsync(coordinator.SelectedLevelId);
             if (Root == null || State != GameWindowState.Opened) return;
             launching = false;
             feedback.text = started ? "已开始出战" : coordinator.Message;

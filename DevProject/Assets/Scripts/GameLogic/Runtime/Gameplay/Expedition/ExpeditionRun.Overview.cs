@@ -8,9 +8,11 @@ namespace GameLogic.Gameplay.Expedition
     /// <summary>
     /// 冻结区域请求的独立只读展示投影，不创建尚未进入的区域内容。
     /// </summary>
-    public sealed class ExpeditionRegionOverview
+    public sealed class ExpeditionRoomOverview
     {
-        public int RegionIndex { get; }
+        public int RoomIndex { get; }
+        public string Name { get; }
+        public ExpeditionRoomKind Kind { get; }
         public int BossId { get; }
         public int MapId { get; }
         public string BossName { get; }
@@ -31,23 +33,25 @@ namespace GameLogic.Gameplay.Expedition
         /// <param name="current">是否属于当前区域。</param>
         /// <param name="passed">是否已经完成并离开的区域。</param>
         /// <param name="collected">已经入库并持久确认的收藏身份。</param>
-        internal ExpeditionRegionOverview(RegionGenerationRequest request, bool final, bool generated, bool current, bool passed,
+        internal ExpeditionRoomOverview(RegionGenerationRequest request, bool final, bool generated, bool current, bool passed,
             IReadOnlyList<string> collected)
         {
             CfgBossesRow boss = GameTables.CfgBosses.GetById(request.BossDefinitionId);
-            RegionIndex = request.RegionIndex;
+            RoomIndex = request.RegionIndex;
             BossId = request.BossDefinitionId;
             MapId = request.MapId;
-            BossName = boss.Name;
-            MapName = GameTables.CfgRegionMaps.GetById(request.MapId).Name;
-            Weakness = boss.WeaknessDescription;
+            Name = GameTables.CfgRooms.GetById(request.RoomDefinitionId).Name;
+            Kind = request.RoomKind;
+            BossName = boss == null ? string.Empty : boss.Name;
+            MapName = GameTables.CfgRoomMaps.GetById(request.MapId).Name;
+            Weakness = boss == null ? string.Empty : boss.WeaknessDescription;
             IsFinal = final;
             IsGenerated = generated;
             IsCurrent = current;
             IsPassed = passed;
             var previews = new List<string>();
-            foreach (string id in boss.CollectionPreviewIDs)
-                previews.Add(ProjectV2RewardConfig.Collection(id).Name + " · " + (Contains(collected, id) ? "已收藏" : "未收藏"));
+            if (boss != null) foreach (string id in boss.CollectionPreviewIDs)
+                previews.Add(ProjectRewardConfig.Collection(id).Name + " · " + (Contains(collected, id) ? "已收藏" : "未收藏"));
             CollectionPreviews = previews.AsReadOnly();
         }
 
@@ -70,14 +74,14 @@ namespace GameLogic.Gameplay.Expedition
         /// 读取开局冻结的整关 Boss 与地图计划，不触发未来区域生成或修改运行状态。
         /// </summary>
         /// <returns>各阶段身份、状态和收藏预览的独立只读投影。</returns>
-        public IReadOnlyList<ExpeditionRegionOverview> GetRegionOverview()
+        public IReadOnlyList<ExpeditionRoomOverview> GetRoomOverview()
         {
-            var overview = new List<ExpeditionRegionOverview>(regionRequests.Count);
+            var overview = new List<ExpeditionRoomOverview>(regionRequests.Count);
             IReadOnlyList<string> collected = session.CollectedCollectionIds;
             foreach (RegionGenerationRequest request in regionRequests)
-                overview.Add(new ExpeditionRegionOverview(request, request.RegionIndex == RegionCount,
-                    regions.Exists(value => value.Plan.Request.RegionIndex == request.RegionIndex), request.RegionIndex == CurrentRegionIndex,
-                    request.RegionIndex < CurrentRegionIndex, collected));
+                overview.Add(new ExpeditionRoomOverview(request, request.RegionIndex == RoomCount - 1,
+                    regions.Exists(value => value.Plan.Request.RegionIndex == request.RegionIndex), request.RegionIndex == CurrentRoomIndex,
+                    request.RegionIndex < CurrentRoomIndex, collected));
             return overview.AsReadOnly();
         }
     }

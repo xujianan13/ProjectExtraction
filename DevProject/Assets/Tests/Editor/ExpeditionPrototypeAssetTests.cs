@@ -100,21 +100,19 @@ namespace ProjectExtraction.Tests
         }
 
         /// <summary>
-        /// 每张正式区域地图的版本、底图、地板和障碍均匹配同源几何。
+        /// 每张正式房间地图的版本、地板和障碍均匹配同源几何。
         /// </summary>
         [Test]
         public void RegionAssetsMatchConfiguredGeometryAndVersion()
         {
-            Assert.That(GameTables.CfgRegionMaps.GetAll(), Is.Not.Empty);
-            foreach (CfgRegionMapsRow row in GameTables.CfgRegionMaps.GetAll())
+            Assert.That(GameTables.CfgRoomMaps.GetAll(), Is.Not.Empty);
+            foreach (CfgRoomMapsRow row in GameTables.CfgRoomMaps.GetAll())
             {
                 string folder = Root + "/Scenes/Expedition/Regions/";
                 GameObject prefab = AssetDatabase.LoadAssetAtPath<GameObject>(folder + row.PrefabAddress + ".prefab");
                 TextAsset geometry = AssetDatabase.LoadAssetAtPath<TextAsset>(folder + row.GeometryAddress + ".json");
-                Texture2D minimap = AssetDatabase.LoadAssetAtPath<Texture2D>(folder + row.MinimapAddress + ".png");
                 Assert.That(prefab, Is.Not.Null, row.PrefabAddress);
                 Assert.That(geometry, Is.Not.Null, row.GeometryAddress);
-                Assert.That(minimap, Is.Not.Null, row.MinimapAddress);
                 RegionMapDefinition map = JsonUtility.FromJson<RegionMapDefinition>(geometry.text);
                 Assert.That(map.TryValidate(out string error), Is.True, error);
                 Assert.That(map.MapId, Is.EqualTo(row.ID));
@@ -137,11 +135,6 @@ namespace ProjectExtraction.Tests
                     Assert.That(visual.localPosition, Is.EqualTo(new Vector3(center.x, 1.5f, center.y)));
                     Assert.That(visual.localScale, Is.EqualTo(new Vector3(size.x, 3f, size.y)));
                 }
-                Assert.That(minimap.width, Is.GreaterThan(0));
-                Assert.That(minimap.height, Is.GreaterThan(0));
-                var importer = (TextureImporter)AssetImporter.GetAtPath(folder + row.MinimapAddress + ".png");
-                Assert.That(importer.mipmapEnabled, Is.False);
-                Assert.That(importer.textureCompression, Is.EqualTo(TextureImporterCompression.Uncompressed));
             }
         }
 

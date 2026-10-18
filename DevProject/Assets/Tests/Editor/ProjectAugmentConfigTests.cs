@@ -36,22 +36,16 @@ namespace ProjectExtraction.Tests
         }
 
         /// <summary>
-        /// 无效技能倍率、缺失效果、奖励前置循环和不足的品质池均阻止启动。
+        /// 无效技能倍率、缺失效果和不足的品质池均阻止启动。
         /// </summary>
         [Test]
-        public void InvalidReferencesAndUnreachableRewardsFailBeforeRun()
+        public void InvalidReferencesAndInsufficientAffixPoolsFailBeforeRun()
         {
             GameTables.CfgAdvancedAffixes.GetById("weapon_swift").ValueMax = 0.99;
             Assert.That(ProjectAugmentConfig.Validate(out _), Is.False);
             TestGameTables.LoadAll();
             GameTables.CfgCombatAugments.GetById("bleed").EffectIDs = new[] { 999999 };
             Assert.That(ProjectAugmentConfig.Validate(out _), Is.False);
-            TestGameTables.LoadAll();
-            var bleed = GameTables.CfgRogueRewards.GetById("bleed");
-            bleed.PrerequisiteID = "bloodlust";
-            bleed.PrerequisiteRank = 1;
-            Assert.That(ProjectAugmentConfig.Validate(out string cycle), Is.False);
-            Assert.That(cycle, Does.Contain("前置"));
             TestGameTables.LoadAll();
             GameTables.CfgQualities.GetById(5).AdvancedAffixCount = 3;
             Assert.That(ProjectAugmentConfig.Validate(out string pool), Is.False);

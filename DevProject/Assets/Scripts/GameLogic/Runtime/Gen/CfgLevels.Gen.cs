@@ -49,34 +49,9 @@ namespace GameLogic.Tables
         public int LootLevel;
 
         /// <summary>
-        /// RegionCount 字段。
+        /// RoomIDs 字段。
         /// </summary>
-        public int RegionCount;
-
-        /// <summary>
-        /// BossPoolID 字段。
-        /// </summary>
-        public string BossPoolID;
-
-        /// <summary>
-        /// FinalBossPoolID 字段。
-        /// </summary>
-        public string FinalBossPoolID;
-
-        /// <summary>
-        /// ContentID 字段。
-        /// </summary>
-        public int ContentID;
-
-        /// <summary>
-        /// SkillPoolID 字段。
-        /// </summary>
-        public string SkillPoolID;
-
-        /// <summary>
-        /// ProgressRuleID 字段。
-        /// </summary>
-        public int ProgressRuleID;
+        public int[] RoomIDs;
     }
 
     /// <summary>
@@ -113,7 +88,7 @@ namespace GameLogic.Tables
                 TextAsset asset = lease.Asset;
                 if (asset == null) throw new InvalidOperationException("配置表资源不可用：CfgLevels");
                 var envelope = JsonUtility.FromJson(asset.text, typeof(Envelope)) as Envelope;
-                if (envelope == null || envelope.schemaHash != "28e1f5a855d542ab1d8f7b62b5aa626eff71f657b41feb80236599ea1ae99c32" || envelope.rows == null)
+                if (envelope == null || envelope.schemaHash != "452ed5e5c4d071ced7939b683c154a95257c3ca5c538084518867edec10d71e8" || envelope.rows == null)
                     throw new InvalidOperationException("配置表结构不匹配：CfgLevels");
 
                 var table = new CfgLevelsTable();

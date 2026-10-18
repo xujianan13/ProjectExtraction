@@ -8,7 +8,7 @@ using UnityEngine;
 namespace GameLogic.UI.Battle
 {
     /// <summary>
-    /// 手动暂停菜单，提供恢复、设置、玩法帮助与主动放弃的确认入口。
+    /// 手动暂停菜单，提供恢复、暂离、广告撤离与主动放弃入口。
     /// </summary>
     public sealed class ProjectPauseWindow : GameWindow
     {
@@ -20,9 +20,13 @@ namespace GameLogic.UI.Battle
         private UnityEngine.UI.Button guide;
         private UnityEngine.UI.Button abandon;
         private UnityEngine.UI.Button retry;
+        private UnityEngine.UI.Button suspend;
+        private UnityEngine.UI.Button adExtraction;
         private UnityEngine.UI.Text feedback;
         private bool confirming;
         private bool retrying;
+        private bool suspending;
+        private bool requestingAd;
 
         /// <summary>
         /// 在安全区内建立可滚动的暂停菜单，兼容窄屏与横屏。
@@ -45,11 +49,13 @@ namespace GameLogic.UI.Battle
             resume = ProjectUiFactory.ActionButton(actions, "继续游戏", Resume);
             settings = ProjectUiFactory.ActionButton(actions, "设置", () => OpenUtility(ProjectServices.SettingsWindow));
             guide = ProjectUiFactory.ActionButton(actions, "玩法帮助", () => OpenUtility(ProjectServices.GuideWindow));
+            suspend = ProjectUiFactory.ActionButton(actions, "暂离主城", () => SuspendAsync().Forget());
+            adExtraction = ProjectUiFactory.ActionButton(actions, "看广告携物撤离", () => AdExtractionAsync().Forget());
             abandon = ProjectUiFactory.ActionButton(actions, "放弃本局", () => AbandonAsync().Forget());
             retry = ProjectUiFactory.ActionButton(actions, "重试保存", () => RetryAsync().Forget());
-            foreach (var button in new[] { resume, settings, guide, abandon, retry })
+            foreach (var button in new[] { resume, settings, guide, suspend, adExtraction, abandon, retry })
                 ProjectUiFactory.Height((RectTransform)button.transform, 76f);
-            var rules = ProjectUiFactory.Label(actions, "成功带回可携出全部持有物品。\n死亡或主动放弃会失去全部持有物品，入场体力不退还。",
+            var rules = ProjectUiFactory.Label(actions, "暂离保留本局，主城可继续挑战。\n通关带回全部物品；死亡或放弃仅失去本关所得。\n携入装备自动退回，广告撤离另可选择最多三件本关物品。",
                 24, TextAnchor.MiddleLeft, new Color(1f, 0.8f, 0.5f));
             ProjectUiFactory.Height(rules.rectTransform, 150f);
             feedback = ProjectUiFactory.Label(actions, string.Empty, 23, TextAnchor.MiddleLeft, Color.white);
@@ -63,6 +69,7 @@ namespace GameLogic.UI.Battle
         protected override void Open(GameWindowOpenArgs args)
         {
             run = args.UserData as ExpeditionRun;
+            confirming = retrying = suspending = requestingAd = false;
             session = ProjectServices.Session;
             coordinator = ProjectServices.Coordinator;
             if (run == null || session == null || coordinator == null) return;
@@ -99,14 +106,21 @@ namespace GameLogic.UI.Battle
                 if (State == GameWindowState.Opened) CloseSelfAsync().Forget();
                 return;
             }
-            bool available = coordinator.Phase == ProjectRunPhase.Playing && run.CanAbandon && !confirming && !retrying;
+            bool idle = !confirming && !retrying && !suspending && !requestingAd;
+            bool available = coordinator.Phase == ProjectRunPhase.Playing && run.CanAbandon && idle;
             resume.interactable = available;
             settings.interactable = available;
             guide.interactable = available;
             abandon.interactable = available;
+            suspend.interactable = coordinator.Phase == ProjectRunPhase.Playing && run.CanSuspend && idle;
+            adExtraction.interactable = coordinator.Phase == ProjectRunPhase.Playing && !run.IsSavingRun && idle &&
+                (run.HasAdExtractionAuthorization || run.CanRequestAdExtraction);
+            adExtraction.GetComponentInChildren<UnityEngine.UI.Text>().text = run.HasAdExtractionAuthorization ? "继续选择撤离物品" : "看广告携物撤离";
             retry.gameObject.SetActive(session.HasPendingSave);
-            retry.interactable = session.HasPendingSave && !retrying && !confirming && !coordinator.IsPaused;
-            if (session.HasUncommittedSave) feedback.text = "设置或指引进度尚未保存，完成保存后可继续游戏。";
+            retry.interactable = session.HasPendingSave && idle && !coordinator.IsPaused;
+            if (suspending) feedback.text = "正在保存并暂离主城。";
+            else if (requestingAd) feedback.text = "正在请求撤离广告。";
+            else if (session.HasUncommittedSave) feedback.text = "进度尚未保存，请先重试保存。";
         }
 
         /// <summary>
@@ -123,7 +137,7 @@ namespace GameLogic.UI.Battle
         /// <param name="windowId">目标窗口身份。</param>
         private void OpenUtility(int windowId)
         {
-            if (run?.CanAbandon != true || confirming || retrying) return;
+            if (run?.CanAbandon != true || confirming || retrying || suspending || requestingAd) return;
             GameEntry.Get<IUIModule>()?.OpenWindowAsync(windowId).Forget();
         }
 
@@ -133,18 +147,60 @@ namespace GameLogic.UI.Battle
         /// <returns>确认与终局提交的异步任务。</returns>
         private async UniTaskVoid AbandonAsync()
         {
-            if (run?.CanAbandon != true || confirming || retrying) return;
+            if (run?.CanAbandon != true || confirming || retrying || suspending || requestingAd) return;
             IUIModule ui = GameEntry.Get<IUIModule>();
             if (ui == null) return;
             ExpeditionRun current = run;
             LifetimeScope scope = OpenScope;
             confirming = true;
             Refresh();
-            var answer = await ui.ConfirmAsync("放弃本局？", "全部持有物品将丢失，包括入场装备与本局战利品。入场体力不退还，且不获得撤离经验。",
+            var answer = await ui.ConfirmAsync("放弃本局？", "本关获得的物品将丢失，携入装备自动退回。已经获得的经验和技能成长保留，入场体力不退还。",
                 "确认放弃", "继续探索", scope.Token).SuppressCancellationThrow();
+            if (!scope.IsActive || !ReferenceEquals(OpenScope, scope) || !ReferenceEquals(current, run)) return;
             confirming = false;
-            if (answer.IsCanceled || !scope.IsActive || !ReferenceEquals(current, run)) return;
+            if (answer.IsCanceled) { Refresh(); return; }
             if (answer.Result && !coordinator.TryAbandonRun(current)) feedback.text = "当前状态不能放弃，请稍后重试。";
+            Refresh();
+        }
+
+        /// <summary>
+        /// 保存当前单局并暂离主城，保留同一局继续入口。
+        /// </summary>
+        /// <returns>暂离请求任务。</returns>
+        private async UniTaskVoid SuspendAsync()
+        {
+            if (run == null || !suspend.interactable) return;
+            ExpeditionRun current = run;
+            LifetimeScope scope = OpenScope;
+            suspending = true;
+            Refresh();
+            bool succeeded = await coordinator.SuspendRunAsync(current);
+            if (!scope.IsActive || !ReferenceEquals(OpenScope, scope) || !ReferenceEquals(run, current)) return;
+            suspending = false;
+            if (!succeeded) feedback.text = coordinator.Message;
+            Refresh();
+        }
+
+        /// <summary>
+        /// 使用已经确认的广告资格，或完成广告后进入撤离物品选择。
+        /// </summary>
+        /// <returns>广告请求或选择窗口打开任务。</returns>
+        private async UniTaskVoid AdExtractionAsync()
+        {
+            if (run == null || !adExtraction.interactable) return;
+            if (run.HasAdExtractionAuthorization)
+            {
+                run.TryOpenAdExtraction();
+                return;
+            }
+            ExpeditionRun current = run;
+            LifetimeScope scope = OpenScope;
+            requestingAd = true;
+            Refresh();
+            bool succeeded = await current.RequestAdExtractionAsync();
+            if (!scope.IsActive || !ReferenceEquals(OpenScope, scope) || !ReferenceEquals(run, current)) return;
+            requestingAd = false;
+            if (!succeeded) feedback.text = current.Message;
             Refresh();
         }
 
@@ -154,11 +210,12 @@ namespace GameLogic.UI.Battle
         /// <returns>存档重试任务。</returns>
         private async UniTaskVoid RetryAsync()
         {
-            if (session?.HasPendingSave != true || retrying || confirming) return;
+            if (session?.HasPendingSave != true || retrying || confirming || suspending || requestingAd) return;
+            LifetimeScope scope = OpenScope;
             retrying = true;
             Refresh();
             ProjectOperationResult result = await session.RetryPendingSaveAsync();
-            if (Root == null || State != GameWindowState.Opened) return;
+            if (!scope.IsActive || !ReferenceEquals(OpenScope, scope)) return;
             retrying = false;
             feedback.text = result.Message;
             Refresh();

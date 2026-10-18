@@ -1,4 +1,5 @@
-﻿using System.Collections;
+using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using Cysharp.Threading.Tasks;
@@ -10,150 +11,79 @@ using GameLogic.Project;
 using NUnit.Framework;
 using UnityEngine;
 using UnityEngine.TestTools;
+using UnityEngine.UI;
 
 namespace MiniGame.Tests
 {
     public sealed partial class ProjectExpeditionPlayModeTests
     {
         /// <summary>
-        /// 局内装备、等级门槛与属性预览共用权威状态，预览不能改动物品，死亡预览不保留任何物品。
+        /// 关卡背包只展示所得，固定出战装备独立列出，物品详情不提供穿脱操作。
         /// </summary>
-        /// <returns>使用真实配置和资源的背包操作测试。</returns>
+        /// <returns>真实背包、固定装备与死亡结算验证任务。</returns>
         [UnityTest]
-        public IEnumerator Inventory_EquipmentPreviewAndPauseRemainConsistent() => UniTask.ToCoroutine(async () =>
-        {
-            await SetupAsync(new MemorySaveBackend());
-
-            var random = new System.Random(901);
-            ProjectItem first = ProjectEquipmentRules.CreateEquipment(random, ProjectItemType.Weapon, 1, ProjectItemQuality.Common);
-            ProjectItem next = ProjectEquipmentRules.CreateEquipment(random, ProjectItemType.Weapon, 1, ProjectItemQuality.Epic);
-            ProjectItem armor = ProjectEquipmentRules.CreateEquipment(random, ProjectItemType.Armor, 1, ProjectItemQuality.Common);
-            ProjectItem locked = ProjectEquipmentRules.CreateEquipment(random, ProjectItemType.Weapon, 2, ProjectItemQuality.Common);
-            first.Equipped = true;
-            var items = new List<ProjectItem> { first, next, armor, locked };
-            ExpeditionRun run = await StartWithEquipmentFixturesAsync(first, items.Skip(1).ToList());
-
-            Assert.That(run.World.TryAddAttributeBonus(run.Player, CombatAttributeKind.Attack, 7), Is.True);
-            Assert.That(run.TryOpenInventory(), Is.True);
-            long tick = run.World.TickIndex;
-            run.SetTouchMove(Vector2.right);
-            run.Advance(1);
-            Assert.That(run.World.TickIndex, Is.EqualTo(tick));
-            Assert.That(run.CanAcceptPlayerInput, Is.False);
-            Assert.That(run.TryPreviewEquipment(next, out var before, out var preview), Is.True);
-            run.World.TryGetActor(run.Player, out var actorBefore);
-            Assert.That(before.Attack, Is.EqualTo(actorBefore.Attack));
-            Assert.That(run.TryEquip(next.Id), Is.True);
-            await WaitRunSavedAsync(run);
-            run.World.TryGetActor(run.Player, out var actorAfter);
-            Assert.That(actorAfter.Attack, Is.EqualTo(preview.Attack));
-            Assert.That(run.Inventory.Single(item => item.Id == next.Id).Equipped, Is.True);
-            Assert.That(run.Inventory.Single(item => item.Id == first.Id).Equipped, Is.False);
-            Assert.That(run.TryEquip(locked.Id), Is.False);
-            Assert.That(run.Inventory.Single(item => item.Id == next.Id).Equipped, Is.True);
-            Assert.That(run.TryEquip(armor.Id), Is.True);
-            await WaitRunSavedAsync(run);
-            run.World.TryGetActor(run.Player, out var armored);
-            Assert.That(armored.Health, Is.EqualTo(actorAfter.Health), "提高上限不能凭空恢复生命。");
-            Assert.That(armored.MaxHealth, Is.GreaterThan(actorAfter.MaxHealth));
-            Assert.That(run.TryEquip(first.Id), Is.True);
-            await WaitRunSavedAsync(run);
-            Assert.That(run.Inventory.Single(item => item.Id == first.Id).Equipped, Is.True);
-            Assert.That(run.TryEquip(next.Id), Is.True);
-            await WaitRunSavedAsync(run);
-            ProjectItem snapshot = run.Inventory.Single(item => item.Id == next.Id);
-            snapshot.Equipped = false;
-            snapshot.BaseAttributes.Clear();
-            Assert.That(run.Inventory.Single(item => item.Id == next.Id).Equipped, Is.True);
-            Assert.That(run.GetRetainedItems(false), Is.Empty);
-            Assert.That(run.GetRetainedItems(true).Count, Is.EqualTo(items.Count));
-            run.SetPaused(true);
-            Assert.That(run.TryEquip(armor.Id), Is.False);
-            run.ClosePanel(ExpeditionPanelKind.Inventory);
-            run.Advance(1);
-            Assert.That(run.World.TickIndex, Is.EqualTo(tick), "关闭背包不能释放应用暂停。");
-            run.SetPaused(false);
-            run.Advance(CombatWorld.TickSeconds);
-            Assert.That(run.World.TickIndex, Is.EqualTo(tick + 1));
-            await WaitRunSavedAsync(run);
-            Assert.That(run.TryBeginRogueChoice("after-inventory"), Is.False, "任意来源不能伪造击杀资格。");
-            Assert.That(run.CanAcceptPlayerInput, Is.True);
-        });
-
-        /// <summary>
-        /// 真正的背包窗口卸装后死亡仍损失全部物品，返场清理窗口并保持物品唯一归属。
-        /// </summary>
-        /// <returns>从出战到窗口操作及死亡返场的完整验证。</returns>
-        [UnityTest]
-        public IEnumerator InventoryWindow_UnloadsStarterThenDeathLosesAllItems() => UniTask.ToCoroutine(async () =>
+        public IEnumerator Inventory_ReadOnlyBagSeparatesProtectedEntryEquipment() => UniTask.ToCoroutine(async () =>
         {
             await SetupAsync(new MemorySaveBackend());
             Assert.That(await ProjectServices.Coordinator.StartRunAsync(1), Is.True);
             ExpeditionRun run = ProjectServices.Session.CurrentRun;
-            string starterId = run.Inventory.Single(item => item.Equipped).Id;
-            IUIModule ui = GameEntry.Get<IUIModule>();
-            Assert.That(run.TryOpenInventory(), Is.True);
-            for (int frame = 0; frame < 60 && !ui.OpenedWindows.Any(window => window.Id == ProjectServices.ExpeditionInventoryWindow); frame++)
-                await UniTask.Yield();
-            GameWindow bag = ui.OpenedWindows.Single(window => window.Id == ProjectServices.ExpeditionInventoryWindow);
-            Assert.That(bag.Config.UseMask, Is.True);
-            Canvas.ForceUpdateCanvases();
-            Assert.That(bag.Root.GetComponentsInChildren<UnityEngine.UI.ScrollRect>().All(scroll =>
-                scroll.viewport != null && scroll.content != null && scroll.viewport.rect.height > 0), Is.True);
-            string starterName = run.Inventory.Single(item => item.Id == starterId).Name;
-            bag.Root.GetComponentsInChildren<UnityEngine.UI.Button>().Single(button =>
-                button.GetComponentInChildren<UnityEngine.UI.Text>().text.Contains(starterName)).onClick.Invoke();
-            bag.Root.GetComponentsInChildren<UnityEngine.UI.Button>().Single(button =>
-                button.GetComponentInChildren<UnityEngine.UI.Text>().text == "卸下").onClick.Invoke();
-            Assert.That(run.Inventory.Single(item => item.Id == starterId).Equipped, Is.False);
+            string[] entryIds = run.EntryEquipment.Select(item => item.Id).ToArray();
+            Assert.That(entryIds, Is.Not.Empty);
+            Assert.That(run.Inventory, Is.Empty);
+            ExpeditionDrop drop = AddInteractionDrop(run, "fixed-equipment-bag-loot", InputPersistencePlayer(run).Position);
+            run.Advance(CombatWorld.TickSeconds);
+            SelectInteractionLoot(run, drop.Item.Id);
+            run.RequestInteraction();
+            run.Advance(CombatWorld.TickSeconds);
             await WaitRunSavedAsync(run);
-            Assert.That(await ui.CloseWindowAsync(ProjectServices.ExpeditionInventoryWindow), Is.True);
-            Assert.That(run.ActivePanel, Is.EqualTo(ExpeditionPanelKind.None));
-            Assert.That(run.CanAcceptPlayerInput, Is.True);
+            CombatActorSnapshot before = InputPersistencePlayer(run);
+            Assert.That(run.TryOpenInventory(), Is.True);
+            GameWindow bag = await WaitForWindowAsync(ProjectServices.ExpeditionInventoryWindow);
+            Assert.That(bag.Root.GetComponentsInChildren<Button>(false).Any(button =>
+                new[] { "装备", "卸下" }.Contains(button.GetComponentInChildren<Text>().text)), Is.False);
+            Assert.That(run.Inventory.Select(item => item.Id), Is.EquivalentTo(new[] { drop.Item.Id }));
+            Assert.That(run.Inventory.All(item => !item.Equipped), Is.True);
+            ClickButton(bag, "出战装备");
+            StringAssert.Contains("固定出战装备", string.Join("\n", bag.Root.GetComponentsInChildren<Text>(false).Select(text => text.text)));
+            Assert.That(InputPersistencePlayer(run).Attack, Is.EqualTo(before.Attack));
+            Assert.That(run.EntryEquipment.Select(item => item.Id), Is.EquivalentTo(entryIds));
+            await GameEntry.Get<IUIModule>().CloseWindowAsync(bag.Id);
             TriggerDeath(run);
             await ConfirmPendingDeathAsync(run);
             await WaitForPhaseAsync(ProjectRunPhase.ResultsReady);
-            Assert.That(ProjectServices.Session.LastResult.RetainedItems, Is.Empty);
-            Assert.That(ProjectServices.Session.LastResult.LostItems.Single().Id, Is.EqualTo(starterId));
-            Assert.That(ProjectServices.Session.LastResult.LostItems.Single().Equipped, Is.False);
-            Assert.That(await ProjectServices.Coordinator.ReturnHomeAsync(), Is.True);
-            Assert.That(ProjectServices.Session.Warehouse, Is.Empty);
-            Assert.That(ui.OpenedWindows.Any(window => window.Id == ProjectServices.ExpeditionInventoryWindow ||
-                window.Id == ProjectServices.ExpeditionMerchantWindow), Is.False);
+            Assert.That(ProjectServices.Session.LastResult.RetainedItems.Select(item => item.Id), Is.EquivalentTo(entryIds));
+            Assert.That(ProjectServices.Session.LastResult.LostItems.Select(item => item.Id), Is.EquivalentTo(new[] { drop.Item.Id }));
         });
+
         /// <summary>
-        /// 商店实际窗口只在确认按钮点击后购买，交易物品和金币随撤离结算。
+        /// 商人购买只收入关卡背包，固定装备和战斗属性不变，通关后仅结算一次购买支出。
         /// </summary>
-        /// <returns>真实商店窗口和撤离保存的集成测试。</returns>
+        /// <returns>购买、通关和仓库到账验证任务。</returns>
         [UnityTest]
-        public IEnumerator MerchantWindow_ConfirmationPurchasesAndExtractionSettlesOnce() => UniTask.ToCoroutine(async () =>
+        public IEnumerator MerchantWindow_PurchaseAddsToBagWithoutChangingEntryEquipment() => UniTask.ToCoroutine(async () =>
         {
-            await SetupAsync(new MemorySaveBackend());
+            ProjectSaveData initial = ProjectSaveData.CreateDefault();
+            initial.Gold = 10000;
+            await SetupAsync(new MemorySaveBackend(), initial);
             Assert.That(await ProjectServices.Coordinator.StartRunAsync(1), Is.True);
             ExpeditionRun run = ProjectServices.Session.CurrentRun;
-            int balance = ProjectServices.Session.Gold;
             await OpenRegionMerchantAsync(run);
-            IUIModule ui = GameEntry.Get<IUIModule>();
-            for (int frame = 0; frame < 60 && !ui.OpenedWindows.Any(window => window.Id == ProjectServices.ExpeditionMerchantWindow); frame++)
-                await UniTask.Yield();
-            GameWindow shop = ui.OpenedWindows.Single(window => window.Id == ProjectServices.ExpeditionMerchantWindow);
-            Assert.That(shop.Config.UseMask, Is.True);
+            string[] entryIds = run.EntryEquipment.Select(item => item.Id).ToArray();
+            CombatActorSnapshot before = InputPersistencePlayer(run);
             ExpeditionMerchantOffer offer = run.MerchantOffers.First();
-            Assert.That(run.GoldSpent, Is.Zero);
-            shop.Root.GetComponentsInChildren<UnityEngine.UI.Button>().First(button =>
-                button.GetComponentInChildren<UnityEngine.UI.Text>().text.Contains(offer.Item.Name)).onClick.Invoke();
-            Assert.That(run.GoldSpent, Is.Zero);
-            shop.Root.GetComponentsInChildren<UnityEngine.UI.Button>().Single(button =>
-                button.GetComponentInChildren<UnityEngine.UI.Text>().text == "确认购买").onClick.Invoke();
-            Assert.That(run.GoldSpent, Is.EqualTo(offer.Price));
-            Assert.That(run.Inventory.Any(item => item.Id == offer.Item.Id), Is.True);
-            Assert.That(await ui.CloseWindowAsync(ProjectServices.ExpeditionMerchantWindow), Is.True);
+            Assert.That(run.TryBuyMerchantOffer(offer.Id), Is.True);
+            await WaitRunSavedAsync(run);
+            Assert.That(run.Inventory.Count(item => item.Id == offer.Item.Id), Is.EqualTo(1));
+            Assert.That(run.Inventory.Single(item => item.Id == offer.Item.Id).Equipped, Is.False);
+            Assert.That(run.EntryEquipment.Select(item => item.Id), Is.EquivalentTo(entryIds));
+            Assert.That(InputPersistencePlayer(run).Attack, Is.EqualTo(before.Attack));
+            await GameEntry.Get<IUIModule>().CloseWindowAsync(ProjectServices.ExpeditionMerchantWindow);
             await TriggerExtractionAsync(run);
-            Assert.That(ProjectServices.Session.Gold, Is.EqualTo(balance - offer.Price));
             Assert.That(ProjectServices.Session.LastResult.RetainedItems.Count(item => item.Id == offer.Item.Id), Is.EqualTo(1));
             Assert.That(await ProjectServices.Coordinator.ReturnHomeAsync(), Is.True);
             Assert.That(ProjectServices.Session.Warehouse.Count(item => item.Id == offer.Item.Id), Is.EqualTo(1));
-            Assert.That(ProjectServices.Session.Gold, Is.EqualTo(balance - offer.Price));
+            Assert.That(ProjectServices.Session.Gold, Is.EqualTo(initial.Gold - offer.Price));
         });
+
     }
 }

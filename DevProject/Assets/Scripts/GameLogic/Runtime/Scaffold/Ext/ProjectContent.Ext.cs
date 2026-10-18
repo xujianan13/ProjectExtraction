@@ -5,6 +5,7 @@ using GameLogic.UI.Battle;
 using GameLogic.UI.Character;
 using GameLogic.UI.Run;
 using GameLogic.UI.Roguelike;
+using GameLogic.UI.Progression;
 using GameLogic.UI.Warehouse;
 using GameLogic.UI.Skills;
 using GameLogic.UI.Shop;
@@ -52,13 +53,12 @@ namespace GameLogic.Scaffold
                 CreateProjectWindow<BattleHudWindow>(ProjectServices.BattleHudWindow, "BattleHud", GameUILayers.Hud, false),
                 CreateProjectWindow<ExpeditionInventoryWindow>(ProjectServices.ExpeditionInventoryWindow, "ExpeditionInventory", GameUILayers.Popup, true),
                 CreateProjectWindow<ExpeditionMerchantWindow>(ProjectServices.ExpeditionMerchantWindow, "ExpeditionMerchant", GameUILayers.Popup, true),
-                CreateProjectWindow<ExpeditionMapWindow>(ProjectServices.ExpeditionMapWindow, "ExpeditionMap", GameUILayers.Popup, true),
                 CreateProjectWindow<RegionExitWindow>(ProjectServices.RegionExitWindow, "RegionExit", GameUILayers.Popup, true),
                 CreateProjectWindow<BossLootChoiceWindow>(ProjectServices.BossLootWindow, "BossLoot", GameUILayers.Popup, true),
                 CreateProjectWindow<DeathChoiceWindow>(ProjectServices.DeathChoiceWindow, "DeathChoice", GameUILayers.Popup, true),
                 CreateProjectWindow<ChestLootWindow>(ProjectServices.ChestLootWindow, "ChestLoot", GameUILayers.Popup, true),
-                CreateProjectWindow<RogueChoiceWindow>(ProjectServices.RogueChoiceWindow, "RogueChoice", GameUILayers.Popup, true),
-                CreateProjectWindow<RogueOverviewWindow>(ProjectServices.RogueOverviewWindow, "RogueOverview", GameUILayers.Popup, true),
+                CreateProjectWindow<AdExtractionWindow>(ProjectServices.AdExtractionWindow, "AdExtraction", GameUILayers.Popup, true),
+                CreateProjectWindow<ProgressionWindow>(ProjectServices.ProgressionWindow, "Progression", GameUILayers.Popup, true),
                 CreateProjectWindow<RunTransitionWindow>(2300, "RunTransition", GameUILayers.Guide, false, GameWindowScope.Global),
                 CreateProjectWindow<RunResultWindow>(2301, "RunResult", GameUILayers.Popup, false, GameWindowScope.Global),
                 CreateProjectWindow<RunHistoryWindow>(ProjectServices.RunHistoryWindow, "RunHistory", GameUILayers.Popup, true)
@@ -75,13 +75,12 @@ namespace GameLogic.Scaffold
                 registry.Register<BattleHudWindow>(ProjectServices.BattleHudWindow);
                 registry.Register<ExpeditionInventoryWindow>(ProjectServices.ExpeditionInventoryWindow);
                 registry.Register<ExpeditionMerchantWindow>(ProjectServices.ExpeditionMerchantWindow);
-                registry.Register<ExpeditionMapWindow>(ProjectServices.ExpeditionMapWindow);
                 registry.Register<RegionExitWindow>(ProjectServices.RegionExitWindow);
                 registry.Register<BossLootChoiceWindow>(ProjectServices.BossLootWindow);
                 registry.Register<DeathChoiceWindow>(ProjectServices.DeathChoiceWindow);
                 registry.Register<ChestLootWindow>(ProjectServices.ChestLootWindow);
-                registry.Register<RogueChoiceWindow>(ProjectServices.RogueChoiceWindow);
-                registry.Register<RogueOverviewWindow>(ProjectServices.RogueOverviewWindow);
+                registry.Register<AdExtractionWindow>(ProjectServices.AdExtractionWindow);
+                registry.Register<ProgressionWindow>(ProjectServices.ProgressionWindow);
                 registry.Register<RunTransitionWindow>(2300);
                 registry.Register<RunResultWindow>(2301);
                 registry.Register<RunHistoryWindow>(ProjectServices.RunHistoryWindow);

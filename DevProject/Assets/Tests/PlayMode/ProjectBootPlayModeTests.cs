@@ -123,13 +123,15 @@ namespace MiniGame.Tests
             AssertWindowLayout(resultWindow);
             Assert.That(await ui.CloseWindowAsync(ProjectServices.ResultWindow), Is.True);
             int stamina = ProjectServices.Session.Stamina;
-            Click(home, "出战");
+            long entryStamina = ProjectServices.Coordinator.RequiredEntryStamina;
+            Assert.That(entryStamina, Is.EqualTo((long)PrototypeRules.EntryCost + PrototypeRules.RoomEntryCost));
+            Click(home, "出战 · 体力 " + entryStamina);
             await WaitAsync(() => ProjectServices.Session.CurrentRun?.IsRunning == true &&
                 ProjectServices.Coordinator.Phase == ProjectRunPhase.Playing, "出战按钮未进入运行中的关卡。");
             var run = ProjectServices.Session.CurrentRun;
             Assert.That(run.IsReady, Is.True);
             Assert.That(run.RegionView, Is.Not.Null);
-            Assert.That(ProjectServices.Session.Stamina, Is.EqualTo(stamina - PrototypeRules.EntryCost));
+            Assert.That(ProjectServices.Session.Stamina, Is.EqualTo(stamina - entryStamina));
             Assert.That(ui.OpenedWindows.Any(window => window.Id == ProjectServices.BattleHudWindow), Is.True);
             Assert.That(run.World.TryGetActor(run.Player, out CombatActorSnapshot before), Is.True);
             keyboard = InputSystem.AddDevice<Keyboard>();
@@ -142,7 +144,7 @@ namespace MiniGame.Tests
             InputSystem.Update();
             await UniTask.Yield();
             Assert.That(run.World.TryGetActor(run.Player, out CombatActorSnapshot player), Is.True);
-            RegionSpawnSlotState slot = run.CurrentRegion.Slots.First(value => value.Phase == RegionSpawnPhase.Alive);
+            RegionSpawnSlotState slot = run.CurrentRoom.Slots.First(value => value.Phase == RegionSpawnPhase.Alive);
             Assert.That(run.World.TryFindActor(slot.CurrentActorId, out CombatEntityRef enemy), Is.True);
             Assert.That(run.World.TryAddAttributeBonus(enemy, CombatAttributeKind.MaxHealth, 1000), Is.True);
             Assert.That(run.World.TryGetActor(enemy, out CombatActorSnapshot enemyBefore), Is.True);

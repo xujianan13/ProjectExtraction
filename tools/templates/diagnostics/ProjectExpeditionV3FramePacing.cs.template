@@ -1,0 +1,438 @@
+using System;
+using System.Collections;
+using System.Collections.Generic;
+using System.Diagnostics;
+using System.IO;
+using System.Linq;
+using System.Text;
+using Cysharp.Threading.Tasks;
+using GameFramework;
+using GameLogic.Gameplay.Combat;
+using GameLogic.Gameplay.Expedition;
+using GameLogic.Project;
+using GameLogic.Tables;
+using NUnit.Framework;
+using UnityEngine;
+using UnityEngine.Rendering;
+using UnityEngine.TestTools;
+
+namespace MiniGame.Tests
+{
+    public sealed partial class ProjectExpeditionPlayModeTests
+    {
+        [Serializable]
+        private sealed class FramePacingDistribution
+        {
+            public double P50;
+            public double P95;
+            public double Maximum;
+        }
+
+        [Serializable]
+        private sealed class FramePacingSample
+        {
+            public int UnityFrame;
+            public float DeltaSeconds;
+            public double LoopMilliseconds;
+            public long WorldTicks;
+            public bool SaveBlockedAtStart;
+            public bool SaveBlockedAtEnd;
+            public float PlayerTravel;
+        }
+
+        [Serializable]
+        private sealed class FramePacingArm
+        {
+            public string Backend;
+            public int Seed;
+            public int MapId;
+            public int ActorCount;
+            public int ScreenWidth;
+            public int ScreenHeight;
+            public int TargetFrameRate;
+            public int VSyncCount;
+            public int MaxPendingTicks;
+            public Vector2 InputAxis;
+            public double WarmupSeconds;
+            public double DurationSeconds;
+            public int ActualUnityFrames;
+            public double UnityFramesPerSecond;
+            public long InitialTick;
+            public long FinalTick;
+            public double WorldTicksPerSecond;
+            public int SaveBudgetBlockedFrames;
+            public double SaveBudgetBlockedRatio;
+            public int SaveBudgetReachedFrames;
+            public float PlayerTravel;
+            public long ColdRestoredTick;
+            public long ColdRestoreTickDifference;
+            public bool BusinessCheckpointMatches;
+            public long SampleJournalRevisionChange;
+            public int SimulationWrittenRecords;
+            public long SimulationWrittenBytes;
+            public double CheckpointSaveMilliseconds;
+            public FramePacingDistribution MainLoopMilliseconds;
+            public FramePacingDistribution RecordWriteMilliseconds;
+            public int WrittenRecords;
+            public long WrittenBytes;
+            public List<FramePacingSample> Frames;
+        }
+
+        [Serializable]
+        private sealed class FramePacingReport
+        {
+            public string Label;
+            public string Utc;
+            public string UnityVersion;
+            public string OperatingSystem;
+            public string Processor;
+            public string GraphicsDevice;
+            public string GraphicsApi;
+            public int OriginalTargetFrameRate;
+            public int OriginalVSyncCount;
+            public string MeasurementNotes;
+            public List<FramePacingArm> Backends = new();
+        }
+
+        private sealed class FramePacingBackend : ISaveBackend
+        {
+            private readonly ISaveBackend inner;
+            private readonly List<double> writes = new();
+            private volatile bool sampling;
+            private long bytes;
+            public string StorageIdentity => inner.StorageIdentity;
+            public int MaxRecordBytes => inner.MaxRecordBytes;
+
+            /// <summary>
+            /// 包装本次独立存档后端并记录真实写入耗时。
+            /// </summary>
+            /// <param name="inner">本次隔离的文件或内存后端。</param>
+            public FramePacingBackend(ISaveBackend inner) => this.inner = inner;
+
+            /// <summary>
+            /// 初始化独立后端。
+            /// </summary>
+            /// <returns>后端初始化结果。</returns>
+            public UniTask<SaveResult> InitializeAsync() => inner.InitializeAsync();
+
+            /// <summary>
+            /// 读取本次独立记录。
+            /// </summary>
+            /// <param name="key">记录逻辑键。</param>
+            /// <returns>后端读取结果。</returns>
+            public UniTask<SaveReadResult> ReadAsync(string key) => inner.ReadAsync(key);
+
+            /// <summary>
+            /// 记录采样期间启动的真实写入，包括结束采样后才完成的写入。
+            /// </summary>
+            /// <param name="key">记录逻辑键。</param>
+            /// <param name="record">完整记录字符串。</param>
+            /// <returns>后端写入结果。</returns>
+            public async UniTask<SaveResult> WriteAsync(string key, string record)
+            {
+                bool measured = sampling;
+                long started = Stopwatch.GetTimestamp();
+                SaveResult result = await inner.WriteAsync(key, record);
+                if (measured)
+                {
+                    Assert.That(result.Success, Is.True, result.Message);
+                    lock (writes)
+                    {
+                        writes.Add(FramePacingMilliseconds(started, Stopwatch.GetTimestamp()));
+                        bytes += Encoding.UTF8.GetByteCount(record);
+                    }
+                }
+                return result;
+            }
+
+            /// <summary>
+            /// 切换真实写入采样窗口。
+            /// </summary>
+            /// <param name="enabled">是否接纳此后启动的写入。</param>
+            public void SetSampling(bool enabled) => sampling = enabled;
+
+            /// <summary>
+            /// 在保存队列排空后导出全部写入样本。
+            /// </summary>
+            /// <param name="arm">当前后端报告。</param>
+            public void CaptureMetrics(FramePacingArm arm)
+            {
+                lock (writes)
+                {
+                    arm.RecordWriteMilliseconds = FramePacingSummarize(writes);
+                    arm.WrittenRecords = writes.Count;
+                    arm.WrittenBytes = bytes;
+                }
+            }
+        }
+
+        /// <summary>
+        /// 显式启用时对照真实图形帧下的文件与内存后端，单独测量业务检查点保存与冷读一致性。
+        /// </summary>
+        /// <returns>每后端两秒预热和八秒真实逐帧采样的隔离诊断。</returns>
+        [UnityTest]
+        public IEnumerator FramePacing_V3_FileAndMemory_ActualUnityFrames()
+        {
+            Assert.That(Environment.GetEnvironmentVariable("PROJECT_V3_FRAME_PACING"), Is.EqualTo("1"), "请通过独立诊断脚本启用。");
+            yield return UniTask.ToCoroutine(async () =>
+            {
+                string label = Environment.GetEnvironmentVariable("PROJECT_V3_FRAME_PACING_LABEL");
+                Assert.That(label, Is.EqualTo("baseline").Or.EqualTo("after"));
+                Assert.That(SystemInfo.graphicsDeviceType, Is.Not.EqualTo(GraphicsDeviceType.Null), "必须保留真实图形设备。");
+                var report = new FramePacingReport
+                {
+                    Label = label, Utc = DateTime.UtcNow.ToString("O"), UnityVersion = Application.unityVersion,
+                    OperatingSystem = SystemInfo.operatingSystem, Processor = SystemInfo.processorType,
+                    GraphicsDevice = SystemInfo.graphicsDeviceName, GraphicsApi = SystemInfo.graphicsDeviceType.ToString(),
+                    OriginalTargetFrameRate = Application.targetFrameRate, OriginalVSyncCount = QualitySettings.vSyncCount,
+                    MeasurementNotes = "Real Unity frames; no framework host; one GameplayModule Update+LateUpdate per frame with actual unscaled dt. " +
+                        "Both backends restore the same fixed-seed admission snapshot and use identical tick-based short alternating input. " +
+                        "All actors receive test-only health/defense bonuses to prevent death/reward pauses. " +
+                        "Loop cost includes gameplay simulation and presentation refresh, excludes GPU rendering and normal Unity component updates. " +
+                        "V3 saves business boundaries instead of complete worlds every tick. This no-kill sample must create no records or journal revisions. " +
+                        "After sampling, an explicit application-pause checkpoint is timed separately and cold-read for exact business-state comparison. " +
+                        "FPS includes actual wall time and Unity rendering. Checkpoint recovery intentionally excludes temporary enemies and combat objects. " +
+                        "Editor host evidence only; FPS has no hardware pass threshold."
+                };
+                int oldTarget = Application.targetFrameRate;
+                int oldVSync = QualitySettings.vSyncCount;
+                float oldTimeScale = Time.timeScale;
+                int oldCapture = Time.captureFramerate;
+                string temporaryRoot = Path.GetFullPath(Path.GetTempPath()).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+                string temporaryName = "ProjectExtraction-v3-frame-pacing-" + Guid.NewGuid().ToString("N");
+                string directory = Path.Combine(temporaryRoot, temporaryName);
+                try
+                {
+                    Application.targetFrameRate = 60;
+                    QualitySettings.vSyncCount = 0;
+                    Time.timeScale = 1f;
+                    Time.captureFramerate = 0;
+                    await SetupAsync(new MemorySaveBackend());
+                    Assert.That(GameEntry.HasHost, Is.False, "宿主会重复驱动玩法，必须使用无宿主测试初始化。");
+                    const int seed = 1456723;
+                    const string runId = "frame-pacing-fixed-seed";
+                    ProjectSaveData initial = ProjectSaveData.CreateDefault();
+                    var profileRules = ProjectRulesConfig.Profile;
+                    initial.Warehouse.Clear();
+                    ProjectItem starter = ProjectEquipmentRules.CreateConfiguredItem(new System.Random(seed), profileRules.StartingLevel,
+                        (ProjectItemQuality)profileRules.StarterQuality, profileRules.StarterDefinitionId);
+                    Assert.That(starter, Is.Not.Null);
+                    starter.Id = "frame-pacing-starter";
+                    initial.Warehouse.Add(starter);
+                    List<ProjectItem> items = initial.Warehouse.FindAll(item => item.Equipped);
+                    Assert.That(ExpeditionRun.TryCreate(ProjectServices.Session, runId, 1, seed, items, out ExpeditionRun created), Is.True);
+                    ExpeditionRunSnapshot admission;
+                    using (created) Assert.That(created.TryCaptureState(out admission, out string error), Is.True, error);
+                    Assert.That(ProjectRunRecordRules.TryAdmit(initial, runId, 1, seed, items, out string admissionError), Is.True, admissionError);
+                    await ProjectServices.Coordinator.CloseAsync();
+                    GameEntry.StopFramework();
+
+                    report.Backends.Add(await MeasureFramePacingAsync(new FramePacingBackend(new FileSaveBackend(directory)), "FileSaveBackend", initial, admission));
+                    report.Backends.Add(await MeasureFramePacingAsync(new FramePacingBackend(new MemorySaveBackend()), "MemorySaveBackend", initial, admission));
+                    Assert.That(report.Backends[1].MapId, Is.EqualTo(report.Backends[0].MapId));
+                    Assert.That(report.Backends[1].ActorCount, Is.EqualTo(report.Backends[0].ActorCount));
+                    Assert.That(report.Backends[1].ScreenWidth, Is.EqualTo(report.Backends[0].ScreenWidth));
+                    Assert.That(report.Backends[1].ScreenHeight, Is.EqualTo(report.Backends[0].ScreenHeight));
+                    string output = Path.GetFullPath(Path.Combine(Application.dataPath, "../../Verification/v3-frame-pacing/" + label + ".json"));
+                    Directory.CreateDirectory(Path.GetDirectoryName(output));
+                    File.WriteAllText(output, JsonUtility.ToJson(report, true), new UTF8Encoding(false));
+                    TestContext.Progress.WriteLine("Frame pacing: " + output);
+                }
+                finally
+                {
+                    if (ProjectServices.Coordinator != null) await ProjectServices.Coordinator.CloseAsync();
+                    GameEntry.StopFramework();
+                    Application.targetFrameRate = oldTarget;
+                    QualitySettings.vSyncCount = oldVSync;
+                    Time.timeScale = oldTimeScale;
+                    Time.captureFramerate = oldCapture;
+                    if (Directory.Exists(directory))
+                    {
+                        string resolved = Path.GetFullPath(directory);
+                        Assert.That(Path.GetDirectoryName(resolved), Is.EqualTo(temporaryRoot));
+                        Assert.That(Path.GetFileName(resolved), Is.EqualTo(temporaryName));
+                        Directory.Delete(resolved, true);
+                    }
+                }
+            });
+        }
+
+        /// <summary>
+        /// 从相同入场状态启动真实战斗场景，逐帧采样后显式保存并冷读业务检查点。
+        /// </summary>
+        /// <param name="backend">独立的计量后端。</param>
+        /// <param name="name">报告中的后端名称。</param>
+        /// <param name="initial">相同的已准入玩家状态。</param>
+        /// <param name="admission">相同的固定种子入场快照。</param>
+        /// <returns>当前后端的帧率和保存恢复报告。</returns>
+        private static async UniTask<FramePacingArm> MeasureFramePacingAsync(FramePacingBackend backend, string name,
+            ProjectSaveData initial, ExpeditionRunSnapshot admission)
+        {
+            Assert.That((await backend.InitializeAsync()).Success, Is.True);
+            Assert.That(ExpeditionSnapshotCodec.TryEncode(admission, out List<SaveStateComponent> components, out string error), Is.True, error);
+            var persistence = GameTables.CfgRunPersistence.GetById(1);
+            var journal = new SaveStateJournal(backend, "ProjectExtraction/prototype/local/run-state", persistence.CheckpointTicks, persistence.MaxStateBytes);
+            Assert.That((await journal.CommitAsync(admission.RunId, components)).Success, Is.True);
+            await SetupAsync(backend, initial);
+            Assert.That(GameEntry.HasHost, Is.False);
+            Assert.That(await ProjectServices.Coordinator.ResumeRunAsync().Timeout(TimeSpan.FromSeconds(30)), Is.True);
+            ProjectSession session = ProjectServices.Session;
+            ExpeditionRun run = session.CurrentRun;
+            await WaitRunSavedAsync(run);
+            GameWindow hud = await WaitForWindowAsync(ProjectServices.BattleHudWindow);
+            Assert.That(hud.Root.activeInHierarchy && run.RegionView != null, Is.True, "必须加载真实 HUD 和地图表现。");
+            var actors = new List<CombatActorSnapshot>();
+            run.World.GetActorsSnapshot(actors);
+            foreach (CombatActorSnapshot actor in actors)
+            {
+                Assert.That(run.World.TryFindActor(actor.ActorId, out CombatEntityRef entity), Is.True);
+                Assert.That(run.World.TryAddAttributeBonus(entity, CombatAttributeKind.MaxHealth, 1000000f), Is.True);
+                Assert.That(run.World.TryAddAttributeBonus(entity, CombatAttributeKind.Defense, 1000000f), Is.True);
+            }
+            Vector2 inputAxis = Vector2.right;
+            var gameplay = (GameplayModule)GameEntry.Get<IGameplayModule>();
+            Assert.That(gameplay.IsPaused || gameplay.IsApplicationPaused, Is.False);
+            var arm = new FramePacingArm
+            {
+                Backend = name, Seed = run.Seed, MapId = run.CurrentRoom.Plan.Request.MapId, ActorCount = actors.Count,
+                ScreenWidth = Screen.width, ScreenHeight = Screen.height, TargetFrameRate = Application.targetFrameRate,
+                VSyncCount = QualitySettings.vSyncCount, MaxPendingTicks = persistence.MaxPendingTicks, InputAxis = inputAxis
+            };
+            arm.WarmupSeconds = await SampleFramePacingAsync(gameplay, run, session, inputAxis, 2d, null);
+            arm.InitialTick = run.World.TickIndex;
+            long initialRevision = session.RunJournalRevision;
+            arm.Frames = new List<FramePacingSample>(600);
+            backend.SetSampling(true);
+            arm.DurationSeconds = await SampleFramePacingAsync(gameplay, run, session, inputAxis, 8d, arm.Frames);
+            backend.SetSampling(false);
+            arm.SampleJournalRevisionChange = session.RunJournalRevision - initialRevision;
+            arm.FinalTick = run.World.TickIndex;
+            arm.ActualUnityFrames = arm.Frames.Count;
+            arm.UnityFramesPerSecond = arm.ActualUnityFrames / arm.DurationSeconds;
+            arm.WorldTicksPerSecond = (arm.FinalTick - arm.InitialTick) / arm.DurationSeconds;
+            arm.SaveBudgetBlockedFrames = arm.Frames.Count(frame => frame.SaveBlockedAtStart);
+            arm.SaveBudgetBlockedRatio = (double)arm.SaveBudgetBlockedFrames / arm.ActualUnityFrames;
+            arm.SaveBudgetReachedFrames = arm.Frames.Count(frame => frame.SaveBlockedAtEnd);
+            arm.PlayerTravel = arm.Frames.Sum(frame => frame.PlayerTravel);
+            arm.MainLoopMilliseconds = FramePacingSummarize(arm.Frames.Select(frame => frame.LoopMilliseconds).ToList());
+            Assert.That(arm.FinalTick, Is.GreaterThan(arm.InitialTick), "没有实际战斗推进，不能作为性能样本。");
+            Assert.That(arm.PlayerTravel, Is.GreaterThan(0.1f), "往返输入没有产生真实位移，可能卡墙。");
+            Assert.That((await session.WaitForRunSavesAsync().Timeout(TimeSpan.FromSeconds(30))).Success, Is.True);
+            backend.CaptureMetrics(arm);
+            arm.SimulationWrittenRecords = arm.WrittenRecords;
+            arm.SimulationWrittenBytes = arm.WrittenBytes;
+            Assert.That(arm.SampleJournalRevisionChange, Is.Zero, "无击杀、交易或房间推进时，不得按 tick 保存世界。");
+            Assert.That(arm.SimulationWrittenRecords, Is.Zero, "普通战斗帧不应产生保存记录。");
+            backend.SetSampling(true);
+            long checkpointStarted = Stopwatch.GetTimestamp();
+            await ProjectServices.Coordinator.SetApplicationPausedAsync(true).Timeout(TimeSpan.FromSeconds(30));
+            arm.CheckpointSaveMilliseconds = FramePacingMilliseconds(checkpointStarted, Stopwatch.GetTimestamp());
+            backend.SetSampling(false);
+            backend.CaptureMetrics(arm);
+            Assert.That(arm.WrittenRecords, Is.GreaterThan(0), "显式暂停必须确认最新业务检查点。");
+            Assert.That(run.TryCaptureState(out ExpeditionRunSnapshot expected, out error), Is.True, error);
+            var coldJournal = new SaveStateJournal(backend, "ProjectExtraction/prototype/local/run-state", persistence.CheckpointTicks, persistence.MaxStateBytes);
+            SaveJournalLoadResult loaded = await coldJournal.LoadAsync(run.RunId);
+            Assert.That(loaded.Result.Success && !loaded.Missing && !loaded.UsedPreviousRevision, Is.True, loaded.Result.Message);
+            Assert.That(ExpeditionSnapshotCodec.TryDecode(loaded.Components, out ExpeditionRunSnapshot cold, out error), Is.True, error);
+            arm.ColdRestoredTick = cold.ElapsedTicks;
+            arm.ColdRestoreTickDifference = expected.ElapsedTicks - cold.ElapsedTicks;
+            Assert.That(arm.ColdRestoreTickDifference, Is.Zero);
+            AssertFramePacingSnapshot(expected, cold);
+            Assert.That(ExpeditionRun.TryRestore(session, cold, out ExpeditionRun restored, out error), Is.True, error);
+            using (restored)
+            {
+                Assert.That(restored.TryCaptureState(out ExpeditionRunSnapshot recaptured, out error), Is.True, error);
+                Assert.That(JsonUtility.ToJson(recaptured), Is.EqualTo(JsonUtility.ToJson(cold)), "恢复必须保留全部业务检查点字段。");
+            }
+            arm.BusinessCheckpointMatches = true;
+            await ProjectServices.Coordinator.CloseAsync();
+            GameEntry.StopFramework();
+            return arm;
+        }
+
+        /// <summary>
+        /// 每个真实 Unity 帧只派发一次玩法普通帧和表现帧，拒绝奖励或面板暂停污染样本。
+        /// </summary>
+        /// <param name="gameplay">无宿主的唯一玩法模块。</param>
+        /// <param name="run">真实场景单局。</param>
+        /// <param name="session">本次隔离保存会话。</param>
+        /// <param name="inputAxis">相同出生点附近的小范围往返轴。</param>
+        /// <param name="seconds">真实墙钟采样时长。</param>
+        /// <param name="samples">预热时为空，否则接收逐帧证据。</param>
+        /// <returns>实际经过的墙钟秒数。</returns>
+        private static async UniTask<double> SampleFramePacingAsync(GameplayModule gameplay, ExpeditionRun run, ProjectSession session,
+            Vector2 inputAxis, double seconds, List<FramePacingSample> samples)
+        {
+            long started = Stopwatch.GetTimestamp();
+            int previousFrame = Time.frameCount;
+            while (FramePacingMilliseconds(started, Stopwatch.GetTimestamp()) < seconds * 1000d)
+            {
+                await UniTask.NextFrame(PlayerLoopTiming.Update);
+                Assert.That(Time.frameCount, Is.EqualTo(previousFrame + 1), "必须每个实际 Unity 帧恰好派发一次。");
+                previousFrame = Time.frameCount;
+                Assert.That(run.IsRunning && run.IsReady && !run.World.Faulted && run.ActivePanel == ExpeditionPanelKind.None &&
+                    !run.IsChoosingReward && run.CanAcceptPlayerInput, Is.True, "死亡、奖励、面板或故障暂停不能作为性能样本。");
+                Assert.That(Application.targetFrameRate, Is.EqualTo(60));
+                Assert.That(QualitySettings.vSyncCount, Is.Zero);
+                Assert.That(run.World.TryGetActor(run.Player, out CombatActorSnapshot before), Is.True);
+                bool blocked = session.RunSaveBlocked;
+                long tick = run.World.TickIndex;
+                run.SetTouchMove(inputAxis * (tick / 15 % 2 == 0 ? 0.2f : -0.2f));
+                float delta = Time.unscaledDeltaTime;
+                long loop = Stopwatch.GetTimestamp();
+                gameplay.OnUpdate(delta);
+                gameplay.OnLateUpdate(delta);
+                double elapsed = FramePacingMilliseconds(loop, Stopwatch.GetTimestamp());
+                Assert.That(run.World.TryGetActor(run.Player, out CombatActorSnapshot after), Is.True);
+                samples?.Add(new FramePacingSample
+                {
+                    UnityFrame = Time.frameCount, DeltaSeconds = delta, LoopMilliseconds = elapsed,
+                    WorldTicks = run.World.TickIndex - tick, SaveBlockedAtStart = blocked, SaveBlockedAtEnd = session.RunSaveBlocked,
+                    PlayerTravel = Vector3.Distance(before.Position, after.Position)
+                });
+            }
+            return FramePacingMilliseconds(started, Stopwatch.GetTimestamp()) / 1000d;
+        }
+
+        /// <summary>
+        /// 仅归一三项统计双精度数的 JSON 往返误差，其余业务检查点字段逐项精确比较。
+        /// </summary>
+        /// <param name="expected">显式暂停保存后的真实业务检查点。</param>
+        /// <param name="actual">新日志对象冷读得到的快照。</param>
+        private static void AssertFramePacingSnapshot(ExpeditionRunSnapshot expected, ExpeditionRunSnapshot actual)
+        {
+            Assert.That(actual.Statistics.DamageDealt, Is.EqualTo(expected.Statistics.DamageDealt).Within(1e-12d));
+            Assert.That(actual.Statistics.DamageTaken, Is.EqualTo(expected.Statistics.DamageTaken).Within(1e-12d));
+            Assert.That(actual.Statistics.HealingReceived, Is.EqualTo(expected.Statistics.HealingReceived).Within(1e-12d));
+            expected.Statistics.DamageDealt = actual.Statistics.DamageDealt;
+            expected.Statistics.DamageTaken = actual.Statistics.DamageTaken;
+            expected.Statistics.HealingReceived = actual.Statistics.HealingReceived;
+            Assert.That(JsonUtility.ToJson(actual), Is.EqualTo(JsonUtility.ToJson(expected)), "业务检查点保存状态不一致。");
+        }
+
+        /// <summary>
+        /// 将单调时钟读数转换为毫秒。
+        /// </summary>
+        /// <param name="started">起始读数。</param>
+        /// <param name="finished">结束读数。</param>
+        /// <returns>实际经过毫秒。</returns>
+        private static double FramePacingMilliseconds(long started, long finished) => (finished - started) * 1000d / Stopwatch.Frequency;
+
+        /// <summary>
+        /// 按最近秩计算实际样本分布，没有写入时返回零分布。
+        /// </summary>
+        /// <param name="samples">具有相同单位的实际采样。</param>
+        /// <returns>三项分布摘要。</returns>
+        private static FramePacingDistribution FramePacingSummarize(List<double> samples)
+        {
+            double[] sorted = samples.OrderBy(value => value).ToArray();
+            if (sorted.Length == 0) return new FramePacingDistribution();
+            return new FramePacingDistribution
+            {
+                P50 = sorted[(int)Math.Ceiling(sorted.Length * 0.5d) - 1], P95 = sorted[(int)Math.Ceiling(sorted.Length * 0.95d) - 1],
+                Maximum = sorted[sorted.Length - 1]
+            };
+        }
+    }
+}

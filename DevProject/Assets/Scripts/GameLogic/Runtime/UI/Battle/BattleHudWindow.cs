@@ -12,12 +12,11 @@ using UnityEngine;
 namespace GameLogic.UI.Battle
 {
     /// <summary>
-    /// 局内生命、交互、探索小地图与物品面板入口。
+    /// 局内生命、房间进度、交互与物品面板入口。
     /// </summary>
     public sealed class BattleHudWindow : GameWindow
     {
         private ExpeditionRun run;
-        private ExpeditionRegionOverview finalBoss;
         private ProjectRunCoordinator coordinator;
         private UnityEngine.UI.Text interactionLabel;
         private UnityEngine.UI.Text targetSummary;
@@ -27,13 +26,10 @@ namespace GameLogic.UI.Battle
         private UnityEngine.UI.Text skills;
         private readonly List<CombatSkillSnapshot> skillSnapshots = new();
         private readonly StringBuilder skillSummary = new();
-        private RectTransform map;
         private UnityEngine.UI.Button resumeChoice;
         private UnityEngine.UI.Button interactButton;
         private ExpeditionJoystick joystick;
         private BattleHudLayout layout;
-        private RegionMapWidget minimap;
-        private UnityEngine.UI.Button mapButton;
         private UnityEngine.UI.Button bagButton;
         private UnityEngine.UI.Button overviewButton;
         private UnityEngine.UI.Button pauseButton;
@@ -63,10 +59,6 @@ namespace GameLogic.UI.Battle
             skills.resizeTextForBestFit = true;
             skills.resizeTextMinSize = 30;
             skills.resizeTextMaxSize = 34;
-            map = ProjectUiFactory.Panel(content, "Minimap", new Color(0.04f, 0.07f, 0.1f, 0.7f));
-            mapButton = map.gameObject.AddComponent<UnityEngine.UI.Button>();
-            mapButton.targetGraphic = map.GetComponent<UnityEngine.UI.Image>();
-            mapButton.onClick.AddListener(OpenMap);
             RectTransform stick = CreateDisc(content, "MoveStick", new Color(0.1f, 0.25f, 0.35f, 0.72f));
             joystick = stick.gameObject.AddComponent<ExpeditionJoystick>();
             RectTransform handle = CreateDisc(stick, "Handle", new Color(0.3f, 0.72f, 0.82f, 0.9f));
@@ -91,15 +83,15 @@ namespace GameLogic.UI.Battle
             ProjectUiFactory.Height((RectTransform)bagButton.transform, 90f);
             RectTransform menuRow = ProjectUiFactory.Horizontal(actions, "MenuActions", 8f);
             ProjectUiFactory.Height(menuRow, 90f);
-            overviewButton = ProjectUiFactory.ActionButton(menuRow, "本局总览", OpenRogueOverview);
+            overviewButton = ProjectUiFactory.ActionButton(menuRow, "成长与进度", OpenProgression);
             overviewButton.GetComponentInChildren<UnityEngine.UI.Text>().fontSize = 24;
             pauseButton = ProjectUiFactory.ActionButton(menuRow, "暂停", OpenPause);
-            resumeChoice = ProjectUiFactory.ActionButton(actions, "继续选择强化", OpenPendingChoice);
+            resumeChoice = ProjectUiFactory.ActionButton(actions, "继续选择奖励", OpenPendingChoice);
             resumeChoice.GetComponentInChildren<UnityEngine.UI.Text>().fontSize = 30;
             ProjectUiFactory.Height((RectTransform)resumeChoice.transform, 90f);
             resumeChoice.gameObject.SetActive(false);
             layout = content.gameObject.AddComponent<BattleHudLayout>();
-            layout.Configure(header, map, stick, actions);
+            layout.Configure(header, stick, actions);
         }
 
         /// <summary>
@@ -110,11 +102,6 @@ namespace GameLogic.UI.Battle
         {
             run = args.UserData as ExpeditionRun;
             if (run == null) return;
-            var plans = run.GetRegionOverview();
-            finalBoss = plans[plans.Count - 1];
-            minimap = map.gameObject.AddComponent<RegionMapWidget>();
-            minimap.Configure(run, true);
-            minimap.Frame.GetComponent<UnityEngine.UI.Image>().raycastTarget = false;
             joystick.Bind(run.SetTouchMove, () => run.CanAcceptPlayerInput);
             run.Changed += Refresh;
             coordinator = ProjectServices.Coordinator;
@@ -128,14 +115,13 @@ namespace GameLogic.UI.Battle
                 joystick.Bind(null);
                 current.SetTouchMove(Vector2.zero);
                 current.ClosePanel(current.ActivePanel);
-                if (minimap != null) Object.Destroy(minimap);
                 if (ReferenceEquals(run, current)) run = null;
             });
             Refresh();
         }
 
         /// <summary>
-        /// 刷新只读显示，地图投影不包含撤离字段。
+        /// 刷新房间进度、战斗状态与当前可用操作。
         /// </summary>
         private void Refresh()
         {
@@ -148,11 +134,16 @@ namespace GameLogic.UI.Battle
             if (!run.IsSavingRun)
             {
                 run.World.TryGetActor(run.Player, out CombatActorSnapshot player);
-                status.text = (run.IsFinalRegion ? "最终场地" : "区域 " + (run.CurrentRegionIndex + 1) + " / " + run.RegionCount) + " · 生命 " + Mathf.CeilToInt(player.Health) + " / " + Mathf.CeilToInt(player.MaxHealth) +
-                    "\n强化进度 " + run.CurrentRogueProgress + " / " + run.NextRogueThreshold + " · 金币 " + run.AvailableGold;
+                status.text = "房间 " + (run.CurrentRoomIndex + 1) + " / " + run.RoomCount + " · " + RoomKindLabel(run.CurrentRoomKind) +
+                    " · 生命 " + Mathf.CeilToInt(player.Health) + " / " + Mathf.CeilToInt(player.MaxHealth) +
+                    "\n等级 " + run.PlayerLevel + " · 经验 " + run.PlayerExperience + " / " + run.ExperienceToNextLevel + " · 技能点 " + run.SkillPoints;
             }
-            hint.text = "最终 Boss：" + finalBoss.BossName + "\n" + finalBoss.Weakness + "\n" +
-                (run.IsRogueBuildComplete && !run.IsAwaitingDeathChoice ? "本局技能构筑已完成。" : run.Message);
+            int remaining = 0;
+            foreach (RegionSpawnSlotState slot in run.CurrentRoom.Slots)
+                if (slot.Phase == RegionSpawnPhase.InitialSpawn || slot.Phase == RegionSpawnPhase.Alive) remaining++;
+            string objective = run.CurrentRoomKind == ExpeditionRoomKind.Combat || run.CurrentRoomKind == ExpeditionRoomKind.Boss ?
+                "剩余目标 " + remaining : run.CurrentRoomKind == ExpeditionRoomKind.Chest ? "领取本房宝箱后前往上方出口" : "可与商人交易，前往上方出口离开";
+            hint.text = objective + "\n" + (run.CurrentRoom.ExitEnabled ? "↑ 上方出口已开放" : "↑ 完成本房目标后开放出口") + "\n" + run.Message;
             run.World.GetSkillsSnapshot(run.Player, skillSnapshots);
             skillSummary.Clear();
             for (int index = 0; index < skillSnapshots.Count; index++)
@@ -165,9 +156,9 @@ namespace GameLogic.UI.Battle
             bool choosingDeath = run.IsAwaitingDeathChoice;
             bool choosing = run.IsChoosingReward || choosingDeath;
             resumeChoice.interactable = choosingDeath ? run.CanChooseDeath :
-                run.IsChoosingReward && !run.IsSavingRun && (run.PendingRogueChoice != null || run.PendingBossChoice != null);
+                run.IsChoosingReward && !run.IsSavingRun && run.PendingBossChoice != null;
             resumeChoice.GetComponentInChildren<UnityEngine.UI.Text>().text = choosingDeath ? "继续死亡选择" :
-                run.PendingBossChoice != null ? "继续选择尾王战利品" : "继续选择强化";
+                "继续选择 Boss 战利品";
             if (resumeChoice.gameObject.activeSelf != choosing)
             {
                 resumeChoice.gameObject.SetActive(choosing);
@@ -184,8 +175,7 @@ namespace GameLogic.UI.Battle
             }
             interactionLabel.text = run.InteractionLabel;
             bool controlsAvailable = acceptsInput && !run.IsSavingRun;
-            mapButton.interactable = bagButton.interactable = overviewButton.interactable = pauseButton.interactable = controlsAvailable;
-            minimap.Refresh();
+            bagButton.interactable = overviewButton.interactable = pauseButton.interactable = controlsAvailable;
             if (run.ActivePanel == ExpeditionPanelKind.None) openedPanel = ExpeditionPanelKind.None;
             else if (!openingPanel && openedPanel != run.ActivePanel) OpenActivePanelAsync(run.ActivePanel).Forget();
         }
@@ -221,19 +211,19 @@ namespace GameLogic.UI.Battle
         }
 
         /// <summary>
-        /// 展开地图并交由地图面板管理独立暂停。
+        /// 返回当前房间类型的玩家可读名称。
         /// </summary>
-        private void OpenMap()
-        {
-            if (coordinator?.Phase == ProjectRunPhase.Playing && run?.TryOpenMap() == true) run.SetTouchMove(Vector2.zero);
-        }
+        /// <param name="kind">当前房间类型。</param>
+        /// <returns>房间类型名称。</returns>
+        private static string RoomKindLabel(ExpeditionRoomKind kind) => kind == ExpeditionRoomKind.Combat ? "怪物房" :
+            kind == ExpeditionRoomKind.Npc ? "商人房" : kind == ExpeditionRoomKind.Chest ? "宝箱房" : "Boss 房";
 
         /// <summary>
-        /// 请求打开本局强化总览弹窗。
+        /// 请求打开永久成长与房间进度弹窗。
         /// </summary>
-        private void OpenRogueOverview()
+        private void OpenProgression()
         {
-            if (coordinator?.Phase == ProjectRunPhase.Playing && run?.TryOpenRogueOverview() == true)
+            if (coordinator?.Phase == ProjectRunPhase.Playing && run?.TryOpenProgression() == true)
                 run.SetTouchMove(Vector2.zero);
         }
 
@@ -262,10 +252,10 @@ namespace GameLogic.UI.Battle
             int windowId = kind == ExpeditionPanelKind.Inventory ? ProjectServices.ExpeditionInventoryWindow :
                 kind == ExpeditionPanelKind.Merchant ? ProjectServices.ExpeditionMerchantWindow :
                 kind == ExpeditionPanelKind.Pause ? ProjectServices.PauseWindow :
-                kind == ExpeditionPanelKind.Map ? ProjectServices.ExpeditionMapWindow :
                 kind == ExpeditionPanelKind.DeathChoice ? ProjectServices.DeathChoiceWindow :
+                kind == ExpeditionPanelKind.AdExtraction ? ProjectServices.AdExtractionWindow :
                 kind == ExpeditionPanelKind.ChestLoot ? ProjectServices.ChestLootWindow :
-                kind == ExpeditionPanelKind.ExtractionConfirmation ? ProjectServices.RegionExitWindow : ProjectServices.RogueOverviewWindow;
+                kind == ExpeditionPanelKind.ExtractionConfirmation ? ProjectServices.RegionExitWindow : ProjectServices.ProgressionWindow;
             try
             {
                 GameWindow opened = ui == null ? null : await ui.OpenWindowAsync(windowId, new GameWindowOpenArgs(current), scope.Token);
@@ -342,9 +332,9 @@ namespace GameLogic.UI.Battle
                 if (run.CanChooseDeath) run.TryOpenDeathChoice();
                 return;
             }
-            if (!run.IsChoosingReward || run.IsSavingRun) return;
+            if (!run.IsChoosingReward || run.IsSavingRun || run.PendingBossChoice == null) return;
             IUIModule ui = GameEntry.Get<IUIModule>();
-            if (ui != null) ui.OpenWindowAsync(run.PendingBossChoice != null ? ProjectServices.BossLootWindow : ProjectServices.RogueChoiceWindow,
+            if (ui != null) ui.OpenWindowAsync(ProjectServices.BossLootWindow,
                 new GameWindowOpenArgs(run)).Forget();
         }
 
@@ -363,18 +353,5 @@ namespace GameLogic.UI.Battle
             return (RectTransform)node.transform;
         }
 
-        /// <summary>
-        /// 使用相对锚点布局不同屏幕比例。
-        /// </summary>
-        /// <param name="rect">布局目标。</param>
-        /// <param name="min">左下锚点。</param>
-        /// <param name="max">右上锚点。</param>
-        private static void Place(RectTransform rect, Vector2 min, Vector2 max)
-        {
-            rect.anchorMin = min;
-            rect.anchorMax = max;
-            rect.offsetMin = Vector2.zero;
-            rect.offsetMax = Vector2.zero;
-        }
     }
 }

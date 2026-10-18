@@ -8,7 +8,7 @@ using UnityEngine;
 namespace GameLogic.UI.Battle
 {
     /// <summary>
-    /// 局内背包模态窗口，集中展示全部持有物、装备操作和属性预览。
+    /// 关卡背包模态窗口，分开展示本关所得与固定出战装备。
     /// </summary>
     public sealed class ExpeditionInventoryWindow : GameWindow
     {
@@ -16,12 +16,11 @@ namespace GameLogic.UI.Battle
         private RectTransform list;
         private RectTransform details;
         private UnityEngine.UI.Text message;
-        private UnityEngine.UI.Button equip;
         private string selectedId;
         private int filter;
 
         /// <summary>
-        /// 在安全区创建双列滚动物品列表、滚动详情和明确操作按钮。
+        /// 在安全区创建只读的双列物品列表、固定装备分类与滚动详情。
         /// </summary>
         protected override void Init()
         {
@@ -32,17 +31,21 @@ namespace GameLogic.UI.Battle
             ProjectUiFactory.Stretch(layout, 12f);
             RectTransform header = ProjectUiFactory.Horizontal(layout, "Header", 8f);
             ProjectUiFactory.Height(header, 58f);
-            UnityEngine.UI.Text title = ProjectUiFactory.Label(header, "局内背包", 31, TextAnchor.MiddleLeft, Color.white);
+            UnityEngine.UI.Text title = ProjectUiFactory.Label(header, "关卡背包", 31, TextAnchor.MiddleLeft, Color.white);
             title.gameObject.AddComponent<UnityEngine.UI.LayoutElement>().flexibleWidth = 1f;
             UnityEngine.UI.Button close = ProjectUiFactory.ActionButton(header, "关闭", () => CloseSelfAsync().Forget());
             close.gameObject.AddComponent<UnityEngine.UI.LayoutElement>().preferredWidth = 110f;
             RectTransform filters = ProjectUiFactory.Horizontal(layout, "Filters", 6f);
             ProjectUiFactory.Height(filters, 48f);
-            string[] names = { "全部", "武器", "装备", "物品" };
+            string[] names = { "全部", "武器", "防具", "物品", "出战装备" };
             for (int index = 0; index < names.Length; index++)
             {
                 int selected = index;
-                ProjectUiFactory.ActionButton(filters, names[index], () => SelectFilter(selected));
+                UnityEngine.UI.Button button = ProjectUiFactory.ActionButton(filters, names[index], () => SelectFilter(selected));
+                UnityEngine.UI.Text label = button.GetComponentInChildren<UnityEngine.UI.Text>();
+                label.resizeTextForBestFit = true;
+                label.resizeTextMinSize = 16;
+                label.resizeTextMaxSize = 25;
             }
             UnityEngine.UI.ScrollRect itemScroll = ProjectUiFactory.Scroll(layout, "Items", out list);
             UnityEngine.UI.LayoutElement itemSize = itemScroll.gameObject.AddComponent<UnityEngine.UI.LayoutElement>();
@@ -52,8 +55,6 @@ namespace GameLogic.UI.Battle
             UnityEngine.UI.LayoutElement detailSize = detailScroll.gameObject.AddComponent<UnityEngine.UI.LayoutElement>();
             detailSize.flexibleHeight = 1f;
             detailSize.minHeight = 72f;
-            equip = ProjectUiFactory.ActionButton(layout, "装备", Equip);
-            ProjectUiFactory.Height((RectTransform)equip.transform, 66f);
             message = ProjectUiFactory.Label(layout, string.Empty, 20, TextAnchor.MiddleLeft, new Color(1f, 0.85f, 0.58f));
             ProjectUiFactory.Height(message.rectTransform, 64f);
         }
@@ -114,12 +115,13 @@ namespace GameLogic.UI.Battle
                 if (State == GameWindowState.Opened) CloseSelfAsync().Forget();
                 return;
             }
-            message.text = run.Message;
+            message.text = filter == 4 ? "出战装备固定，本关中不能更换，结束本局后保留。" :
+                "本关获得 " + run.Inventory.Count + " 件物品；带回主城后可装备。\n出战装备不在关卡背包中，本关中不能更换。";
             ProjectUiFactory.Clear(list);
             int count = 0;
             RectTransform row = null;
             ProjectItem selected = null;
-            foreach (ProjectItem item in run.Inventory)
+            foreach (ProjectItem item in filter == 4 ? run.EntryEquipment : run.Inventory)
             {
                 if (!Matches(item)) continue;
                 if (item.Id == selectedId) selected = item;
@@ -129,7 +131,7 @@ namespace GameLogic.UI.Battle
                     ProjectUiFactory.Height(row, 108f);
                 }
                 string id = item.Id;
-                string caption = ProjectEquipmentText.Title(item) + (item.Equipped ? "\n已穿戴" : "");
+                string caption = ProjectEquipmentText.Title(item) + (filter == 4 ? "\n固定出战装备" : string.Empty);
                 UnityEngine.UI.Button card = ProjectUiFactory.ActionButton(row, caption, () => SelectItem(id));
                 UnityEngine.UI.Text cardText = card.GetComponentInChildren<UnityEngine.UI.Text>();
                 cardText.fontSize = 21;
@@ -148,14 +150,10 @@ namespace GameLogic.UI.Battle
             }
             if (selected == null) selectedId = null;
             RefreshDetails(selected);
-            equip.GetComponentInChildren<UnityEngine.UI.Text>().text = selected?.Equipped == true ? "卸下" : "装备";
-            equip.interactable = run.CanManageInventory && selected != null &&
-                (selected.Type == ProjectItemType.Weapon || ProjectEquipmentRules.IsArmor(selected.Type)) &&
-                (selected.Equipped || run.PlayerLevel >= selected.RequiredLevel);
         }
 
         /// <summary>
-        /// 显示选中物品、同部位当前装备，以及穿脱后的角色属性差值。
+        /// 显示物品属性及固定出战装备的对照，关卡中不提供穿脱操作。
         /// </summary>
         /// <param name="item">当前选中物品。</param>
         private void RefreshDetails(ProjectItem item)
@@ -165,11 +163,8 @@ namespace GameLogic.UI.Battle
                 ProjectEquipmentText.Details(item);
             if (item != null && (item.Type == ProjectItemType.Weapon || ProjectEquipmentRules.IsArmor(item.Type)))
             {
-                text += "\n\n" + ProjectEquipmentText.EquippedDetails(item, run.Inventory);
-                string action = item.Equipped ? "卸下后" : item.RequiredLevel > run.PlayerLevel ? "满足等级后穿戴" : "穿戴后";
-                if (run.TryPreviewEquipment(item, out ProjectCharacterStats current, out ProjectCharacterStats preview))
-                    text += "\n\n属性预览（当前 → " + action + "）\n" + ExpeditionEquipmentComparison.Format(current, preview);
-                else text += "\n\n属性预览暂不可用。";
+                text += filter == 4 ? "\n\n固定出战装备，本关中不能更换。" :
+                    "\n\n" + ProjectEquipmentText.EquippedDetails(item, run.EntryEquipment) + "\n\n带回主城后可装备，本关中不能更换出战装备。";
             }
             UnityEngine.UI.Text label = ProjectUiFactory.Label(details, text, 22, TextAnchor.UpperLeft, Color.white);
             label.supportRichText = true;
@@ -181,19 +176,9 @@ namespace GameLogic.UI.Battle
         /// </summary>
         /// <param name="item">待筛选物品。</param>
         /// <returns>物品属于当前分类则为真。</returns>
-        private bool Matches(ProjectItem item) => filter == 0 || filter == 1 && item.Type == ProjectItemType.Weapon ||
+        private bool Matches(ProjectItem item) => filter == 0 || filter == 4 || filter == 1 && item.Type == ProjectItemType.Weapon ||
             filter == 2 && ProjectEquipmentRules.IsArmor(item.Type) ||
             filter == 3 && (item.Type == ProjectItemType.Item || item.Type == ProjectItemType.Collection);
-
-        /// <summary>
-        /// 提交当前物品的装备或卸下操作。
-        /// </summary>
-        private void Equip()
-        {
-            if (run?.CanManageInventory != true || selectedId == null) return;
-            run.TryEquip(selectedId);
-            Refresh();
-        }
 
         /// <summary>
         /// 使用相对锚点将弹窗约束在安全区内。

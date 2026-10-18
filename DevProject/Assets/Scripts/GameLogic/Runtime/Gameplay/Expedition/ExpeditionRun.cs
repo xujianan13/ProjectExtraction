@@ -4,7 +4,6 @@ using Cysharp.Threading.Tasks;
 using GameFramework;
 using GameLogic.Gameplay.Combat;
 using GameLogic.Gameplay.Level;
-using GameLogic.Gameplay.Roguelike;
 using GameLogic.Project;
 using UnityEngine;
 
@@ -41,6 +40,7 @@ namespace GameLogic.Gameplay.Expedition
         private readonly List<CombatActorSnapshot> actorSnapshots = new();
         private readonly List<RegionSpawnRequest> spawnRequests = new();
         private readonly List<ProjectItem> inventory = new();
+        private readonly List<ProjectItem> entryEquipment = new();
         private readonly List<ExpeditionDrop> drops = new();
         private PersistentRandom random;
         private bool disposed;
@@ -49,6 +49,7 @@ namespace GameLogic.Gameplay.Expedition
         private bool interactionRequested;
         private bool committing;
         private int nextActorId = 2;
+        private long elapsedTicks;
         private ExpeditionVisualAssets visualAssets;
         private Transform sceneParent;
         private Vector2 touchMove;
@@ -60,11 +61,13 @@ namespace GameLogic.Gameplay.Expedition
         public int LevelId { get; }
         public int LootLevel { get; }
         public int Seed { get; }
-        public int CurrentRegionIndex { get; private set; }
-        public int RegionCount => regionRequests.Count - 1;
-        public bool IsFinalRegion => CurrentRegionIndex == regionRequests.Count - 1;
+        public int CurrentRoomIndex { get; private set; }
+        public int RoomCount => regionRequests.Count;
+        public bool IsFinalRoom => CurrentRoomIndex == regionRequests.Count - 1;
+        public ExpeditionRoomKind CurrentRoomKind => regionRequests[CurrentRoomIndex].RoomKind;
+        public bool IsCurrentRoomComplete => CurrentRoom != null && CurrentRoom.ExitEnabled;
         public IReadOnlyList<RegionGenerationRequest> RegionRequests => regionRequests.ConvertAll(value => value.Copy());
-        public RegionRuntimeState CurrentRegion => regions.Find(value => value.Plan.Request.RegionIndex == CurrentRegionIndex);
+        public RegionRuntimeState CurrentRoom => regions.Find(value => value.Plan.Request.RegionIndex == CurrentRoomIndex);
         public RegionMapDefinition CurrentMap { get; private set; }
         public RegionMapView RegionView { get; private set; }
         public CombatWorld World { get; private set; }
@@ -82,8 +85,9 @@ namespace GameLogic.Gameplay.Expedition
         /// </summary>
         private bool CanAdvance => CanInteract && !session.RunSaveBlocked;
         public bool CanAcceptPlayerInput => CanInteract;
-        public string Message { get; private set; } = "击杀积累强化进度；击败区域尾王后可带回结束或继续深入。";
+        public string Message { get; private set; } = "完成当前房间后向上前进，击败最终 Boss 并领取奖励后带回物品。";
         public IReadOnlyList<ProjectItem> Inventory => inventory.ConvertAll(item => item.Copy());
+        public IReadOnlyList<ProjectItem> EntryEquipment => entryEquipment.ConvertAll(item => item.Copy());
         public IReadOnlyList<ExpeditionDrop> Drops => drops;
         public string InteractionLabel { get; private set; } = "交互 / E";
 
@@ -96,10 +100,8 @@ namespace GameLogic.Gameplay.Expedition
         /// <param name="seed">整关初始随机种子。</param>
         /// <param name="requests">开局冻结的区域请求。</param>
         /// <param name="items">本局携入装备。</param>
-        /// <param name="roguePolicy">可选技能选择策略。</param>
-        /// <param name="rogueAccess">可选第四选项授权。</param>
         private ExpeditionRun(ProjectSession session, string runId, LevelDefinition level, int seed,
-            List<RegionGenerationRequest> requests, List<ProjectItem> items, RogueChoicePolicy roguePolicy, IRogueChoiceAccessProvider rogueAccess)
+            List<RegionGenerationRequest> requests, List<ProjectItem> items)
         {
             this.session = session;
             RunId = runId;
@@ -108,7 +110,7 @@ namespace GameLogic.Gameplay.Expedition
             Seed = seed;
             regionRequests.AddRange(requests.ConvertAll(value => value.Copy()));
             random = new PersistentRandom(seed ^ 0x5162);
-            inventory.AddRange(items.ConvertAll(item => item.Copy()));
+            entryEquipment.AddRange(items.ConvertAll(item => item.Copy()));
             InitializeStatistics(items);
             CombatActorSpec spec = EquipmentSpec(items);
             augmentBaseAttackRange = spec.AttackRange;
@@ -122,7 +124,7 @@ namespace GameLogic.Gameplay.Expedition
             spec.BasicSkillId = ProjectContentConfig.Player.SkillID;
             Player = World.CreateActor(spec);
             World.SetActiveRoom(requests[0].RegionId, Player);
-            InitializeRewardSessions(seed, level.Row.SkillPoolID, level.Row.ProgressRuleID, roguePolicy, rogueAccess);
+            InitializeRewardSessions(seed);
         }
 
         /// <summary>
@@ -146,17 +148,14 @@ namespace GameLogic.Gameplay.Expedition
         /// <param name="seed">确定性初始种子。</param>
         /// <param name="items">入场装备。</param>
         /// <param name="run">创建的单局。</param>
-        /// <param name="roguePolicy">可选技能选择策略。</param>
-        /// <param name="rogueAccess">可选第四选项授权。</param>
         /// <returns>创建成功时为真。</returns>
-        public static bool TryCreate(ProjectSession session, string runId, int levelId, int seed, List<ProjectItem> items, out ExpeditionRun run,
-            RogueChoicePolicy roguePolicy = null, IRogueChoiceAccessProvider rogueAccess = null)
+        public static bool TryCreate(ProjectSession session, string runId, int levelId, int seed, List<ProjectItem> items, out ExpeditionRun run)
         {
             run = null;
             if (session == null || items == null || string.IsNullOrWhiteSpace(runId) ||
                 !LevelContentConfig.TryGetLevel(levelId, out LevelDefinition level) ||
-                !LevelContentConfig.TryCreateRegionRequests(runId, seed, level, out List<RegionGenerationRequest> requests, out _)) return false;
-            var created = new ExpeditionRun(session, runId, level, seed, requests, items, roguePolicy, rogueAccess);
+                !LevelContentConfig.TryCreateRoomRequests(runId, seed, level, out List<RegionGenerationRequest> requests, out _)) return false;
+            var created = new ExpeditionRun(session, runId, level, seed, requests, items);
             if (created.Player.Id == 0 || !created.InitializeCombatSkills() || !created.InitializeEquipmentAugments())
             { created.Dispose(); return false; }
             run = created;
@@ -197,7 +196,7 @@ namespace GameLogic.Gameplay.Expedition
         {
             if (disposed || stopped || paused == value) return;
             paused = value;
-            if (value) { CancelReviveAd(); ClearPlayerInput(); }
+            if (value) { CancelReviveAd(); CancelExtractionAd(); ClearPlayerInput(); }
             PublishRewardState();
             Changed?.Invoke();
         }
@@ -208,7 +207,7 @@ namespace GameLogic.Gameplay.Expedition
         public void DetachScene()
         {
             CancelReviveAd();
-            EndNavigation(null);
+            CancelExtractionAd();
             IsRunning = false;
             IsReady = false;
             RegionView?.Dispose();
@@ -218,7 +217,7 @@ namespace GameLogic.Gameplay.Expedition
         }
 
         /// <summary>
-        /// 从唯一循环推进有效战斗时间，每个完整逻辑帧形成独立保存候选。
+        /// 从唯一循环推进有效战斗时间，在击杀或关键操作后提交业务检查点。
         /// </summary>
         /// <param name="deltaTime">当前帧真实经过秒数。</param>
         public void Advance(float deltaTime)
@@ -228,64 +227,69 @@ namespace GameLogic.Gameplay.Expedition
             IInputModule input = GameEntry.Get<IInputModule>();
             Vector2 movement = input.GetVector2("Gameplay/Move");
             if (touchMove.sqrMagnitude > movement.sqrMagnitude) movement = touchMove;
-            if (movement.sqrMagnitude > 0f && IsNavigating) CancelNavigation();
             if (!CanAdvance) { World.ClearPendingTime(); return; }
-            PreparePlayerMovement(movement);
+            World.SetMove(Player, movement);
             if (input.GetButton("Gameplay/CycleInteraction").PressedThisFrame) CycleInteraction();
             if (input.GetButton("Gameplay/Interact").PressedThisFrame) RequestInteraction();
             bool interact = interactionRequested;
             World.Advance(deltaTime, () =>
             {
                 bool proceed = CompleteTick(interact);
-                ObserveNavigationTick();
                 interact = false;
                 interactionRequested = false;
-                if (proceed) PreparePlayerMovement(movement);
+                if (proceed) World.SetMove(Player, movement);
                 return proceed;
             });
             if (World.Faulted && IsRunning) HandleFault("战斗发生错误，已暂停并保留最近完整存档。");
         }
 
         /// <summary>
-        /// 在同一边界消费死亡收益、个体复活与交互，并形成连续保存修订。
+        /// 在同一边界消费死亡收益与交互，在业务事实改变后提交保存。
         /// </summary>
         /// <param name="interact">本帧是否提交一次交互。</param>
         /// <returns>本帧之后仍可推进时为真。</returns>
         private bool CompleteTick(bool interact)
         {
+            elapsedTicks++;
+            CurrentRoom.AdvanceTick();
             events.Clear();
             World.DrainEvents(events);
             int playerDeathId = 0;
+            bool progressionChanged = false;
             foreach (CombatEvent fact in events)
             {
                 RecordStatistics(fact);
                 CombatEventPublished?.Invoke(fact);
                 if (fact.Kind != CombatEventKind.Death) continue;
                 if (fact.TargetActorId == 1) { playerDeathId = fact.DefinitionId; continue; }
-                RegionSpawnSlotState slot = CurrentRegion.Slots.Find(value => value.CurrentActorId == fact.TargetActorId);
-                if (slot == null || !CurrentRegion.TryRecordDeath(slot.SlotId, fact.TargetActorId, slot.LifeSequence)) continue;
-                RegionSpawnSlotPlan plan = CurrentRegion.Plan.SpawnSlots.Find(value => value.SlotId == slot.SlotId);
+                RegionSpawnSlotState slot = CurrentRoom.Slots.Find(value => value.CurrentActorId == fact.TargetActorId);
+                if (slot == null || !CurrentRoom.TryRecordDeath(slot.SlotId, fact.TargetActorId, slot.LifeSequence)) continue;
+                RegionSpawnSlotPlan plan = CurrentRoom.Plan.SpawnSlots.Find(value => value.SlotId == slot.SlotId);
                 EnemyDefinition enemy = enemyDefinitions[fact.TargetActorId];
-                float multiplier = slot.LifeSequence == 1 || plan.Kind == RegionEnemyKind.Boss ? 1f :
-                    (plan.Kind == RegionEnemyKind.Elite ? CurrentRegion.Plan.EliteRespawn : CurrentRegion.Plan.NormalRespawn).ExperienceMultiplier;
                 int previousExperience = KillExperience;
-                KillExperience = (int)Math.Min(int.MaxValue, (long)KillExperience + Mathf.FloorToInt(enemy.ExperienceAt(plan.EnemyLevel) * multiplier));
-                int gainedProgress = RecordProgressDeath(plan.Kind);
-                if (plan.Kind == RegionEnemyKind.Boss) QueueBossReward(CurrentRegion.Plan.Request.RegionId);
-                if (!CurrentRegion.TryConfirmDeathProcessed(slot.SlotId, slot.LifeSequence))
+                bool firstReward = !slot.RewardClaimed;
+                if (firstReward)
+                {
+                    KillExperience = (int)Math.Min(int.MaxValue, (long)KillExperience + enemy.ExperienceAt(plan.EnemyLevel));
+                    if (plan.Kind == RegionEnemyKind.Boss) QueueBossReward(CurrentRoom.Plan.Request.RegionId);
+                    RecordEnemyKill(plan, slot.LifeSequence, KillExperience - previousExperience, 0);
+                }
+                if (!CurrentRoom.TryConfirmDeathProcessed(slot.SlotId, slot.LifeSequence))
                 { HandleFault("死亡收益确认失败，已保留存档。"); return false; }
-                RecordEnemyKill(plan, slot.LifeSequence, KillExperience - previousExperience, gainedProgress);
+                progressionChanged = true;
             }
             if (playerDeathId > 0) { BeginDeathChoice(playerDeathId); return false; }
-            CurrentRegion.AdvanceTick(EvaluateSpawnSafety);
-            if (!SpawnPendingEnemies(CurrentRegion, false)) { HandleFault("敌人复活状态创建失败。"); return false; }
             if (TryBeginPendingReward()) return false;
             if (World.TryGetActor(Player, out CombatActorSnapshot player))
             {
                 UpdateInteractionLabel(player.Position);
                 if (interact) Interact(player.Position);
             }
-            if (!committing && IsRunning && !QueueTickSnapshot()) return false;
+            if (!committing && IsRunning && progressionChanged)
+            {
+                SaveMutation(CurrentRoom.ExitEnabled ? "房间已完成，前往上方出口。" : "击杀收益已确认。");
+                return false;
+            }
             Changed?.Invoke();
             return CanAdvance;
         }
@@ -293,10 +297,10 @@ namespace GameLogic.Gameplay.Expedition
         /// <summary>
         /// 先冻结完整终局事实，随后由统一流程保存并结算。
         /// </summary>
-        /// <param name="extracted">是否正常带回物品。</param>
-        private void EndRun(bool extracted)
+        /// <param name="exitKind">已经确认的离场类型。</param>
+        private void EndRun(ProjectRunExitKind exitKind)
         {
-            if (ProjectServices.Coordinator.TryEndRun(this, extracted)) return;
+            if (ProjectServices.Coordinator.TryEndRun(this, exitKind)) return;
             HandleFault("终局未被流程接受，请重试恢复本关。");
         }
 
@@ -306,7 +310,6 @@ namespace GameLogic.Gameplay.Expedition
         /// <param name="reason">玩家可读的故障说明。</param>
         private void HandleFault(string reason)
         {
-            EndNavigation(null);
             paused = true;
             Message = reason;
             ClearPlayerInput();
@@ -323,7 +326,6 @@ namespace GameLogic.Gameplay.Expedition
             if (axis == Vector2.zero || !CanInteract || float.IsNaN(axis.x) || float.IsInfinity(axis.x) || float.IsNaN(axis.y) || float.IsInfinity(axis.y))
             { touchMove = Vector2.zero; return; }
             touchMove = Vector2.ClampMagnitude(axis, 1);
-            if (IsNavigating) CancelNavigation();
         }
 
         /// <summary>
@@ -354,7 +356,7 @@ namespace GameLogic.Gameplay.Expedition
         public void Stop()
         {
             CancelReviveAd();
-            EndNavigation(null);
+            CancelExtractionAd();
             stopped = true;
             IsRunning = false;
             ActivePanel = ExpeditionPanelKind.None;

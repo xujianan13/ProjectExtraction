@@ -1,323 +1,320 @@
-using System;
 using System.Collections.Generic;
 using System.Linq;
 using GameLogic.Gameplay.Level;
 using GameLogic.Project;
+using GameLogic.Tables;
 using NUnit.Framework;
+using ProjectExtraction.Tests.Shared;
 using UnityEngine;
 
 namespace GameLogic.Tests.Editor.Level
 {
     /// <summary>
-    /// 验证区域冻结、按生命刷新及存档结构的纯逻辑契约。
+    /// 验证固定房间序列、单次清房及重开收益账本。
     /// </summary>
     public sealed class RegionContentTests
     {
         /// <summary>
-        /// 同一候选重试的冻结物品及其身份保持一致。
+        /// 加载正式导表配置。
+        /// </summary>
+        [SetUp]
+        public void LoadTables() => TestGameTables.LoadAll();
+
+        /// <summary>
+        /// 各原型关卡固定六房，只有最终房生成 Boss。
         /// </summary>
         [Test]
-        public void FrozenCandidateRetriesPreserveItemsAndIdentities()
+        public void ConfiguredLevelsUseSixRoomsAndOnlyFinalBoss()
         {
-            RegionPlan first = Generate();
-            RegionPlan second = Generate();
-            Assert.That(JsonUtility.ToJson(second), Is.EqualTo(JsonUtility.ToJson(first)));
-            Assert.That(first.Chests[0].Items[0].Id, Does.StartWith("run:region:1:chest:"));
-            Assert.That(first.Npcs[0].Offers[0].Item.Id, Is.EqualTo(first.Npcs[0].Offers[0].Id));
+            var expected = new[] { ExpeditionRoomKind.Combat, ExpeditionRoomKind.Chest, ExpeditionRoomKind.Combat,
+                ExpeditionRoomKind.Npc, ExpeditionRoomKind.Combat, ExpeditionRoomKind.Boss };
+            foreach (CfgLevelsRow row in GameTables.CfgLevels.GetAll())
+            {
+                Assert.That(LevelContentConfig.TryGetLevel(row.ID, out LevelDefinition level), Is.True);
+                Assert.That(LevelContentConfig.TryCreateRoomRequests("run", 17, level, out var requests, out string error), Is.True, error);
+                Assert.That(requests.Select(value => value.RoomDefinitionId), Is.EqualTo(row.RoomIDs));
+                Assert.That(requests.Select(value => value.RoomKind), Is.EqualTo(expected));
+                foreach (RegionGenerationRequest request in requests)
+                {
+                    Assert.That(LevelContentConfig.TryCreateRoomMap(request.MapId, out RegionMapDefinition map, out error), Is.True, error);
+                    Assert.That(RegionContentGenerator.TryGenerate(request, map, LevelContentConfig.CreateRegionContent(request),
+                        out RegionPlan plan, out error), Is.True, error);
+                    Assert.That(plan.SpawnSlots.Count(value => value.Kind == RegionEnemyKind.Boss),
+                        Is.EqualTo(request.RoomKind == ExpeditionRoomKind.Boss ? 1 : 0));
+                    Assert.That(plan.Copy().Request.RoomDefinitionId, Is.EqualTo(request.RoomDefinitionId));
+                    Assert.That(plan.Copy().Request.RoomKind, Is.EqualTo(request.RoomKind));
+                }
+            }
         }
 
         /// <summary>
-        /// 更换兼容 Boss 和地图只重新映射空间，不改变内容池抽样。
+        /// 正式地图下进上出，长边方向一致且关键锚点可达。
         /// </summary>
         [Test]
-        public void CompatibleBossAndMapDoNotChangeContentSamples()
+        public void ConfiguredMapsAreLongAndUpperExitIsReachable()
         {
-            RegionPlan first = Generate();
-            RegionMapDefinition map = Map();
-            map.MapId = 2;
-            map.Anchors.Add(Anchor("monster-extra", RegionAnchorKind.Monster, "monster", new Vector3(0, 0, -12), 3));
-            RegionGenerationRequest request = Request();
-            request.MapId = 2;
-            request.BossDefinitionId = 42;
-            request.BossEnemyId = 22;
-            Assert.That(RegionContentGenerator.TryGenerate(request, map, Content(), out RegionPlan changed, out string error), Is.True, error);
-            Assert.That(changed.SpawnSlots.Where(value => value.Kind != RegionEnemyKind.Boss).Select(value => value.EnemyId),
-                Is.EqualTo(first.SpawnSlots.Where(value => value.Kind != RegionEnemyKind.Boss).Select(value => value.EnemyId)));
-            Assert.That(JsonUtility.ToJson(changed.Chests[0].Items[0]), Is.EqualTo(JsonUtility.ToJson(first.Chests[0].Items[0])));
-            Assert.That(JsonUtility.ToJson(changed.Npcs[0].Offers[0]), Is.EqualTo(JsonUtility.ToJson(first.Npcs[0].Offers[0])));
-            Assert.That(changed.MonsterRandomState, Is.EqualTo(first.MonsterRandomState));
-            Assert.That(changed.ChestRandomState, Is.EqualTo(first.ChestRandomState));
+            foreach (CfgRoomsRow room in GameTables.CfgRooms.GetAll())
+            {
+                Assert.That(LevelContentConfig.TryCreateRoomMap(room.MapID, out RegionMapDefinition map, out string error), Is.True, error);
+                Assert.That(map.Bounds.height, Is.GreaterThan(map.Bounds.width));
+                Assert.That(map.Anchors.Single(value => value.Kind == RegionAnchorKind.Entry).Position.z,
+                    Is.LessThan(map.Anchors.Single(value => value.Kind == RegionAnchorKind.Exit).Position.z));
+                Assert.That(new RegionMapGeometry(map).TryValidateReachability(map.Anchors.Select(value => value.Position).ToArray(),
+                    (float)GameTables.CfgPlayerCombat.GetById(1).Radius, (float)room.ReachabilityGridSpacing,
+                    room.ReachabilityMaxCells, out error), Is.True, error);
+            }
+            Assert.That(LevelContentConfig.TryCreateRoomMap(999, out _, out _), Is.False);
         }
 
         /// <summary>
-        /// 不足的锚点和不匹配的地图版本必须失败，不悄悄减少内容。
+        /// 相同种子与房型的重试保持冻结内容及身份一致。
+        /// </summary>
+        /// <param name="kind">房间类型。</param>
+        [TestCase(ExpeditionRoomKind.Combat)]
+        [TestCase(ExpeditionRoomKind.Npc)]
+        [TestCase(ExpeditionRoomKind.Chest)]
+        [TestCase(ExpeditionRoomKind.Boss)]
+        public void FrozenCandidateRetriesPreserveContents(ExpeditionRoomKind kind)
+        {
+            Assert.That(JsonUtility.ToJson(Generate(kind)), Is.EqualTo(JsonUtility.ToJson(Generate(kind))));
+        }
+
+        /// <summary>
+        /// 锚点不足、成员容量不足或地图版本不一致时必须失败。
         /// </summary>
         [Test]
-        public void InsufficientCapacityAndWrongVersionFailExplicitly()
+        public void InsufficientAnchorsCapacityAndWrongVersionFail()
         {
             RegionMapDefinition map = Map();
-            map.Anchors.RemoveAll(value => value.Kind == RegionAnchorKind.Elite);
+            map.Anchors.RemoveAll(value => value.Kind == RegionAnchorKind.Monster);
             Assert.That(RegionContentGenerator.TryGenerate(Request(), map, Content(), out RegionPlan failed, out string error), Is.False);
             Assert.That(failed, Is.Null);
             Assert.That(error, Does.Contain("锚点"));
+            map = Map();
+            map.Anchors.Single(value => value.Kind == RegionAnchorKind.Monster).Capacity = 1;
+            Assert.That(RegionContentGenerator.TryGenerate(Request(), map, Content(), out _, out _), Is.False);
             RegionGenerationRequest request = Request();
             request.MapVersion = "missing";
             Assert.That(RegionContentGenerator.TryGenerate(request, Map(), Content(), out _, out _), Is.False);
         }
 
         /// <summary>
-        /// 存活组员不阻碍其他个体复活，未确认收益的生命不能被跳过。
+        /// 敌人被击败后不再周期出生，全部死亡与收益确认后才完成怪物房。
         /// </summary>
         [Test]
-        public void IndividualDeathAndRewardAcknowledgementGateRespawn()
+        public void DefeatedEnemiesNeverRespawnAndAllKillsCompleteRoom()
         {
             RegionRuntimeState state = RunningState();
-            RegionSpawnSlotState killed = state.Slots.First(value => state.Plan.SpawnSlots.Find(plan => plan.SlotId == value.SlotId).Kind == RegionEnemyKind.Normal);
-            RegionSpawnSlotState survivor = state.Slots.First(value => value.SlotId != killed.SlotId &&
-                state.Plan.SpawnSlots.Find(plan => plan.SlotId == value.SlotId).Kind == RegionEnemyKind.Normal);
-            Assert.That(state.TryRecordDeath(killed.SlotId, killed.CurrentActorId, killed.LifeSequence), Is.True);
-            Assert.That(state.TryRecordDeath(killed.SlotId, killed.CurrentActorId, killed.LifeSequence), Is.False);
-            for (int tick = 0; tick < 6; tick++) Assert.That(state.AdvanceTick(_ => Safe()), Is.True);
-            Assert.That(killed.WaitingReason, Is.EqualTo(RegionSpawnWaitReason.UnprocessedDeath));
-            var requests = new List<RegionSpawnRequest>();
-            Assert.That(state.GetSpawnRequests(requests), Is.Zero);
-            Assert.That(state.TryConfirmDeathProcessed(killed.SlotId, 1), Is.True);
-            Assert.That(state.TryConfirmDeathProcessed(killed.SlotId, 1), Is.False);
-            for (int tick = 0; tick < 3; tick++) state.AdvanceTick(_ => Safe());
-            Assert.That(state.GetSpawnRequests(requests), Is.EqualTo(1));
-            Assert.That(requests[0].ExpectedLifeSequence, Is.EqualTo(1));
-            Assert.That(state.GetSpawnRequests(requests), Is.EqualTo(1));
-            Assert.That(killed.LifeSequence, Is.EqualTo(1));
-            Assert.That(state.CommitRespawn(killed.SlotId, 1, 100), Is.True);
-            Assert.That(state.CommitRespawn(killed.SlotId, 1, 101), Is.False);
-            Assert.That(killed.LifeSequence, Is.EqualTo(2));
-            Assert.That(survivor.LifeSequence, Is.EqualTo(1));
-            Assert.That(survivor.Phase, Is.EqualTo(RegionSpawnPhase.Alive));
+            ConfirmKill(state, state.Slots[0]);
+            Assert.That(state.TryConfirmDeathProcessed(state.Slots[0].SlotId, 1), Is.False);
+            for (int tick = 0; tick < 600; tick++) state.AdvanceTick();
+            Assert.That(state.Slots[0].Phase, Is.EqualTo(RegionSpawnPhase.Defeated));
+            Assert.That(state.GetSpawnRequests(new List<RegionSpawnRequest>()), Is.Zero);
+            Assert.That(state.ExitEnabled, Is.False);
+            ConfirmKill(state, state.Slots[1]);
+            Assert.That(state.ExitEnabled, Is.True);
             Assert.That(state.TryValidate(Map(), out string error), Is.True, error);
         }
 
         /// <summary>
-        /// 出生预警安全失效后重新等待，序列化恢复不会补跑离线时间。
+        /// 未完成房间重开恢复敌人，并保留已领槽位账本避免重复奖励。
         /// </summary>
         [Test]
-        public void WarningRestartsAndRestorePreservesRemainingTicks()
+        public void ReplayPreservesRewardClaimedAndResetsEnemyInstances()
         {
             RegionRuntimeState state = RunningState();
-            RegionSpawnSlotState elite = state.Slots.First(value => state.Plan.SpawnSlots.Find(plan => plan.SlotId == value.SlotId).Kind == RegionEnemyKind.Elite);
-            Assert.That(state.TryRecordDeath(elite.SlotId, elite.CurrentActorId, 1), Is.True);
-            Assert.That(state.TryConfirmDeathProcessed(elite.SlotId, 1), Is.True);
-            for (int tick = 0; tick < 4; tick++) state.AdvanceTick(_ => Safe());
-            Assert.That(elite.Phase, Is.EqualTo(RegionSpawnPhase.Warning));
-            state.AdvanceTick(_ => new RegionSpawnSafety { PositionAvailable = true, OutsideSafeDistance = false, OutsideCamera = true });
-            Assert.That(elite.Phase, Is.EqualTo(RegionSpawnPhase.WaitingSafety));
-            Assert.That(elite.WarningStartTick, Is.EqualTo(-1));
-            string checkpoint = JsonUtility.ToJson(state);
-            RegionRuntimeState restored = JsonUtility.FromJson<RegionRuntimeState>(checkpoint);
-            Assert.That(restored.TryValidate(Map(), out string error), Is.True, error);
-            Assert.That(restored.EffectiveTick, Is.EqualTo(state.EffectiveTick));
-            Assert.That(restored.GetSpawnRequests(new List<RegionSpawnRequest>()), Is.Zero);
-            restored.AdvanceTick(_ => Safe());
-            Assert.That(restored.Slots.Find(value => value.SlotId == elite.SlotId).Phase, Is.EqualTo(RegionSpawnPhase.Warning));
-            Assert.That(restored.GetSpawnRequests(new List<RegionSpawnRequest>()), Is.Zero);
+            ConfirmKill(state, state.Slots[0]);
+            Assert.That(state.CreateReplay(out RegionRuntimeState replay, out string error), Is.True, error);
+            Assert.That(replay.Slots.Select(value => value.RewardClaimed), Is.EqualTo(new[] { true, false }));
+            Assert.That(replay.Slots.All(value => value.Phase == RegionSpawnPhase.InitialSpawn && value.CurrentActorId == 0), Is.True);
+            int newlyRewarded = 0;
+            for (int index = 0; index < replay.Slots.Count; index++)
+            {
+                RegionSpawnSlotState slot = replay.Slots[index];
+                Assert.That(replay.CommitInitialSpawn(slot.SlotId, 100 + index), Is.True);
+                if (!slot.RewardClaimed) newlyRewarded++;
+                ConfirmKill(replay, slot);
+            }
+            Assert.That(newlyRewarded, Is.EqualTo(1));
+            Assert.That(replay.ExitEnabled, Is.True);
+            Assert.That(replay.CreateReplay(out _, out _), Is.False);
+            Assert.That(state.Slots[1].RewardClaimed, Is.False);
+            RegionRuntimeState restored = JsonUtility.FromJson<RegionRuntimeState>(JsonUtility.ToJson(replay));
+            Assert.That(restored.TryValidate(Map(), out error), Is.True, error);
+            Assert.That(restored.Slots.All(value => value.RewardClaimed), Is.True);
         }
 
         /// <summary>
-        /// 宝箱与商店只转移冻结物品一次，副本与恢复数据不会共享列表。
+        /// 宝箱全部领取后才能离房，重复领取和副本修改不改变原归属。
         /// </summary>
         [Test]
-        public void InteractionsAndDeepCopyPreserveUniqueOwnership()
+        public void ChestRequiresAllClaimsAndCopiesPreserveOwnership()
         {
-            RegionRuntimeState state = RunningState();
+            RegionRuntimeState state = RunningState(ExpeditionRoomKind.Chest);
             RegionChestPlan chest = state.Plan.Chests[0];
-            RegionNpcPlan npc = state.Plan.Npcs[0];
+            Assert.That(state.ExitEnabled, Is.False);
             Assert.That(state.TryClaimChestItem(chest.Id, chest.Items[0].Id), Is.False);
             Assert.That(state.TryOpenChest(chest.Id), Is.True);
             Assert.That(state.TryClaimChestItem(chest.Id, chest.Items[0].Id), Is.True);
             Assert.That(state.TryClaimChestItem(chest.Id, chest.Items[0].Id), Is.False);
-            Assert.That(state.TrySellNpcOffer(npc.Id, npc.Offers[0].Id), Is.True);
-            Assert.That(state.TrySellNpcOffer(npc.Id, npc.Offers[0].Id), Is.False);
-            Assert.That(state.TrySetTrackingTarget(chest.Id), Is.True);
+            Assert.That(state.ExitEnabled, Is.False);
+            Assert.That(state.TryClaimChestItem(chest.Id, chest.Items[1].Id), Is.True);
+            Assert.That(state.ExitEnabled, Is.True);
             RegionRuntimeState copy = state.Copy();
             copy.Plan.Chests[0].Items[0].Name = "changed";
             copy.Chests[0].ClaimedItemIds.Clear();
             Assert.That(state.Plan.Chests[0].Items[0].Name, Is.Not.EqualTo("changed"));
-            Assert.That(state.Chests[0].ClaimedItemIds.Count, Is.EqualTo(1));
-            RegionRuntimeState restored = JsonUtility.FromJson<RegionRuntimeState>(JsonUtility.ToJson(state));
-            Assert.That(restored.TryValidate(Map(), out string error), Is.True, error);
-            restored.Chests[0].ClaimedItemIds.Add(chest.Items[0].Id);
-            Assert.That(restored.TryValidate(Map(), out _), Is.False);
-            RegionMapDefinition wrongMap = Map();
-            wrongMap.Version = "next";
-            Assert.That(state.TryValidate(wrongMap, out _), Is.False);
+            Assert.That(state.Chests[0].ClaimedItemIds.Count, Is.EqualTo(2));
+            state.Chests[0].ClaimedItemIds.Add(chest.Items[0].Id);
+            Assert.That(state.TryValidate(Map(), out _), Is.False);
         }
 
         /// <summary>
-        /// Boss 死亡与领奖完成分别确认，Boss 从不进入复活请求。
+        /// NPC 房可以离开，商品只确认一次。
         /// </summary>
         [Test]
-        public void BossCompletionSurvivesContinuedRespawnClock()
+        public void NpcRoomCanDepartAndRejectsDuplicatePurchase()
         {
-            RegionRuntimeState state = RunningState();
-            RegionSpawnSlotState boss = state.Slots.First(value => state.Plan.SpawnSlots.Find(plan => plan.SlotId == value.SlotId).Kind == RegionEnemyKind.Boss);
-            Assert.That(state.TryCompleteBossRewards(), Is.False);
-            Assert.That(state.TryRecordDeath(boss.SlotId, boss.CurrentActorId, 1), Is.True);
-            Assert.That(state.ExitEnabled, Is.False);
-            Assert.That(state.TryConfirmDeathProcessed(boss.SlotId, 1), Is.True);
-            Assert.That(state.TryCompleteBossRewards(), Is.True);
-            for (int tick = 0; tick < 10; tick++) state.AdvanceTick(_ => Safe());
+            RegionRuntimeState state = RunningState(ExpeditionRoomKind.Npc);
+            Assert.That(state.Slots, Is.Empty);
             Assert.That(state.ExitEnabled, Is.True);
-            Assert.That(state.GetSpawnRequests(new List<RegionSpawnRequest>()), Is.Zero);
+            RegionNpcPlan npc = state.Plan.Npcs[0];
+            Assert.That(state.TrySellNpcOffer(npc.Id, npc.Offers[0].Id), Is.True);
+            Assert.That(state.TrySellNpcOffer(npc.Id, npc.Offers[0].Id), Is.False);
             Assert.That(state.TryValidate(Map(), out string error), Is.True, error);
         }
 
         /// <summary>
-        /// 目标连通性与 ECS 扩张矩形占位规则一致。
+        /// Boss 击败后先领奖，清场战斗不能重开且支持无活体身份的进度恢复。
         /// </summary>
         [Test]
-        public void GeometryRejectsBlockedRouteAndUsesExpandedRectangles()
+        public void BossRewardGateAndInactiveRestoreRemainConsistent()
+        {
+            RegionRuntimeState state = RunningState(ExpeditionRoomKind.Boss);
+            Assert.That(state.TryCompleteBossRewards(), Is.False);
+            ConfirmKill(state, state.Slots[0]);
+            Assert.That(state.ExitEnabled, Is.False);
+            Assert.That(state.CreateReplay(out _, out _), Is.False);
+            Assert.That(state.TryCompleteBossRewards(), Is.True);
+            Assert.That(state.TryCompleteBossRewards(), Is.False);
+            Assert.That(state.ExitEnabled, Is.True);
+            state.Slots[0].CurrentActorId = 0;
+            state.Slots[0].DeathTick = -1;
+            Assert.That(state.TryValidate(Map(), out string error), Is.True, error);
+            state.Slots[0].Phase = RegionSpawnPhase.Alive;
+            Assert.That(state.TryValidate(Map(), out _), Is.False);
+        }
+
+        /// <summary>
+        /// 横跨房间的障碍使出口不可达，内容生成必须拒绝该地图。
+        /// </summary>
+        [Test]
+        public void GeometryRejectsBlockedUpperExit()
         {
             RegionMapDefinition map = Map();
-            map.Obstacles.Add(new RegionMapObstacle { Min = new Vector2(-40, -1), Max = new Vector2(40, 1) });
+            map.Obstacles.Add(new RegionMapObstacle { Min = new Vector2(-10, 4), Max = new Vector2(10, 6) });
             var geometry = new RegionMapGeometry(map);
-            Assert.That(geometry.IsBlocked(new Vector3(0, 0, 1.2f), 0.5f), Is.True);
-            Assert.That(geometry.TryValidateReachability(new[] { new Vector3(0, 0, -20), new Vector3(0, 0, 20) },
+            Assert.That(geometry.IsBlocked(new Vector3(0, 0, 6.2f), 0.5f), Is.True);
+            Assert.That(geometry.TryValidateReachability(new[] { new Vector3(0, 0, -25), new Vector3(0, 0, 25) },
                 0.5f, 1f, 10000, out _), Is.False);
             Assert.That(RegionContentGenerator.TryGenerate(Request(), map, Content(), out _, out _), Is.False);
         }
 
         /// <summary>
-        /// 精英死亡标记返回归属点，局部地图保留追踪箭头且不绘制普通怪。
+        /// 生成并验证指定房型的测试计划。
         /// </summary>
-        [Test]
-        public void ProjectionUsesLivePositionsAndStableDeadHomeMarkers()
-        {
-            RegionRuntimeState state = RunningState();
-            RegionSpawnSlotPlan elitePlan = state.Plan.SpawnSlots.First(value => value.Kind == RegionEnemyKind.Elite);
-            RegionSpawnSlotState elite = state.Slots.Find(value => value.SlotId == elitePlan.SlotId);
-            state.TrySetTrackingTarget(elite.SlotId);
-            Vector3 movingPosition = new Vector3(9, 0, 8);
-            RegionMapProjection alive = RegionMapProjection.Build(state, Map(), Vector3.zero, Vector3.forward, _ => movingPosition);
-            Assert.That(alive.Markers.Single(value => value.Id == elite.SlotId).Position, Is.EqualTo(movingPosition));
-            Assert.That(alive.Markers.Count, Is.EqualTo(6));
-            state.TryRecordDeath(elite.SlotId, elite.CurrentActorId, 1);
-            RegionMapProjection dead = RegionMapProjection.Build(state, Map(), Vector3.zero, Vector3.forward, _ => movingPosition);
-            RegionMapMarker marker = dead.Markers.Single(value => value.Id == elite.SlotId);
-            Assert.That(marker.Position, Is.EqualTo(elitePlan.HomePosition));
-            Assert.That(marker.IsTracked, Is.True);
-            Assert.That(marker.RemainingTicks, Is.EqualTo(4));
-            RegionMapPoint point = RegionMapProjection.ProjectLocal(new Vector3(20, 0, 0), Vector3.zero, 5);
-            Assert.That(point.IsInside, Is.False);
-            Assert.That(point.NormalizedPosition, Is.EqualTo(new Vector2(1, 0.5f)));
-            Assert.That(RegionMapProjection.ProjectWorld(Map(), Vector3.zero).NormalizedPosition, Is.EqualTo(Vector2.one * 0.5f));
-        }
-
-        /// <summary>
-        /// 生成测试区域并校验结果。
-        /// </summary>
+        /// <param name="kind">房间类型。</param>
         /// <returns>有效冻结计划。</returns>
-        private static RegionPlan Generate()
+        private static RegionPlan Generate(ExpeditionRoomKind kind = ExpeditionRoomKind.Combat)
         {
-            Assert.That(RegionContentGenerator.TryGenerate(Request(), Map(), Content(), out RegionPlan plan, out string error), Is.True, error);
+            Assert.That(RegionContentGenerator.TryGenerate(Request(kind), Map(), Content(kind), out RegionPlan plan, out string error), Is.True, error);
             return plan;
         }
 
         /// <summary>
-        /// 生成已提交初生身份的测试运行态。
+        /// 提交指定房型全部初始战斗身份。
         /// </summary>
-        /// <returns>已经创建全部初始生命的运行态。</returns>
-        private static RegionRuntimeState RunningState()
+        /// <param name="kind">房间类型。</param>
+        /// <returns>已经激活的运行态。</returns>
+        private static RegionRuntimeState RunningState(ExpeditionRoomKind kind = ExpeditionRoomKind.Combat)
         {
-            Assert.That(RegionRuntimeState.TryCreate(Generate(), out RegionRuntimeState state, out string error), Is.True, error);
-            var requests = new List<RegionSpawnRequest>();
-            state.GetSpawnRequests(requests);
-            int actorId = 2;
-            foreach (RegionSpawnRequest request in requests) Assert.That(state.CommitInitialSpawn(request.SlotId, actorId++), Is.True);
+            Assert.That(RegionRuntimeState.TryCreate(Generate(kind), out RegionRuntimeState state, out string error), Is.True, error);
+            int actor = 2;
+            foreach (RegionSpawnSlotState slot in state.Slots) Assert.That(state.CommitInitialSpawn(slot.SlotId, actor++), Is.True);
             return state;
         }
 
         /// <summary>
-        /// 构建全部安全条件满足的检测结果。
+        /// 确认当前敌人死亡与收益账本。
         /// </summary>
-        /// <returns>安全出生结果。</returns>
-        private static RegionSpawnSafety Safe() => new RegionSpawnSafety
+        /// <param name="state">目标房间。</param>
+        /// <param name="slot">存活敌人槽位。</param>
+        private static void ConfirmKill(RegionRuntimeState state, RegionSpawnSlotState slot)
         {
-            PositionAvailable = true, OutsideSafeDistance = true, OutsideCamera = true
+            Assert.That(state.TryRecordDeath(slot.SlotId, slot.CurrentActorId, slot.LifeSequence), Is.True);
+            Assert.That(state.TryConfirmDeathProcessed(slot.SlotId, slot.LifeSequence), Is.True);
+        }
+
+        /// <summary>
+        /// 创建带独立种子的测试请求。
+        /// </summary>
+        /// <param name="kind">房间类型。</param>
+        /// <returns>稳定请求。</returns>
+        private static RegionGenerationRequest Request(ExpeditionRoomKind kind = ExpeditionRoomKind.Combat) => new RegionGenerationRequest
+        {
+            RunId = "run", RegionId = 1, RegionIndex = 0, LevelId = 1, RoomDefinitionId = 1, RoomKind = kind, LootLevel = 1, EnemyLevel = 1,
+            BossDefinitionId = kind == ExpeditionRoomKind.Boss ? 10 : 0, BossEnemyId = kind == ExpeditionRoomKind.Boss ? 20 : 0,
+            BossEnemyLevel = kind == ExpeditionRoomKind.Boss ? 1 : 0, BossAnchorId = kind == ExpeditionRoomKind.Boss ? "boss" : null,
+            MapId = 1, MapVersion = "test", ConfigVersion = "test", MonsterSeed = 1, EliteSeed = 2, ChestSeed = 3, NpcSeed = 4
         };
 
         /// <summary>
-        /// 构建测试开局请求。
+        /// 创建仅用于测试的下进上出长条几何。
         /// </summary>
-        /// <returns>稳定身份及独立随机种子。</returns>
-        private static RegionGenerationRequest Request() => new RegionGenerationRequest
-        {
-            RunId = "run", RegionId = 1, RegionIndex = 0, LevelId = 1, LootLevel = 1, EnemyLevel = 1, BossDefinitionId = 10,
-            BossEnemyId = 20, BossEnemyLevel = 1, BossAnchorId = "boss", MapId = 1, MapVersion = "test", ConfigVersion = "test",
-            MonsterSeed = 1, EliteSeed = 2, ChestSeed = 3, NpcSeed = 4
-        };
-
-        /// <summary>
-        /// 构建测试地图资源描述。
-        /// </summary>
-        /// <returns>完整可达地图及候选锚点。</returns>
+        /// <returns>各房型共用的有效地图。</returns>
         private static RegionMapDefinition Map() => new RegionMapDefinition
         {
-            MapId = 1, Version = "test", Bounds = new Rect(-40, -40, 80, 80), Anchors = new List<RegionMapAnchor>
+            MapId = 1, Version = "test", Bounds = new Rect(-10, -30, 20, 60), Anchors = new List<RegionMapAnchor>
             {
-                Anchor("entry", RegionAnchorKind.Entry, "", new Vector3(0, 0, -30), 1),
-                Anchor("exit", RegionAnchorKind.Exit, "", new Vector3(0, 0, 30), 1),
-                Anchor("boss", RegionAnchorKind.Boss, "", new Vector3(0, 0, 20), 1),
-                Anchor("monster-a", RegionAnchorKind.Monster, "monster", new Vector3(-20, 0, -10), 3),
-                Anchor("monster-b", RegionAnchorKind.Monster, "monster", new Vector3(20, 0, -10), 3),
-                Anchor("elite-a", RegionAnchorKind.Elite, "elite", new Vector3(-20, 0, 15), 1),
-                Anchor("elite-b", RegionAnchorKind.Elite, "elite", new Vector3(20, 0, 15), 1),
-                Anchor("chest-a", RegionAnchorKind.Chest, "chest", new Vector3(-25, 0, 0), 1),
-                Anchor("chest-b", RegionAnchorKind.Chest, "chest", new Vector3(-15, 0, 0), 1),
-                Anchor("npc", RegionAnchorKind.Npc, "npc", new Vector3(25, 0, 0), 1)
-            }, NoSpawnZones = new List<RegionNoSpawnZone> { new RegionNoSpawnZone { Center = new Vector3(0, 0, -30), Radius = 2 } }
+                Anchor("entry", RegionAnchorKind.Entry, "", -25, 1), Anchor("exit", RegionAnchorKind.Exit, "", 25, 1),
+                Anchor("boss", RegionAnchorKind.Boss, "", 15, 1), Anchor("monster", RegionAnchorKind.Monster, "monster", -5, 2),
+                Anchor("chest", RegionAnchorKind.Chest, "chest", 0, 1), Anchor("npc", RegionAnchorKind.Npc, "npc", 0, 1)
+            }
         };
 
         /// <summary>
-        /// 创建测试锚点。
+        /// 创建测试空间锚点。
         /// </summary>
         /// <param name="id">稳定身份。</param>
         /// <param name="kind">锚点用途。</param>
-        /// <param name="tag">内容匹配标签。</param>
-        /// <param name="position">世界位置。</param>
-        /// <param name="capacity">可容纳成员数量。</param>
-        /// <returns>测试锚点。</returns>
-        private static RegionMapAnchor Anchor(string id, RegionAnchorKind kind, string tag, Vector3 position, int capacity) =>
-            new RegionMapAnchor { Id = id, Kind = kind, Tag = tag, Position = position, Capacity = capacity };
+        /// <param name="tag">内容标签。</param>
+        /// <param name="z">纵向位置。</param>
+        /// <param name="capacity">成员容量。</param>
+        /// <returns>独立锚点。</returns>
+        private static RegionMapAnchor Anchor(string id, RegionAnchorKind kind, string tag, float z, int capacity) =>
+            new RegionMapAnchor { Id = id, Kind = kind, Tag = tag, Position = new Vector3(0, 0, z), Capacity = capacity };
 
         /// <summary>
-        /// 构建只存在于测试程序集的内容规则。
+        /// 构建只存在于测试程序集的房型内容和物品工厂。
         /// </summary>
-        /// <returns>可验证冻结及刷新机制的配置。</returns>
-        private static RegionContentDefinition Content() => new RegionContentDefinition
+        /// <param name="kind">房间类型。</param>
+        /// <returns>有效测试内容。</returns>
+        private static RegionContentDefinition Content(ExpeditionRoomKind kind = ExpeditionRoomKind.Combat) => new RegionContentDefinition
         {
-            MonsterGroupCount = 2, EliteCount = 1, ChestCount = 1, NpcCount = 1, MonsterAnchorTag = "monster", EliteAnchorTag = "elite",
-            ChestAnchorTag = "chest", NpcAnchorTag = "npc", BossRadius = 1, PlayerRadius = 0.5f, InteractionRadius = 2,
-            ReachabilityGridSpacing = 2, ReachabilityMaxCells = 10000, MaxSpawnSlots = 30,
-            NormalRespawn = new RegionRespawnRule { DelayTicks = 3, WarningTicks = 2, SafeDistance = 12, ExperienceMultiplier = 1 },
-            EliteRespawn = new RegionRespawnRule { DelayTicks = 4, WarningTicks = 2, SafeDistance = 12, ExperienceMultiplier = 1 },
+            MonsterGroupCount = kind == ExpeditionRoomKind.Combat ? 1 : 0, ChestCount = kind == ExpeditionRoomKind.Chest ? 1 : 0,
+            NpcCount = kind == ExpeditionRoomKind.Npc ? 1 : 0, MonsterAnchorTag = "monster", ChestAnchorTag = "chest", NpcAnchorTag = "npc",
+            BossRadius = kind == ExpeditionRoomKind.Boss ? 1 : 0, PlayerRadius = 0.5f, InteractionRadius = 2,
+            ReachabilityGridSpacing = 1, ReachabilityMaxCells = 10000, MaxSpawnSlots = 30,
             MonsterEncounters = new List<RegionEncounterCandidate>
             {
-                new RegionEncounterCandidate { Id = 1, Weight = 1, MinLevel = 1, MaxLevel = 2, Members = new List<RegionSpawnMemberDefinition>
-                    { new RegionSpawnMemberDefinition { EnemyId = 1, Count = 2, StartOffset = new Vector3(-1, 0, 0), StepOffset = new Vector3(2, 0, 0), Radius = 0.4f } } },
-                new RegionEncounterCandidate { Id = 2, Weight = 2, MinLevel = 1, MaxLevel = 2, Members = new List<RegionSpawnMemberDefinition>
-                    { new RegionSpawnMemberDefinition { EnemyId = 2, Count = 2, StartOffset = new Vector3(-1, 0, 0), StepOffset = new Vector3(2, 0, 0), Radius = 0.4f } } }
-            }, EliteCandidates = new List<RegionEliteCandidate>
-            {
-                new RegionEliteCandidate { Id = 1, EnemyId = 3, Weight = 1, MinLevel = 1, MaxLevel = 2, Radius = 0.7f }
-            }, ChestCandidates = new List<RegionChestCandidate>
-            {
-                new RegionChestCandidate { Id = 1, Weight = 1, LootPoolId = "chest", ItemCount = 1 }
-            }, NpcCandidates = new List<RegionNpcCandidate>
-            {
-                new RegionNpcCandidate { Id = 1, Weight = 1, LootPoolId = "merchant", Price = 10, Stock = 1 }
-            }, ItemFactory = (random, level, pool) => new ProjectItem
-            {
-                Id = "factory-owned", Name = pool + random.Next(), Type = ProjectItemType.Item, RequiredLevel = level, SellGold = 1
-            }
+                new RegionEncounterCandidate { Id = 1, Weight = 1, MinLevel = 1, MaxLevel = 2,
+                    Members = new List<RegionSpawnMemberDefinition> { new RegionSpawnMemberDefinition
+                    { EnemyId = 1, Count = 2, StartOffset = new Vector3(-1, 0, 0), StepOffset = new Vector3(2, 0, 0), Radius = 0.4f } } }
+            },
+            ChestCandidates = new List<RegionChestCandidate> { new RegionChestCandidate { Id = 1, Weight = 1, LootPoolId = "chest", ItemCount = 2 } },
+            NpcCandidates = new List<RegionNpcCandidate> { new RegionNpcCandidate { Id = 1, Weight = 1, LootPoolId = "merchant", Price = 10, Stock = 1 } },
+            ItemFactory = (random, level, pool) => new ProjectItem
+            { Id = "factory", Name = pool + random.Next(), Type = ProjectItemType.Item, RequiredLevel = level, SellGold = 1 }
         };
     }
 }

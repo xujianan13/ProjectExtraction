@@ -8,7 +8,7 @@ using UnityEngine;
 namespace GameLogic.Gameplay.Level
 {
     /// <summary>
-    /// 关卡配置身份和物品等级，不携带旧房间布局。
+    /// 关卡配置身份、固定房间序列和物品等级。
     /// </summary>
     public sealed class LevelDefinition
     {
@@ -42,16 +42,16 @@ namespace GameLogic.Gameplay.Level
         internal EnemyDefinition(CfgEnemiesRow row) => Row = row;
 
         /// <summary>
-        /// 按区域强度计算生命值。
+        /// 按房间强度计算生命值。
         /// </summary>
-        /// <param name="level">区域强度，等于关卡物品等级加区域序号。</param>
+        /// <param name="level">房间强度，等于关卡物品等级加房间配置偏移。</param>
         /// <returns>敌人生命值。</returns>
         public float HealthAt(int level) => (float)(Row.BaseHealth + Row.HealthPerLevel * level);
 
         /// <summary>
-        /// 按区域强度计算初生击杀经验。
+        /// 按房间强度计算击杀经验。
         /// </summary>
-        /// <param name="level">区域强度，等于关卡物品等级加区域序号。</param>
+        /// <param name="level">房间强度，等于关卡物品等级加房间配置偏移。</param>
         /// <returns>击杀经验值。</returns>
         public int ExperienceAt(int level) => Row.ExperienceBase + Row.ExperiencePerLevel * level;
 
@@ -81,19 +81,13 @@ namespace GameLogic.Gameplay.Level
         public static bool Validate(out string error)
         {
             error = null;
-            if (GameTables.CfgLevels == null || GameTables.CfgEnemies == null || GameTables.CfgRegionMaps == null ||
-                GameTables.CfgBosses == null || GameTables.CfgBossRewards == null || GameTables.CfgRegionContent == null ||
-                GameTables.CfgEncounters == null || GameTables.CfgSpawns == null || GameTables.CfgElitePool == null ||
-                GameTables.CfgChestPool == null || GameTables.CfgNpcPool == null || GameTables.CfgRespawnRules == null ||
+            if (GameTables.CfgLevels == null || GameTables.CfgRooms == null || GameTables.CfgRoomMaps == null ||
+                GameTables.CfgRoomAnchors == null || GameTables.CfgRoomObstacles == null || GameTables.CfgEnemies == null ||
+                GameTables.CfgBosses == null || GameTables.CfgBossRewards == null || GameTables.CfgEncounters == null ||
+                GameTables.CfgSpawns == null || GameTables.CfgChestPool == null || GameTables.CfgNpcPool == null ||
                 GameTables.CfgRunPersistence?.GetById(1) == null || GameTables.CfgCombatSkills == null ||
-                GameTables.CfgCombatEffects == null || GameTables.CfgRoguePools == null || GameTables.CfgRogueRewards == null ||
-                GameTables.CfgRogueProgress == null ||
-                GameTables.CfgLootPool == null || GameTables.CfgPlayerCombat?.GetById(1) == null)
-                return Fail("区域配置表未完整加载。", out error);
-            foreach (CfgRegionMapsRow map in GameTables.CfgRegionMaps.GetAll())
-                if (map.ID <= 0 || string.IsNullOrWhiteSpace(map.Version) || string.IsNullOrWhiteSpace(map.PrefabAddress) ||
-                    string.IsNullOrWhiteSpace(map.GeometryAddress) || string.IsNullOrWhiteSpace(map.MinimapAddress))
-                    return Fail("区域地图引用无效：" + map.ID, out error);
+                GameTables.CfgCombatEffects == null || GameTables.CfgLootPool == null || GameTables.CfgPlayerCombat?.GetById(1) == null)
+                return Fail("房间配置表未完整加载。", out error);
             foreach (CfgEnemiesRow enemy in GameTables.CfgEnemies.GetAll())
             {
                 if (enemy.ID <= 0 || string.IsNullOrWhiteSpace(enemy.Name) || string.IsNullOrWhiteSpace(enemy.PrefabAddress) ||
@@ -110,57 +104,78 @@ namespace GameLogic.Gameplay.Level
                     if (!effects.Add(id) || GameTables.CfgCombatEffects.GetById(id)?.Kind != (int)CombatEffectKind.Damage)
                         return Fail("敌人伤害弱点引用无效：" + enemy.ID, out error);
             }
+
             foreach (CfgBossesRow boss in GameTables.CfgBosses.GetAll())
-                if (boss.ID <= 0 || string.IsNullOrWhiteSpace(boss.Name) || string.IsNullOrWhiteSpace(boss.PoolID) || boss.Weight <= 0 ||
-                    boss.MinLevel <= 0 || boss.MaxLevel < boss.MinLevel || GameTables.CfgRegionMaps.GetById(boss.MapID) == null ||
+                if (boss.ID <= 0 || string.IsNullOrWhiteSpace(boss.Name) ||
                     GameTables.CfgEnemies.GetById(boss.EnemyID)?.Role != (int)RegionEnemyKind.Boss ||
                     GameTables.CfgBossRewards.GetById(boss.RewardID) == null)
-                    return Fail("Boss 地图或奖励绑定无效：" + boss.ID, out error);
-            foreach (CfgRespawnRulesRow rule in GameTables.CfgRespawnRules.GetAll())
-                if (rule.ID <= 0 || !TryCreateRespawn(rule, out _)) return Fail("复活规则无效：" + rule.ID, out error);
+                    return Fail("Boss 或奖励绑定无效：" + boss.ID, out error);
             foreach (CfgSpawnsRow spawn in GameTables.CfgSpawns.GetAll())
                 if (spawn.ID <= 0 || GameTables.CfgEncounters.GetById(spawn.EncounterID) == null || spawn.Count <= 0 ||
                     GameTables.CfgEnemies.GetById(spawn.EnemyID)?.Role != (int)RegionEnemyKind.Normal ||
                     !Finite(spawn.StartX) || !Finite(spawn.StartZ) || !Finite(spawn.StepX) || !Finite(spawn.StepZ) || !Finite(spawn.AlternateZ))
-                    return Fail("普通怪群成员无效：" + spawn.ID, out error);
+                    return Fail("房间怪群成员无效：" + spawn.ID, out error);
             foreach (CfgEncountersRow encounter in GameTables.CfgEncounters.GetAll())
-            {
-                if (encounter.ID <= 0 || string.IsNullOrWhiteSpace(encounter.PoolID) || encounter.Weight <= 0 ||
-                    encounter.MinLevel <= 0 || encounter.MaxLevel < encounter.MinLevel || !ValidateMembers(encounter.ID, out error))
-                    return error != null ? false : Fail("普通怪群候选无效：" + encounter.ID, out error);
-            }
-            foreach (CfgElitePoolRow elite in GameTables.CfgElitePool.GetAll())
-                if (elite.ID <= 0 || string.IsNullOrWhiteSpace(elite.PoolID) || elite.Weight <= 0 || elite.MinLevel <= 0 ||
-                    elite.MaxLevel < elite.MinLevel || GameTables.CfgEnemies.GetById(elite.EnemyID)?.Role != (int)RegionEnemyKind.Elite)
-                    return Fail("精英候选无效：" + elite.ID, out error);
+                if (encounter.ID <= 0 || encounter.MinLevel <= 0 || encounter.MaxLevel < encounter.MinLevel ||
+                    encounter.Weight <= 0 || !ValidateMembers(encounter.ID, out error))
+                    return error != null ? false : Fail("怪群配置无效：" + encounter.ID, out error);
             foreach (CfgChestPoolRow chest in GameTables.CfgChestPool.GetAll())
-                if (chest.ID <= 0 || string.IsNullOrWhiteSpace(chest.PoolID) || chest.Weight <= 0 || chest.ItemCount <= 0 ||
-                    !HasLootPool(chest.LootPoolID, 0)) return Fail("宝箱候选无效：" + chest.ID, out error);
+                if (chest.ID <= 0 || chest.ItemCount <= 0 || chest.Weight <= 0 || !HasLootPool(chest.LootPoolID, 0))
+                    return Fail("宝箱配置无效：" + chest.ID, out error);
             foreach (CfgNpcPoolRow npc in GameTables.CfgNpcPool.GetAll())
-                if (npc.ID <= 0 || string.IsNullOrWhiteSpace(npc.PoolID) || npc.Weight <= 0 || npc.Price <= 0 || npc.Stock <= 0 ||
-                    !HasLootPool(npc.LootPoolID, 0)) return Fail("商人候选无效：" + npc.ID, out error);
-            foreach (CfgRegionContentRow content in GameTables.CfgRegionContent.GetAll())
-                if (content.ID <= 0 || content.MonsterGroupCount < 0 || content.EliteCount < 0 || content.ChestCount < 0 || content.NpcCount < 0 ||
-                    GameTables.CfgRespawnRules.GetById(content.NormalRespawnID) == null ||
-                    GameTables.CfgRespawnRules.GetById(content.EliteRespawnID) == null || !Positive(content.InteractionRadius) ||
-                    !Positive(content.ReachabilityGridSpacing) || content.ReachabilityMaxCells <= 0 || content.MaxSpawnSlots <= 0)
-                    return Fail("区域内容规则无效：" + content.ID, out error);
-            int defaults = 0;
-            foreach (CfgLevelsRow level in GameTables.CfgLevels.GetAll())
+                if (npc.ID <= 0 || npc.Price <= 0 || npc.Stock <= 0 || npc.Weight <= 0 || !HasLootPool(npc.LootPoolID, 0))
+                    return Fail("商人配置无效：" + npc.ID, out error);
+            foreach (CfgRoomMapsRow row in GameTables.CfgRoomMaps.GetAll())
+                if (!TryCreateRoomMap(row.ID, out _, out error)) return false;
+            foreach (CfgRoomAnchorsRow anchor in GameTables.CfgRoomAnchors.GetAll())
+                if (GameTables.CfgRoomMaps.GetById(anchor.MapID) == null || !Nonnegative(anchor.NoSpawnRadius))
+                    return Fail("地图锚点引用无效：" + anchor.ID, out error);
+            foreach (CfgRoomObstaclesRow obstacle in GameTables.CfgRoomObstacles.GetAll())
+                if (GameTables.CfgRoomMaps.GetById(obstacle.MapID) == null) return Fail("地图障碍引用无效。", out error);
+            foreach (CfgRoomsRow room in GameTables.CfgRooms.GetAll())
             {
-                if (level.IsDefault) defaults++;
-                if (level.ID <= 0 || level.LootLevel <= 0 || level.RegionCount <= 0 || level.RegionCount == int.MaxValue ||
-                    (long)level.LootLevel + level.RegionCount > int.MaxValue || level.RequiredLevel <= 0 ||
-                    string.IsNullOrWhiteSpace(level.Name) || string.IsNullOrWhiteSpace(level.Description) ||
-                    GameTables.CfgRegionContent.GetById(level.ContentID) == null || !HasLootPool(level.LootPoolID, level.LootLevel) ||
-                    GameTables.CfgRogueProgress.GetById(level.ProgressRuleID) == null || !HasSkillPool(level.SkillPoolID))
-                    return Fail("关卡配置无效：" + level.ID, out error);
-                for (int index = 0; index <= level.RegionCount; index++)
+                if (room.ID <= 0 || string.IsNullOrWhiteSpace(room.Name) || !Enum.IsDefined(typeof(ExpeditionRoomKind), room.Kind) ||
+                    GameTables.CfgRoomMaps.GetById(room.MapID) == null || room.EnemyLevelOffset < 0 ||
+                    !Positive(room.InteractionRadius) || !Positive(room.ReachabilityGridSpacing) || room.ReachabilityMaxCells <= 0 || room.MaxSpawnSlots <= 0)
+                    return Fail("房间配置无效：" + room.ID, out error);
+                ExpeditionRoomKind kind = (ExpeditionRoomKind)room.Kind;
+                if (kind == ExpeditionRoomKind.Combat && (GameTables.CfgEncounters.GetById(room.EncounterID) == null || room.BossID != 0) ||
+                    kind == ExpeditionRoomKind.Boss && (GameTables.CfgBosses.GetById(room.BossID) == null || room.EncounterID != 0) ||
+                    kind != ExpeditionRoomKind.Combat && kind != ExpeditionRoomKind.Boss && (room.EncounterID != 0 || room.BossID != 0))
+                    return Fail("房间类型与战斗内容不匹配：" + room.ID, out error);
+                bool chestFound = false, npcFound = false;
+                foreach (CfgChestPoolRow candidate in GameTables.CfgChestPool.GetAll()) if (candidate.PoolID == room.ChestPoolID) chestFound = true;
+                foreach (CfgNpcPoolRow candidate in GameTables.CfgNpcPool.GetAll()) if (candidate.PoolID == room.NpcPoolID) npcFound = true;
+                if (kind == ExpeditionRoomKind.Chest && !chestFound || kind == ExpeditionRoomKind.Npc && !npcFound ||
+                    kind != ExpeditionRoomKind.Chest && !string.IsNullOrEmpty(room.ChestPoolID) ||
+                    kind != ExpeditionRoomKind.Npc && !string.IsNullOrEmpty(room.NpcPoolID))
+                    return Fail("房间交互内容与类型不匹配：" + room.ID, out error);
+            }
+            int defaults = 0;
+            foreach (CfgLevelsRow row in GameTables.CfgLevels.GetAll())
+            {
+                if (row.IsDefault) defaults++;
+                if (row.ID <= 0 || row.RequiredLevel <= 0 || row.LootLevel <= 0 || string.IsNullOrWhiteSpace(row.Name) ||
+                    string.IsNullOrWhiteSpace(row.Description) || row.RoomIDs == null || row.RoomIDs.Length == 0 ||
+                    !HasLootPool(row.LootPoolID, row.LootLevel)) return Fail("关卡配置无效：" + row.ID, out error);
+                for (int index = 0; index < row.RoomIDs.Length; index++)
                 {
-                    int intensity = level.LootLevel + index;
-                    string pool = index == level.RegionCount ? level.FinalBossPoolID : level.BossPoolID;
-                    if (BossCandidates(pool, intensity).Count == 0) return Fail("关卡缺少适用 Boss 池：" + level.ID + "/" + index, out error);
-                    if (index < level.RegionCount && !ValidatePools(level, intensity, out error)) return false;
+                    CfgRoomsRow room = GameTables.CfgRooms.GetById(row.RoomIDs[index]);
+                    if (room == null || (room.Kind == (int)ExpeditionRoomKind.Boss) != (index == row.RoomIDs.Length - 1) ||
+                        (long)row.LootLevel + room.EnemyLevelOffset > int.MaxValue)
+                        return Fail("关卡房间顺序无效，只有最后一房可以是 Boss：" + row.ID, out error);
+                    int intensity = row.LootLevel + room.EnemyLevelOffset;
+                    if (room.Kind == (int)ExpeditionRoomKind.Combat)
+                    {
+                        CfgEncountersRow encounter = GameTables.CfgEncounters.GetById(room.EncounterID);
+                        if (intensity < encounter.MinLevel || intensity > encounter.MaxLevel) return Fail("怪群等级不覆盖房间强度。", out error);
+                    }
+                    foreach (CfgChestPoolRow candidate in GameTables.CfgChestPool.GetAll())
+                        if (candidate.PoolID == room.ChestPoolID && !HasLootPool(candidate.LootPoolID, row.LootLevel))
+                            return Fail("宝箱掉落池不覆盖关卡等级。", out error);
+                    foreach (CfgNpcPoolRow candidate in GameTables.CfgNpcPool.GetAll())
+                        if (candidate.PoolID == room.NpcPoolID && !HasLootPool(candidate.LootPoolID, row.LootLevel))
+                            return Fail("商人掉落池不覆盖关卡等级。", out error);
                 }
             }
             return defaults == 1 ? true : Fail("关卡必须且只能有一个默认条目。", out error);
@@ -206,46 +221,39 @@ namespace GameLogic.Gameplay.Level
         }
 
         /// <summary>
-        /// 开局一次确定所有区域的 Boss、绑定地图和四条独立内容种子。
+        /// 按关卡固定顺序建立房间身份、地图和独立内容种子。
         /// </summary>
         /// <param name="runId">全局局次身份。</param>
         /// <param name="seed">本局种子。</param>
         /// <param name="level">已经通过配置门禁的关卡。</param>
-        /// <param name="requests">按零起点序号排列的区域请求，最后一项为最终区。</param>
+        /// <param name="requests">按零起点序号排列的房间请求，最后一项为 Boss 房。</param>
         /// <param name="error">失败原因。</param>
         /// <returns>所有区域绑定均可保存时为真。</returns>
-        public static bool TryCreateRegionRequests(string runId, int seed, LevelDefinition level,
+        public static bool TryCreateRoomRequests(string runId, int seed, LevelDefinition level,
             out List<RegionGenerationRequest> requests, out string error)
         {
             requests = null;
             error = null;
             if (string.IsNullOrWhiteSpace(runId) || level == null || !Validate(out error))
-                return error != null ? false : Fail("区域开局请求身份无效。", out error);
+                return error != null ? false : Fail("房间开局请求身份无效。", out error);
             var generated = new List<RegionGenerationRequest>();
-            var bossRandom = new PersistentRandom(unchecked(seed ^ 0x424F5353));
-            var seeds = new PersistentRandom(unchecked(seed ^ 0x53454544));
-            for (int index = 0; index <= level.Row.RegionCount; index++)
+            var seeds = new PersistentRandom(seed);
+            for (int index = 0; index < level.Row.RoomIDs.Length; index++)
             {
-                int intensity = level.LootLevel + index;
-                var candidates = BossCandidates(index == level.Row.RegionCount ? level.Row.FinalBossPoolID : level.Row.BossPoolID, intensity);
-                long total = 0;
-                foreach (CfgBossesRow candidate in candidates) total += candidate.Weight;
-                long draw = (long)(bossRandom.NextDouble() * total);
-                CfgBossesRow selected = null;
-                foreach (CfgBossesRow candidate in candidates)
-                {
-                    draw -= candidate.Weight;
-                    if (draw >= 0) continue;
-                    selected = candidate;
-                    break;
-                }
-                if (selected == null) return Fail("Boss 加权抽选失败。", out error);
-                CfgRegionMapsRow map = GameTables.CfgRegionMaps.GetById(selected.MapID);
+                CfgRoomsRow room = GameTables.CfgRooms.GetById(level.Row.RoomIDs[index]);
+                CfgRoomMapsRow map = GameTables.CfgRoomMaps.GetById(room.MapID);
+                CfgBossesRow boss = room.Kind == (int)ExpeditionRoomKind.Boss ? GameTables.CfgBosses.GetById(room.BossID) : null;
+                int intensity = level.LootLevel + room.EnemyLevelOffset;
+                string bossAnchor = null;
+                if (boss != null)
+                    foreach (CfgRoomAnchorsRow anchor in GameTables.CfgRoomAnchors.GetAll())
+                        if (anchor.MapID == room.MapID && anchor.Kind == (int)RegionAnchorKind.Boss) bossAnchor = anchor.AnchorID;
                 generated.Add(new RegionGenerationRequest
                 {
                     RunId = runId, RegionId = index + 1, RegionIndex = index, LevelId = level.ID, LootLevel = level.LootLevel,
-                    EnemyLevel = intensity, BossDefinitionId = selected.ID, BossEnemyId = selected.EnemyID, BossEnemyLevel = intensity,
-                    BossAnchorId = "boss", MapId = map.ID, MapVersion = map.Version,
+                    RoomDefinitionId = room.ID, RoomKind = (ExpeditionRoomKind)room.Kind, EnemyLevel = intensity,
+                    BossDefinitionId = boss == null ? 0 : boss.ID, BossEnemyId = boss == null ? 0 : boss.EnemyID,
+                    BossEnemyLevel = boss == null ? 0 : intensity, BossAnchorId = bossAnchor, MapId = map.ID, MapVersion = map.Version,
                     ConfigVersion = GameTables.CfgRunPersistence.GetById(1).ConfigVersion,
                     MonsterSeed = seeds.Next(), EliteSeed = seeds.Next(), ChestSeed = seeds.Next(), NpcSeed = seeds.Next()
                 });
@@ -255,32 +263,27 @@ namespace GameLogic.Gameplay.Level
         }
 
         /// <summary>
-        /// 将区域业务配置转换为首次进入时的冻结规则；最终区只生成 Boss。
+        /// 按房间类型构建首次进入时的冻结内容。
         /// </summary>
         /// <param name="request">开局保存的区域请求。</param>
         /// <returns>引用当前唯一配置表集的区域内容定义。</returns>
         public static RegionContentDefinition CreateRegionContent(RegionGenerationRequest request)
         {
-            CfgLevelsRow level = GameTables.CfgLevels.GetById(request.LevelId);
-            CfgRegionContentRow row = GameTables.CfgRegionContent.GetById(level.ContentID);
-            bool final = request.RegionIndex == level.RegionCount;
-            TryCreateRespawn(GameTables.CfgRespawnRules.GetById(row.NormalRespawnID), out RegionRespawnRule normal);
-            TryCreateRespawn(GameTables.CfgRespawnRules.GetById(row.EliteRespawnID), out RegionRespawnRule eliteRule);
+            CfgRoomsRow row = GameTables.CfgRooms.GetById(request.RoomDefinitionId);
             var result = new RegionContentDefinition
             {
-                MonsterGroupCount = final ? 0 : row.MonsterGroupCount, EliteCount = final ? 0 : row.EliteCount,
-                ChestCount = final ? 0 : row.ChestCount, NpcCount = final ? 0 : row.NpcCount,
-                MonsterAnchorTag = "monster", EliteAnchorTag = "elite", ChestAnchorTag = "chest", NpcAnchorTag = "npc",
-                BossRadius = (float)GameTables.CfgEnemies.GetById(request.BossEnemyId).Radius,
+                MonsterGroupCount = request.RoomKind == ExpeditionRoomKind.Combat ? 1 : 0,
+                ChestCount = request.RoomKind == ExpeditionRoomKind.Chest ? 1 : 0,
+                NpcCount = request.RoomKind == ExpeditionRoomKind.Npc ? 1 : 0,
+                MonsterAnchorTag = "monster", ChestAnchorTag = "chest", NpcAnchorTag = "npc",
+                BossRadius = request.RoomKind == ExpeditionRoomKind.Boss ? (float)GameTables.CfgEnemies.GetById(request.BossEnemyId).Radius : 0f,
                 PlayerRadius = (float)GameTables.CfgPlayerCombat.GetById(1).Radius, InteractionRadius = (float)row.InteractionRadius,
                 ReachabilityGridSpacing = (float)row.ReachabilityGridSpacing, ReachabilityMaxCells = row.ReachabilityMaxCells,
-                MaxSpawnSlots = row.MaxSpawnSlots, NormalRespawn = normal, EliteRespawn = eliteRule,
-                ItemFactory = ProjectEquipmentRules.CreateLootFromPool
+                MaxSpawnSlots = row.MaxSpawnSlots, ItemFactory = ProjectEquipmentRules.CreateLootFromPool
             };
-            if (final) return result;
-            foreach (CfgEncountersRow encounter in GameTables.CfgEncounters.GetAll())
+            if (request.RoomKind == ExpeditionRoomKind.Combat)
             {
-                if (encounter.PoolID != row.MonsterPoolID) continue;
+                CfgEncountersRow encounter = GameTables.CfgEncounters.GetById(row.EncounterID);
                 var candidate = new RegionEncounterCandidate
                 { Id = encounter.ID, Weight = encounter.Weight, MinLevel = encounter.MinLevel, MaxLevel = encounter.MaxLevel };
                 foreach (CfgSpawnsRow spawn in GameTables.CfgSpawns.GetAll())
@@ -292,12 +295,6 @@ namespace GameLogic.Gameplay.Level
                     });
                 result.MonsterEncounters.Add(candidate);
             }
-            foreach (CfgElitePoolRow elite in GameTables.CfgElitePool.GetAll())
-                if (elite.PoolID == row.ElitePoolID) result.EliteCandidates.Add(new RegionEliteCandidate
-                {
-                    Id = elite.ID, EnemyId = elite.EnemyID, Weight = elite.Weight, MinLevel = elite.MinLevel, MaxLevel = elite.MaxLevel,
-                    Radius = (float)GameTables.CfgEnemies.GetById(elite.EnemyID).Radius
-                });
             foreach (CfgChestPoolRow chest in GameTables.CfgChestPool.GetAll())
                 if (chest.PoolID == row.ChestPoolID) result.ChestCandidates.Add(new RegionChestCandidate
                 { Id = chest.ID, Weight = chest.Weight, LootPoolId = chest.LootPoolID, ItemCount = chest.ItemCount });
@@ -337,73 +334,78 @@ namespace GameLogic.Gameplay.Level
         }
 
         /// <summary>
-        /// 检查关卡当前强度的各内容池及物品等级覆盖。
+        /// 从唯一配置源构建长条房间几何，供运行时与资产烘焙共用。
         /// </summary>
-        /// <param name="level">关卡行。</param>
-        /// <param name="intensity">区域强度。</param>
+        /// <param name="mapId">地图编号。</param>
+        /// <param name="map">成功时返回的独立地图。</param>
         /// <param name="error">失败原因。</param>
-        /// <returns>要求的四类内容均有候选时为真。</returns>
-        private static bool ValidatePools(CfgLevelsRow level, int intensity, out string error)
+        /// <returns>配置完整、入口下出上且锚点可达时为真。</returns>
+        public static bool TryCreateRoomMap(int mapId, out RegionMapDefinition map, out string error)
         {
-            CfgRegionContentRow content = GameTables.CfgRegionContent.GetById(level.ContentID);
-            bool monsters = content.MonsterGroupCount == 0;
-            bool elites = content.EliteCount == 0;
-            bool chests = content.ChestCount == 0;
-            bool npcs = content.NpcCount == 0;
-            foreach (CfgEncountersRow candidate in GameTables.CfgEncounters.GetAll())
-                if (candidate.PoolID == content.MonsterPoolID && candidate.MinLevel <= intensity && intensity <= candidate.MaxLevel) monsters = true;
-            foreach (CfgElitePoolRow candidate in GameTables.CfgElitePool.GetAll())
-                if (candidate.PoolID == content.ElitePoolID && candidate.MinLevel <= intensity && intensity <= candidate.MaxLevel) elites = true;
-            foreach (CfgChestPoolRow candidate in GameTables.CfgChestPool.GetAll())
-                if (candidate.PoolID == content.ChestPoolID)
-                {
-                    if (!HasLootPool(candidate.LootPoolID, level.LootLevel)) return Fail("宝箱物品池缺少当前物品等级。", out error);
-                    chests = true;
-                }
-            foreach (CfgNpcPoolRow candidate in GameTables.CfgNpcPool.GetAll())
-                if (candidate.PoolID == content.NpcPoolID)
-                {
-                    if (!HasLootPool(candidate.LootPoolID, level.LootLevel)) return Fail("商人物品池缺少当前物品等级。", out error);
-                    npcs = true;
-                }
+            map = null;
             error = null;
-            return monsters && elites && chests && npcs ? true : Fail("关卡区域缺少普通怪、精英、宝箱或商人候选。", out error);
+            CfgRoomMapsRow row = GameTables.CfgRoomMaps?.GetById(mapId);
+            if (row == null || string.IsNullOrWhiteSpace(row.Version) || string.IsNullOrWhiteSpace(row.PrefabAddress) ||
+                string.IsNullOrWhiteSpace(row.GeometryAddress) ||
+                !Finite(row.BoundsX) || !Finite(row.BoundsZ) || !Positive(row.Width) || !Positive(row.Length) ||
+                row.Length <= row.Width || !Finite(row.NorthYawDegrees)) return Fail("长条房间地图配置无效。", out error);
+            return TryCreateRoomMap(row, GameTables.CfgRoomAnchors.GetAll(), GameTables.CfgRoomObstacles.GetAll(), out map, out error);
         }
 
         /// <summary>
-        /// 稳定排序当前强度可用的 Boss 候选。
+        /// 使用同一份导表数据构建地图，供编辑器无需安装全局表集地烘焙资产。
         /// </summary>
-        /// <param name="poolId">Boss 池身份。</param>
-        /// <param name="intensity">区域强度。</param>
-        /// <returns>正权重候选。</returns>
-        private static List<CfgBossesRow> BossCandidates(string poolId, int intensity)
+        /// <param name="row">地图配置。</param>
+        /// <param name="anchors">全部锚点配置。</param>
+        /// <param name="obstacles">全部障碍配置。</param>
+        /// <param name="map">成功时的地图描述。</param>
+        /// <param name="error">失败原因。</param>
+        /// <returns>全部几何及锚点合法时为真。</returns>
+        public static bool TryCreateRoomMap(CfgRoomMapsRow row, IReadOnlyList<CfgRoomAnchorsRow> anchors,
+            IReadOnlyList<CfgRoomObstaclesRow> obstacles, out RegionMapDefinition map, out string error)
         {
-            var result = new List<CfgBossesRow>();
-            foreach (CfgBossesRow row in GameTables.CfgBosses.GetAll())
-                if (row.PoolID == poolId && row.Weight > 0 && row.MinLevel <= intensity && intensity <= row.MaxLevel) result.Add(row);
-            result.Sort((a, b) => a.ID.CompareTo(b.ID));
-            return result;
-        }
-
-        /// <summary>
-        /// 将秒数转换为同战斗时钟一致的有效逻辑帧。
-        /// </summary>
-        /// <param name="row">复活规则行。</param>
-        /// <param name="rule">转换后的独立规则。</param>
-        /// <returns>所有时间和倍率合法时为真。</returns>
-        private static bool TryCreateRespawn(CfgRespawnRulesRow row, out RegionRespawnRule rule)
-        {
-            rule = null;
-            if (!Nonnegative(row.DelaySeconds) || !Nonnegative(row.WarningSeconds) || !Nonnegative(row.SafeDistance) ||
-                !Nonnegative(row.ExperienceMultiplier) || Math.Ceiling(row.DelaySeconds / CombatWorld.TickSeconds) >= long.MaxValue ||
-                Math.Ceiling(row.WarningSeconds / CombatWorld.TickSeconds) >= long.MaxValue) return false;
-            rule = new RegionRespawnRule
+            map = null;
+            error = null;
+            if (row == null || anchors == null || obstacles == null || string.IsNullOrWhiteSpace(row.Version) ||
+                string.IsNullOrWhiteSpace(row.PrefabAddress) || string.IsNullOrWhiteSpace(row.GeometryAddress) ||
+                !Finite(row.BoundsX) || !Finite(row.BoundsZ) ||
+                !Positive(row.Width) || !Positive(row.Length) || row.Length <= row.Width || !Finite(row.NorthYawDegrees))
+                return Fail("长条房间地图配置无效。", out error);
+            var created = new RegionMapDefinition
             {
-                DelayTicks = (long)Math.Ceiling(row.DelaySeconds / CombatWorld.TickSeconds),
-                WarningTicks = (long)Math.Ceiling(row.WarningSeconds / CombatWorld.TickSeconds),
-                SafeDistance = (float)row.SafeDistance, ExperienceMultiplier = (float)row.ExperienceMultiplier
+                MapId = row.ID, Version = row.Version, Bounds = new Rect((float)row.BoundsX, (float)row.BoundsZ, (float)row.Width, (float)row.Length),
+                NorthYawDegrees = (float)row.NorthYawDegrees
             };
-            return rule.IsValid();
+            RegionMapAnchor entry = null, exit = null;
+            foreach (CfgRoomAnchorsRow anchor in anchors)
+            {
+                if (anchor.MapID != row.ID) continue;
+                if (!Finite(anchor.X) || !Finite(anchor.Z) || !Nonnegative(anchor.NoSpawnRadius)) return Fail("房间锚点坐标无效。", out error);
+                var value = new RegionMapAnchor
+                {
+                    Id = anchor.AnchorID, Kind = (RegionAnchorKind)anchor.Kind, Tag = anchor.Tag,
+                    Position = new Vector3((float)anchor.X, 0f, (float)anchor.Z), Capacity = anchor.Capacity
+                };
+                created.Anchors.Add(value);
+                if (value.Kind == RegionAnchorKind.Entry)
+                {
+                    if (entry != null) return Fail("房间必须只有一个入口。", out error);
+                    entry = value;
+                }
+                if (value.Kind == RegionAnchorKind.Exit)
+                {
+                    if (exit != null) return Fail("房间必须只有一个出口。", out error);
+                    exit = value;
+                }
+                if (anchor.NoSpawnRadius > 0) created.NoSpawnZones.Add(new RegionNoSpawnZone { Center = value.Position, Radius = (float)anchor.NoSpawnRadius });
+            }
+            foreach (CfgRoomObstaclesRow obstacle in obstacles)
+                if (obstacle.MapID == row.ID) created.Obstacles.Add(new RegionMapObstacle
+                { Min = new Vector2((float)obstacle.MinX, (float)obstacle.MinZ), Max = new Vector2((float)obstacle.MaxX, (float)obstacle.MaxZ) });
+            if (entry == null || exit == null || entry.Position.z >= exit.Position.z) return Fail("房间必须下进上出。", out error);
+            if (!created.TryValidate(out error)) return false;
+            map = created;
+            return true;
         }
 
         /// <summary>
@@ -417,18 +419,6 @@ namespace GameLogic.Gameplay.Level
             if (string.IsNullOrWhiteSpace(poolId)) return false;
             foreach (CfgLootPoolRow row in GameTables.CfgLootPool.GetAll())
                 if (row.PoolID == poolId && row.Weight > 0 && (lootLevel == 0 || row.MinLevel <= lootLevel && lootLevel <= row.MaxLevel)) return true;
-            return false;
-        }
-
-        /// <summary>
-        /// 检查刷怪技能池存在候选。
-        /// </summary>
-        /// <param name="poolId">技能池身份。</param>
-        /// <returns>至少有一个正权重条目时为真。</returns>
-        private static bool HasSkillPool(string poolId)
-        {
-            foreach (CfgRoguePoolsRow row in GameTables.CfgRoguePools.GetAll())
-                if (row.PoolID == poolId && GameTables.CfgRogueRewards.GetById(row.RewardID)?.Weight > 0) return true;
             return false;
         }
 

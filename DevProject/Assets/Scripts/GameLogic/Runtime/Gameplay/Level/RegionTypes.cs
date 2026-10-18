@@ -4,6 +4,11 @@ using UnityEngine;
 namespace GameLogic.Gameplay.Level
 {
     /// <summary>
+    /// 线性关卡中的房间类型。
+    /// </summary>
+    public enum ExpeditionRoomKind { Combat, Npc, Chest, Boss }
+
+    /// <summary>
     /// 区域内稳定生成槽位的敌人类别。
     /// </summary>
     public enum RegionEnemyKind { Normal, Elite, Boss }
@@ -14,14 +19,9 @@ namespace GameLogic.Gameplay.Level
     public enum RegionAnchorKind { Entry, Monster, Elite, Chest, Npc, Boss, Exit }
 
     /// <summary>
-    /// 一个槽位当前生命的生成与复活阶段。
+    /// 一个槽位在房间内的单次出生与死亡阶段。
     /// </summary>
-    public enum RegionSpawnPhase { InitialSpawn, Alive, DeadWaiting, WaitingSafety, Warning, ReadyToSpawn, Defeated }
-
-    /// <summary>
-    /// 到期后未能开始或完成出生的原因。
-    /// </summary>
-    public enum RegionSpawnWaitReason { None, Countdown, UnsafeDistance, CameraVisible, Occupied, UnprocessedDeath }
+    public enum RegionSpawnPhase { InitialSpawn, Alive, Defeated }
 
     /// <summary>
     /// 可保存的世界平面矩形障碍。
@@ -72,47 +72,6 @@ namespace GameLogic.Gameplay.Level
         /// </summary>
         /// <returns>独立范围副本。</returns>
         public RegionNoSpawnZone Copy() => new RegionNoSpawnZone { Center = Center, Radius = Radius };
-    }
-
-    /// <summary>
-    /// 从配置转换的有效逻辑帧刷新参数。
-    /// </summary>
-    [Serializable]
-    public sealed class RegionRespawnRule
-    {
-        public long DelayTicks;
-        public long WarningTicks;
-        public float SafeDistance;
-        public float ExperienceMultiplier;
-
-        /// <summary>
-        /// 检查刷新参数是否可安全计时。
-        /// </summary>
-        /// <returns>全部参数有效时为真。</returns>
-        public bool IsValid() => DelayTicks > 0 && WarningTicks > 0 && RegionValueRules.NonNegative(SafeDistance) &&
-            RegionValueRules.NonNegative(ExperienceMultiplier);
-
-        /// <summary>
-        /// 创建刷新规则副本。
-        /// </summary>
-        /// <returns>独立刷新规则。</returns>
-        public RegionRespawnRule Copy() => new RegionRespawnRule
-        {
-            DelayTicks = DelayTicks, WarningTicks = WarningTicks, SafeDistance = SafeDistance, ExperienceMultiplier = ExperienceMultiplier
-        };
-    }
-
-    /// <summary>
-    /// 由主协调器根据占位、距离和战斗相机提供的出生安全结果。
-    /// </summary>
-    public struct RegionSpawnSafety
-    {
-        public bool PositionAvailable;
-        public bool OutsideSafeDistance;
-        public bool OutsideCamera;
-        public bool IsSafe => PositionAvailable && OutsideSafeDistance && OutsideCamera;
-        public RegionSpawnWaitReason Reason => !PositionAvailable ? RegionSpawnWaitReason.Occupied :
-            !OutsideSafeDistance ? RegionSpawnWaitReason.UnsafeDistance : !OutsideCamera ? RegionSpawnWaitReason.CameraVisible : RegionSpawnWaitReason.None;
     }
 
     /// <summary>

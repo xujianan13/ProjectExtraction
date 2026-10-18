@@ -89,45 +89,6 @@ namespace ProjectExtraction.Tests
         }
 
         /// <summary>
-        /// 旧仓库、托管、终局和结算清单全部按原数值迁为普通品质。
-        /// </summary>
-        [Test]
-        public void MigrationPreservesLegacyRollsAcrossAllContainers()
-        {
-            ProjectSaveData data = ProjectSaveData.CreateDefault();
-            ProjectItem weapon = data.Warehouse[0];
-            weapon.EquipmentVersion = 0;
-            weapon.BaseAttributes.Clear();
-            var armor = new ProjectItem
-            {
-                Id = "armor", Name = "旧护甲", Type = ProjectItemType.Equipment, RequiredLevel = 1,
-                BonusHealth = 17, Equipped = true
-            };
-            data.Warehouse.Add(armor);
-            Assert.IsTrue(ProjectRunRecordRules.TryAdmit(data, "legacy-v2", 1, 77,
-                new List<ProjectItem> { weapon.Copy(), armor.Copy() }, out _));
-            Assert.IsTrue(ProjectRunRecordRules.TryMarkRunning(data, "legacy-v2", out _));
-            var outcome = new ProjectRunOutcome
-            {
-                RunId = "legacy-v2", LevelId = 1, Seed = 77, RulesVersion = ProjectRunRecordRules.RulesVersion,
-                Tick = 1, Extracted = true, Items = data.EntryItems.ConvertAll(item => item.Copy())
-            };
-            Assert.IsTrue(ProjectRunRecordRules.TryRecordOutcome(data, outcome, out _));
-            ProjectSaveData active = data.Copy();
-            Assert.IsTrue(ProjectRunRecordRules.TrySettleOutcome(data, out _));
-            var codec = new ProjectSaveCodec();
-            ProjectSaveData migratedActive = Migrate(codec, active);
-            ProjectSaveData migratedSettled = Migrate(codec, data);
-            AssertMigrated(migratedActive.EntryItems[0], ProjectItemType.Weapon, 16);
-            AssertMigrated(migratedActive.EntryItems[1], ProjectItemType.Armor, 17);
-            AssertMigrated(migratedActive.Outcome.Items[1], ProjectItemType.Armor, 17);
-            AssertMigrated(migratedSettled.Warehouse[1], ProjectItemType.Armor, 17);
-            AssertMigrated(migratedSettled.LastResult.Outcome.Items[1], ProjectItemType.Armor, 17);
-            AssertMigrated(migratedSettled.LastResult.RetainedItems[1], ProjectItemType.Armor, 17);
-            Assert.AreEqual("legacy-v2", migratedSettled.LastSettledRunId);
-        }
-
-        /// <summary>
         /// 非有限值、重复词条和同槽装备不能进入存档。
         /// </summary>
         [Test]
@@ -283,35 +244,5 @@ namespace ProjectExtraction.Tests
             Assert.IsNotNull(ProjectEquipmentRules.ValidateItem(invalid));
         }
 
-        /// <summary>
-        /// 执行版本二装备迁移并模拟实际存档编码往返。
-        /// </summary>
-        /// <param name="codec">项目编解码器。</param>
-        /// <param name="data">版本二数据。</param>
-        /// <returns>通过当前校验的版本三数据。</returns>
-        private static ProjectSaveData Migrate(ProjectSaveCodec codec, ProjectSaveData data)
-        {
-            string json = codec.Encode(data);
-            var migration = ProjectEquipmentRules.CreateEquipmentMigration();
-            Assert.IsNull(migration.ValidateSource(json));
-            ProjectSaveData migrated = codec.Decode(migration.Migrate(json));
-            Assert.IsNull(ProjectSaveData.Validate(migrated));
-            return codec.Decode(codec.Encode(migrated));
-        }
-
-        /// <summary>
-        /// 检查旧实例数值被直接保留且没有生成随机词条。
-        /// </summary>
-        /// <param name="item">迁移后的实例。</param>
-        /// <param name="type">预期分类。</param>
-        /// <param name="value">预期原数值。</param>
-        private static void AssertMigrated(ProjectItem item, ProjectItemType type, float value)
-        {
-            Assert.AreEqual(type, item.Type);
-            Assert.AreEqual(ProjectItemQuality.Common, item.Quality);
-            Assert.AreEqual(ProjectEquipmentRules.LegacyEquipmentVersion, item.EquipmentVersion);
-            Assert.AreEqual(0, item.Affixes.Count);
-            Assert.AreEqual(value, item.BaseAttributes[0].Value);
-        }
     }
 }

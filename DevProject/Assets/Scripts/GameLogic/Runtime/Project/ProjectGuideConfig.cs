@@ -99,7 +99,7 @@ namespace GameLogic.Project
         /// </summary>
         /// <param name="name">字段名。</param>
         /// <returns>可替换时为真。</returns>
-        private static bool Known(string name) => name == "EntryCost" || name == "StaminaCap" ||
+        private static bool Known(string name) => name == "EntryCost" || name == "RoomEntryCost" || name == "AdExtractionItemLimit" || name == "StaminaCap" ||
             name == "RecoverySeconds" || name == "DailyResetHour" || name == "SupplyHourFirst" ||
             name == "SupplyHourSecond" || name == "SupplyHourThird" || name == "SupplyAmount";
 
@@ -114,6 +114,8 @@ namespace GameLogic.Project
             switch (name)
             {
                 case "EntryCost": return profile.EntryCost;
+                case "RoomEntryCost": return profile.RoomEntryCost;
+                case "AdExtractionItemLimit": return profile.AdExtractionItemLimit;
                 case "StaminaCap": return profile.StaminaCap;
                 case "RecoverySeconds": return profile.RecoverySeconds;
                 case "DailyResetHour": return profile.DailyResetHour;

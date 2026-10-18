@@ -1,5 +1,5 @@
 # 用法：关闭此项目 Unity 后执行 ./tools/diagnose-frame-pacing.ps1 -Label baseline 或 -Label after。
-# 保留图形设备；每后端 2 秒预热和 8 秒真实帧采样；临时诊断入口不进入常规 Quick 测试计数。
+# V3 保留图形设备；每后端 2 秒预热和 8 秒真实帧采样，另测显式暂停检查点；不进入常规 Quick 测试计数。
 param(
     [ValidateSet('baseline', 'after')][string]$Label = 'baseline',
     [string]$EditorPath = 'D:\Program Files\Unity\Editor\2022.3.62f2\Editor\Unity.exe'
@@ -8,12 +8,12 @@ param(
 $ErrorActionPreference = 'Stop'
 $repository = [IO.Path]::GetFullPath((Split-Path -Parent $PSScriptRoot))
 $project = Join-Path $repository 'DevProject'
-$verification = Join-Path $repository 'Verification/v2-frame-pacing'
+$verification = Join-Path $repository 'Verification/v3-frame-pacing'
 . (Join-Path $PSScriptRoot 'unity-process.ps1')
 $timeoutSeconds = 1800
-$expectedTest = 'MiniGame.Tests.ProjectExpeditionPlayModeTests.FramePacing_FileAndMemory_ActualUnityFrames'
-$template = Join-Path $PSScriptRoot 'templates/diagnostics/ProjectExpeditionV2FramePacing.cs.template'
-$source = Join-Path $project 'Assets/Tests/PlayMode/ProjectExpeditionPlayModeTests.FramePacing.cs'
+$expectedTest = 'MiniGame.Tests.ProjectExpeditionPlayModeTests.FramePacing_V3_FileAndMemory_ActualUnityFrames'
+$template = Join-Path $PSScriptRoot 'templates/diagnostics/ProjectExpeditionV3FramePacing.cs.template'
+$source = Join-Path $project 'Assets/Tests/PlayMode/ProjectExpeditionPlayModeTests.V3FramePacing.cs'
 $meta = "$source.meta"
 $log = Join-Path $verification "$Label.log"
 $result = Join-Path $verification "$Label.xml"
@@ -22,8 +22,8 @@ $sourceCreated = $false
 $metaCreated = $false
 $process = $null
 $runLock = $null
-$previousEnabled = [Environment]::GetEnvironmentVariable('PROJECT_V2_FRAME_PACING', 'Process')
-$previousLabel = [Environment]::GetEnvironmentVariable('PROJECT_V2_FRAME_PACING_LABEL', 'Process')
+$previousEnabled = [Environment]::GetEnvironmentVariable('PROJECT_V3_FRAME_PACING', 'Process')
+$previousLabel = [Environment]::GetEnvironmentVariable('PROJECT_V3_FRAME_PACING_LABEL', 'Process')
 
 try {
     if (-not (Test-Path -LiteralPath $EditorPath -PathType Leaf)) { throw "找不到 Unity Editor：$EditorPath" }
@@ -50,8 +50,8 @@ try {
         $metaStream.Write($metaBytes, 0, $metaBytes.Length)
     } finally { $metaStream.Dispose() }
 
-    [Environment]::SetEnvironmentVariable('PROJECT_V2_FRAME_PACING', '1', 'Process')
-    [Environment]::SetEnvironmentVariable('PROJECT_V2_FRAME_PACING_LABEL', $Label, 'Process')
+    [Environment]::SetEnvironmentVariable('PROJECT_V3_FRAME_PACING', '1', 'Process')
+    [Environment]::SetEnvironmentVariable('PROJECT_V3_FRAME_PACING_LABEL', $Label, 'Process')
     $arguments = @('-batchmode', '-projectPath', (ConvertTo-UnityArgument $project), '-logFile', (ConvertTo-UnityArgument $log),
         '-runTests', '-testPlatform', 'PlayMode', '-testFilter', (ConvertTo-UnityArgument $expectedTest),
         '-testResults', (ConvertTo-UnityArgument $result))
@@ -84,11 +84,13 @@ try {
     $measurement = Get-Content -LiteralPath $report -Raw -Encoding UTF8 | ConvertFrom-Json
     if ($measurement.Label -ne $Label -or @($measurement.Backends).Count -ne 2) { throw "帧率报告标签或后端数量无效：$report" }
     foreach ($arm in $measurement.Backends) {
-        if ($arm.TargetFrameRate -ne 60 -or $arm.VSyncCount -ne 0 -or -not $arm.FullSnapshotMatches -or $arm.ColdRestoreTickDifference -ne 0) {
-            throw "帧率报告缺少统一限帧条件或完整冷恢复证据：$report"
+        if ($arm.TargetFrameRate -ne 60 -or $arm.VSyncCount -ne 0 -or -not $arm.BusinessCheckpointMatches -or
+            $arm.ColdRestoreTickDifference -ne 0 -or $arm.SampleJournalRevisionChange -ne 0 -or
+            $arm.SimulationWrittenRecords -ne 0 -or $arm.WrittenRecords -lt 1) {
+            throw "帧率报告缺少统一限帧、普通帧无保存或业务检查点冷读证据：$report"
         }
-        Write-Output ("{0}: Unity {1:N2} fps，world {2:N2} tick/s，loop P95 {3:N2} ms，保存阻塞 {4:P2}" -f
-            $arm.Backend, $arm.UnityFramesPerSecond, $arm.WorldTicksPerSecond, $arm.MainLoopMilliseconds.P95, $arm.SaveBudgetBlockedRatio)
+        Write-Output ("{0}: Unity {1:N2} fps，world {2:N2} tick/s，loop P95 {3:N2} ms，显式检查点 {4:N2} ms" -f
+            $arm.Backend, $arm.UnityFramesPerSecond, $arm.WorldTicksPerSecond, $arm.MainLoopMilliseconds.P95, $arm.CheckpointSaveMilliseconds)
     }
     Write-Output "帧率诊断通过 1/1（不判定硬件 FPS 达标）。报告：$report；结果：$result；日志：$log"
 } finally {
@@ -100,8 +102,8 @@ try {
         if ($metaCreated -and (Test-Path -LiteralPath $meta)) { Remove-Item -LiteralPath $meta }
         if ($sourceCreated -and (Test-Path -LiteralPath $source)) { Remove-Item -LiteralPath $source }
     } finally {
-        [Environment]::SetEnvironmentVariable('PROJECT_V2_FRAME_PACING', $previousEnabled, 'Process')
-        [Environment]::SetEnvironmentVariable('PROJECT_V2_FRAME_PACING_LABEL', $previousLabel, 'Process')
+        [Environment]::SetEnvironmentVariable('PROJECT_V3_FRAME_PACING', $previousEnabled, 'Process')
+        [Environment]::SetEnvironmentVariable('PROJECT_V3_FRAME_PACING_LABEL', $previousLabel, 'Process')
         if ($null -ne $runLock) { $runLock.Dispose() }
         if ($null -ne $process) { $process.Dispose() }
     }

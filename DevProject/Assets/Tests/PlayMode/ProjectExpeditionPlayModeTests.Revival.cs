@@ -30,7 +30,7 @@ namespace MiniGame.Tests
             var random = new System.Random(932);
             ProjectItem starter = ProjectEquipmentRules.CreateEquipment(random, ProjectItemType.Weapon, 1, ProjectItemQuality.Common);
             ProjectItem loot = ProjectEquipmentRules.CreateEquipment(random, ProjectItemType.Armor, 1, ProjectItemQuality.Common);
-            ProjectItem collection = ProjectEquipmentRules.CreateConfiguredItem(random, ProjectV2RewardConfig.Collection("gate_sigil"));
+            ProjectItem collection = ProjectEquipmentRules.CreateConfiguredItem(random, ProjectRewardConfig.Collection("gate_sigil"));
             starter.Equipped = true;
             ExpeditionRun run = await StartWithEquipmentFixturesAsync(starter, new[] { loot, collection });
             Assert.That(run.World.TryAddAttributeBonus(run.Player, CombatAttributeKind.Attack, 7f), Is.True);
@@ -42,12 +42,13 @@ namespace MiniGame.Tests
                 TriggerDeath(run);
                 await WaitForDeathChoiceAsync(run);
                 Assert.That(run.TryCaptureState(out var before, out string error), Is.True, error);
-                CombatActorState dead = before.World.Actors.Single(actor => actor.Spec.IsPlayer);
+                CombatPlayerCheckpoint dead = before.PlayerState;
+                Vector3 deathPosition = InputPersistencePlayer(run).Position;
                 GameWindow choice = await WaitForWindowAsync(ProjectServices.DeathChoiceWindow);
                 Button[] actions = choice.RootTransform.GetComponentsInChildren<Button>(false);
-                Assert.That(actions.Length, Is.EqualTo(2));
+                Assert.That(actions.Length, Is.EqualTo(4));
                 Assert.That(actions.Select(button => button.GetComponentInChildren<Text>().text),
-                    Is.EquivalentTo(new[] { "看广告复活", "结算返回" }));
+                    Is.EquivalentTo(new[] { "看广告复活", "暂离主城", "看广告携物撤离", "结算返回" }));
                 Assert.That(ProjectServices.Session.RecordedOutcome, Is.Null);
                 Assert.That(ProjectServices.Session.LastResult, Is.Null);
                 long tick = run.World.TickIndex;
@@ -60,19 +61,16 @@ namespace MiniGame.Tests
                 await WaitRunSavedAsync(run);
                 await UniTask.WaitUntil(() => run.ActivePanel == ExpeditionPanelKind.None).Timeout(TimeSpan.FromSeconds(5));
                 Assert.That(run.World.TryGetActor(run.Player, out var alive), Is.True);
-                Assert.That(alive.Position, Is.EqualTo(dead.Position));
+                Assert.That(alive.Position, Is.EqualTo(deathPosition));
                 Assert.That(alive.Health, Is.EqualTo(alive.MaxHealth));
                 Assert.That(alive.Dead, Is.False);
                 Assert.That(run.RunId, Is.EqualTo(runId));
                 Assert.That(ProjectServices.Session.Stamina, Is.EqualTo(stamina));
-                Assert.That(run.Inventory.Select(item => item.Id), Is.EquivalentTo(new[] { starter.Id, loot.Id, collection.Id }));
+                Assert.That(run.Inventory.Select(item => item.Id), Is.EquivalentTo(new[] { loot.Id, collection.Id }));
                 Assert.That(ProjectServices.Session.CollectedCollectionIds, Is.Empty, "复活保留持有收藏，但没有入库便不登记。");
                 Assert.That(run.CanAcceptPlayerInput, Is.True);
-                Assert.That(run.IsNavigating, Is.False);
-                Assert.That(run.NavigationRoute, Is.Empty);
                 Assert.That(run.TryCaptureState(out var after, out error), Is.True, error);
-                CombatActorState revived = after.World.Actors.Single(actor => actor.Spec.IsPlayer);
-                Assert.That(revived.Key, Is.EqualTo(dead.Key));
+                CombatPlayerCheckpoint revived = after.PlayerState;
                 Assert.That(revived.PermanentBonuses, Is.EqualTo(dead.PermanentBonuses));
                 Assert.That(JsonUtility.ToJson(new RevivalInventoryProbe { Items = after.Inventory }),
                     Is.EqualTo(JsonUtility.ToJson(new RevivalInventoryProbe { Items = before.Inventory })));
@@ -85,99 +83,48 @@ namespace MiniGame.Tests
             await WaitForDeathChoiceAsync(run);
             ClickButton(await WaitForWindowAsync(ProjectServices.DeathChoiceWindow), "结算返回");
             await WaitForPhaseAsync(ProjectRunPhase.ResultsReady);
-            Assert.That(ProjectServices.Session.LastResult.Outcome.Extracted, Is.False);
-            Assert.That(ProjectServices.Session.LastResult.RetainedItems, Is.Empty);
+            Assert.That(ProjectServices.Session.LastResult.Outcome.ExitKind, Is.EqualTo(ProjectRunExitKind.Death));
+            Assert.That(ProjectServices.Session.LastResult.RetainedItems.Select(item => item.Id), Is.EquivalentTo(new[] { starter.Id }));
             Assert.That(ProjectServices.Session.LastResult.LostItems.Select(item => item.Id),
-                Is.EquivalentTo(new[] { starter.Id, loot.Id, collection.Id }));
+                Is.EquivalentTo(new[] { loot.Id, collection.Id }));
             Assert.That(ProjectServices.Session.CollectedCollectionIds, Is.Empty);
             Assert.That(ProjectServices.Session.Stamina, Is.EqualTo(stamina));
             Assert.That(await ProjectServices.Coordinator.ReturnHomeAsync(), Is.True);
-            Assert.That(ProjectServices.Session.Warehouse, Is.Empty);
+            Assert.That(ProjectServices.Session.Warehouse.Single().Id, Is.EqualTo(starter.Id));
         });
 
         /// <summary>
-        /// 玩家和 Boss 同帧死亡后奖励保持待领，死亡分片与冷启动续关仍冻结等待，复活继续同一奖励身份。
+        /// 死亡检查点往返和暂离恢复仍停在死亡选择，不能通过重建房间免费复活。
         /// </summary>
-        /// <returns>快照往返、完整项目重启和续关选择验证任务。</returns>
+        /// <returns>死亡事实编码、同局恢复和广告复活验证任务。</returns>
         [UnityTest]
-        public IEnumerator Revival_PendingDeathRoundTripsAndResumesWithoutOutcomeOrSecondEntryCost() => UniTask.ToCoroutine(async () =>
+        public IEnumerator Revival_PendingDeathCheckpointResumesWithoutFreeRevive() => UniTask.ToCoroutine(async () =>
         {
-            var backend = new MemorySaveBackend();
-            await SetupAsync(backend);
-            Assert.That(await ProjectServices.Coordinator.StartRunAsync(1), Is.True);
+            await SetupAsync(new MemorySaveBackend());
+            ProjectRunCoordinator coordinator = ProjectServices.Coordinator;
+            Assert.That(await coordinator.StartRunAsync(1), Is.True);
             ExpeditionRun run = ProjectServices.Session.CurrentRun;
-            Assert.That(run.TryStartNavigation(run.CurrentRegion.Plan.Chests.First().Position, false, out string navigationError),
-                Is.True, navigationError);
-            Assert.That(run.IsNavigating, Is.True);
-            TriggerSameTickPlayerAndBossDeath(run);
+            TriggerDeath(run);
             await WaitForDeathChoiceAsync(run);
-            int stamina = ProjectServices.Session.Stamina;
-            string runId = run.RunId;
-            Assert.That(run.TryCaptureState(out var saved, out string error), Is.True, error);
-            Assert.That(saved.PendingPlayerDeathId, Is.GreaterThan(0));
-            int bossRegion = run.CurrentRegion.Plan.Request.RegionId;
-            string bossBatch = runId + ":boss:" + bossRegion;
-            Assert.That(saved.PendingBossRegions, Is.EqualTo(new[] { bossRegion }));
-            Assert.That(saved.BossLoot.Batches, Is.Empty, "死亡待选期间不能提前生成 Boss 候选。");
-            Assert.That(run.PendingBossChoice, Is.Null);
-            Assert.That(run.PendingRogueChoice, Is.Null);
-            Assert.That(run.IsNavigating, Is.False);
-            Assert.That(run.NavigationRoute, Is.Empty);
-            Assert.That(ExpeditionSnapshotCodec.TryEncode(saved, out var parts, out error), Is.True, error);
+            Assert.That(run.TryCaptureState(out var checkpoint, out string error), Is.True, error);
+            Assert.That(checkpoint.PendingPlayerDeathId, Is.GreaterThan(0));
+            Assert.That(ExpeditionSnapshotCodec.TryEncode(checkpoint, out var parts, out error), Is.True, error);
             Assert.That(ExpeditionSnapshotCodec.TryDecode(parts, out var decoded, out error), Is.True, error);
-            Assert.That(decoded.PendingPlayerDeathId, Is.EqualTo(saved.PendingPlayerDeathId));
-            Assert.That(ExpeditionRun.TryRestore(ProjectServices.Session, decoded, out var restored, out error), Is.True, error);
-            using (restored)
-            {
-                Assert.That(restored.IsAwaitingDeathChoice, Is.True);
-                Assert.That(JsonUtility.ToJson(new RevivalInventoryProbe { Items = restored.Inventory.ToList() }),
-                    Is.EqualTo(JsonUtility.ToJson(new RevivalInventoryProbe { Items = saved.Inventory })));
-                Assert.That(restored.CanChooseDeath, Is.False, "未绑定场景并激活的恢复对象不得发起广告。");
-                Assert.That(restored.World.TryGetActor(restored.Player, out var dead) && dead.Dead, Is.True);
-                Assert.That(restored.World.DrainEvents(new System.Collections.Generic.List<CombatEvent>()), Is.Zero);
-            }
-            Assert.That(await ProjectServices.Coordinator.CloseAsync(), Is.True);
-            GameEntry.StopFramework();
-            await SetupAsync(backend);
-            Assert.That(ProjectServices.Coordinator.CanResume, Is.True);
+            Assert.That(decoded.PendingPlayerDeathId, Is.EqualTo(checkpoint.PendingPlayerDeathId));
+            string runId = run.RunId;
+            Assert.That(await coordinator.SuspendRunAsync(run), Is.True);
+            int stamina = ProjectServices.Session.Stamina;
+            long cost = coordinator.RequiredResumeStamina;
+            Assert.That(await coordinator.ResumeRunAsync(), Is.True);
+            run = ProjectServices.Session.CurrentRun;
+            await WaitForDeathChoiceAsync(run);
+            Assert.That(run.RunId, Is.EqualTo(runId));
+            Assert.That(ProjectServices.Session.Stamina, Is.EqualTo(stamina - cost));
+            Assert.That(InputPersistencePlayer(run).Dead, Is.True);
             Assert.That(ProjectServices.Session.RecordedOutcome, Is.Null);
-            Assert.That(await ProjectServices.Coordinator.ResumeRunAsync(), Is.True);
-            ExpeditionRun resumed = ProjectServices.Session.CurrentRun;
-            await WaitForDeathChoiceAsync(resumed);
-            Assert.That(resumed.RunId, Is.EqualTo(runId));
-            Assert.That(JsonUtility.ToJson(new RevivalInventoryProbe { Items = resumed.Inventory.ToList() }),
-                Is.EqualTo(JsonUtility.ToJson(new RevivalInventoryProbe { Items = saved.Inventory })));
-            Assert.That(resumed.ActivePanel, Is.EqualTo(ExpeditionPanelKind.DeathChoice));
-            long tick = resumed.World.TickIndex;
-            resumed.Advance(5f);
-            Assert.That(resumed.World.TickIndex, Is.EqualTo(tick));
-            Assert.That(ProjectServices.Session.Stamina, Is.EqualTo(stamina));
-            Assert.That(await resumed.RequestAdReviveAsync(), Is.True);
-            await WaitRunSavedAsync(resumed);
-            Assert.That(InputPersistencePlayer(resumed).Health, Is.EqualTo(InputPersistencePlayer(resumed).MaxHealth));
-            Assert.That(ProjectServices.Session.Stamina, Is.EqualTo(stamina));
-            await ChooseAllSkillsAsync(resumed);
-            await WaitRunSavedAsync(resumed);
-            Assert.That(resumed.PendingBossChoice, Is.Not.Null);
-            Assert.That(resumed.PendingBossChoice.BatchId, Is.EqualTo(bossBatch));
-            int rounds = resumed.PendingBossChoice.TotalRounds;
-            int inventory = resumed.Inventory.Count;
-            for (int round = 1; round <= rounds; round++)
-            {
-                var offer = resumed.PendingBossChoice;
-                Assert.That(offer.BatchId, Is.EqualTo(bossBatch));
-                Assert.That(offer.Round, Is.EqualTo(round));
-                Assert.That(resumed.TryChooseBoss(offer.OfferId, offer.Revision, 0), Is.True);
-                Assert.That(resumed.TryChooseBoss(offer.OfferId, offer.Revision, 0), Is.False);
-                await WaitRunSavedAsync(resumed);
-            }
-            Assert.That(resumed.PendingBossChoice, Is.Null);
-            Assert.That(resumed.Inventory.Count, Is.EqualTo(inventory + rounds));
-            Assert.That(resumed.CurrentRegion.BossRewardsCompleted, Is.True);
-            Assert.That(resumed.TryCaptureState(out var rewarded, out error), Is.True, error);
-            Assert.That(rewarded.BossLoot.Batches.Count, Is.EqualTo(1));
-            Assert.That(rewarded.BossLoot.Batches.Single().BatchId, Is.EqualTo(bossBatch));
-            Assert.That(rewarded.BossLoot.Batches.Single().Rounds.Count, Is.EqualTo(rounds));
+            Assert.That(await run.RequestAdReviveAsync(), Is.True);
+            await WaitRunSavedAsync(run);
+            Assert.That(InputPersistencePlayer(run).Dead, Is.False);
         });
 
         /// <summary>
@@ -193,7 +140,7 @@ namespace MiniGame.Tests
             TriggerDeath(run);
             await WaitForDeathChoiceAsync(run);
             RewardedAdService original = ProjectServices.RewardedAds;
-            var provider = new HeldRevivalAdProvider();
+            var provider = new HeldRewardedAdProvider("death_revive");
             using var replacement = new RewardedAdService(provider);
             SetRevivalAdService(replacement);
             try
@@ -248,7 +195,7 @@ namespace MiniGame.Tests
             TriggerDeath(run);
             await WaitForDeathChoiceAsync(run);
             RewardedAdService original = ProjectServices.RewardedAds;
-            var provider = new HeldRevivalAdProvider();
+            var provider = new HeldRewardedAdProvider("death_revive");
             using var replacement = new RewardedAdService(provider);
             SetRevivalAdService(replacement);
             try
@@ -339,33 +286,6 @@ namespace MiniGame.Tests
         }
 
         /// <summary>
-        /// 向当前独立世界添加无冷却的测试伤害技能，让双方同一逻辑帧完成致命效果。
-        /// 技能在该帧完成且零冷却已移除，不进入持久化组件或全局配置。
-        /// </summary>
-        /// <param name="run">尚未推进且已完整绑定的真实单局。</param>
-        private static void TriggerSameTickPlayerAndBossDeath(ExpeditionRun run)
-        {
-            const int skillId = 91001;
-            var catalog = (CombatCatalog)typeof(CombatWorld).GetField("catalog", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(run.World);
-            var skill = new CombatSkillDefinition { CombatSkillId = skillId, DurationTicks = 1, StartRange = 1000f };
-            var node = new CombatTimelineNode { Tick = 1 };
-            node.Effects.Add(new CombatEffectDefinition { Kind = CombatEffectKind.Damage, DefinitionId = skillId,
-                Value = 1000000f, Shape = CombatHitShape.Circle, Radius = 1000f, Height = 1000f, CanCritical = false, CanDodge = false });
-            skill.Nodes.Add(node);
-            catalog.Skills.Add(skillId, skill);
-            string bossSlot = run.CurrentRegion.Plan.SpawnSlots.Single(slot => slot.Kind == RegionEnemyKind.Boss).SlotId;
-            int bossActor = run.CurrentRegion.Slots.Single(slot => slot.SlotId == bossSlot).CurrentActorId;
-            Assert.That(run.World.TryFindActor(bossActor, out var boss), Is.True);
-            Assert.That(run.World.TryStartSkill(run.Player, skillId, boss), Is.True);
-            Assert.That(run.World.TryStartSkill(boss, skillId, run.Player), Is.True);
-            run.Advance(CombatWorld.TickSeconds);
-            Assert.That(run.IsAwaitingDeathChoice, Is.True);
-            Assert.That(run.World.TryGetActor(run.Player, out var player) && player.Dead, Is.True);
-            Assert.That(run.World.TryGetActor(boss, out var deadBoss) && deadBoss.Dead, Is.True);
-            Assert.That(run.CurrentRegion.Slots.Single(slot => slot.SlotId == bossSlot).Phase, Is.Not.EqualTo(RegionSpawnPhase.Alive));
-        }
-
-        /// <summary>
         /// 临时替换项目广告服务，测试完成时由调用方恢复原服务。
         /// </summary>
         /// <param name="service">本轮测试服务或待恢复的原服务。</param>
@@ -382,23 +302,30 @@ namespace MiniGame.Tests
         }
 
         /// <summary>
-        /// 显式控制广告完成且故意忽略取消，验证业务层拒绝晚授权。
+        /// 按业务广告位验证请求，显式控制完成且故意忽略取消，验证业务层拒绝晚授权。
         /// </summary>
-        private sealed class HeldRevivalAdProvider : IRewardedAdProvider
+        private sealed class HeldRewardedAdProvider : IRewardedAdProvider
         {
+            private readonly string expectedPlacement;
             private UniTaskCompletionSource<RewardedAdResult> pending;
             public int Calls { get; private set; }
             public CancellationToken Token { get; private set; }
 
             /// <summary>
+            /// 指定本测试唯一允许请求的业务广告位。
+            /// </summary>
+            /// <param name="expectedPlacement">应当精确匹配的业务广告位。</param>
+            public HeldRewardedAdProvider(string expectedPlacement) => this.expectedPlacement = expectedPlacement;
+
+            /// <summary>
             /// 建立本次可控展示并保留取消令牌。
             /// </summary>
-            /// <param name="placementId">当前复活广告位。</param>
+            /// <param name="placementId">当前请求的业务广告位。</param>
             /// <param name="ct">展示授权令牌。</param>
             /// <returns>由测试手动完成的展示结果。</returns>
             public UniTask<RewardedAdResult> ShowRewardedAsync(string placementId, CancellationToken ct = default)
             {
-                Assert.That(placementId, Is.EqualTo("death_revive"));
+                Assert.That(placementId, Is.EqualTo(expectedPlacement));
                 Calls++;
                 Token = ct;
                 pending = new UniTaskCompletionSource<RewardedAdResult>();

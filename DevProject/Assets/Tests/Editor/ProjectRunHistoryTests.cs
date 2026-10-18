@@ -56,7 +56,7 @@ namespace ProjectExtraction.Tests
             var outcome = new ProjectRunOutcome
             {
                 RunId = "history-run", LevelId = 1, Seed = 17, RulesVersion = ProjectRunRecordRules.RulesVersion,
-                Extracted = true, Items = new List<ProjectItem> { candidate.EntryItems[0].Copy() }
+                ExitKind = ProjectRunExitKind.Completed
             };
             Assert.IsTrue(ProjectRunRecordRules.TryRecordOutcome(candidate, outcome, out _));
             Assert.IsTrue(ProjectRunRecordRules.TrySettleOutcome(candidate, out _));
@@ -140,6 +140,47 @@ namespace ProjectExtraction.Tests
             entries[0].EntrySellValue = long.MaxValue;
             entries[0].GoldSpent = int.MaxValue;
             Assert.IsNotNull(ProjectRunHistoryRules.Validate(entries));
+        }
+
+        /// <summary>
+        /// 广告撤离单独分类并显示整局经验，不计作最终通关或旧版提前带回。
+        /// </summary>
+        [Test]
+        public void AdExtractionHasIndependentHistoryAndFullExperience()
+        {
+            var result = Result("ad-history");
+            result.Outcome.ExitKind = ProjectRunExitKind.AdExtraction;
+            result.Outcome.KillExperience = 120;
+            result.Outcome.AwardedKillExperience = 120;
+            var history = ProjectRunHistoryRules.Create(result, 1000);
+            Assert.That(history.Outcome, Is.EqualTo(ProjectRunHistoryOutcome.AdExtraction));
+            Assert.That(history.KillExperience, Is.EqualTo(120));
+            Assert.That(ProjectRunHistoryRules.Validate(new[] { history }), Is.Null);
+            var summary = ProjectRunHistoryRules.Summarize(new[] { history })[0];
+            Assert.That(summary.ExtractedCount, Is.EqualTo(1));
+            Assert.That(summary.AdExtractionCount, Is.EqualTo(1));
+            Assert.That(summary.CompletedCount, Is.Zero);
+            Assert.That(summary.EarlyExtractionCount, Is.Zero);
+            var decoded = JsonUtility.FromJson<ProjectRunHistoryEntry>(JsonUtility.ToJson(history));
+            Assert.That(decoded.Outcome, Is.EqualTo(ProjectRunHistoryOutcome.AdExtraction));
+        }
+
+        /// <summary>
+        /// 显式通关原因不再依赖旧区域统计字段，旧历史类别仍保持原数值。
+        /// </summary>
+        [Test]
+        public void CompletionUsesExplicitExitKindAndKeepsHistoricalEnumValues()
+        {
+            var result = Result("completed-history");
+            result.Outcome.ExitKind = ProjectRunExitKind.Completed;
+            var history = ProjectRunHistoryRules.Create(result, 1000);
+            Assert.That(history.Outcome, Is.EqualTo(ProjectRunHistoryOutcome.Completed));
+            Assert.That(ProjectRunHistoryRules.Validate(new[] { history }), Is.Null);
+            Assert.That(ProjectRunHistoryRules.Summarize(new[] { history })[0].CompletedCount, Is.EqualTo(1));
+            Assert.That((int)ProjectRunHistoryOutcome.Extracted, Is.EqualTo(0));
+            Assert.That((int)ProjectRunHistoryOutcome.Died, Is.EqualTo(1));
+            Assert.That((int)ProjectRunHistoryOutcome.Abandoned, Is.EqualTo(2));
+            Assert.That((int)ProjectRunHistoryOutcome.Completed, Is.EqualTo(3));
         }
 
         /// <summary>

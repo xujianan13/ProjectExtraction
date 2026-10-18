@@ -79,7 +79,7 @@ namespace GameLogic.UI.Common
             var builder = new StringBuilder(Title(item));
             if (item.Type == ProjectItemType.Collection)
             {
-                ProjectCollectionDefinition collection = ProjectV2RewardConfig.Collection(item.CollectionId);
+                ProjectCollectionDefinition collection = ProjectRewardConfig.Collection(item.CollectionId);
                 return builder.Append("\n").Append(CollectionRegistration(item)).Append("\n来源：").Append(collection.Source)
                     .Append("\n售价 ").Append(item.SellGold).Append(" 金币").ToString();
             }
@@ -133,7 +133,7 @@ namespace GameLogic.UI.Common
             if (item == null) return "选择物品查看详情";
             if (item.Type == ProjectItemType.Collection)
             {
-                ProjectCollectionDefinition definition = ProjectV2RewardConfig.Collection(item.CollectionId);
+                ProjectCollectionDefinition definition = ProjectRewardConfig.Collection(item.CollectionId);
                 return definition == null ? "收藏配置缺失" : CollectionRegistration(item) + $"\n来源：{definition.Source}\n" +
                     $"出售可得 {item.SellGold} 金币\n实际入库后登记图鉴，重复收藏不会重复授予成就属性。";
             }

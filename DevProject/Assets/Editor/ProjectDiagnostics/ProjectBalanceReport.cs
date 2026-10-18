@@ -16,7 +16,7 @@ using UnityEngine;
 namespace MiniGame.Editor
 {
     /// <summary>
-    /// 从真实 v2 配置和固定种子区域计划计算初生、复活与物品经济的静态报告。
+    /// 从真实 V3 配置和固定种子房间计划计算初生战斗与物品经济的静态报告。
     /// </summary>
     public static class ProjectBalanceReport
     {
@@ -24,7 +24,7 @@ namespace MiniGame.Editor
         private const int LastSeed = 100;
         private const int LootSeed = 20261003;
         private const int LootSampleCount = 2048;
-        private const string OutputDirectory = "verification/v2-region-balance";
+        private const string OutputDirectory = "verification/v3-room-balance";
         private const BindingFlags InstanceFields = BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic;
         private const BindingFlags StaticProperties = BindingFlags.Static | BindingFlags.Public;
         private static readonly ILogModule EditorLog = CreateEditorLog();
@@ -45,20 +45,9 @@ namespace MiniGame.Editor
             public int bosses;
             public double initialEnemyHealth;
             public long initialKillExperience;
-            public long initialWeightedSkillProgress;
             public int bossRewardRounds;
             public int minimumEquipmentCandidates;
             public int minimumCollectionCandidates;
-            public double normalRespawnSeconds;
-            public double eliteRespawnSeconds;
-            public double normalWarningSeconds;
-            public double eliteWarningSeconds;
-            public double normalSafeDistance;
-            public double eliteSafeDistance;
-            public double normalRespawnExperienceMultiplier;
-            public double eliteRespawnExperienceMultiplier;
-            public double nominalRespawnKillsPerHour;
-            public double nominalRespawnProgressPerHour;
             public int chestItems;
             public double expectedChestResaleGold;
             public long frozenChestResaleGold;
@@ -82,8 +71,6 @@ namespace MiniGame.Editor
             public int bosses;
             public double initialEnemyHealth;
             public long initialKillExperience;
-            public long initialWeightedSkillProgress;
-            public int initialRogueQualifications;
             public int bossRewardRounds;
             public int chestItems;
             public double expectedChestResaleGold;
@@ -186,7 +173,7 @@ namespace MiniGame.Editor
                     int start = samples.Count;
                     for (int seed = FirstSeed; seed <= LastSeed; seed++)
                     {
-                        if (!LevelContentConfig.TryCreateRegionRequests("balance:" + row.ID + ":" + seed, seed, level, out var requests, out error)) return false;
+                        if (!LevelContentConfig.TryCreateRoomRequests("balance:" + row.ID + ":" + seed, seed, level, out var requests, out error)) return false;
                         var regions = new List<RegionEvaluation>();
                         foreach (RegionGenerationRequest request in requests)
                         {
@@ -218,7 +205,7 @@ namespace MiniGame.Editor
         }
 
         /// <summary>
-        /// 对完整冻结计划计算配置期望、初生收益和名义复活速率。
+        /// 对完整冻结房间计划计算配置期望与初生收益。
         /// </summary>
         /// <param name="plan">已验证的真实区域计划。</param>
         /// <param name="pools">当前物品等级的池估值。</param>
@@ -232,21 +219,15 @@ namespace MiniGame.Editor
             error = null;
             if (plan == null || !plan.TryValidateStructure(out error) || pools == null) return false;
             CfgLevelsRow level = GameTables.CfgLevels.GetById(plan.Request.LevelId);
-            CfgRogueProgressRow progress = GameTables.CfgRogueProgress.GetById(level.ProgressRuleID);
-            CfgBossesRow boss = GameTables.CfgBosses.GetById(plan.Request.BossDefinitionId);
-            CfgBossRewardsRow reward = GameTables.CfgBossRewards.GetById(boss.RewardID);
-            CfgRegionContentRow content = GameTables.CfgRegionContent.GetById(level.ContentID);
-            CfgRespawnRulesRow normalRule = GameTables.CfgRespawnRules.GetById(content.NormalRespawnID);
-            CfgRespawnRulesRow eliteRule = GameTables.CfgRespawnRules.GetById(content.EliteRespawnID);
+            bool hasBoss = plan.Request.RoomKind == ExpeditionRoomKind.Boss;
+            CfgBossesRow boss = hasBoss ? GameTables.CfgBosses.GetById(plan.Request.BossDefinitionId) : null;
+            CfgBossRewardsRow reward = hasBoss ? GameTables.CfgBossRewards.GetById(boss.RewardID) : null;
             var measured = new RegionEvaluation
             {
-                regionIndex = plan.Request.RegionIndex, mapId = plan.Request.MapId, bossId = boss.ID, enemyLevel = plan.Request.EnemyLevel,
-                bossRewardRounds = reward.Rounds, minimumEquipmentCandidates = reward.MinEquipmentCandidates * reward.Rounds,
-                minimumCollectionCandidates = reward.MinCollectionCandidates * reward.Rounds,
-                normalRespawnSeconds = normalRule.DelaySeconds, eliteRespawnSeconds = eliteRule.DelaySeconds,
-                normalWarningSeconds = normalRule.WarningSeconds, eliteWarningSeconds = eliteRule.WarningSeconds,
-                normalSafeDistance = normalRule.SafeDistance, eliteSafeDistance = eliteRule.SafeDistance,
-                normalRespawnExperienceMultiplier = normalRule.ExperienceMultiplier, eliteRespawnExperienceMultiplier = eliteRule.ExperienceMultiplier
+                regionIndex = plan.Request.RegionIndex, mapId = plan.Request.MapId, bossId = hasBoss ? boss.ID : 0,
+                enemyLevel = plan.Request.EnemyLevel, bossRewardRounds = hasBoss ? reward.Rounds : 0,
+                minimumEquipmentCandidates = hasBoss ? reward.MinEquipmentCandidates * reward.Rounds : 0,
+                minimumCollectionCandidates = hasBoss ? reward.MinCollectionCandidates * reward.Rounds : 0
             };
             var groups = new HashSet<string>(StringComparer.Ordinal);
             foreach (RegionSpawnSlotPlan slot in plan.SpawnSlots)
@@ -259,11 +240,6 @@ namespace MiniGame.Editor
                 else { measured.normalEnemies++; groups.Add(slot.GroupId); }
             }
             measured.monsterGroups = groups.Count;
-            measured.initialWeightedSkillProgress = (long)measured.normalEnemies * progress.NormalContribution + (long)measured.eliteEnemies * progress.EliteContribution;
-            double normalRate = measured.normalEnemies * 3600d / (normalRule.DelaySeconds + normalRule.WarningSeconds);
-            double eliteRate = measured.eliteEnemies * 3600d / (eliteRule.DelaySeconds + eliteRule.WarningSeconds);
-            measured.nominalRespawnKillsPerHour = normalRate + eliteRate;
-            measured.nominalRespawnProgressPerHour = normalRate * progress.NormalContribution + eliteRate * progress.EliteContribution;
             foreach (RegionChestPlan chest in plan.Chests)
             {
                 CfgChestPoolRow row = GameTables.CfgChestPool.GetById(chest.DefinitionId);
@@ -307,7 +283,6 @@ namespace MiniGame.Editor
                 result.bosses += region.bosses;
                 result.initialEnemyHealth += region.initialEnemyHealth;
                 result.initialKillExperience += region.initialKillExperience;
-                result.initialWeightedSkillProgress += region.initialWeightedSkillProgress;
                 result.bossRewardRounds += region.bossRewardRounds;
                 result.chestItems += region.chestItems;
                 result.expectedChestResaleGold += region.expectedChestResaleGold;
@@ -317,7 +292,6 @@ namespace MiniGame.Editor
                 result.expectedMerchantResaleGold += region.expectedMerchantResaleGold;
                 result.expectedMerchantNetGold += region.expectedMerchantNetGold;
             }
-            result.initialRogueQualifications = (int)(result.initialWeightedSkillProgress / GameTables.CfgRogueProgress.GetById(level.Row.ProgressRuleID).Threshold);
             return result;
         }
 

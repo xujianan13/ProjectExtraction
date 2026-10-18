@@ -1,15 +1,10 @@
 {
-  "schemaHash": "62fd4beb60bcb9d721356e413f3ac9d7bb1b2a61f25f082309ec66c63aab6279",
+  "schemaHash": "4973bf55b5e06b4ba99a694f2dcc7b4ce60d8aed83244129a43e9766fbcc0586",
   "rows": [
     {
       "ID": 1,
       "Name": "遗迹守门者",
       "EnemyID": 2,
-      "MapID": 1,
-      "PoolID": "region",
-      "Weight": 1,
-      "MinLevel": 1,
-      "MaxLevel": 1000,
       "RewardID": 1,
       "WeaknessDescription": "环形重击前离开范围；流血额外有效。",
       "CollectionPreviewIDs": [
@@ -20,11 +15,6 @@
       "ID": 2,
       "Name": "庭院双刃统领",
       "EnemyID": 10,
-      "MapID": 2,
-      "PoolID": "region",
-      "Weight": 1,
-      "MinLevel": 1,
-      "MaxLevel": 1000,
       "RewardID": 2,
       "WeaknessDescription": "中距离追击与近身爆发；暴击追伤额外有效。",
       "CollectionPreviewIDs": [
@@ -35,11 +25,6 @@
       "ID": 3,
       "Name": "遗迹核心守望者",
       "EnemyID": 11,
-      "MapID": 3,
-      "PoolID": "final",
-      "Weight": 1,
-      "MinLevel": 1,
-      "MaxLevel": 1000,
       "RewardID": 3,
       "WeaknessDescription": "后半程冲锋；流血、暴击追伤、反击均有优势。",
       "CollectionPreviewIDs": [

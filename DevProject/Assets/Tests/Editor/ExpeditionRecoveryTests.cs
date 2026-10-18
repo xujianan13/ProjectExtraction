@@ -17,7 +17,7 @@ namespace ProjectExtraction.Tests
     public sealed class ExpeditionRecoveryTests
     {
         /// <summary>
-        /// 尚未绑定首区资源的基线可以冷恢复，保持计划、随机与玩家但不推进时间。
+        /// 尚未绑定首房资源的基线可以冷恢复，保持计划、随机与玩家但不推进时间。
         /// </summary>
         [Test]
         public void AdmissionBaselineRestoresFrozenRequestsWithoutOfflineAdvancement()
@@ -28,8 +28,8 @@ namespace ProjectExtraction.Tests
             using (run)
             {
                 Assert.That(run.TryCaptureState(out ExpeditionRunSnapshot state, out string error), Is.True, error);
-                Assert.That(state.RegionInitialized, Is.False);
-                Assert.That(state.Regions, Is.Empty);
+                Assert.That(state.AdmissionPending, Is.True);
+                Assert.That(state.Rooms, Is.Empty);
                 string saved = JsonUtility.ToJson(state);
                 ExpeditionRunSnapshot cold = JsonUtility.FromJson<ExpeditionRunSnapshot>(saved);
                 Assert.That(ExpeditionRun.TryRestore(session, cold, out ExpeditionRun restored, out error), Is.True, error);
@@ -41,7 +41,7 @@ namespace ProjectExtraction.Tests
                     Assert.That(restored.TryCaptureState(out ExpeditionRunSnapshot recaptured, out error), Is.True, error);
                     Assert.That(JsonUtility.ToJson(recaptured), Is.EqualTo(saved));
                     recaptured.Requests[0].MapVersion = "changed";
-                    recaptured.Inventory[0].Name = "changed";
+                    recaptured.EntryEquipment[0].Name = "changed";
                     Assert.That(JsonUtility.ToJson(state), Is.EqualTo(saved));
                 }
             }
@@ -97,10 +97,14 @@ namespace ProjectExtraction.Tests
             using (run)
             {
                 InitializeFirstRegion(run);
-                run.Stop();
-                ProjectRunOutcome outcome = run.CreateOutcome(false, true);
+                const BindingFlags lifecycle = BindingFlags.Instance | BindingFlags.NonPublic;
+                typeof(ExpeditionRun).GetField("<IsReady>k__BackingField", lifecycle).SetValue(run, true);
+                typeof(ExpeditionRun).GetField("<IsRunning>k__BackingField", lifecycle).SetValue(run, true);
+                Assert.That(run.TryOpenPause(), Is.True);
+                ProjectRunOutcome outcome = run.CreateOutcome(ProjectRunExitKind.Abandoned);
                 Assert.That(outcome, Is.Not.Null);
-                Assert.That(outcome.Statistics.VisitedRegions, Is.EqualTo(1));
+                run.Stop();
+                Assert.That(outcome.Statistics.VisitedRooms, Is.EqualTo(1));
                 Assert.That(ProjectRunStatistics.IsValid(outcome.Statistics), Is.True);
                 Assert.That(run.TryCaptureState(out ExpeditionRunSnapshot state, out error), Is.True, error);
                 Assert.That(state.HasPendingOutcome, Is.True);
@@ -119,24 +123,20 @@ namespace ProjectExtraction.Tests
         }
 
         /// <summary>
-        /// 使用正式地图和内容生成首区，再通过实际战斗绑定创建完整敌人生命。
+        /// 使用正式地图和内容生成首房，再通过实际战斗绑定创建完整敌人生命。
         /// </summary>
-        /// <param name="run">尚未生成首区的真实运行对象。</param>
+        /// <param name="run">尚未生成首房的真实运行对象。</param>
         private static void InitializeFirstRegion(ExpeditionRun run)
         {
             RegionGenerationRequest request = run.RegionRequests[0];
-            CfgRegionMapsRow row = GameTables.CfgRegionMaps.GetById(request.MapId);
-            TextAsset geometry = AssetDatabase.LoadAssetAtPath<TextAsset>(
-                "Assets/GameResources/Scenes/Expedition/Regions/" + row.GeometryAddress + ".json");
-            Assert.That(geometry, Is.Not.Null, row.GeometryAddress);
-            RegionMapDefinition map = JsonUtility.FromJson<RegionMapDefinition>(geometry.text);
+            Assert.That(LevelContentConfig.TryCreateRoomMap(request.MapId, out RegionMapDefinition map, out string mapError), Is.True, mapError);
             Assert.That(RegionContentGenerator.TryGenerate(request, map, LevelContentConfig.CreateRegionContent(request),
                 out RegionPlan plan, out string error), Is.True, error);
             Assert.That(RegionRuntimeState.TryCreate(plan, out RegionRuntimeState region, out error), Is.True, error);
             const BindingFlags fields = BindingFlags.Instance | BindingFlags.NonPublic;
             ((List<RegionRuntimeState>)typeof(ExpeditionRun).GetField("regions", fields).GetValue(run)).Add(region);
             typeof(ExpeditionRun).GetField("<CurrentMap>k__BackingField", fields).SetValue(run, map);
-            Assert.That((bool)typeof(ExpeditionRun).GetMethod("BindRegionWorld", fields).Invoke(run, new object[] { region, false }), Is.True);
+            Assert.That((bool)typeof(ExpeditionRun).GetMethod("BindRegionWorld", fields).Invoke(run, new object[] { region }), Is.True);
             Assert.That(run.TryCaptureState(out ExpeditionRunSnapshot initialized, out error), Is.True, error);
             Assert.That(ExpeditionRun.TryRestore(CreateSession(), initialized, out ExpeditionRun restored, out error), Is.True, error);
             restored.Dispose();

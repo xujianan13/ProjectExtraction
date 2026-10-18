@@ -82,13 +82,15 @@ namespace GameLogic.UI.Run
                 details.text = "完成一局并成功保存结算后，这里会显示战绩。";
                 return;
             }
-            AddText(summaries, $"仅统计最近保留的 {history.Count} 局；成功带回率分母包括死亡和放弃。", 86f);
+            AddText(summaries, $"仅统计最近保留的 {history.Count} 局；暂离中的本局尚未结算。", 86f);
             foreach (ProjectRunHistorySummary row in ProjectRunHistoryRules.Summarize(history))
             {
                 string net = row.NetAssetSampleCount == 0 ? "无法计算（有效样本 0）" :
                     $"{row.AverageNetAssetValue:+0.#;-0.#;0}（有效样本 {row.NetAssetSampleCount}）";
-                AddText(summaries, $"关卡 {row.LevelId} · 样本 {row.Count} · 成功带回率 {(double)row.ExtractedCount / row.Count:P0}\n" +
-                    $"提前带回 {row.EarlyExtractionCount} · 最终通关 {row.CompletedCount}（有效区域样本 {row.RegionStatsSampleCount}）\n" +
+                int adExtractions = 0;
+                foreach (ProjectRunHistoryEntry entry in history)
+                    if (entry.LevelId == row.LevelId && entry.Outcome == ProjectRunHistoryOutcome.AdExtraction) adExtractions++;
+                AddText(summaries, $"关卡 {row.LevelId} · 样本 {row.Count} · 最终通关 {row.CompletedCount} · 广告撤离 {adExtractions}\n" +
                     $"均耗时 {row.AverageElapsedSeconds:0.#} 秒 · 净资产均值 {net}", 106f);
             }
             for (int index = history.Count - 1; index >= 0; index--)
@@ -126,7 +128,7 @@ namespace GameLogic.UI.Run
             string netValue = entry.HasNetAssetValue ? entry.NetAssetValue.ToString("+0;-0;0") : "无法计算（缺入场估值）";
             details.text = $"{OutcomeText(entry.Outcome)} · 关卡 {entry.LevelId} · {entry.ElapsedSeconds:0.#} 秒\n" +
                 $"结束时间 {DateTimeOffset.FromUnixTimeSeconds(entry.EndUtc).UtcDateTime:yyyy-MM-dd HH:mm:ss} UTC\n" +
-                $"打怪经验 {entry.KillExperience} · 撤离经验 {entry.ExtractionExperience}\n{performance}\n" +
+                $"本局击杀经验 {entry.KillExperience} · 额外结算经验 {entry.ExtractionExperience}\n{performance}\n" +
                 $"入场估值 {entryValue} · 带回估值 {entry.RetainedSellValue} · 丢失估值 {entry.LostSellValue}\n" +
                 $"金币支出 {entry.GoldSpent} · 净资产变化 {netValue}\n估值按结算时物品出售价格冻结。";
         }
@@ -149,7 +151,8 @@ namespace GameLogic.UI.Run
         /// <param name="outcome">终局类型。</param>
         /// <returns>中文终局名称。</returns>
         private static string OutcomeText(ProjectRunHistoryOutcome outcome) => outcome == ProjectRunHistoryOutcome.Completed ? "最终通关" :
-            outcome == ProjectRunHistoryOutcome.Extracted ? "成功带回" :
+            outcome == ProjectRunHistoryOutcome.AdExtraction ? "广告携物撤离" :
+            outcome == ProjectRunHistoryOutcome.Extracted ? "历史带回" :
             outcome == ProjectRunHistoryOutcome.Abandoned ? "放弃" : "死亡";
     }
 }

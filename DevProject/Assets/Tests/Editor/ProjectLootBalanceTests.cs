@@ -12,7 +12,7 @@ using UnityEngine;
 namespace GameLogic.Tests.Editor
 {
     /// <summary>
-    /// 验证 v2 混合物品池、收藏固定价值及区域静态指标。
+    /// 验证 物品池、收藏固定价值及区域静态指标。
     /// </summary>
     public sealed class ProjectLootBalanceTests
     {
@@ -109,13 +109,13 @@ namespace GameLogic.Tests.Editor
         }
 
         /// <summary>
-        /// 区域报告按真实首次冻结的怪群、精英和 Boss 轮数计算。
+        /// 房间报告按真实冻结的敌人和 Boss 轮数计算。
         /// </summary>
         [Test]
         public void RegionEvaluationUsesGeneratedPlanAndConfiguredContributions()
         {
             LevelContentConfig.TryGetLevel(1, out LevelDefinition level);
-            Assert.That(LevelContentConfig.TryCreateRegionRequests("balance-test", 7, level, out var requests, out string error), Is.True, error);
+            Assert.That(LevelContentConfig.TryCreateRoomRequests("balance-test", 7, level, out var requests, out string error), Is.True, error);
             var pools = new Dictionary<string, LootPoolEvaluation>();
             foreach (string id in GameTables.CfgLootPool.GetAll().Select(row => row.PoolID).Distinct())
             {
@@ -127,14 +127,18 @@ namespace GameLogic.Tests.Editor
                 RegionMapDefinition map = ProjectRegionAssetsBuilder.CreateDefinition(request.MapId);
                 Assert.That(RegionContentGenerator.TryGenerate(request, map, LevelContentConfig.CreateRegionContent(request), out var plan, out error), Is.True, error);
                 Assert.That(ProjectBalanceReport.TryEvaluateRegion(plan, pools, out var result, out error), Is.True, error);
-                CfgRogueProgressRow progress = GameTables.CfgRogueProgress.GetById(level.Row.ProgressRuleID);
-                Assert.That(result.initialWeightedSkillProgress,
-                    Is.EqualTo((long)result.normalEnemies * progress.NormalContribution + (long)result.eliteEnemies * progress.EliteContribution));
-                Assert.That(result.bosses, Is.EqualTo(1));
-                Assert.That(result.bossRewardRounds,
-                    Is.EqualTo(GameTables.CfgBossRewards.GetById(GameTables.CfgBosses.GetById(request.BossDefinitionId).RewardID).Rounds));
+                long experience = 0;
+                foreach (RegionSpawnSlotPlan slot in plan.SpawnSlots)
+                {
+                    CfgEnemiesRow enemy = GameTables.CfgEnemies.GetById(slot.EnemyId);
+                    experience += enemy.ExperienceBase + (long)enemy.ExperiencePerLevel * slot.EnemyLevel;
+                }
+                Assert.That(result.initialKillExperience, Is.EqualTo(experience));
+                Assert.That(result.bosses, Is.EqualTo(request.RoomKind == ExpeditionRoomKind.Boss ? 1 : 0));
+                Assert.That(result.bossRewardRounds, Is.EqualTo(request.RoomKind == ExpeditionRoomKind.Boss ?
+                    GameTables.CfgBossRewards.GetById(GameTables.CfgBosses.GetById(request.BossDefinitionId).RewardID).Rounds : 0));
                 Assert.That(result.expectedMerchantNetGold, Is.EqualTo(result.expectedMerchantResaleGold - result.merchantPurchaseGold));
-                if (request.RegionIndex == level.Row.RegionCount)
+                if (request.RoomKind == ExpeditionRoomKind.Boss)
                     Assert.That(result.normalEnemies + result.eliteEnemies + result.chestItems + result.merchantOffers, Is.Zero);
             }
         }

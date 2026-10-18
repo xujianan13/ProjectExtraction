@@ -1,315 +1,260 @@
 using System;
 using System.Collections.Generic;
+using GameLogic.Gameplay.Expedition;
+using GameLogic.Gameplay.Level;
 using GameLogic.Project;
+using GameLogic.Tables;
 using NUnit.Framework;
 using UnityEngine;
 
 namespace ProjectExtraction.Tests
 {
     /// <summary>
-    /// 验证单局统计的冻结、兼容和收益估值。
+    /// 线性房间统计、唯一发奖账本、历史兼容和冻结收益估值的纯数据验证。
     /// </summary>
     public sealed class ProjectRunStatisticsTests
     {
         /// <summary>
-        /// 统计副本和 JSON 往返保留独立数据。
+        /// 统计副本和 JSON 往返独立保存房间身份、领取事实与汇总。
         /// </summary>
         [Test]
-        public void StatisticsCopyAndJsonPreserveValues()
+        public void StatisticsCopyAndJsonPreserveIndependentRoomData()
         {
-            ProjectRunStatistics original = Statistics();
-            ProjectRunStatistics copy = original.Copy();
-            copy.EnemyKills = 8;
-            copy.NormalFirst.Progress = 999;
-            copy.NormalRespawn.Experience = 999;
-            copy.EliteFirst.Kills = 999;
-            copy.EliteRespawn.Progress = 999;
-            copy.Regions[0].EffectiveTicks = 999;
-            copy.Regions.Clear();
-            Assert.AreEqual(3, original.EnemyKills);
-            Assert.AreEqual(2, original.NormalFirst.Progress);
-            Assert.AreEqual(0, original.NormalRespawn.Experience);
-            Assert.AreEqual(0, original.EliteFirst.Kills);
-            Assert.AreEqual(0, original.EliteRespawn.Progress);
-            Assert.AreEqual(120, original.Regions[0].EffectiveTicks);
-            Assert.AreEqual(2, original.Regions.Count);
-            ProjectRunStatistics restored = JsonUtility.FromJson<ProjectRunStatistics>(JsonUtility.ToJson(original));
-            Assert.IsTrue(restored.HasData);
-            Assert.AreEqual(original.EntryItemSellValue, restored.EntryItemSellValue);
-            Assert.AreEqual(original.DamageDealt, restored.DamageDealt);
-            Assert.IsTrue(ProjectRunStatistics.IsValid(restored));
-            Assert.AreEqual(JsonUtility.ToJson(original), JsonUtility.ToJson(restored));
+            var snapshot = CompletedSnapshot();
+            var original = snapshot.Statistics;
+            var copy = original.Copy();
+            copy.Rooms[0].RewardedSlotIds.Clear();
+            copy.Rooms[0].EffectiveTicks = 999;
+            copy.NormalFirst.Experience = 999;
+            Assert.That(original.Rooms[0].RewardedSlotIds.Count, Is.EqualTo(1));
+            Assert.That(original.Rooms[0].EffectiveTicks, Is.EqualTo(120));
+            var restored = JsonUtility.FromJson<ProjectRunStatistics>(JsonUtility.ToJson(original));
+            Assert.That(restored.HasRoomData, Is.True);
+            Assert.That(ProjectRunStatistics.IsValid(restored), Is.True);
+            Assert.That(JsonUtility.ToJson(restored), Is.EqualTo(JsonUtility.ToJson(original)));
+            StringAssert.Contains("宝箱 1", restored.Describe());
+            StringAssert.Contains("有效发奖击杀", restored.Describe());
+            StringAssert.DoesNotContain("普通复活", restored.Describe());
+            StringAssert.DoesNotContain("区域尾王", restored.Describe());
+            StringAssert.DoesNotContain("技能选择", restored.Describe());
         }
 
         /// <summary>
-        /// 真实旧格式保留已有历史与入场估值，新维度明确未记录且不伪造分类零值。
+        /// 六房完成与最终 Boss 唯一收益可生成新规则结果，重试结算不会重复入库或记录战绩。
         /// </summary>
         [Test]
-        public void VersionOneHistoryPreservesRecordedValuesAndMarksNewFieldsMissing()
+        public void SixRoomCompletionProducesValidSettlementAndHistory()
         {
-            const string oldJson = "{\"Version\":1,\"TotalRooms\":5,\"VisitedRooms\":3,\"ClearedCombatRooms\":2," +
-                "\"EnemyKills\":7,\"BossRoomKills\":1,\"RogueChoices\":2,\"EntryItemCount\":1,\"EntryItemSellValue\":50}";
-            ProjectRunStatistics old = JsonUtility.FromJson<ProjectRunStatistics>(oldJson);
-            Assert.IsTrue(ProjectRunStatistics.IsValid(old));
-            Assert.IsTrue(old.HasData);
-            Assert.IsFalse(old.HasRegionData);
-            ProjectSaveData data = Running("old-recorded-stats");
-            ProjectRunOutcome outcome = Outcome(data, true);
-            outcome.Statistics = old;
-            Assert.IsTrue(ProjectRunRecordRules.TryRecordOutcome(data, outcome, out string error), error);
-            Assert.IsTrue(ProjectRunRecordRules.TrySettleOutcome(data, out error), error);
-            data = RoundTrip(data);
-            ProjectRunHistoryEntry record = data.RunHistory[0];
-            Assert.AreEqual(7, record.Statistics.EnemyKills);
-            Assert.AreEqual(3, record.Statistics.VisitedRooms);
-            Assert.IsTrue(record.HasNetAssetValue);
-            Assert.IsTrue(ProjectRunEconomy.Calculate(data.LastResult).HasEntrySnapshot);
-            StringAssert.Contains("未记录", record.Statistics.Describe());
-            StringAssert.DoesNotContain("普通首次 击杀 0", record.Statistics.Describe());
-            ProjectRunHistorySummary summary = ProjectRunHistoryRules.Summarize(data.RunHistory)[0];
-            Assert.AreEqual(1, summary.ExtractedCount);
-            Assert.AreEqual(0, summary.RegionStatsSampleCount);
-            Assert.AreEqual(0, summary.EarlyExtractionCount);
-        }
-
-        /// <summary>
-        /// 最终领奖完成使用追加的通关枚举，仍正常携回全部物品和撤离经验并保持幂等。
-        /// </summary>
-        [Test]
-        public void FinalCompletionRemainsSuccessfulSettlementAndDistinctHistory()
-        {
-            ProjectSaveData data = Running("complete-v2");
-            ProjectRunOutcome outcome = Outcome(data, true);
-            ProjectRunStatistics statistics = Statistics();
-            statistics.RegionBossKills = 3;
-            statistics.FinalBossKills = 1;
-            statistics.FinalBossExperience = 123;
-            statistics.EnemyKills = 6;
-            statistics.BossLootRounds = 6;
-            statistics.Regions.Add(new ProjectRegionStatistics { RegionId = 3, RegionIndex = 2, Completed = true });
-            statistics.Regions.Add(new ProjectRegionStatistics { RegionId = 4, RegionIndex = 3, IsFinalRegion = true, Completed = true });
-            statistics.Regions[1].Completed = true;
-            outcome.Statistics = statistics;
-            outcome.KillExperience = outcome.AwardedKillExperience = 123;
-            outcome.ExtractionExperience = 15;
-            Assert.IsTrue(ProjectRunRecordRules.TryRecordOutcome(data, outcome, out string error), error);
-            Assert.IsTrue(ProjectRunRecordRules.TrySettleOutcome(data, out error), error);
-            data = RoundTrip(data);
-            Assert.IsTrue(data.LastResult.Outcome.Extracted);
-            Assert.AreEqual(outcome.Items.Count, data.LastResult.RetainedItems.Count);
-            Assert.IsEmpty(data.LastResult.LostItems);
-            Assert.AreEqual(15, data.LastResult.Outcome.ExtractionExperience);
-            Assert.AreEqual(ProjectRunHistoryOutcome.Completed, data.RunHistory[0].Outcome);
-            Assert.AreEqual(4, data.RunHistory[0].Statistics.CompletedRegions);
-            ProjectRunHistorySummary summary = ProjectRunHistoryRules.Summarize(data.RunHistory)[0];
-            Assert.AreEqual(1, summary.CompletedCount);
-            Assert.AreEqual(1, summary.ExtractedCount);
-            Assert.AreEqual(0, summary.EarlyExtractionCount);
-            string frozen = JsonUtility.ToJson(data);
-            Assert.IsTrue(ProjectRunRecordRules.TrySettleOutcome(data, out error), error);
-            Assert.AreEqual(frozen, JsonUtility.ToJson(data));
-            ProjectRunHistoryEntry invalid = data.RunHistory[0].Copy();
-            invalid.Outcome = ProjectRunHistoryOutcome.Extracted;
-            Assert.IsNotNull(ProjectRunHistoryRules.Validate(new[] { invalid }));
-            invalid.Outcome = ProjectRunHistoryOutcome.Completed;
-            invalid.Statistics.Regions[3].Completed = false;
-            Assert.IsNotNull(ProjectRunHistoryRules.Validate(new[] { invalid }));
-        }
-
-        /// <summary>
-        /// 旧记录表示统计缺席，版本零仅接受全零数据。
-        /// </summary>
-        [Test]
-        public void LegacyStatisticsRemainAbsent()
-        {
-            Assert.IsTrue(ProjectRunStatistics.IsValid(null));
-            var empty = new ProjectRunStatistics();
-            Assert.IsFalse(empty.HasData);
-            Assert.IsTrue(ProjectRunStatistics.IsValid(empty));
-            empty.EnemyKills = 1;
-            Assert.IsFalse(ProjectRunStatistics.IsValid(empty));
-            ProjectSaveData data = Running("legacy-stats");
-            ProjectRunOutcome outcome = Outcome(data, true);
-            Assert.IsTrue(ProjectRunRecordRules.TryRecordOutcome(data, outcome, out _));
-            Assert.IsTrue(ProjectRunRecordRules.TrySettleOutcome(data, out _));
-            ProjectSaveData restored = RoundTrip(data);
-            Assert.IsFalse(restored.LastResult.Outcome.Statistics?.HasData == true);
-            Assert.IsFalse(ProjectRunEconomy.Calculate(restored.LastResult).HasEntrySnapshot);
-        }
-
-        /// <summary>
-        /// 记录重试及结算回读保留统计，外部修改不能改变冻结快照。
-        /// </summary>
-        [Test]
-        public void RecordedAndSettledStatisticsSurviveRetryAndReload()
-        {
-            ProjectSaveData data = Running("stats-retry");
-            ProjectRunOutcome outcome = Outcome(data, true);
-            outcome.Statistics = Statistics();
-            Assert.IsTrue(ProjectRunRecordRules.TryRecordOutcome(data, outcome, out _));
-            outcome.Statistics.EnemyKills = 2;
-            Assert.AreEqual(3, data.Outcome.Statistics.EnemyKills);
-            data = RoundTrip(data);
-            Assert.IsTrue(ProjectRunRecordRules.TryRecordOutcome(data, data.Outcome.Copy(), out _));
-            Assert.IsTrue(ProjectRunRecordRules.TrySettleOutcome(data, out _));
-            data = RoundTrip(data);
-            Assert.AreEqual(3, data.LastResult.Outcome.Statistics.EnemyKills);
-            ProjectSaveData copy = data.Copy();
-            copy.LastResult.Outcome.Statistics.EnemyKills = 1;
-            Assert.AreEqual(3, data.LastResult.Outcome.Statistics.EnemyKills);
-            string saved = new ProjectSaveCodec().Encode(data);
-            Assert.IsTrue(ProjectRunRecordRules.TrySettleOutcome(data, out _));
-            Assert.AreEqual(saved, new ProjectSaveCodec().Encode(data));
-        }
-
-        /// <summary>
-        /// 拒绝未知版本、无效计数和非有限伤害，且不写入终局。
-        /// </summary>
-        [Test]
-        public void InvalidStatisticsRejectOutcome()
-        {
-            ProjectSaveData data = Running("invalid-stats");
-            ProjectRunOutcome outcome = Outcome(data, true);
-            ProjectRunStatistics statistics = Statistics();
-            outcome.Statistics = statistics;
-            Action[] corrupt =
+            var snapshot = CompletedSnapshot();
+            Assert.That(ExpeditionRun.ValidateStatisticsSnapshot(snapshot), Is.True);
+            Assert.That(snapshot.Statistics.CompletedRooms, Is.EqualTo(6));
+            Assert.That(snapshot.Statistics.ClearedCombatRooms, Is.EqualTo(3));
+            Assert.That(snapshot.Statistics.FinalBossKills, Is.EqualTo(1));
+            Assert.That(snapshot.Statistics.EnemyKills, Is.EqualTo(4));
+            Assert.That(snapshot.Statistics.IsFinalCompletion, Is.True);
+            var data = ProjectSaveData.CreateDefault();
+            Assert.That(ProjectRunRecordRules.TryAdmit(data, "six-room", 1, 17, new[] { data.Warehouse[0].Copy() }, out _), Is.True);
+            Assert.That(ProjectRunRecordRules.TryMarkRunning(data, "six-room", out _), Is.True);
+            snapshot.Statistics.EntryItemSellValue = data.EntryItems[0].SellGold;
+            var outcome = new ProjectRunOutcome
             {
-                () => statistics.Version = 3, () => statistics.TotalRegions = 0, () => statistics.Regions = null,
-                () => statistics.Regions[1].RegionIndex = 5, () => statistics.RegionBossKills = 3,
-                () => statistics.Regions[1].RegionId = 1, () => statistics.Regions[0].EffectiveTicks = -1,
-                () => statistics.NormalFirst.Kills = 1, () => statistics.NormalFirst.Experience = (long)int.MaxValue + 1,
-                () => statistics.RegionBossExperience = long.MaxValue, () => statistics.FinalBossExperience = long.MaxValue,
-                () => statistics.EnemyKills = -1, () => statistics.BossRoomKills = 4,
-                () => statistics.RogueChoices = -1, () => statistics.EntryItemCount = -1,
-                () => statistics.EntryItemSellValue = -1, () => statistics.EntryItemSellValue = long.MaxValue,
-                () => statistics.DamageDealt = double.NaN,
-                () => statistics.DamageTaken = double.PositiveInfinity, () => statistics.HealingReceived = -1
+                RunId = data.ActiveRunId, LevelId = 1, Seed = 17, RulesVersion = ProjectRunRecordRules.RulesVersion,
+                ExitKind = ProjectRunExitKind.Completed, KillExperience = snapshot.KillExperience,
+                AwardedKillExperience = snapshot.KillExperience, Statistics = snapshot.Statistics,
+                Items = new List<ProjectItem> { new() { Id = "earned-item", Name = "本关所得", RequiredLevel = 1 } }
             };
-            foreach (Action change in corrupt)
+            Assert.That(ProjectRunRecordRules.TryRecordOutcome(data, outcome, out string error), Is.True, error);
+            Assert.That(ProjectRunRecordRules.TrySettleOutcome(data, out error), Is.True, error);
+            Assert.That(ProjectSaveData.Validate(data), Is.Null);
+            Assert.That(data.LastResult.RetainedItems.Count, Is.EqualTo(2));
+            Assert.That(data.LastResult.LostItems, Is.Empty);
+            Assert.That(data.RunHistory[0].Outcome, Is.EqualTo(ProjectRunHistoryOutcome.Completed));
+            string frozen = new ProjectSaveCodec().Encode(data);
+            Assert.That(ProjectRunRecordRules.TrySettleOutcome(data, out error), Is.True, error);
+            Assert.That(new ProjectSaveCodec().Encode(data), Is.EqualTo(frozen));
+        }
+
+        /// <summary>
+        /// 相同发奖账本重建与多次汇总不增加击杀或永久经验。
+        /// </summary>
+        [Test]
+        public void RewardedSlotsRemainIdempotentAcrossCheckpointRoundTrip()
+        {
+            var original = CompletedSnapshot();
+            var restored = JsonUtility.FromJson<ExpeditionRunSnapshot>(JsonUtility.ToJson(original));
+            restored.Statistics.RecalculateRoomTotals();
+            restored.Statistics.RecalculateRoomTotals();
+            Assert.That(ExpeditionRun.ValidateStatisticsSnapshot(restored), Is.True);
+            Assert.That(restored.Statistics.EnemyKills, Is.EqualTo(original.Statistics.EnemyKills));
+            Assert.That(restored.Statistics.EarnedKillExperience, Is.EqualTo(original.KillExperience));
+            Assert.That(restored.Statistics.NormalRespawn.Kills, Is.Zero);
+            Assert.That(restored.Statistics.EliteRespawn.Kills, Is.Zero);
+        }
+
+        /// <summary>
+        /// 重复或外来槽位、篡改经验、完成和时间的活动检查点均被拒绝。
+        /// </summary>
+        /// <param name="corruption">需要破坏的业务事实。</param>
+        [TestCase("duplicate-slot")]
+        [TestCase("foreign-slot")]
+        [TestCase("experience")]
+        [TestCase("completion")]
+        [TestCase("elapsed")]
+        [TestCase("old-version")]
+        public void SnapshotValidationRejectsCorruptedBusinessFacts(string corruption)
+        {
+            var snapshot = CompletedSnapshot();
+            if (corruption == "duplicate-slot") snapshot.Rooms[0].RewardedSlotIds.Add(snapshot.Rooms[0].RewardedSlotIds[0]);
+            if (corruption == "foreign-slot") snapshot.Rooms[0].RewardedSlotIds[0] = "unknown";
+            if (corruption == "experience") snapshot.KillExperience++;
+            if (corruption == "completion") snapshot.Rooms[0].Completed = false;
+            if (corruption == "elapsed") snapshot.ElapsedTicks++;
+            if (corruption == "old-version") snapshot.Statistics.Version = 2;
+            Assert.That(ExpeditionRun.ValidateStatisticsSnapshot(snapshot), Is.False);
+        }
+
+        /// <summary>
+        /// 宝箱领取和商人售出必须属于固定计划且不重复，不能只篡改统计数量。
+        /// </summary>
+        /// <param name="duplicateChest">是否破坏宝箱领取，否则破坏商人交易。</param>
+        [TestCase(true)]
+        [TestCase(false)]
+        public void SnapshotValidationRejectsDuplicateChestOrNpcFacts(bool duplicateChest)
+        {
+            var snapshot = CompletedSnapshot();
+            if (duplicateChest) snapshot.Rooms[3].Chests[0].ClaimedItemIds.Add("chest-item");
+            else snapshot.Rooms[2].Npcs[0].SoldOfferIds.Add("offer");
+            Assert.That(ExpeditionRun.ValidateStatisticsSnapshot(snapshot), Is.False);
+        }
+
+        /// <summary>
+        /// 新汇总拒绝未知版本、非有限伤害、旧复活进度、房间越序与跨房重复发奖身份。
+        /// </summary>
+        [Test]
+        public void CurrentStatisticsRejectInvalidCountsAndMixedOldProgress()
+        {
+            Action<ProjectRunStatistics>[] changes =
             {
-                statistics = Statistics();
-                outcome.Statistics = statistics;
-                change();
-                Assert.IsFalse(ProjectRunRecordRules.TryRecordOutcome(data, outcome, out _));
-                Assert.IsNull(data.Outcome);
+                stats => stats.Version = 4, stats => stats.TotalRooms = 0, stats => stats.Rooms = null,
+                stats => stats.Rooms[1].RoomIndex = 5, stats => stats.Rooms[1].RoomId = stats.Rooms[0].RoomId,
+                stats => stats.Rooms[1].RewardedSlotIds[0] = stats.Rooms[0].RewardedSlotIds[0],
+                stats => stats.Rooms[0].Completed = false, stats => stats.EnemyKills++,
+                stats => stats.NormalFirst.Experience++, stats => stats.NormalRespawn.Kills = 1,
+                stats => stats.RogueChoices = 1, stats => stats.EntryItemSellValue = -1,
+                stats => stats.DamageDealt = double.NaN, stats => stats.DamageTaken = double.PositiveInfinity
+            };
+            foreach (var change in changes)
+            {
+                var stats = CompletedSnapshot().Statistics;
+                change(stats);
+                Assert.That(ProjectRunStatistics.IsValid(stats), Is.False);
             }
         }
 
         /// <summary>
-        /// 空入场装备对应零回收快照，并允许计算战利品收益。
+        /// 版本一和版本二历史保持只读，不伪造成新版活动房间统计。
         /// </summary>
         [Test]
-        public void EmptyEntrySnapshotIsValid()
+        public void LegacyStatisticsRemainReadableWithoutRoomDetails()
         {
-            ProjectRunStatistics statistics = Statistics();
-            statistics.EntryItemCount = 0;
-            statistics.EntryItemSellValue = 0;
-            Assert.IsTrue(ProjectRunStatistics.IsValid(statistics));
+            const string oldJson = "{\"Version\":1,\"TotalRooms\":5,\"VisitedRooms\":3,\"ClearedCombatRooms\":2," +
+                "\"EnemyKills\":7,\"BossRoomKills\":1,\"RogueChoices\":2,\"EntryItemCount\":1,\"EntryItemSellValue\":50}";
+            var old = JsonUtility.FromJson<ProjectRunStatistics>(oldJson);
+            Assert.That(ProjectRunStatistics.IsValid(old), Is.True);
+            Assert.That(old.HasData, Is.True);
+            Assert.That(old.HasRoomData, Is.False);
+            StringAssert.Contains("未记录", old.Describe());
+            var regional = new ProjectRunStatistics
+            {
+                Version = 2, TotalRegions = 2, EnemyKills = 1,
+                NormalFirst = new ProjectEnemyLifeStatistics { Kills = 1, Experience = 10 },
+                Regions = new List<ProjectRegionStatistics> { new() { RegionId = 1, RegionIndex = 0 } }
+            };
+            Assert.That(ProjectRunStatistics.IsValid(regional), Is.True);
+            Assert.That(regional.HasRegionData, Is.True);
+            Assert.That(regional.HasRoomData, Is.False);
+            Assert.That(ProjectRunStatistics.IsValid(null), Is.True);
+            Assert.That(ProjectRunStatistics.IsValid(new ProjectRunStatistics()), Is.True);
+        }
+
+        /// <summary>
+        /// 回收估值按携入保护和本关损失分类计算，读取不会修改任何结算集合。
+        /// </summary>
+        /// <param name="completed">是否正常通关。</param>
+        /// <param name="expectedRetained">预期带回估值。</param>
+        /// <param name="expectedLost">预期损失估值。</param>
+        /// <param name="expectedNet">预期相对入场的净资产变化。</param>
+        [TestCase(true, 140L, 0L, 30L)]
+        [TestCase(false, 100L, 40L, -10L)]
+        public void EconomyUsesFrozenProtectedEntryAndEarnedBag(bool completed, long expectedRetained, long expectedLost, long expectedNet)
+        {
+            var stats = CompletedSnapshot().Statistics;
+            stats.EntryItemSellValue = 100;
             var result = new ProjectRunResult
             {
-                Outcome = new ProjectRunOutcome { GoldSpent = 5, Statistics = statistics },
-                RetainedItems = new List<ProjectItem> { new ProjectItem { SellGold = 40 } }
+                Outcome = new ProjectRunOutcome { ExitKind = completed ? ProjectRunExitKind.Completed : ProjectRunExitKind.Death,
+                    Statistics = stats, GoldSpent = 10 },
+                RetainedItems = new List<ProjectItem> { new() { SellGold = 100 } }
             };
-            ProjectRunEconomySummary summary = ProjectRunEconomy.Calculate(result);
-            Assert.IsTrue(summary.HasEntrySnapshot);
-            Assert.AreEqual(35, summary.NetAssetValue);
-            statistics.EntryItemSellValue = 1;
-            Assert.IsFalse(ProjectRunStatistics.IsValid(statistics));
+            var earned = new ProjectItem { SellGold = 40 };
+            if (completed) result.RetainedItems.Add(earned);
+            else result.LostItems.Add(earned);
+            string frozen = JsonUtility.ToJson(result);
+            var summary = ProjectRunEconomy.Calculate(result);
+            Assert.That(summary.RetainedSellValue, Is.EqualTo(expectedRetained));
+            Assert.That(summary.LostSellValue, Is.EqualTo(expectedLost));
+            Assert.That(summary.NetAssetValue, Is.EqualTo(expectedNet));
+            Assert.That(JsonUtility.ToJson(result), Is.EqualTo(frozen));
         }
 
         /// <summary>
-        /// 撤离、死亡与放弃按冻结分区估值，重复读取不改变钱包。
+        /// 构造六房全部完成的纯业务检查点，不创建战斗世界或任何临时演员。
         /// </summary>
-        /// <param name="extracted">是否正常撤离。</param>
-        /// <param name="abandoned">是否主动放弃。</param>
-        /// <param name="retained">预期保留物品回收估值。</param>
-        /// <param name="lost">预期丢失物品回收估值。</param>
-        /// <param name="net">预期净资产变化。</param>
-        [TestCase(true, false, 4200000000L, 0L, 4099999990L)]
-        [TestCase(false, false, 0L, 4200000000L, -100000010L)]
-        [TestCase(false, true, 0L, 4200000000L, -100000010L)]
-        public void EconomyUsesFrozenItemsWithoutChangingSettlement(bool extracted, bool abandoned, long retained, long lost, long net)
+        /// <returns>有三间怪物房、NPC、宝箱和最终 Boss 的一致检查点。</returns>
+        private static ExpeditionRunSnapshot CompletedSnapshot()
         {
-            ProjectSaveData data = Running("economy-" + extracted + abandoned);
-            ProjectRunOutcome outcome = Outcome(data, extracted);
-            outcome.Abandoned = abandoned;
-            outcome.GoldSpent = 10;
-            outcome.Items[0].SellGold = 2100000000;
-            ProjectItem loot = outcome.Items[0].Copy();
-            loot.Id = "valuable-loot";
-            loot.Equipped = false;
-            loot.SellGold = 2100000000;
-            outcome.Items.Add(loot);
-            outcome.Statistics = Statistics();
-            outcome.Statistics.EntryItemSellValue = 100000000;
-            Assert.IsTrue(ProjectRunRecordRules.TryRecordOutcome(data, outcome, out _));
-            Assert.IsTrue(ProjectRunRecordRules.TrySettleOutcome(data, out _));
-            int wallet = data.Gold;
-            ProjectRunEconomySummary summary = ProjectRunEconomy.Calculate(data.LastResult);
-            Assert.IsTrue(summary.HasEntrySnapshot);
-            Assert.AreEqual(retained, summary.RetainedSellValue);
-            Assert.AreEqual(lost, summary.LostSellValue);
-            Assert.AreEqual(100000000, summary.EntrySellValue);
-            Assert.AreEqual(net, summary.NetAssetValue);
-            Assert.AreEqual(wallet, data.Gold);
-            Assert.IsTrue(ProjectRunRecordRules.TrySettleOutcome(data, out _));
-            Assert.AreEqual(wallet, data.Gold);
-        }
-
-        /// <summary>
-        /// 创建有效的单局统计。
-        /// </summary>
-        /// <returns>包含入场快照的统计。</returns>
-        private static ProjectRunStatistics Statistics() => new()
-        {
-            Version = ProjectRunStatistics.CurrentVersion, TotalRegions = 4, EnemyKills = 3, RegionBossKills = 1, RogueChoices = 1,
-            NormalFirst = new ProjectEnemyLifeStatistics { Kills = 2, Progress = 2 },
-            Regions = new List<ProjectRegionStatistics>
+            var snapshot = new ExpeditionRunSnapshot { RunId = "six-room", LevelId = 1, CurrentRoomIndex = 5 };
+            snapshot.EntryEquipment.Add(new ProjectItem { Id = "entry", SellGold = 50 });
+            var kinds = new[] { ExpeditionRoomKind.Combat, ExpeditionRoomKind.Combat, ExpeditionRoomKind.Npc,
+                ExpeditionRoomKind.Chest, ExpeditionRoomKind.Combat, ExpeditionRoomKind.Boss };
+            int enemyId = GameTables.CfgEnemies.GetAll()[0].ID;
+            var stats = new ProjectRunStatistics { Version = ProjectRunStatistics.CurrentVersion, TotalRooms = 6,
+                EntryItemCount = 1, EntryItemSellValue = 50, DamageDealt = 12.5, DamageTaken = 4, HealingReceived = 2 };
+            for (int index = 0; index < kinds.Length; index++)
             {
-                new() { RegionId = 1, RegionIndex = 0, EffectiveTicks = 120, Completed = true },
-                new() { RegionId = 2, RegionIndex = 1, EffectiveTicks = 60 }
-            },
-            EntryItemCount = 1, EntryItemSellValue = 50, DamageDealt = 12.5, DamageTaken = 4, HealingReceived = 2
-        };
-
-        /// <summary>
-        /// 创建已进入运行阶段的单局。
-        /// </summary>
-        /// <param name="runId">单局身份。</param>
-        /// <returns>独立事务候选。</returns>
-        private static ProjectSaveData Running(string runId)
-        {
-            ProjectSaveData data = ProjectSaveData.CreateDefault();
-            Assert.IsTrue(ProjectRunRecordRules.TryAdmit(data, runId, 1, 17, new[] { data.Warehouse[0].Copy() }, out _));
-            Assert.IsTrue(ProjectRunRecordRules.TryMarkRunning(data, runId, out _));
-            return data;
-        }
-
-        /// <summary>
-        /// 创建当前单局终局。
-        /// </summary>
-        /// <param name="data">运行记录。</param>
-        /// <param name="extracted">是否撤离。</param>
-        /// <returns>待冻结终局。</returns>
-        private static ProjectRunOutcome Outcome(ProjectSaveData data, bool extracted) => new()
-        {
-            RunId = data.ActiveRunId, LevelId = data.ActiveLevelId, Seed = data.ActiveSeed,
-            RulesVersion = ProjectRunRecordRules.RulesVersion, Extracted = extracted,
-            Items = new List<ProjectItem> { data.EntryItems[0].Copy() }
-        };
-
-        /// <summary>
-        /// 通过项目编解码器往返并校验存档。
-        /// </summary>
-        /// <param name="data">待写入存档。</param>
-        /// <returns>重新读取的存档。</returns>
-        private static ProjectSaveData RoundTrip(ProjectSaveData data)
-        {
-            var codec = new ProjectSaveCodec();
-            Assert.IsNull(ProjectSaveData.Validate(data));
-            ProjectSaveData restored = codec.Decode(codec.Encode(data));
-            Assert.IsNull(ProjectSaveData.Validate(restored));
-            return restored;
+                var plan = new RegionPlan { Request = new RegionGenerationRequest
+                { RunId = "six-room", RegionId = index + 1, RegionIndex = index, RoomKind = kinds[index] } };
+                var room = new ExpeditionRoomCheckpoint { Plan = plan, Completed = true, EffectiveTicks = 120 };
+                if (kinds[index] == ExpeditionRoomKind.Combat || kinds[index] == ExpeditionRoomKind.Boss)
+                {
+                    string id = "room-" + index + "-enemy";
+                    plan.SpawnSlots.Add(new RegionSpawnSlotPlan { SlotId = id, EnemyId = enemyId, EnemyLevel = 1,
+                        Kind = kinds[index] == ExpeditionRoomKind.Boss ? RegionEnemyKind.Boss : index == 1 ? RegionEnemyKind.Elite : RegionEnemyKind.Normal });
+                    room.RewardedSlotIds.Add(id);
+                    room.BossDefeated = room.BossRewardsCompleted = kinds[index] == ExpeditionRoomKind.Boss;
+                }
+                if (kinds[index] == ExpeditionRoomKind.Chest)
+                {
+                    plan.Chests.Add(new RegionChestPlan { Id = "chest", Items = new List<ProjectItem> { new() { Id = "chest-item" } } });
+                    room.Chests.Add(new RegionChestState { Id = "chest", Opened = true, ClaimedItemIds = new List<string> { "chest-item" } });
+                }
+                if (kinds[index] == ExpeditionRoomKind.Npc)
+                {
+                    plan.Npcs.Add(new RegionNpcPlan { Id = "npc", Offers = new List<RegionNpcOfferPlan> { new() { Id = "offer" } } });
+                    room.Npcs.Add(new RegionNpcState { Id = "npc", Visited = true, SoldOfferIds = new List<string> { "offer" } });
+                }
+                Assert.That(ProjectRunStatistics.TryCreateRoomStatistics(plan, room.RewardedSlotIds, room.Completed, room.EffectiveTicks,
+                    room.Chests, room.Npcs, out var row), Is.True);
+                stats.Rooms.Add(row);
+                snapshot.Rooms.Add(room);
+                snapshot.Requests.Add(plan.Request);
+                snapshot.ElapsedTicks += room.EffectiveTicks;
+            }
+            stats.RecalculateRoomTotals();
+            snapshot.Statistics = stats;
+            snapshot.KillExperience = (int)stats.EarnedKillExperience;
+            Assert.That(ProjectRunStatistics.IsValid(stats), Is.True);
+            return snapshot;
         }
     }
 }

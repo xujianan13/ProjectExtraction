@@ -8,19 +8,21 @@ using UnityEngine;
 namespace GameLogic.UI.Battle
 {
     /// <summary>
-    /// 角色倒下后的必选弹窗，提供广告复活和沿用死亡损失的结算入口。
+    /// 角色倒下后的选择弹窗，提供广告复活、暂离、携物撤离与死亡结算。
     /// </summary>
     public sealed class DeathChoiceWindow : GameWindow
     {
         private ExpeditionRun run;
         private UnityEngine.UI.Button revive;
         private UnityEngine.UI.Button settle;
+        private UnityEngine.UI.Button suspend;
+        private UnityEngine.UI.Button adExtraction;
         private UnityEngine.UI.Text feedback;
         private bool requesting;
         private bool closing;
 
         /// <summary>
-        /// 在安全区内创建可滚动的死亡规则和两项选择，不提供跳过选择的关闭按钮。
+        /// 在安全区内创建可滚动的死亡规则和处理入口。
         /// </summary>
         protected override void Init()
         {
@@ -38,16 +40,19 @@ namespace GameLogic.UI.Battle
             size.flexibleHeight = 1f;
             size.minHeight = 100f;
             UnityEngine.UI.Text rules = ProjectUiFactory.Label(actions,
-                "看广告复活：原地恢复满血，本局探索进度和持有物品保留。\n每次死亡都可以选择广告复活，不限次数。\n\n" +
-                "结算返回：死亡后全部持有物品掉落，入场装备与本局战利品均无法带回。",
+                "广告复活后继续本局，已有物品保留。\n暂离主城保留死亡选择，继续本局后仍需处理。\n\n" +
+                "结算仅失去本关所得，携入装备自动退回。广告撤离可再选择最多三件本关物品，携入装备不占名额。",
                 32, TextAnchor.MiddleLeft, new Color(0.9f, 0.94f, 1f));
             ProjectUiFactory.Height(rules.rectTransform, 360f);
             revive = ProjectUiFactory.ActionButton(actions, "看广告复活", () => ReviveAsync().Forget());
+            suspend = ProjectUiFactory.ActionButton(actions, "暂离主城", () => SuspendAsync().Forget());
+            adExtraction = ProjectUiFactory.ActionButton(actions, "看广告携物撤离", () => AdExtractionAsync().Forget());
             settle = ProjectUiFactory.ActionButton(actions, "结算返回", ConfirmDeath);
-            revive.GetComponentInChildren<UnityEngine.UI.Text>().fontSize = 40;
-            settle.GetComponentInChildren<UnityEngine.UI.Text>().fontSize = 40;
-            ProjectUiFactory.Height((RectTransform)revive.transform, 96f);
-            ProjectUiFactory.Height((RectTransform)settle.transform, 96f);
+            foreach (UnityEngine.UI.Button button in new[] { revive, suspend, adExtraction, settle })
+            {
+                button.GetComponentInChildren<UnityEngine.UI.Text>().fontSize = 36;
+                ProjectUiFactory.Height((RectTransform)button.transform, 96f);
+            }
             feedback = ProjectUiFactory.Label(actions, string.Empty, 30, TextAnchor.MiddleLeft, new Color(1f, 0.85f, 0.58f));
             ProjectUiFactory.Height(feedback.rectTransform, 120f);
         }
@@ -97,8 +102,12 @@ namespace GameLogic.UI.Battle
             }
             bool available = run.CanChooseDeath && !requesting && !closing;
             revive.interactable = settle.interactable = available;
+            suspend.interactable = run.CanSuspend && !requesting && !closing;
+            adExtraction.interactable = !run.IsSavingRun && !requesting && !closing &&
+                (run.HasAdExtractionAuthorization || run.CanRequestAdExtraction);
+            adExtraction.GetComponentInChildren<UnityEngine.UI.Text>().text = run.HasAdExtractionAuthorization ? "继续选择撤离物品" : "看广告携物撤离";
             feedback.text = run.IsSavingRun ? "正在保存本局进度，请稍候。" :
-                run.IsReviveAdPending || requesting ? "正在处理复活，请稍候。" : run.Message;
+                run.IsReviveAdPending || requesting ? "正在处理请求，请稍候。" : run.Message;
         }
 
         /// <summary>
@@ -125,6 +134,45 @@ namespace GameLogic.UI.Battle
         {
             if (run == null || requesting || closing || !run.CanChooseDeath) return;
             run.TryConfirmDeath();
+            Refresh();
+        }
+
+        /// <summary>
+        /// 保存死亡待处理状态并暂离主城。
+        /// </summary>
+        /// <returns>暂离请求任务。</returns>
+        private async UniTaskVoid SuspendAsync()
+        {
+            if (run == null || !suspend.interactable) return;
+            ExpeditionRun current = run;
+            LifetimeScope scope = OpenScope;
+            requesting = true;
+            Refresh();
+            await ProjectServices.Coordinator.SuspendRunAsync(current);
+            if (!scope.IsActive || !ReferenceEquals(OpenScope, scope) || !ReferenceEquals(run, current)) return;
+            requesting = false;
+            Refresh();
+        }
+
+        /// <summary>
+        /// 完成广告或复用已有资格后选择本次带出的物品。
+        /// </summary>
+        /// <returns>广告请求或选择窗口打开任务。</returns>
+        private async UniTaskVoid AdExtractionAsync()
+        {
+            if (run == null || !adExtraction.interactable) return;
+            if (run.HasAdExtractionAuthorization)
+            {
+                run.TryOpenAdExtraction();
+                return;
+            }
+            ExpeditionRun current = run;
+            LifetimeScope scope = OpenScope;
+            requesting = true;
+            Refresh();
+            await current.RequestAdExtractionAsync();
+            if (!scope.IsActive || !ReferenceEquals(OpenScope, scope) || !ReferenceEquals(run, current)) return;
+            requesting = false;
             Refresh();
         }
 

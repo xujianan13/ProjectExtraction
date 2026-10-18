@@ -37,7 +37,7 @@ namespace ProjectExtraction.Tests
         }
 
         /// <summary>
-        /// 旧回执不要求新增快照字段，新回执使用实际结算时的冻结技能点规则。
+        /// 结算回执冻结当时的技能点规则，后续调整配置不改变已到账结果。
         /// </summary>
         [Test]
         public void ReceiptKeepsSkillPointRuleAfterBalanceChange()
@@ -51,10 +51,10 @@ namespace ProjectExtraction.Tests
             var outcome = new ProjectRunOutcome
             {
                 RunId = data.ActiveRunId, LevelId = data.ActiveLevelId, Seed = data.ActiveSeed,
-                RulesVersion = ProjectRunRecordRules.RulesVersion, Extracted = true,
+                RulesVersion = ProjectRunRecordRules.RulesVersion, ExitKind = ProjectRunExitKind.Completed,
                 KillExperience = PrototypeRules.ExperienceRequired(data.Level),
                 AwardedKillExperience = PrototypeRules.ExperienceRequired(data.Level),
-                Items = new List<ProjectItem> { data.EntryItems[0].Copy() }
+                Items = new List<ProjectItem>()
             };
             Assert.IsTrue(ProjectRunRecordRules.TryRecordOutcome(data, outcome, out _));
             Assert.IsTrue(ProjectRunRecordRules.TrySettleOutcome(data, out _));

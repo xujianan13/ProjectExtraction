@@ -15,11 +15,6 @@ namespace GameLogic.Project
         public static CfgProfileRow Profile => GameTables.CfgProfile?.GetById(1);
 
         /// <summary>
-        /// 取得唯一 Rogue 策略行。
-        /// </summary>
-        public static CfgRoguePolicyRow RoguePolicy => GameTables.CfgRoguePolicy?.GetById(1);
-
-        /// <summary>
         /// 按身份取得成长技能。
         /// </summary>
         /// <param name="id">技能身份。</param>
@@ -57,13 +52,14 @@ namespace GameLogic.Project
             error = null;
             if (GameTables.CfgProfile == null || GameTables.CfgSkills == null || GameTables.CfgItemDefinitions == null ||
                 GameTables.CfgQualities == null || GameTables.CfgAffixes == null || GameTables.CfgLootPool == null ||
-                GameTables.CfgLootQualities == null || GameTables.CfgRoguePolicy == null || GameTables.CfgRogueRewards == null)
+                GameTables.CfgLootQualities == null)
             {
                 error = "局外玩法配置表未全部加载。";
                 return false;
             }
             CfgProfileRow p = Profile;
-            if (p == null || GameTables.CfgProfile.GetAll().Count != 1 || p.StaminaCap <= 0 || p.EntryCost <= 0 ||
+            if (p == null || GameTables.CfgProfile.GetAll().Count != 1 || p.StaminaCap <= 0 || p.EntryCost <= 0 || p.RoomEntryCost < 0 ||
+                p.AdExtractionItemLimit < 1 || p.AdExtractionItemLimit > 20 ||
                 p.RecoverySeconds <= 0 || p.SupplyAmount <= 0 || p.DailyResetHour < 0 || p.DailyResetHour > 23 ||
                 p.GameUtcOffsetHours < -12 || p.GameUtcOffsetHours > 14 ||
                 p.NpcItemPrice < 0 || p.ExtractionExperience < 0 || p.SkillPointsPerLevel < 0 ||
@@ -259,34 +255,7 @@ namespace GameLogic.Project
                     error = "默认掉落池缺少等级 " + level + " 的物品。";
                     return false;
                 }
-            CfgRoguePolicyRow policy = RoguePolicy;
-            if (policy == null || GameTables.CfgRoguePolicy.GetAll().Count != 1 || policy.MaxRefreshes < 0 ||
-                policy.SelectedUpgradeWeightMultiplier < 1 || policy.SelectedUpgradeWeightMultiplier > 16 ||
-                policy.UnlockedComboWeightMultiplier < 1 || policy.UnlockedComboWeightMultiplier > 16)
-            {
-                error = "Rogue 策略无效。";
-                return false;
-            }
-            int rogueCount = 0;
-            long rogueWeight = 0;
-            foreach (CfgRogueRewardsRow reward in GameTables.CfgRogueRewards.GetAll())
-            {
-                if (string.IsNullOrWhiteSpace(reward.ID) || string.IsNullOrWhiteSpace(reward.Title) || reward.Weight <= 0 ||
-                    !Enum.IsDefined(typeof(GameLogic.Gameplay.Roguelike.RogueRewardKind), reward.Kind) ||
-                    !FiniteFloat(reward.Amount) ||
-                    reward.Kind == 0 && (!Enum.IsDefined(typeof(ProjectAttributeType), reward.Attribute) ||
-                        reward.Amount <= 0 || reward.Amount > p.MaxAttributeValue))
-                {
-                    error = "Rogue 奖励无效。";
-                    return false;
-                }
-                rogueWeight += reward.Weight;
-                rogueCount++;
-            }
-            if (rogueWeight * Math.Max(policy.SelectedUpgradeWeightMultiplier, policy.UnlockedComboWeightMultiplier) > int.MaxValue)
-                error = "Rogue 奖励有效总权重超过可表示范围。";
-            if (rogueCount == 0) error = "Rogue 技能奖励池为空。";
-            return error == null && ProjectAugmentConfig.Validate(out error) && ProjectV2RewardConfig.Validate(out error);
+            return ProjectAugmentConfig.Validate(out error) && ProjectRewardConfig.Validate(out error);
         }
 
         /// <summary>

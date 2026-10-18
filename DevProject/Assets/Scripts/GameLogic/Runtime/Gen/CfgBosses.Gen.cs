@@ -29,31 +29,6 @@ namespace GameLogic.Tables
         public int EnemyID;
 
         /// <summary>
-        /// MapID 字段。
-        /// </summary>
-        public int MapID;
-
-        /// <summary>
-        /// PoolID 字段。
-        /// </summary>
-        public string PoolID;
-
-        /// <summary>
-        /// Weight 字段。
-        /// </summary>
-        public int Weight;
-
-        /// <summary>
-        /// MinLevel 字段。
-        /// </summary>
-        public int MinLevel;
-
-        /// <summary>
-        /// MaxLevel 字段。
-        /// </summary>
-        public int MaxLevel;
-
-        /// <summary>
         /// RewardID 字段。
         /// </summary>
         public int RewardID;
@@ -103,7 +78,7 @@ namespace GameLogic.Tables
                 TextAsset asset = lease.Asset;
                 if (asset == null) throw new InvalidOperationException("配置表资源不可用：CfgBosses");
                 var envelope = JsonUtility.FromJson(asset.text, typeof(Envelope)) as Envelope;
-                if (envelope == null || envelope.schemaHash != "62fd4beb60bcb9d721356e413f3ac9d7bb1b2a61f25f082309ec66c63aab6279" || envelope.rows == null)
+                if (envelope == null || envelope.schemaHash != "4973bf55b5e06b4ba99a694f2dcc7b4ce60d8aed83244129a43e9766fbcc0586" || envelope.rows == null)
                     throw new InvalidOperationException("配置表结构不匹配：CfgBosses");
 
                 var table = new CfgBossesTable();

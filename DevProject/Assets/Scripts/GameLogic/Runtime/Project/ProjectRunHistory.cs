@@ -6,7 +6,7 @@ namespace GameLogic.Project
     /// <summary>
     /// 已保存单局的终局类别。
     /// </summary>
-    public enum ProjectRunHistoryOutcome { Extracted = 0, Died = 1, Abandoned = 2, Completed = 3 }
+    public enum ProjectRunHistoryOutcome { Extracted = 0, Died = 1, Abandoned = 2, Completed = 3, AdExtraction = 4 }
 
     /// <summary>
     /// 单局战绩快照；不保留物品实例或可变配置引用。
@@ -52,6 +52,7 @@ namespace GameLogic.Project
         public int RegionStatsSampleCount;
         public int EarlyExtractionCount;
         public int CompletedCount;
+        public int AdExtractionCount;
         public double AverageElapsedSeconds;
         public int NetAssetSampleCount;
         public double AverageNetAssetValue;
@@ -75,11 +76,11 @@ namespace GameLogic.Project
             return new ProjectRunHistoryEntry
             {
                 RunId = outcome.RunId, LevelId = outcome.LevelId, EndUtc = endUtc, ElapsedSeconds = outcome.ElapsedSeconds,
-                Outcome = outcome.Extracted ? outcome.Statistics?.IsFinalCompletion == true
-                    ? ProjectRunHistoryOutcome.Completed : ProjectRunHistoryOutcome.Extracted :
-                    outcome.Abandoned ? ProjectRunHistoryOutcome.Abandoned : ProjectRunHistoryOutcome.Died,
+                Outcome = outcome.ExitKind == ProjectRunExitKind.Completed ? ProjectRunHistoryOutcome.Completed :
+                    outcome.ExitKind == ProjectRunExitKind.AdExtraction ? ProjectRunHistoryOutcome.AdExtraction :
+                    outcome.ExitKind == ProjectRunExitKind.Abandoned ? ProjectRunHistoryOutcome.Abandoned : ProjectRunHistoryOutcome.Died,
                 Statistics = outcome.Statistics?.HasData == true ? outcome.Statistics.Copy() : null,
-                KillExperience = outcome.AwardedKillExperience, ExtractionExperience = outcome.ExtractionExperience,
+                KillExperience = outcome.KillExperience, ExtractionExperience = outcome.ExtractionExperience,
                 GoldSpent = outcome.GoldSpent, RetainedSellValue = economy.RetainedSellValue, LostSellValue = economy.LostSellValue,
                 EntrySellValue = economy.EntrySellValue, NetAssetValue = economy.NetAssetValue, HasNetAssetValue = economy.HasEntrySnapshot
             };
@@ -95,7 +96,8 @@ namespace GameLogic.Project
         /// <returns>是否接受本次追加或同一单局重试。</returns>
         public static bool Append(ProjectSaveData candidate, ProjectRunResult result, long endUtc, int limit)
         {
-            if (candidate == null || result?.Outcome == null || string.IsNullOrWhiteSpace(result.Outcome.RunId) ||
+            if (candidate == null || result?.Outcome == null || !Enum.IsDefined(typeof(ProjectRunExitKind), result.Outcome.ExitKind) ||
+                string.IsNullOrWhiteSpace(result.Outcome.RunId) ||
                 endUtc < 0 || endUtc > 253402300799L || limit < 1 || limit > 100) return false;
             candidate.RunHistory ??= new List<ProjectRunHistoryEntry>();
             if (Validate(candidate.RunHistory) != null) return false;
@@ -125,7 +127,6 @@ namespace GameLogic.Project
                     entry.KillExperience < 0 || entry.ExtractionExperience < 0 || entry.GoldSpent < 0 ||
                     entry.RetainedSellValue < 0 || entry.LostSellValue < 0 || entry.EntrySellValue < 0 ||
                     !ProjectRunStatistics.IsValid(entry.Statistics) ||
-                    entry.Outcome == ProjectRunHistoryOutcome.Completed && entry.Statistics?.IsFinalCompletion != true ||
                     entry.Outcome == ProjectRunHistoryOutcome.Extracted && entry.Statistics?.IsFinalCompletion == true ||
                     entry.HasNetAssetValue && (entry.Statistics?.HasData != true ||
                         entry.EntrySellValue != entry.Statistics.EntryItemSellValue ||
@@ -156,12 +157,14 @@ namespace GameLogic.Project
                     map.Add(entry.LevelId, row);
                 }
                 row.Count++;
-                if (entry.Outcome == ProjectRunHistoryOutcome.Extracted || entry.Outcome == ProjectRunHistoryOutcome.Completed) row.ExtractedCount++;
+                if (entry.Outcome == ProjectRunHistoryOutcome.Extracted || entry.Outcome == ProjectRunHistoryOutcome.Completed ||
+                    entry.Outcome == ProjectRunHistoryOutcome.AdExtraction) row.ExtractedCount++;
+                if (entry.Outcome == ProjectRunHistoryOutcome.Completed) row.CompletedCount++;
+                if (entry.Outcome == ProjectRunHistoryOutcome.AdExtraction) row.AdExtractionCount++;
                 if (entry.Statistics?.HasRegionData == true)
                 {
                     row.RegionStatsSampleCount++;
-                    if (entry.Outcome == ProjectRunHistoryOutcome.Completed) row.CompletedCount++;
-                    else if (entry.Outcome == ProjectRunHistoryOutcome.Extracted) row.EarlyExtractionCount++;
+                    if (entry.Outcome == ProjectRunHistoryOutcome.Extracted) row.EarlyExtractionCount++;
                 }
                 elapsed[entry.LevelId] = (elapsed.TryGetValue(entry.LevelId, out double priorElapsed) ? priorElapsed : 0) + entry.ElapsedSeconds;
                 if (!entry.HasNetAssetValue) continue;

@@ -192,6 +192,16 @@ namespace GameLogic.Tables
         /// RunHistoryLimit 字段。
         /// </summary>
         public int RunHistoryLimit;
+
+        /// <summary>
+        /// AdExtractionItemLimit 字段。
+        /// </summary>
+        public int AdExtractionItemLimit;
+
+        /// <summary>
+        /// RoomEntryCost 字段。
+        /// </summary>
+        public int RoomEntryCost;
     }
 
     /// <summary>
@@ -228,7 +238,7 @@ namespace GameLogic.Tables
                 TextAsset asset = lease.Asset;
                 if (asset == null) throw new InvalidOperationException("配置表资源不可用：CfgProfile");
                 var envelope = JsonUtility.FromJson(asset.text, typeof(Envelope)) as Envelope;
-                if (envelope == null || envelope.schemaHash != "ded41526368e6e0d985f0cc5c3cd30806f57421dbf09b56e9d46cd50d26d07ea" || envelope.rows == null)
+                if (envelope == null || envelope.schemaHash != "1467aac4bc77a5f9eef08e165f34f3b9f56ecbbec9c6dd487fa4ffeba0830cd9" || envelope.rows == null)
                     throw new InvalidOperationException("配置表结构不匹配：CfgProfile");
 
                 var table = new CfgProfileTable();

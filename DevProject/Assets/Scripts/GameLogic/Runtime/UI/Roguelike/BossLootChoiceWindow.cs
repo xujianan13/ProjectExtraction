@@ -110,7 +110,7 @@ namespace GameLogic.UI.Roguelike
                 selectedIndex = 0;
             }
             title.text = "Boss 战利品 · 第 " + choice.Round + " / " + choice.TotalRounds + " 轮";
-            message.text = run.RogueMessage;
+            message.text = run.RewardMessage;
             IReadOnlyList<ProjectItem> options = choice.Options;
             for (int index = 0; index < options.Count; index++)
             {
@@ -128,9 +128,8 @@ namespace GameLogic.UI.Roguelike
             else
             {
                 AddDetail(ProjectEquipmentText.Details(currentItem), Color.white);
-                AddDetail(ProjectEquipmentText.EquippedDetails(currentItem, run.Inventory), new Color(0.78f, 0.91f, 1f));
-                if (run.TryPreviewEquipment(currentItem, out ProjectCharacterStats current, out ProjectCharacterStats preview))
-                    AddDetail(ExpeditionEquipmentComparison.Format(current, preview), Color.white);
+                AddDetail(ProjectEquipmentText.EquippedDetails(currentItem, run.EntryEquipment), new Color(0.78f, 0.91f, 1f));
+                AddDetail("领取后收入关卡背包，带回主城后可装备。", Color.white);
             }
             AddDetail("售价 " + currentItem.SellGold + " 金币", new Color(1f, 0.86f, 0.56f));
             claim.interactable = !busy && !run.IsSavingRun;
@@ -176,10 +175,10 @@ namespace GameLogic.UI.Roguelike
         /// <returns>玩家可读的收藏详情。</returns>
         private static string CollectionDetails(ProjectItem item)
         {
-            ProjectCollectionDefinition definition = ProjectV2RewardConfig.Collection(item.CollectionId);
+            ProjectCollectionDefinition definition = ProjectRewardConfig.Collection(item.CollectionId);
             var text = new StringBuilder("来源：").Append(definition.Source)
                 .Append("\n").Append(ProjectEquipmentText.CollectionRegistration(item)).Append("\n收藏用于系列成就，可出售。\n");
-            IReadOnlyList<ProjectCollectionAchievementDefinition> achievements = ProjectV2RewardConfig.CollectionAchievements(out string error);
+            IReadOnlyList<ProjectCollectionAchievementDefinition> achievements = ProjectRewardConfig.CollectionAchievements(out string error);
             if (error != null) return text.Append("收藏成就配置不可用。").ToString();
             foreach (ProjectCollectionAchievementDefinition achievement in achievements)
             {
@@ -188,7 +187,7 @@ namespace GameLogic.UI.Roguelike
                 for (int index = 0; index < achievement.RequiredCollectionIds.Count; index++)
                 {
                     if (index > 0) text.Append("、");
-                    text.Append(ProjectV2RewardConfig.Collection(achievement.RequiredCollectionIds[index]).Name);
+                    text.Append(ProjectRewardConfig.Collection(achievement.RequiredCollectionIds[index]).Name);
                 }
                 foreach (ProjectAttributeValue bonus in achievement.AttributeRewards)
                     text.Append("\n奖励：").Append(ProjectEquipmentText.ItemAttribute(bonus.Attribute, bonus.Value));

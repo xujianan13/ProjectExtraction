@@ -56,7 +56,7 @@ namespace GameLogic.UI.Character
             ProjectUiFactory.Clear(content);
             var collected = new HashSet<string>(session.CollectedCollectionIds);
             var achieved = new HashSet<string>(session.AchievedCollectionIds);
-            foreach (ProjectCollectionDefinition entry in ProjectV2RewardConfig.CollectionDefinitions())
+            foreach (ProjectCollectionDefinition entry in ProjectRewardConfig.CollectionDefinitions())
             {
                 RectTransform card = CreateCard("Collection_" + entry.Id);
                 ProjectUiFactory.Label(card, (collected.Contains(entry.Id) ? "已收藏 · " : "未收藏 · ") + entry.Name, 27,
@@ -66,7 +66,7 @@ namespace GameLogic.UI.Character
                 ProjectUiFactory.Label(card, "仅在成功带回并实际入库后登记；死亡或放弃不会登记本局收藏。", 20,
                     TextAnchor.MiddleLeft, new Color(0.8f, 0.9f, 0.96f));
             }
-            foreach (ProjectCollectionAchievementDefinition entry in ProjectV2RewardConfig.CollectionAchievements(out _))
+            foreach (ProjectCollectionAchievementDefinition entry in ProjectRewardConfig.CollectionAchievements(out _))
             {
                 RectTransform card = CreateCard("Achievement_" + entry.Id);
                 int count = 0;
@@ -75,7 +75,7 @@ namespace GameLogic.UI.Character
                 {
                     bool found = collected.Contains(id);
                     if (found) count++;
-                    detail.Append(found ? "✓ " : "○ ").Append(ProjectV2RewardConfig.Collection(id).Name).Append('\n');
+                    detail.Append(found ? "✓ " : "○ ").Append(ProjectRewardConfig.Collection(id).Name).Append('\n');
                 }
                 foreach (ProjectAttributeValue bonus in entry.AttributeRewards)
                     detail.Append("永久奖励：").Append(ProjectEquipmentText.FinalAttribute(bonus.Attribute, bonus.Value)).Append('\n');

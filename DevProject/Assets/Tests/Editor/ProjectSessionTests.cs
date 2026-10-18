@@ -25,74 +25,21 @@ namespace ProjectExtraction.Tests
         }
 
         /// <summary>
-        /// 历史旧局补偿只退原入场资源，不能重复退款或补造未结算战利品。
+        /// V3 已运行局必须恢复原身份，不能通过中断补偿退体力或携入装备。
         /// </summary>
         [Test]
-        public void LegacyInterruptedRunRefundsOriginalEntryOnlyOnce()
-        {
-            ProjectSaveData committed = ProjectSaveData.CreateDefault();
-            ProjectItem original = committed.Warehouse[0].Copy();
-            committed.Warehouse.Clear();
-            committed.Stamina = 90;
-            committed.ActiveRunId = "run-1";
-            committed.Stage = ProjectRunStage.Running;
-            committed.ActiveRunEntryCost = 10;
-            committed.EntryItems.Add(original);
-            Assert.IsNull(ProjectSaveData.Validate(committed));
-
-            ProjectSaveData candidate = committed.Copy();
-            var unsettledLoot = new ProjectItem { Id = "loot", Name = "临时战利品", Type = ProjectItemType.Item, RequiredLevel = 1 };
-            Assert.IsTrue(ProjectProfileRules.TryRecoverInterruptedRun(candidate, "战斗故障"));
-            Assert.AreEqual(100, candidate.Stamina);
-            Assert.AreEqual(1, candidate.Warehouse.Count);
-            Assert.AreEqual(original.Id, candidate.Warehouse[0].Id);
-            Assert.IsFalse(candidate.Warehouse.Exists(item => item.Id == unsettledLoot.Id));
-            Assert.AreEqual(0, candidate.EntryItems.Count);
-            Assert.AreEqual("", candidate.ActiveRunId);
-            Assert.AreEqual(0, candidate.ActiveRunEntryCost);
-            Assert.AreEqual("run-1", candidate.LastSettledRunId);
-            Assert.IsNull(ProjectSaveData.Validate(candidate));
-            Assert.IsFalse(ProjectProfileRules.TryRecoverInterruptedRun(candidate, "重复调用"));
-            Assert.AreEqual(100, candidate.Stamina);
-
-            Assert.AreEqual(90, committed.Stamina);
-            Assert.AreEqual(0, committed.Warehouse.Count);
-            Assert.AreEqual("run-1", committed.ActiveRunId);
-        }
-
-        /// <summary>
-        /// 历史旧局没有记录扣费字段时，按冻结的旧版入场费用补偿。
-        /// </summary>
-        [Test]
-        public void LegacyActiveRunUsesFrozenLegacyEntryCost()
-        {
-            ProjectSaveData candidate = ProjectSaveData.CreateDefault();
-            candidate.Warehouse.Clear();
-            candidate.EntryItems.Add(new ProjectItem { Id = "entry", Name = "旧入场装备", Type = ProjectItemType.Weapon, RequiredLevel = 1 });
-            candidate.ActiveRunId = "legacy";
-            candidate.Stage = ProjectRunStage.Running;
-            candidate.Stamina = 80;
-            Assert.IsTrue(ProjectProfileRules.TryRecoverInterruptedRun(candidate, ""));
-            Assert.AreEqual(80 + PrototypeRules.LegacyEntryCost, candidate.Stamina);
-            Assert.IsNull(ProjectSaveData.Validate(candidate));
-        }
-
-        /// <summary>
-        /// v2 已运行局必须恢复原身份，不能通过中断补偿退体力或携入装备。
-        /// </summary>
-        [Test]
-        public void V2RunningRunCannotRefundOrClearItsIdentity()
+        public void V3RunningRunCannotRefundOrClearItsIdentity()
         {
             ProjectSaveData data = ProjectSaveData.CreateDefault();
             int stamina = data.Stamina;
             var entry = new List<ProjectItem> { data.Warehouse[0].Copy() };
-            Assert.That(ProjectRunRecordRules.TryAdmit(data, "v2-running", 1, 19, entry, out string error), Is.True, error);
-            Assert.That(data.ActiveRunVersion, Is.EqualTo(2));
-            Assert.That(ProjectRunRecordRules.TryMarkRunning(data, "v2-running", out error), Is.True, error);
+            Assert.That(ProjectRunRecordRules.TryAdmit(data, "v3-running", 1, 19, entry, out string error), Is.True, error);
+            Assert.That(data.ActiveRunVersion, Is.EqualTo(3));
+            Assert.That(ProjectRunRecordRules.TryMarkRunning(data, "v3-running", out error), Is.True, error);
             string running = JsonUtility.ToJson(data);
             Assert.That(ProjectProfileRules.TryRecoverInterruptedRun(data, "运行日志恢复失败"), Is.False);
             Assert.That(JsonUtility.ToJson(data), Is.EqualTo(running));
-            Assert.That(data.Stamina, Is.EqualTo(stamina - PrototypeRules.EntryCost));
+            Assert.That(data.Stamina, Is.EqualTo(stamina - PrototypeRules.EntryCost - PrototypeRules.RoomEntryCost));
             Assert.That(ProjectRunRecordRules.TryAdmit(data, "new-run", 1, 20, entry, out error), Is.False);
             Assert.That(JsonUtility.ToJson(data), Is.EqualTo(running));
         }
@@ -101,12 +48,12 @@ namespace ProjectExtraction.Tests
         /// 尚未运行的新准入局可补偿一次，清理版本字段并保持原提交副本。
         /// </summary>
         [Test]
-        public void V2AdmittedCancellationCompensatesExactlyOnce()
+        public void V3AdmittedCancellationCompensatesExactlyOnce()
         {
             ProjectSaveData data = ProjectSaveData.CreateDefault();
             int stamina = data.Stamina;
             string itemId = data.Warehouse[0].Id;
-            Assert.That(ProjectRunRecordRules.TryAdmit(data, "v2-admitted", 1, 21,
+            Assert.That(ProjectRunRecordRules.TryAdmit(data, "v3-admitted", 1, 21,
                 new[] { data.Warehouse[0].Copy() }, out string error), Is.True, error);
             Assert.That(ProjectProfileRules.TryRecoverInterruptedRun(data, "取消首次入场"), Is.True);
             Assert.That(data.Stamina, Is.EqualTo(stamina));

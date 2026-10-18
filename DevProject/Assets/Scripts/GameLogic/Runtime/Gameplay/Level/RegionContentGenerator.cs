@@ -26,18 +26,16 @@ namespace GameLogic.Gameplay.Level
             error = null;
             if (request == null || map == null || !map.TryValidate(out error) || !ValidateContent(content, out error)) return false;
             if (string.IsNullOrWhiteSpace(request.RunId) || request.RegionId <= 0 || request.RegionIndex < 0 || request.LevelId <= 0 ||
-                request.LootLevel <= 0 || request.EnemyLevel <= 0 || request.BossDefinitionId <= 0 || request.BossEnemyId <= 0 || request.BossEnemyLevel <= 0 ||
+                request.LootLevel <= 0 || request.EnemyLevel <= 0 || !RegionPlan.ValidRoomRequest(request) ||
                 string.IsNullOrWhiteSpace(request.ConfigVersion) || request.MapId != map.MapId || request.MapVersion != map.Version)
             { error = "区域生成请求或地图版本无效。"; return false; }
             if (!TrySingleAnchor(map, RegionAnchorKind.Entry, out RegionMapAnchor entry) ||
-                !TrySingleAnchor(map, RegionAnchorKind.Exit, out RegionMapAnchor exit) ||
-                !map.TryGetAnchor(request.BossAnchorId, out RegionMapAnchor boss) || boss.Kind != RegionAnchorKind.Boss)
+                !TrySingleAnchor(map, RegionAnchorKind.Exit, out RegionMapAnchor exit))
             { error = "区域入口、出口或绑定的 Boss 锚点不可用。"; return false; }
             var generated = new RegionPlan
             {
                 Request = request.Copy(), EntryAnchorId = entry.Id, EntryPosition = entry.Position, ExitAnchorId = exit.Id,
-                ExitPosition = exit.Position, PlayerRadius = content.PlayerRadius, InteractionRadius = content.InteractionRadius,
-                NormalRespawn = content.NormalRespawn.Copy(), EliteRespawn = content.EliteRespawn.Copy()
+                ExitPosition = exit.Position, PlayerRadius = content.PlayerRadius, InteractionRadius = content.InteractionRadius
             };
             var monsterRandom = new PersistentRandom(request.MonsterSeed);
             var eliteRandom = new PersistentRandom(request.EliteSeed);
@@ -103,7 +101,7 @@ namespace GameLogic.Gameplay.Level
                 RegionEncounterCandidate encounter = chosenGroups[groupIndex];
                 long requestedCapacity = 0;
                 foreach (RegionSpawnMemberDefinition member in encounter.Members) requestedCapacity += member.Count;
-                if (requestedCapacity > int.MaxValue || generated.SpawnSlots.Count + requestedCapacity >= content.MaxSpawnSlots ||
+                if (requestedCapacity > int.MaxValue || generated.SpawnSlots.Count + requestedCapacity > content.MaxSpawnSlots ||
                     !TakeAnchor(monsterAnchors, (int)requestedCapacity, monsterPositions, out RegionMapAnchor anchor))
                 { error = "区域怪群超过槽位预算或锚点容量。"; return false; }
                 string groupId = prefix + ":group:" + groupIndex;
@@ -142,13 +140,18 @@ namespace GameLogic.Gameplay.Level
                 npc.AnchorId = anchor.Id;
                 npc.Position = anchor.Position;
             }
-            string bossId = prefix + ":boss";
-            generated.SpawnSlots.Add(new RegionSpawnSlotPlan
+            if (request.RoomKind == ExpeditionRoomKind.Boss)
             {
-                SlotId = bossId, GroupId = bossId, EncounterId = request.BossDefinitionId, EnemyId = request.BossEnemyId,
-                EnemyLevel = request.BossEnemyLevel, Kind = RegionEnemyKind.Boss, AnchorId = boss.Id,
-                HomePosition = boss.Position, Radius = content.BossRadius
-            });
+                if (!map.TryGetAnchor(request.BossAnchorId, out RegionMapAnchor boss) || boss.Kind != RegionAnchorKind.Boss)
+                { error = "Boss 房缺少绑定锚点。"; return false; }
+                string bossId = prefix + ":boss";
+                generated.SpawnSlots.Add(new RegionSpawnSlotPlan
+                {
+                    SlotId = bossId, GroupId = bossId, EncounterId = request.BossDefinitionId, EnemyId = request.BossEnemyId,
+                    EnemyLevel = request.BossEnemyLevel, Kind = RegionEnemyKind.Boss, AnchorId = boss.Id,
+                    HomePosition = boss.Position, Radius = content.BossRadius
+                });
+            }
             if (generated.SpawnSlots.Count > content.MaxSpawnSlots || !generated.TryValidate(map, out error) ||
                 !ValidatePositions(generated, map, content, out error)) return false;
             plan = generated;
@@ -165,10 +168,9 @@ namespace GameLogic.Gameplay.Level
         {
             error = null;
             if (content == null || content.MonsterGroupCount < 0 || content.EliteCount < 0 || content.ChestCount < 0 || content.NpcCount < 0 ||
-                content.MaxSpawnSlots <= 0 || (long)content.MonsterGroupCount + content.EliteCount + 1 > content.MaxSpawnSlots ||
-                !Positive(content.BossRadius) || !Positive(content.PlayerRadius) || !Positive(content.InteractionRadius) ||
+                content.MaxSpawnSlots <= 0 || (long)content.MonsterGroupCount + content.EliteCount > content.MaxSpawnSlots ||
+                !RegionValueRules.NonNegative(content.BossRadius) || !Positive(content.PlayerRadius) || !Positive(content.InteractionRadius) ||
                 !Positive(content.ReachabilityGridSpacing) || content.ReachabilityMaxCells <= 0 ||
-                content.NormalRespawn == null || !content.NormalRespawn.IsValid() || content.EliteRespawn == null || !content.EliteRespawn.IsValid() ||
                 content.MonsterEncounters == null || content.EliteCandidates == null || content.ChestCandidates == null || content.NpcCandidates == null ||
                 content.MonsterGroupCount > 0 && string.IsNullOrWhiteSpace(content.MonsterAnchorTag) ||
                 content.EliteCount > 0 && string.IsNullOrWhiteSpace(content.EliteAnchorTag) ||

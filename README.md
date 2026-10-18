@@ -1,13 +1,16 @@
 # ProjectExtraction
 
-3D 搜打撤 + Roguelike 小游戏项目。目标平台为 Mobile、微信小游戏和 PC，优先设计与验证 Mobile、微信小游戏体验，同时适配 PC 输入与屏幕。默认竖屏 1080×1920，兼容横屏；界面采用主 UI 与模态弹窗结构。平台目标仍须单独验收。
+3D 自动近战、线性房间闯关与装备带出的小游戏。目标平台为 Mobile、微信小游戏和 PC，优先 Mobile、微信小游戏，同时适配 PC 输入与屏幕。默认竖屏 1080×1920，兼容横屏；界面采用 Page 与 Modal。平台目标仍须单独验收。
 
-**当前玩法设计采用 V3。** 新版方向是线性房间闯关：怪物房、NPC 房、宝箱房依次推进，最终 Boss 完成后撤离；击杀经验升级、独立关卡背包、暂离主城续关，以及广告携带三件物品撤离。已确认方向与待定边界见 [V3 当前版本](docs/project/v3/README.md)及[线性房间闯关整体设计](docs/project/v3/线性房间闯关整体设计.md)。
+**当前采用 V3，首轮实现与本机 Memory 验收已完成。** 原型配置为 `Combat → Chest → Combat → Npc → Combat → Boss` 六房，最终 Boss 全部领奖后自动带出全部关卡背包。击杀经验和技能点归永久成长，当前升级 `power`、`vitality`、`agility`，旧 Rogue 随机三选一已移除。已定规则见 [V3 当前版本](docs/project/v3/README.md)与[整体设计](docs/project/v3/线性房间闯关整体设计.md)。
 
-**当前运行代码仍为 V2，V3 尚未实施。** V2 的 P1～P6、多区域地图、物品全量带回与死亡/放弃全损、宝箱物品展示、三类武器与普通技能等实现和验证见[V2 多区域玩法实现与验收](docs/project/v2/多区域玩法实现与验收.md)。当前使用内存存档，停止 Play 或重启后重新开始；磁盘原档不读取、不写入、不删除。V3 改造范围与验证计划见[实施计划与验收](docs/project/v3/实施计划与验收.md)。工程由 `UnityMiniGameFramework` 的 `Minimal` 模板创建，仍使用占位表现和可调原型参数；后续原位替换旧职责，工程只维护一套有效实现。
+携入装备固定，局内不可换装，任何终局均归还；所得和购入仅进入独立关卡背包。死亡确认/主动放弃只丢关卡背包。暂离主城保留同一活动局，挂起期间锁仓库、局外交易与换装；战斗房续关保留玩家检查点和已获/已耗，重建敌人并按稳定槽位去重发奖。首次体力 10+1=11，新房 1；Combat/Boss 续关 1（含死亡待选）、Chest 续关 0、Npc 续关推进下一房并 1，数值统一配置。
 
-项目公司名 `MiniGameStudio`、应用标识 `com.minigamestudio.projectextraction` 是可修改的开发占位。V2 代码已有可替换的广告接口与立即完成的模拟提供者，每次死亡可原地满血复活、不限次数；现行结算为成功全带出、死亡确认或放弃全损。V3 暂离与三件撤离尚未实现，携入装备和成长细则仍待确定。尚未接入正式广告、付费、联网服务或微信 SDK。
+死亡可无限次广告原地满血复活；暂停/死亡待选可请求广告撤离，完成后从关卡背包选择 0..3 件实例，不足三件可全选并允许取消勾选，出战装备不占名额。当前广告为模拟提供者，正式广告、付费、联网服务及微信 SDK 尚未接入。
 
+当前使用 `SaveBackendMode.Memory`，本次运行内保留进度，停止 Play 或重启后重新开始；原有磁盘档不读、不写、不删，旧档迁移独立决定。当前 38 表、占位表现与原型数值不代表完整内容量或平衡验收。实际范围和验证状态见[V3 实施计划与验收](docs/project/v3/实施计划与验收.md)。V2 结果保留在[V2 历史实现记录](docs/project/v2/多区域玩法实现与验收.md)，不计为 V3 通过。
+
+工程由 `UnityMiniGameFramework` 的 `Minimal` 模板创建，只维护一套有效实现。公司名 `MiniGameStudio`、应用标识 `com.minigamestudio.projectextraction` 为可修改的开发占位。
 ## 打开与运行
 
 用 Unity **2022.3.62f2** 打开 [DevProject](DevProject/)，等待首次导入、依赖解析和编译。打开 [Assets/Scenes/Main.unity](DevProject/Assets/Scenes/Main.unity) 后点击 Play，检查固定启动、Loading、`GamePackage` 和 `Home` 入口。首次导入的历史实测结果见 [V1 项目基础接入验收](docs/project/v1/项目基础接入验收.md)；旧结果不代表 V3 已通过验收。
@@ -46,8 +49,8 @@ Quick 的检查范围和结果文件见[统一验收](docs/framework/统一验�
 
 - [项目工作指引](AGENTS.md)：当前项目事实、修改边界与验收原则。
 - [V3 当前版本](docs/project/v3/README.md)：当前玩法方向、版本状态、文档导航和代码替换要求。
-- [线性房间闯关整体设计](docs/project/v3/线性房间闯关整体设计.md)：已确认的五项方向、可行性评估与待定决策。
-- [房间进度与结算方案](docs/project/v3/房间进度与结算方案.md)、[实施计划与验收](docs/project/v3/实施计划与验收.md)：恢复与结算建议、阶段依赖和验证矩阵。
+- [线性房间闯关整体设计](docs/project/v3/线性房间闯关整体设计.md)：已确认规则、原型费用与剩余平台及迁移边界。
+- [房间进度与结算方案](docs/project/v3/房间进度与结算方案.md)、[实施计划与验收](docs/project/v3/实施计划与验收.md)：恢复结算契约、实际改造范围和验证矩阵。
 - [V3 文档承接清单](docs/project/v3/文档承接清单.md)：稳定技术规范、属性分析及旧规则的采用或替换边界。
 - [项目版本导航](docs/project/README.md)、[V2 基线](docs/project/v2/README.md)、[V1 历史归档](docs/project/v1/README.md)：版本约定、旧设计与实际实现证据。
 - [AI 开发入口](docs/framework/AI开发入口.md)、[脚手架使用指南](docs/framework/AI开发脚手架使用指南.md)与 [API 索引](docs/framework/api/README.md)：新增玩法、窗口和场景的入口；使用现有 API 时以实际源码和签名为准。

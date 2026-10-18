@@ -17,7 +17,7 @@ using UnityEngine;
 namespace ProjectExtraction.Tests
 {
     /// <summary>
-    /// 验证唯一会话中的完整 tick FIFO、不可变候选和物理写入独占门禁。
+    /// 验证唯一会话中的检查点 FIFO、不可变候选和物理写入独占门禁。
     /// </summary>
     public sealed class ProjectRunPersistenceTests
     {
@@ -256,7 +256,7 @@ namespace ProjectExtraction.Tests
             public int MaximumActiveWrites;
             private UniTaskCompletionSource<SaveResult> heldWrite;
             public string StorageIdentity => "project-run-pump-test";
-            public int MaxRecordBytes => 8192;
+            public int MaxRecordBytes => 64 * 1024;
 
             /// <summary>
             /// 初始化独立内存后端。
@@ -319,7 +319,7 @@ namespace ProjectExtraction.Tests
             SetField(session, "maxPendingRunTicks", 2);
             ExpeditionRunSnapshot first = Snapshot(1);
             Assert.That(session.EnqueueRunState(first), Is.True);
-            first.World.Tick = 99;
+            first.ElapsedTicks = 99;
             UniTask<SaveResult> second = session.CommitRunStateAsync(Snapshot(2));
             Assert.That(session.RunSaveBlocked, Is.True);
             Assert.That(session.EnqueueRunState(Snapshot(3)), Is.False);
@@ -330,7 +330,7 @@ namespace ProjectExtraction.Tests
             Assert.That(session.RunSaveBlocked || session.HasPendingRunSave, Is.False);
             ProjectRunSnapshotReadResult loaded = session.ReadRunSnapshotAsync("run").GetAwaiter().GetResult();
             Assert.That(loaded.Success, Is.True, loaded.Error);
-            Assert.That(loaded.Snapshot.World.Tick, Is.EqualTo(2));
+            Assert.That(loaded.Snapshot.ElapsedTicks, Is.EqualTo(2));
             Assert.That(backend.MaximumActiveWrites, Is.EqualTo(1));
         }
 
@@ -355,7 +355,7 @@ namespace ProjectExtraction.Tests
             Assert.That(session.RetryRunSaveAsync().GetAwaiter().GetResult().Success, Is.True);
             Assert.That(backend.Attempts[1], Is.EqualTo(backend.Attempts[0]));
             Assert.That(session.RunJournalRevision, Is.EqualTo(2));
-            Assert.That(session.ReadRunSnapshotAsync("run").GetAwaiter().GetResult().Snapshot.World.Tick, Is.EqualTo(2));
+            Assert.That(session.ReadRunSnapshotAsync("run").GetAwaiter().GetResult().Snapshot.ElapsedTicks, Is.EqualTo(2));
         }
 
         /// <summary>
@@ -426,7 +426,7 @@ namespace ProjectExtraction.Tests
                 Assert.That(ui.BlocksGameplayInput, Is.False);
                 Assert.That(session.RunJournalRevision, Is.EqualTo(1));
                 Assert.That(backend.Attempts[1], Is.EqualTo(backend.Attempts[0]));
-                Assert.That(session.ReadRunSnapshotAsync("run").GetAwaiter().GetResult().Snapshot.World.Tick, Is.EqualTo(1));
+                Assert.That(session.ReadRunSnapshotAsync("run").GetAwaiter().GetResult().Snapshot.ElapsedTicks, Is.EqualTo(1));
             }
         }
 
@@ -454,7 +454,7 @@ namespace ProjectExtraction.Tests
             Assert.That(critical.GetAwaiter().GetResult(), Is.True);
             Assert.That(session.RunJournalRevision, Is.EqualTo(2));
             Assert.That(backend.Attempts[1], Is.EqualTo(backend.Attempts[0]));
-            Assert.That(session.ReadRunSnapshotAsync("run").GetAwaiter().GetResult().Snapshot.World.Tick, Is.EqualTo(2));
+            Assert.That(session.ReadRunSnapshotAsync("run").GetAwaiter().GetResult().Snapshot.ElapsedTicks, Is.EqualTo(2));
         }
 
         /// <summary>
@@ -475,7 +475,7 @@ namespace ProjectExtraction.Tests
             Assert.That(coordinator.RetryAsync().GetAwaiter().GetResult(), Is.True);
             Assert.That(critical.GetAwaiter().GetResult(), Is.True);
             Assert.That(session.RunJournalRevision, Is.EqualTo(1));
-            Assert.That(session.ReadRunSnapshotAsync("run").GetAwaiter().GetResult().Snapshot.World.Tick, Is.EqualTo(7));
+            Assert.That(session.ReadRunSnapshotAsync("run").GetAwaiter().GetResult().Snapshot.ElapsedTicks, Is.EqualTo(7));
         }
 
         /// <summary>
@@ -519,7 +519,7 @@ namespace ProjectExtraction.Tests
             next.RunId = "other";
             foreach (RegionGenerationRequest request in next.Requests) request.RunId = next.RunId;
             Assert.That(session.CommitRunStateAsync(next).GetAwaiter().GetResult().Success, Is.True);
-            Assert.That(session.ReadRunSnapshotAsync("other").GetAwaiter().GetResult().Snapshot.World.Tick, Is.EqualTo(9));
+            Assert.That(session.ReadRunSnapshotAsync("other").GetAwaiter().GetResult().Snapshot.ElapsedTicks, Is.EqualTo(9));
             backend.FailReads = true;
             ProjectRunSnapshotReadResult failed = session.ReadRunSnapshotAsync("other").GetAwaiter().GetResult();
             Assert.That(failed.Success || failed.Missing, Is.False);
@@ -543,7 +543,7 @@ namespace ProjectExtraction.Tests
         /// <summary>
         /// 由真实配置生成可编码的准入基线，并使用指定时钟区分队列提交。
         /// </summary>
-        /// <param name="tick">完整战斗时钟。</param>
+        /// <param name="tick">检查点累计逻辑时钟。</param>
         /// <returns>独立候选快照。</returns>
         private static ExpeditionRunSnapshot Snapshot(long tick)
         {
@@ -554,8 +554,7 @@ namespace ProjectExtraction.Tests
             using (run)
             {
                 Assert.That(run.TryCaptureState(out ExpeditionRunSnapshot snapshot, out string error), Is.True, error);
-                snapshot.World.Tick = tick;
-                foreach (CombatRoomState room in snapshot.World.Rooms) room.Tick = tick;
+                snapshot.ElapsedTicks = tick;
                 return snapshot;
             }
         }

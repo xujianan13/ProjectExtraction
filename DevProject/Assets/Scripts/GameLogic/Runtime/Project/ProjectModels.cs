@@ -101,6 +101,8 @@ namespace GameLogic.Project
     {
         public static int StaminaCap => ProjectRulesConfig.Profile.StaminaCap;
         public static int EntryCost => ProjectRulesConfig.Profile.EntryCost;
+        public static int RoomEntryCost => ProjectRulesConfig.Profile.RoomEntryCost;
+        public static int AdExtractionItemLimit => ProjectRulesConfig.Profile.AdExtractionItemLimit;
         public static int RecoverySeconds => ProjectRulesConfig.Profile.RecoverySeconds;
         public static int SupplyAmount => ProjectRulesConfig.Profile.SupplyAmount;
         public static int GameUtcOffsetHours => ProjectRulesConfig.Profile.GameUtcOffsetHours;
@@ -166,6 +168,8 @@ namespace GameLogic.Project
         public int ActiveSeed;
         public int ActiveRulesVersion;
         public int ActiveRunVersion;
+        public int ActiveRunAwardedKillExperience;
+        public int ActiveRoomAdmissionSerial;
         public ProjectRunOutcome Outcome;
         public ProjectRunResult LastResult;
         public List<ProjectRunHistoryEntry> RunHistory = new();
@@ -291,7 +295,7 @@ namespace GameLogic.Project
         {
             if (candidate == null || string.IsNullOrEmpty(candidate.ActiveRunId) || candidate.Outcome != null ||
                 candidate.Stage == ProjectRunStage.OutcomeRecorded ||
-                candidate.ActiveRunVersion == 2 && candidate.Stage == ProjectRunStage.Running) return false;
+                (candidate.ActiveRunVersion == 2 || candidate.ActiveRunVersion == 3) && candidate.Stage == ProjectRunStage.Running) return false;
             int cost = candidate.ActiveRunEntryCost > 0 ? candidate.ActiveRunEntryCost : PrototypeRules.LegacyEntryCost;
             if (candidate.Stamina > int.MaxValue - cost) return false;
             foreach (ProjectItem item in candidate.EntryItems) candidate.Warehouse.Add(item.Copy());
@@ -305,6 +309,8 @@ namespace GameLogic.Project
             candidate.ActiveSeed = 0;
             candidate.ActiveRulesVersion = 0;
             candidate.ActiveRunVersion = 0;
+            candidate.ActiveRunAwardedKillExperience = 0;
+            candidate.ActiveRoomAdmissionSerial = 0;
             candidate.LastResult = null;
             candidate.LastRunSummary = string.IsNullOrWhiteSpace(reason) ?
                 "关卡异常中断：已退回入场装备与体力，未结算战利品。" :

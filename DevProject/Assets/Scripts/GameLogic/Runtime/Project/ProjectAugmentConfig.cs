@@ -61,7 +61,7 @@ namespace GameLogic.Project
                 row.ModifierKind >= 2 && 1f + (float)value <= CombatWorld.MaxSkillMultiplier);
 
         /// <summary>
-        /// 校验高级词条、强化规则和奖励前置关系。
+        /// 校验高级词条、战斗强化规则和品质池。
         /// </summary>
         /// <param name="error">失败原因。</param>
         /// <returns>全部定义可以启用时为真。</returns>
@@ -69,7 +69,7 @@ namespace GameLogic.Project
         {
             error = null;
             if (GameTables.CfgCombatAugments == null || GameTables.CfgAdvancedAffixes == null || GameTables.CfgCombatEffects == null ||
-                GameTables.CfgCombatSkills == null || GameTables.CfgRogueRewards == null || GameTables.CfgQualities == null)
+                GameTables.CfgCombatSkills == null || GameTables.CfgQualities == null)
                 return Fail("高级词条与强化配置未全部加载。", out error);
             foreach (CfgCombatAugmentsRow row in GameTables.CfgCombatAugments.GetAll())
             {
@@ -111,51 +111,6 @@ namespace GameLogic.Project
                     if (quality.AdvancedAffixCount < 0 || quality.AdvancedAffixCount > 32 || quality.AdvancedAffixCount > count || weight > int.MaxValue)
                         return Fail("品质高级词条池不足或权重越界：" + quality.ID + "/" + type, out error);
                 }
-            return ValidateRewards(out error);
-        }
-
-        /// <summary>
-        /// 检查技能奖励等级与可达前置，允许有限构筑自然耗尽。
-        /// </summary>
-        /// <param name="error">失败原因。</param>
-        /// <returns>奖励组合合法时为真。</returns>
-        private static bool ValidateRewards(out string error)
-        {
-            error = null;
-            int rootCount = 0;
-            int augmentCount = 0;
-            foreach (CfgRogueRewardsRow row in GameTables.CfgRogueRewards.GetAll())
-            {
-                bool hasPrerequisite = !string.IsNullOrEmpty(row.PrerequisiteID);
-                if (!Enum.IsDefined(typeof(GameLogic.Gameplay.Roguelike.RogueRewardKind), row.Kind) ||
-                    row.MaxRank < 1 || row.PrerequisiteRank < 0 || hasPrerequisite != (row.PrerequisiteRank > 0))
-                    return Fail("Rogue 等级或前置等级无效：" + row.ID, out error);
-                if (!hasPrerequisite) rootCount++;
-                if (row.Kind == 2)
-                {
-                    augmentCount++;
-                    CfgCombatAugmentsRow augment = GameTables.CfgCombatAugments.GetById(row.AugmentID);
-                    if (row.MaxRank < 1 || row.Amount <= 0 || !ValidValue(augment, row.Amount * row.MaxRank) ||
-                        !TryCreate(row.AugmentID, row.ID, (float)(row.Amount * row.MaxRank), (float)ProjectRulesConfig.Profile.BaseAttackRange, out _))
-                        return Fail("Rogue 战斗强化数值无效：" + row.ID, out error);
-                }
-                else if (!string.IsNullOrEmpty(row.AugmentID)) return Fail("普通奖励不能引用战斗强化：" + row.ID, out error);
-                var visited = new HashSet<string> { row.ID };
-                var groups = new HashSet<string>();
-                if (!string.IsNullOrEmpty(row.ExclusiveGroup)) groups.Add(row.ExclusiveGroup);
-                CfgRogueRewardsRow current = row;
-                while (!string.IsNullOrEmpty(current.PrerequisiteID))
-                {
-                    CfgRogueRewardsRow prior = GameTables.CfgRogueRewards.GetById(current.PrerequisiteID);
-                    if (prior == null || !visited.Add(prior.ID) || current.PrerequisiteRank < 1 ||
-                        prior.MaxRank > 0 && prior.MaxRank < current.PrerequisiteRank ||
-                        !string.IsNullOrEmpty(prior.ExclusiveGroup) && !groups.Add(prior.ExclusiveGroup))
-                        return Fail("Rogue 前置循环、缺失或互斥导致不可达：" + row.ID, out error);
-                    current = prior;
-                }
-            }
-            if (augmentCount > 64) return Fail("Rogue 强化来源超过 ECS 容量。", out error);
-            if (rootCount == 0) return Fail("Rogue 技能池缺少可达的初始强化。", out error);
             return true;
         }
 

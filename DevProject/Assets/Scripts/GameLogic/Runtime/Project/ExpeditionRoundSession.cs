@@ -36,7 +36,7 @@ namespace GameLogic.Project
         }
 
         /// <summary>
-        /// 新局先固化完整基线再扣费，恢复局接续原身份和完整状态；返回时仍未开放模拟。
+        /// 新局先固化基线再扣费，续关先重放账本再准备房间；返回时仍未开放模拟。
         /// </summary>
         /// <param name="ct">框架加载取消令牌。</param>
         /// <returns>内容和 HUD 就绪后的加载任务。</returns>
@@ -45,18 +45,33 @@ namespace GameLogic.Project
             ct.ThrowIfCancellationRequested();
             ExpeditionRun created;
             string error;
-            bool restored = session.ActiveRunId == runId && session.ActiveRunVersion == 2;
+            bool restored = session.ActiveRunId == runId;
+            if (!string.IsNullOrEmpty(session.ActiveRunId) && (!restored || session.ActiveRunVersion != 3))
+                throw new InvalidOperationException("活动关卡身份或版本不兼容，原存档已保留。");
             if (restored)
             {
                 ProjectRunSnapshotReadResult saved = await session.ReadRunSnapshotAsync(runId);
                 if (!saved.Success || saved.Missing || saved.Snapshot.LevelId != levelId)
-                    throw new InvalidOperationException(saved.Error ?? "原单局完整状态缺失或关卡身份不匹配。");
+                    throw new InvalidOperationException(saved.Error ?? "原单局业务检查点缺失或关卡身份不匹配。");
+                if (!ExpeditionRun.ValidateSavedCheckpoint(session, saved.Snapshot, out error))
+                    throw new InvalidOperationException(error);
+                if (!await coordinator.SyncRunProgressAsync(saved.Snapshot, ProjectRunPhase.AdmissionSaving))
+                    throw new OperationCanceledException(ct);
                 if (!ExpeditionRun.TryRestore(session, saved.Snapshot, out created, out error)) throw new InvalidOperationException(error);
+                if (!created.TryPrepareResume(out error))
+                {
+                    created.Dispose();
+                    throw new InvalidOperationException(error);
+                }
             }
             else if (!session.TryPrepareRun(runId, levelId, out created, out error)) throw new InvalidOperationException(error);
             Run = created;
             session.BindRun(created);
-            if (!restored)
+            if (restored)
+            {
+                if (!await coordinator.SaveRunBoundaryAsync(created, ProjectRunPhase.AdmissionSaving)) throw new OperationCanceledException(ct);
+            }
+            else
             {
                 if (!await coordinator.SaveRunBoundaryAsync(created, ProjectRunPhase.AdmissionSaving)) throw new OperationCanceledException(ct);
                 ct.ThrowIfCancellationRequested();
@@ -102,7 +117,7 @@ namespace GameLogic.Project
         internal void PublishCompleted(ProjectRunOutcome outcome)
         {
             if (disposed || outcome == null || outcome.RunId != runId || outcome.LevelId != levelId) return;
-            Completed?.Invoke(new GameRoundResult(runId, levelId, outcome.Extracted, 0, outcome.ElapsedSeconds));
+            Completed?.Invoke(new GameRoundResult(runId, levelId, outcome.ExitKind == ProjectRunExitKind.Completed, 0, outcome.ElapsedSeconds));
         }
 
         /// <summary>

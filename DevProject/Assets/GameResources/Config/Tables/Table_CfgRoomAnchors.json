@@ -1,0 +1,203 @@
+{
+  "schemaHash": "d79aaa074934d1a5bc737889ce81083ee1bc35ca227c5a68df241932f35d0a17",
+  "rows": [
+    {
+      "ID": "1:entry",
+      "MapID": 1,
+      "AnchorID": "entry",
+      "Kind": 0,
+      "Tag": "",
+      "X": 0,
+      "Z": -20,
+      "Capacity": 1,
+      "NoSpawnRadius": 3
+    },
+    {
+      "ID": "1:exit",
+      "MapID": 1,
+      "AnchorID": "exit",
+      "Kind": 6,
+      "Tag": "",
+      "X": 0,
+      "Z": 20,
+      "Capacity": 1,
+      "NoSpawnRadius": 3
+    },
+    {
+      "ID": "1:monster",
+      "MapID": 1,
+      "AnchorID": "monster",
+      "Kind": 1,
+      "Tag": "monster",
+      "X": 0,
+      "Z": 2,
+      "Capacity": 10,
+      "NoSpawnRadius": 0
+    },
+    {
+      "ID": "1:chest",
+      "MapID": 1,
+      "AnchorID": "chest",
+      "Kind": 3,
+      "Tag": "chest",
+      "X": 0,
+      "Z": 6,
+      "Capacity": 1,
+      "NoSpawnRadius": 0
+    },
+    {
+      "ID": "1:npc",
+      "MapID": 1,
+      "AnchorID": "npc",
+      "Kind": 4,
+      "Tag": "npc",
+      "X": 0,
+      "Z": 6,
+      "Capacity": 1,
+      "NoSpawnRadius": 0
+    },
+    {
+      "ID": "1:boss",
+      "MapID": 1,
+      "AnchorID": "boss",
+      "Kind": 5,
+      "Tag": "",
+      "X": 0,
+      "Z": 9,
+      "Capacity": 1,
+      "NoSpawnRadius": 0
+    },
+    {
+      "ID": "2:entry",
+      "MapID": 2,
+      "AnchorID": "entry",
+      "Kind": 0,
+      "Tag": "",
+      "X": 0,
+      "Z": -20,
+      "Capacity": 1,
+      "NoSpawnRadius": 3
+    },
+    {
+      "ID": "2:exit",
+      "MapID": 2,
+      "AnchorID": "exit",
+      "Kind": 6,
+      "Tag": "",
+      "X": 0,
+      "Z": 20,
+      "Capacity": 1,
+      "NoSpawnRadius": 3
+    },
+    {
+      "ID": "2:monster",
+      "MapID": 2,
+      "AnchorID": "monster",
+      "Kind": 1,
+      "Tag": "monster",
+      "X": 0,
+      "Z": 2,
+      "Capacity": 10,
+      "NoSpawnRadius": 0
+    },
+    {
+      "ID": "2:chest",
+      "MapID": 2,
+      "AnchorID": "chest",
+      "Kind": 3,
+      "Tag": "chest",
+      "X": 0,
+      "Z": 6,
+      "Capacity": 1,
+      "NoSpawnRadius": 0
+    },
+    {
+      "ID": "2:npc",
+      "MapID": 2,
+      "AnchorID": "npc",
+      "Kind": 4,
+      "Tag": "npc",
+      "X": 0,
+      "Z": 6,
+      "Capacity": 1,
+      "NoSpawnRadius": 0
+    },
+    {
+      "ID": "2:boss",
+      "MapID": 2,
+      "AnchorID": "boss",
+      "Kind": 5,
+      "Tag": "",
+      "X": 0,
+      "Z": 9,
+      "Capacity": 1,
+      "NoSpawnRadius": 0
+    },
+    {
+      "ID": "3:entry",
+      "MapID": 3,
+      "AnchorID": "entry",
+      "Kind": 0,
+      "Tag": "",
+      "X": 0,
+      "Z": -20,
+      "Capacity": 1,
+      "NoSpawnRadius": 3
+    },
+    {
+      "ID": "3:exit",
+      "MapID": 3,
+      "AnchorID": "exit",
+      "Kind": 6,
+      "Tag": "",
+      "X": 0,
+      "Z": 20,
+      "Capacity": 1,
+      "NoSpawnRadius": 3
+    },
+    {
+      "ID": "3:monster",
+      "MapID": 3,
+      "AnchorID": "monster",
+      "Kind": 1,
+      "Tag": "monster",
+      "X": 0,
+      "Z": 2,
+      "Capacity": 10,
+      "NoSpawnRadius": 0
+    },
+    {
+      "ID": "3:chest",
+      "MapID": 3,
+      "AnchorID": "chest",
+      "Kind": 3,
+      "Tag": "chest",
+      "X": 0,
+      "Z": 6,
+      "Capacity": 1,
+      "NoSpawnRadius": 0
+    },
+    {
+      "ID": "3:npc",
+      "MapID": 3,
+      "AnchorID": "npc",
+      "Kind": 4,
+      "Tag": "npc",
+      "X": 0,
+      "Z": 6,
+      "Capacity": 1,
+      "NoSpawnRadius": 0
+    },
+    {
+      "ID": "3:boss",
+      "MapID": 3,
+      "AnchorID": "boss",
+      "Kind": 5,
+      "Tag": "",
+      "X": 0,
+      "Z": 9,
+      "Capacity": 1,
+      "NoSpawnRadius": 0
+    }
+  ]
+}

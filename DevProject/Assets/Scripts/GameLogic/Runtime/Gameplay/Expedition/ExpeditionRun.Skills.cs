@@ -9,7 +9,7 @@ namespace GameLogic.Gameplay.Expedition
         /// 按已装备武器和玩家配置安装首轮可玩的技能列表。
         /// </summary>
         /// <returns>全部技能可由当前战斗世界接纳时为真。</returns>
-        private bool InitializeCombatSkills() => ProjectWeaponCombat.TryGetBasicSkill(inventory, out int basicSkillId) &&
+        private bool InitializeCombatSkills() => ProjectWeaponCombat.TryGetBasicSkill(entryEquipment, out int basicSkillId) &&
             World.TrySetSkillLoadout(Player, basicSkillId, ProjectWeaponCombat.CreateSkillLoadout(basicSkillId));
 
         /// <summary>

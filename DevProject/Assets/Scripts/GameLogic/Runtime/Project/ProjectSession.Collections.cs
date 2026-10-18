@@ -18,7 +18,7 @@ namespace GameLogic.Project
         /// 当前永久收藏成就的逐项属性来源。
         /// </summary>
         public IReadOnlyList<ProjectCollectionBonusSource> CollectionBonusSources => ProjectCollectionRules.GetBonusSources(
-            profile, ProjectV2RewardConfig.CollectionDefinitions(), ProjectV2RewardConfig.CollectionAchievements(out _), out _);
+            profile, ProjectRewardConfig.CollectionDefinitions(), ProjectRewardConfig.CollectionAchievements(out _), out _);
 
         /// <summary>
         /// 使用同一成长与收藏成就口径计算任意装备候选。
@@ -27,6 +27,6 @@ namespace GameLogic.Project
         /// <returns>独立的完整基础属性。</returns>
         public ProjectCharacterStats CalculateCharacterStats(IReadOnlyList<ProjectItem> items) => ProjectEquipmentRules.Calculate(
             items, profile.PowerRank, profile.VitalityRank, profile.AgilityRank, ProjectCollectionRules.GetBonuses(
-                profile, ProjectV2RewardConfig.CollectionDefinitions(), ProjectV2RewardConfig.CollectionAchievements(out _), out _));
+                profile, ProjectRewardConfig.CollectionDefinitions(), ProjectRewardConfig.CollectionAchievements(out _), out _));
     }
 }
