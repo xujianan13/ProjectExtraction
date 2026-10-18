@@ -258,10 +258,9 @@ namespace GameLogic.Project
             if (!string.IsNullOrEmpty(data.ActiveRunId) || data.Stage != ProjectRunStage.None || data.Outcome != null) return false;
             error = "体力不足。";
             var profileRules = ProjectRulesConfig.Profile;
-            if (profileRules == null || profileRules.EntryCost < 0 || profileRules.RoomEntryCost < 0 ||
-                profileRules.EntryCost > int.MaxValue - profileRules.RoomEntryCost) return false;
-            int entryCost = profileRules.EntryCost + profileRules.RoomEntryCost;
-            if (entryCost <= 0 || data.Stamina < entryCost) return false;
+            if (profileRules == null || profileRules.EntryCost <= 0) return false;
+            int entryCost = profileRules.EntryCost;
+            if (data.Stamina < entryCost) return false;
             var chosen = new List<ProjectItem>();
             var ids = new HashSet<string>();
             error = "携入物品不在仓库或身份重复。";

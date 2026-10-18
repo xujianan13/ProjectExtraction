@@ -26,14 +26,14 @@ namespace MiniGame.Tests
         public IEnumerator Admission_RequiresEntryAndRoomStaminaWithoutPartialCharge() => UniTask.ToCoroutine(async () =>
         {
             ProjectSaveData initial = ProjectSaveData.CreateDefault();
-            initial.Stamina = PrototypeRules.EntryCost + PrototypeRules.RoomEntryCost - 1;
+            initial.Stamina = PrototypeRules.EntryCost - 1;
             await SetupAsync(new MemorySaveBackend(), initial);
             int stamina = ProjectServices.Session.Stamina;
-            Assert.That(ProjectServices.Coordinator.RequiredEntryStamina, Is.EqualTo(PrototypeRules.EntryCost + PrototypeRules.RoomEntryCost));
+            Assert.That(ProjectServices.Coordinator.RequiredEntryStamina, Is.EqualTo(PrototypeRules.EntryCost));
             Assert.That(await ProjectServices.Coordinator.StartRunAsync(1), Is.False);
             Assert.That(ProjectServices.Session.Stamina, Is.EqualTo(stamina));
             Assert.That(ProjectServices.Session.ActiveRunId, Is.Empty);
-            initial.Stamina = PrototypeRules.EntryCost + PrototypeRules.RoomEntryCost;
+            initial.Stamina = PrototypeRules.EntryCost;
             await SetupAsync(new MemorySaveBackend(), initial);
             Assert.That(await ProjectServices.Coordinator.StartRunAsync(1), Is.True);
             ExpeditionRun run = ProjectServices.Session.CurrentRun;

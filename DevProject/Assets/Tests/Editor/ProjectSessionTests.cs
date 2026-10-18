@@ -39,7 +39,7 @@ namespace ProjectExtraction.Tests
             string running = JsonUtility.ToJson(data);
             Assert.That(ProjectProfileRules.TryRecoverInterruptedRun(data, "运行日志恢复失败"), Is.False);
             Assert.That(JsonUtility.ToJson(data), Is.EqualTo(running));
-            Assert.That(data.Stamina, Is.EqualTo(stamina - PrototypeRules.EntryCost - PrototypeRules.RoomEntryCost));
+            Assert.That(data.Stamina, Is.EqualTo(stamina - PrototypeRules.EntryCost));
             Assert.That(ProjectRunRecordRules.TryAdmit(data, "new-run", 1, 20, entry, out error), Is.False);
             Assert.That(JsonUtility.ToJson(data), Is.EqualTo(running));
         }
@@ -55,6 +55,8 @@ namespace ProjectExtraction.Tests
             string itemId = data.Warehouse[0].Id;
             Assert.That(ProjectRunRecordRules.TryAdmit(data, "v3-admitted", 1, 21,
                 new[] { data.Warehouse[0].Copy() }, out string error), Is.True, error);
+            Assert.That(data.ActiveRunEntryCost, Is.EqualTo(10));
+            Assert.That(data.Stamina, Is.EqualTo(stamina - 10));
             Assert.That(ProjectProfileRules.TryRecoverInterruptedRun(data, "取消首次入场"), Is.True);
             Assert.That(data.Stamina, Is.EqualTo(stamina));
             Assert.That(data.Warehouse.FindAll(item => item.Id == itemId).Count, Is.EqualTo(1));

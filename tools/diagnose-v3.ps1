@@ -1,5 +1,5 @@
 # 用法：关闭此项目 Unity 后执行 ./tools/diagnose-v3.ps1；-ValidateOnly 只检查入口，不启动 Unity。
-# 保留图形设备并临时导入 V3 探针，输出横竖屏各 17 张真实窗口截图及布局记录。
+# 保留图形设备并临时导入 V3 探针，输出横竖屏各 18 张真实窗口截图及布局记录。
 # 最终阶段捕获 Boss 最后领奖前与自动结果，最终房不操作出口窗口。
 param(
     [ValidateSet('Visual')][string]$Mode = 'Visual',
@@ -22,7 +22,7 @@ $expectedTotal = 2
 $expectedTests = @('MiniGame.Tests.ProjectExpeditionPlayModeTests.VisualV3_NarrowPortrait_RealRoomsAndWindows',
     'MiniGame.Tests.ProjectExpeditionPlayModeTests.VisualV3_Landscape_RealRoomsAndWindows')
 $screens = @('home', 'hud', 'progression', 'room-exit', 'chest-loot', 'inventory', 'entry-equipment', 'pause', 'ad-extraction',
-    'npc-room', 'boss-room', 'boss-loot', 'boss-final-reward', 'result', 'death-choice', 'death-actions', 'revived-hud')
+    'npc-room', 'merchant', 'boss-room', 'boss-loot', 'boss-final-reward', 'result', 'death-choice', 'death-actions', 'revived-hud')
 $prefixes = @('portrait-360x800', 'landscape-1280x720')
 $template = Join-Path $PSScriptRoot "templates/diagnostics/$templateName"
 $source = Join-Path $project "Assets/Tests/PlayMode/$sourceName"
@@ -47,7 +47,7 @@ try {
         throw "V3 诊断模板仍含已移除业务 API：$template"
     }
     if ($ValidateOnly) {
-        Write-Output "V3 图形诊断入口检查通过；将执行 2 个测试并产出 34 张截图及 2 份布局记录；未启动 Unity。"
+        Write-Output "V3 图形诊断入口检查通过；将执行 2 个测试并产出 36 张截图及 2 份布局记录；未启动 Unity。"
         return
     }
     New-Item -ItemType Directory -Path $verification -Force | Out-Null

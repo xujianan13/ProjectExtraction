@@ -34,9 +34,19 @@ namespace MiniGame.Tests
             GameWindow exit = await WaitForWindowAsync(ProjectServices.RegionExitWindow);
             Assert.That(exit.Root.GetComponentsInChildren<Button>(false).Any(button =>
                 button.GetComponentInChildren<Text>().text == "带回结束"), Is.False);
+            long tick = run.World.TickIndex;
+            Vector3 position = InputPersistencePlayer(run).Position;
+            run.SetTouchMove(Vector2.right);
+            run.Advance(1f);
+            Assert.That(run.World.TickIndex, Is.EqualTo(tick));
+            Assert.That(InputPersistencePlayer(run).Position, Is.EqualTo(position));
             ClickButton(exit, "留在本房");
             await WaitForAsync(() => run.ActivePanel == ExpeditionPanelKind.None);
             Assert.That(run.CurrentRoomIndex, Is.Zero);
+            run.Advance(CombatWorld.TickSeconds);
+            Assert.That(run.World.TickIndex, Is.EqualTo(tick + 1));
+            Assert.That(run.ActivePanel, Is.EqualTo(ExpeditionPanelKind.None), "关闭出口后仍在范围内，必须等离开再触碰才能重开。");
+            Assert.That(InputPersistencePlayer(run).Position, Is.EqualTo(position));
             await EnterExtractionConfirmationAsync(run);
             await ClickExtractionConfirmationAsync("进入下一房");
             await WaitRunSavedAsync(run);
@@ -61,11 +71,6 @@ namespace MiniGame.Tests
                 {
                     if (run.CurrentRoom.Chests.Single(value => value.Id == chest.Id).Opened) continue;
                     Assert.That(run.World.TrySetPosition(run.Player, chest.Position), Is.True);
-                    run.Advance(CombatWorld.TickSeconds);
-                    await WaitRunSavedAsync(run);
-                    for (int index = 0; index < run.InteractionCount && run.SelectedInteractionId != chest.Id; index++) run.CycleInteraction();
-                    Assert.That(run.SelectedInteractionId, Is.EqualTo(chest.Id));
-                    run.RequestInteraction();
                     run.Advance(CombatWorld.TickSeconds);
                     await WaitRunSavedAsync(run);
                     await WaitForWindowAsync(ProjectServices.ChestLootWindow);
@@ -143,7 +148,7 @@ namespace MiniGame.Tests
         }
 
         /// <summary>
-        /// 完成中间房并到达上方出口，明确请求打开房间推进窗口。
+        /// 完成中间房并从范围外触碰上方出口，自动打开房间推进窗口。
         /// </summary>
         /// <param name="run">当前单局。</param>
         /// <returns>出口窗口就绪任务。</returns>
@@ -151,14 +156,11 @@ namespace MiniGame.Tests
         {
             Assert.That(run.IsFinalRoom, Is.False, "最终 Boss 全部领奖后自动通关，不再操作房间出口。");
             await CompleteCurrentRoomAsync(run);
+            Assert.That(run.World.TrySetPosition(run.Player, run.CurrentRoom.Plan.EntryPosition), Is.True);
+            run.Advance(CombatWorld.TickSeconds);
             MoveToExtractionCenter(run);
             run.Advance(CombatWorld.TickSeconds);
             await WaitRunSavedAsync(run);
-            string exitId = run.RunId + ":exit:" + run.CurrentRoom.Plan.Request.RegionId;
-            for (int index = 0; index < run.InteractionCount && run.SelectedInteractionId != exitId; index++)
-                run.CycleInteraction();
-            run.RequestInteraction();
-            run.Advance(CombatWorld.TickSeconds);
             await WaitForWindowAsync(ProjectServices.RegionExitWindow);
             Assert.That(run.ActivePanel, Is.EqualTo(ExpeditionPanelKind.ExtractionConfirmation));
         }

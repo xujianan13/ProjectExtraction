@@ -91,7 +91,7 @@
     },
     {
       "path": "config/excel/CfgGuide.xlsx",
-      "sha256": "4587e275b64457aa1a5876cda470885dd0897592a154e1cf55559c6793f6719c"
+      "sha256": "3e3f4c50a38c308a66ac337ca893e885c9a1fc0880e373199a654827440a5d73"
     },
     {
       "path": "config/excel/CfgHomeShop.xlsx",
@@ -2201,7 +2201,7 @@
     },
     {
       "path": "DevProject/Assets/GameResources/Config/Tables/Table_CfgGuide.json",
-      "sha256": "19e1c326ce47a161c0f3e8ee7b817a56cf3c931c98192b14990c14fd71b1026d"
+      "sha256": "fe6c9ad4dc0968b2db78469fe806b7ab8eb52b229ca81ba04dd80c1cebc3e57e"
     },
     {
       "path": "DevProject/Assets/Scripts/GameLogic/Runtime/Gen/CfgGuide.Gen.cs",

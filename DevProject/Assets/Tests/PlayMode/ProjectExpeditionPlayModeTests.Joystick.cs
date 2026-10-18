@@ -143,13 +143,20 @@ namespace MiniGame.Tests
                 RectTransform header = GeometryChild(area, "Status");
                 RectTransform stick = GeometryChild(area, "MoveStick");
                 RectTransform actions = GeometryChild(area, "ControlActions");
+                actions.gameObject.AddComponent<UnityEngine.UI.VerticalLayoutGroup>().spacing = 8f;
+                foreach (string name in new[] { "Inventory", "MenuActions", "ResumeChoice" })
+                {
+                    RectTransform row = GeometryChild(actions, name);
+                    UnityEngine.UI.LayoutElement height = row.gameObject.AddComponent<UnityEngine.UI.LayoutElement>();
+                    height.minHeight = height.preferredHeight = 90f;
+                }
                 BattleHudLayout layout = host.AddComponent<BattleHudLayout>();
                 layout.Configure(header, stick, actions);
                 var sizes = new[]
                 {
                     new Vector2(1080f, 1920f), new Vector2(720f, 1280f),
                     new Vector2(1080f, 2400f), new Vector2(1920f, 1080f),
-                    new Vector2(960f, 2220f), new Vector2(1780f, 920f)
+                    new Vector2(960f, 2220f), new Vector2(1780f, 920f), new Vector2(600f, 800f), new Vector2(640f, 480f)
                 };
                 foreach (Vector2 size in sizes)
                 {

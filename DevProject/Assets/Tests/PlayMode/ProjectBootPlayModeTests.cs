@@ -124,7 +124,7 @@ namespace MiniGame.Tests
             Assert.That(await ui.CloseWindowAsync(ProjectServices.ResultWindow), Is.True);
             int stamina = ProjectServices.Session.Stamina;
             long entryStamina = ProjectServices.Coordinator.RequiredEntryStamina;
-            Assert.That(entryStamina, Is.EqualTo((long)PrototypeRules.EntryCost + PrototypeRules.RoomEntryCost));
+            Assert.That(entryStamina, Is.EqualTo((long)PrototypeRules.EntryCost));
             Click(home, "出战 · 体力 " + entryStamina);
             await WaitAsync(() => ProjectServices.Session.CurrentRun?.IsRunning == true &&
                 ProjectServices.Coordinator.Phase == ProjectRunPhase.Playing, "出战按钮未进入运行中的关卡。");

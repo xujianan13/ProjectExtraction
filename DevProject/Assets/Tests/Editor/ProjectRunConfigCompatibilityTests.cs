@@ -37,6 +37,30 @@ namespace ProjectExtraction.Tests
         }
 
         /// <summary>
+        /// 旧活动已扣十一点时保持原始扣费证据，重读和重复准入不改价，取消仍退回实际十一点。
+        /// </summary>
+        [Test]
+        public void PreviouslyPaidElevenPointAdmissionKeepsItsSavedAmount()
+        {
+            ProjectSaveData data = ProjectSaveData.CreateDefault();
+            int stamina = data.Stamina;
+            Assert.That(ProjectRunRecordRules.TryAdmit(data, "previous-eleven", 1, 15,
+                data.Warehouse.FindAll(item => item.Equipped), out string error), Is.True, error);
+            data.ActiveRunEntryCost = 11;
+            data.Stamina = stamina - 11;
+            var codec = new ProjectSaveCodec();
+            data = codec.Decode(codec.Encode(data));
+            Assert.That(ProjectSaveData.Validate(data), Is.Null);
+            Assert.That(data.ActiveRunEntryCost, Is.EqualTo(11));
+            Assert.That(ProjectRunRecordRules.TryAdmit(data, "previous-eleven", 1, 15,
+                data.EntryItems.ConvertAll(item => item.Copy()), out error), Is.True, error);
+            Assert.That(data.ActiveRunEntryCost, Is.EqualTo(11));
+            Assert.That(data.Stamina, Is.EqualTo(stamina - 11));
+            Assert.That(ProjectProfileRules.TryRecoverInterruptedRun(data, "取消旧准入"), Is.True);
+            Assert.That(data.Stamina, Is.EqualTo(stamina));
+        }
+
+        /// <summary>
         /// 结算回执冻结当时的技能点规则，后续调整配置不改变已到账结果。
         /// </summary>
         [Test]

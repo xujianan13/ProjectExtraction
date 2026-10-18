@@ -9,9 +9,9 @@ namespace GameLogic.Project
     public sealed partial class ProjectSession
     {
         /// <summary>
-        /// 首次开关卡连同第一房需要支付的总计体力。
+        /// 首次开始关卡需要支付的入场体力，第一房不额外收费。
         /// </summary>
-        public long RequiredEntryStamina => (long)ProjectRulesConfig.Profile.EntryCost + ProjectRulesConfig.Profile.RoomEntryCost;
+        public long RequiredEntryStamina => ProjectRulesConfig.Profile.EntryCost;
 
         /// <summary>
         /// 当前账号可否支付下一次房间准入体力。

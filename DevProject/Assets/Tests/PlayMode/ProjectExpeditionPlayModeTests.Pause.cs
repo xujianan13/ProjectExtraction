@@ -84,7 +84,7 @@ namespace MiniGame.Tests
             ProjectSession session = ProjectServices.Session;
             Assert.That(await ProjectServices.Coordinator.StartRunAsync(1), Is.True);
             ExpeditionRun run = session.CurrentRun;
-            Assert.That(session.Stamina, Is.EqualTo(initialStamina - PrototypeRules.EntryCost - PrototypeRules.RoomEntryCost));
+            Assert.That(session.Stamina, Is.EqualTo(initialStamina - PrototypeRules.EntryCost));
             GameWindow hud = await WaitForWindowAsync(ProjectServices.BattleHudWindow);
             ClickButton(hud, "暂停");
             GameWindow pause = await WaitForWindowAsync(ProjectServices.PauseWindow);
@@ -93,7 +93,7 @@ namespace MiniGame.Tests
             Assert.That(ProjectServices.Coordinator.Phase, Is.EqualTo(ProjectRunPhase.Playing));
             Assert.That(run.IsRunning, Is.True);
             Assert.That(session.LastResult, Is.Null);
-            Assert.That(session.Stamina, Is.EqualTo(initialStamina - PrototypeRules.EntryCost - PrototypeRules.RoomEntryCost));
+            Assert.That(session.Stamina, Is.EqualTo(initialStamina - PrototypeRules.EntryCost));
 
             ClickButton(pause, "放弃本局");
             await ClickPauseConfirmationAsync("确认放弃");
@@ -103,7 +103,7 @@ namespace MiniGame.Tests
             Assert.That(result.Outcome.ExtractionExperience, Is.Zero);
             Assert.That(result.LostItems, Is.Empty);
             Assert.That(result.RetainedItems.Select(item => item.Id), Is.EquivalentTo(new[] { starterId, armor.Id }));
-            Assert.That(session.Stamina, Is.EqualTo(initialStamina - PrototypeRules.EntryCost - PrototypeRules.RoomEntryCost));
+            Assert.That(session.Stamina, Is.EqualTo(initialStamina - PrototypeRules.EntryCost));
             Assert.That(session.Experience, Is.EqualTo(initialExperience));
             Assert.That(ProjectServices.Coordinator.TryAbandonRun(run), Is.False);
             Assert.That(await ProjectServices.Coordinator.ReturnHomeAsync(), Is.True);

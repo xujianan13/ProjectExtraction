@@ -14,6 +14,42 @@ namespace MiniGame.Tests
     public sealed partial class ProjectExpeditionPlayModeTests
     {
         /// <summary>
+        /// 触碰商人自动暂停，关闭后原地继续，离开范围再触碰重新打开且商品保持冻结。
+        /// </summary>
+        /// <returns>商人触碰、关闭和再次触碰的验证任务。</returns>
+        [UnityTest]
+        public IEnumerator MerchantTouch_PausesAndReopensOnlyAfterLeavingRange() => UniTask.ToCoroutine(async () =>
+        {
+            await SetupAsync(new MemorySaveBackend());
+            Assert.That(await ProjectServices.Coordinator.StartRunAsync(1), Is.True);
+            ExpeditionRun run = ProjectServices.Session.CurrentRun;
+            await OpenRegionMerchantAsync(run);
+            GameWindow merchant = await WaitForWindowAsync(ProjectServices.ExpeditionMerchantWindow);
+            string[] offers = run.MerchantOffers.Select(offer => JsonUtility.ToJson(offer.Item)).ToArray();
+            Vector3 position = InputPersistencePlayer(run).Position;
+            long tick = run.World.TickIndex;
+            Assert.That(run.CanAcceptPlayerInput, Is.False);
+            run.SetTouchMove(Vector2.right);
+            run.Advance(1f);
+            Assert.That(run.World.TickIndex, Is.EqualTo(tick));
+            Assert.That(InputPersistencePlayer(run).Position, Is.EqualTo(position));
+            ClickButton(merchant, "关闭");
+            await WaitForAsync(() => run.ActivePanel == ExpeditionPanelKind.None);
+            run.Advance(CombatWorld.TickSeconds);
+            Assert.That(run.World.TickIndex, Is.EqualTo(tick + 1));
+            Assert.That(run.ActivePanel, Is.EqualTo(ExpeditionPanelKind.None), "关闭商店后原地不能立即弹回。");
+            Assert.That(InputPersistencePlayer(run).Position, Is.EqualTo(position));
+            Assert.That(run.World.TrySetPosition(run.Player, run.CurrentRoom.Plan.EntryPosition), Is.True);
+            run.Advance(CombatWorld.TickSeconds);
+            Assert.That(run.World.TrySetPosition(run.Player, position), Is.True);
+            run.Advance(CombatWorld.TickSeconds);
+            await WaitRunSavedAsync(run);
+            await WaitForWindowAsync(ProjectServices.ExpeditionMerchantWindow);
+            Assert.That(run.ActivePanel, Is.EqualTo(ExpeditionPanelKind.Merchant));
+            Assert.That(run.MerchantOffers.Select(offer => JsonUtility.ToJson(offer.Item)), Is.EqualTo(offers));
+        });
+
+        /// <summary>
         /// 金币不足的购买不改变已冻结物品、库存和支出。
         /// </summary>
         /// <returns>真实商店拒绝交易任务。</returns>
@@ -58,7 +94,7 @@ namespace MiniGame.Tests
         });
 
         /// <summary>
-        /// 在当前区域通过实际交互进入商店并等待访问状态保存。
+        /// 触碰当前房间商人并等待访问事实保存后自动打开商店。
         /// </summary>
         /// <param name="run">当前单局。</param>
         /// <returns>商人面板可用任务。</returns>
@@ -66,8 +102,6 @@ namespace MiniGame.Tests
         {
             await AdvanceToRoomAsync(run, GameLogic.Gameplay.Level.ExpeditionRoomKind.Npc);
             Assert.That(run.World.TrySetPosition(run.Player, run.CurrentRoom.Plan.Npcs.First().Position), Is.True);
-            run.Advance(CombatWorld.TickSeconds);
-            run.RequestInteraction();
             run.Advance(CombatWorld.TickSeconds);
             await WaitRunSavedAsync(run);
             Assert.That(run.ActivePanel, Is.EqualTo(ExpeditionPanelKind.Merchant));

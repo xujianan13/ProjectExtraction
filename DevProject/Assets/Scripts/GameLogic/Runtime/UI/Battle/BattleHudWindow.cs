@@ -12,28 +12,23 @@ using UnityEngine;
 namespace GameLogic.UI.Battle
 {
     /// <summary>
-    /// 局内生命、房间进度、交互与物品面板入口。
+    /// 局内生命、房间进度、移动与整备面板入口。
     /// </summary>
     public sealed class BattleHudWindow : GameWindow
     {
         private ExpeditionRun run;
         private ProjectRunCoordinator coordinator;
-        private UnityEngine.UI.Text interactionLabel;
-        private UnityEngine.UI.Text targetSummary;
-        private UnityEngine.UI.Button cycleButton;
         private UnityEngine.UI.Text status;
         private UnityEngine.UI.Text hint;
         private UnityEngine.UI.Text skills;
         private readonly List<CombatSkillSnapshot> skillSnapshots = new();
         private readonly StringBuilder skillSummary = new();
         private UnityEngine.UI.Button resumeChoice;
-        private UnityEngine.UI.Button interactButton;
         private ExpeditionJoystick joystick;
         private BattleHudLayout layout;
         private UnityEngine.UI.Button bagButton;
         private UnityEngine.UI.Button overviewButton;
         private UnityEngine.UI.Button pauseButton;
-        private string selectedInteractionId;
         private bool openingPanel;
         private ExpeditionPanelKind openedPanel;
         private ExpeditionPanelKind requestedPanel;
@@ -68,16 +63,7 @@ namespace GameLogic.UI.Battle
             handle.GetComponent<JoystickDiscGraphic>().raycastTarget = false;
             joystick.SetHandle(handle);
             RectTransform actions = ProjectUiFactory.Vertical(content, "ControlActions", 8f);
-            targetSummary = ProjectUiFactory.Label(actions, "附近暂无可交互目标", 22, TextAnchor.UpperLeft, Color.white);
-            ProjectUiFactory.Height(targetSummary.rectTransform, 170f);
-            cycleButton = ProjectUiFactory.ActionButton(actions, "切换目标 / Tab", CycleInteraction);
-            cycleButton.GetComponentInChildren<UnityEngine.UI.Text>().fontSize = 26;
-            ProjectUiFactory.Height((RectTransform)cycleButton.transform, 52f);
             actions.GetComponent<UnityEngine.UI.VerticalLayoutGroup>().childAlignment = TextAnchor.LowerCenter;
-            interactButton = ProjectUiFactory.ActionButton(actions, "交互 / E", RequestInteraction);
-            interactionLabel = interactButton.GetComponentInChildren<UnityEngine.UI.Text>();
-            interactionLabel.fontSize = 32;
-            ProjectUiFactory.Height((RectTransform)interactButton.transform, 90f);
             bagButton = ProjectUiFactory.ActionButton(actions, "背包", OpenInventory);
             bagButton.GetComponentInChildren<UnityEngine.UI.Text>().fontSize = 32;
             ProjectUiFactory.Height((RectTransform)bagButton.transform, 90f);
@@ -142,7 +128,8 @@ namespace GameLogic.UI.Battle
             foreach (RegionSpawnSlotState slot in run.CurrentRoom.Slots)
                 if (slot.Phase == RegionSpawnPhase.InitialSpawn || slot.Phase == RegionSpawnPhase.Alive) remaining++;
             string objective = run.CurrentRoomKind == ExpeditionRoomKind.Combat || run.CurrentRoomKind == ExpeditionRoomKind.Boss ?
-                "剩余目标 " + remaining : run.CurrentRoomKind == ExpeditionRoomKind.Chest ? "领取本房宝箱后前往上方出口" : "可与商人交易，前往上方出口离开";
+                "剩余目标 " + remaining : run.CurrentRoomKind == ExpeditionRoomKind.Chest ?
+                "靠近宝箱自动领取，完成后前往上方出口" : "靠近商人打开商店，前往上方出口离开";
             hint.text = objective + "\n" + (run.CurrentRoom.ExitEnabled ? "↑ 上方出口已开放" : "↑ 完成本房目标后开放出口") + "\n" + run.Message;
             run.World.GetSkillsSnapshot(run.Player, skillSnapshots);
             skillSummary.Clear();
@@ -152,7 +139,6 @@ namespace GameLogic.UI.Battle
                 skillSummary.Append(CombatSkillText.Summary(skillSnapshots[index]));
             }
             skills.text = skillSummary.ToString();
-            RefreshTarget();
             bool choosingDeath = run.IsAwaitingDeathChoice;
             bool choosing = run.IsChoosingReward || choosingDeath;
             resumeChoice.interactable = choosingDeath ? run.CanChooseDeath :
@@ -167,38 +153,14 @@ namespace GameLogic.UI.Battle
             bool acceptsInput = run.CanAcceptPlayerInput;
             joystick.enabled = acceptsInput;
             if (!acceptsInput) joystick.ResetInput();
-            interactButton.interactable = acceptsInput && run.HasInteraction;
-            cycleButton.interactable = acceptsInput && run.InteractionCount > 1;
             if (choosing)
             {
                 run.SetTouchMove(Vector2.zero);
             }
-            interactionLabel.text = run.InteractionLabel;
             bool controlsAvailable = acceptsInput && !run.IsSavingRun;
             bagButton.interactable = overviewButton.interactable = pauseButton.interactable = controlsAvailable;
             if (run.ActivePanel == ExpeditionPanelKind.None) openedPanel = ExpeditionPanelKind.None;
             else if (!openingPanel && openedPanel != run.ActivePanel) OpenActivePanelAsync(run.ActivePanel).Forget();
-        }
-
-        /// <summary>
-        /// 只在附近目标身份变化时读取掉落副本，其余目标显示单局说明。
-        /// </summary>
-        private void RefreshTarget()
-        {
-            string id = run.SelectedInteractionId;
-            if (selectedInteractionId != id)
-            {
-                selectedInteractionId = id;
-                if (run.TryGetInteractionItem(out ProjectItem item))
-                {
-                    targetSummary.text = ProjectEquipmentText.LootSummary(item);
-                    return;
-                }
-                targetSummary.text = string.Empty;
-            }
-            if (string.IsNullOrEmpty(run.SelectedLootId))
-                targetSummary.text = string.IsNullOrEmpty(run.InteractionDescription) ? "附近暂无可交互目标" : run.InteractionDescription;
-            else if (string.IsNullOrEmpty(targetSummary.text)) targetSummary.text = "目标信息暂不可用";
         }
 
         /// <summary>
@@ -304,22 +266,6 @@ namespace GameLogic.UI.Battle
         /// <returns>同一作用域和单局的当前请求仍由此任务拥有时为真。</returns>
         private bool OwnsPanelRequest(ExpeditionRun current, LifetimeScope scope, ExpeditionPanelKind kind, int version) =>
             scope.IsActive && ReferenceEquals(run, current) && panelVersion == version && current.ActivePanel == kind;
-
-        /// <summary>
-        /// 在可操作时切换附近目标。
-        /// </summary>
-        private void CycleInteraction()
-        {
-            if (coordinator?.Phase == ProjectRunPhase.Playing && run?.CanAcceptPlayerInput == true && run.InteractionCount > 1)
-                run.CycleInteraction();
-        }
-        /// <summary>
-        /// 仅在本局游玩阶段提交交互请求。
-        /// </summary>
-        private void RequestInteraction()
-        {
-            if (coordinator?.Phase == ProjectRunPhase.Playing && run?.IsChoosingReward == false) run.RequestInteraction();
-        }
 
         /// <summary>
         /// 在选择窗口被系统关闭后重新打开死亡选择或当前待选奖励。

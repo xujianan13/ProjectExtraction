@@ -283,6 +283,7 @@ namespace GameLogic.Gameplay.Expedition
             if (World.TryGetActor(Player, out CombatActorSnapshot player))
             {
                 UpdateInteractionLabel(player.Position);
+                ProcessTouchInteractions(player.Position);
                 if (interact) Interact(player.Position);
             }
             if (!committing && IsRunning && progressionChanged)
@@ -329,14 +330,14 @@ namespace GameLogic.Gameplay.Expedition
         }
 
         /// <summary>
-        /// 锁定按下时的具体目标，交互只在完整战斗帧后执行。
+        /// 锁定按下时的地面物品目标，拾取只在完整战斗帧后执行。
         /// </summary>
         public void RequestInteraction()
         {
             if (!CanInteract || !World.TryGetActor(Player, out CombatActorSnapshot player) || player.Dead) return;
             UpdateInteractionLabel(player.Position);
             requestedInteractionId = SelectedInteractionId;
-            interactionRequested = HasInteraction;
+            interactionRequested = selectedInteraction.Kind == InteractionTargetKind.Loot && HasInteraction;
         }
 
         /// <summary>

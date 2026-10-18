@@ -5,13 +5,13 @@
       "ID": "movement",
       "SortOrder": 10,
       "Title": "移动与战斗",
-      "Body": "拖动摇杆移动角色，敌人进入近战范围后自动攻击。留意生命值和地面预警，完成当前房间目标后向上方出口前进。"
+      "Body": "拖动摇杆移动角色，敌人进入近战范围后自动攻击。触碰NPC、未领取宝箱或已开放出口时自动打开对应窗口并暂停战斗，无需按键或点击主界面互动按钮。留意生命值和地面预警，完成当前房间目标后向上方出口前进。"
     },
     {
       "ID": "exploration",
       "SortOrder": 20,
       "Title": "线性房间关卡",
-      "Body": "房间按顺序单向推进，最后为Boss房；怪物房清场后开放出口，最终Boss奖励领取完毕后通关并带回收益。当前六房排列是可调原型，包含怪物房、宝箱房和商人房。"
+      "Body": "房间按顺序单向推进，最后为Boss房；怪物房清场后开放出口，最终Boss奖励领取完毕后自动通关并带回收益。关闭NPC或出口窗口后，先离开触碰范围，再进入即可重新打开；站在原地不会反复弹窗，宝箱领取后不再触发。当前六房排列是可调原型，包含怪物房、宝箱房和商人房。"
     },
     {
       "ID": "loot",
@@ -41,7 +41,7 @@
       "ID": "stamina",
       "SortOrder": 70,
       "Title": "入场体力与补给",
-      "Body": "首次开启关卡消耗{EntryCost}点体力，每次进入房间消耗{RoomEntryCost}点；继续宝箱房不额外扣费，重新进入未完成怪物或Boss房仍消耗{RoomEntryCost}点。体力上限{StaminaCap}点，每{RecoverySeconds}秒恢复1点，每天{DailyResetHour}点重置到上限。每天{SupplyHourFirst}点、{SupplyHourSecond}点、{SupplyHourThird}点可手动领取{SupplyAmount}点补给。"
+      "Body": "首次开启关卡只消耗{EntryCost}点体力，第一房不另收费；后续每进入一个新房间消耗{RoomEntryCost}点。继续宝箱房不扣费，继续未完成怪物或Boss房消耗{RoomEntryCost}点；NPC房续关直接进入下一房并消耗{RoomEntryCost}点。最终Boss已全部领奖、仅待补办通关时恢复免费。体力上限{StaminaCap}点，每{RecoverySeconds}秒恢复1点，每天{DailyResetHour}点重置到上限。每天{SupplyHourFirst}点、{SupplyHourSecond}点、{SupplyHourThird}点可手动领取{SupplyAmount}点补给。"
     }
   ]
 }

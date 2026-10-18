@@ -94,16 +94,11 @@ namespace MiniGame.Tests
                 ProjectItem[] expected = chest.Items.Select(item => item.Copy()).ToArray();
                 string[] expectedItems = expected.Select(item => JsonUtility.ToJson(item)).ToArray();
                 int before = run.Inventory.Count;
+                backend.HoldWrites();
                 Assert.That(run.World.TrySetPosition(run.Player, chest.Position), Is.True);
                 run.Advance(CombatWorld.TickSeconds);
-                await WaitRunSavedAsync(run);
-                await WaitForWindowAsync(ProjectServices.BattleHudWindow);
-                for (int attempt = 0; attempt < run.InteractionCount && run.SelectedInteractionId != chest.Id; attempt++) run.CycleInteraction();
                 Assert.That(run.SelectedInteractionId, Is.EqualTo(chest.Id));
                 IUIModule ui = GameEntry.Get<IUIModule>();
-                backend.HoldWrites();
-                run.RequestInteraction();
-                run.Advance(CombatWorld.TickSeconds);
                 Assert.That(run.IsSavingRun, Is.True);
                 Assert.That(backend.WaitingWrite, Is.True);
                 Assert.That(run.ActivePanel, Is.EqualTo(ExpeditionPanelKind.None));
@@ -150,6 +145,12 @@ namespace MiniGame.Tests
                 Assert.That(run.World.TickIndex, Is.EqualTo(tick + 1), "关闭窗口后只推进新帧，不补跑暂停期间的时间。");
                 Assert.That(InputPersistencePlayer(run).Position, Is.EqualTo(frozen.Position), "关闭窗口不能继承暂停期间的移动意图。");
                 await WaitRunSavedAsync(run);
+                Assert.That(run.World.TrySetPosition(run.Player, run.CurrentRoom.Plan.EntryPosition), Is.True);
+                run.Advance(CombatWorld.TickSeconds);
+                Assert.That(run.World.TrySetPosition(run.Player, chest.Position), Is.True);
+                run.Advance(CombatWorld.TickSeconds);
+                Assert.That(run.ActivePanel, Is.EqualTo(ExpeditionPanelKind.None), "已领取宝箱离开后再触碰也不能重开。");
+                Assert.That(run.Inventory.Count, Is.EqualTo(before + expected.Length));
                 string runId = run.RunId;
                 string[] inventory = run.Inventory.Select(item => JsonUtility.ToJson(item)).ToArray();
                 Assert.That(await ProjectServices.Coordinator.CloseAsync(), Is.True);
@@ -166,7 +167,9 @@ namespace MiniGame.Tests
                 Assert.That(resumed.ActivePanel, Is.EqualTo(ExpeditionPanelKind.None));
                 Assert.That(resumed.ChestLootItems, Is.Empty);
                 Assert.That(GameEntry.Get<IUIModule>().OpenedWindows.All(window => window.Id != ProjectServices.ChestLootWindow), Is.True);
+                Assert.That(resumed.World.TrySetPosition(resumed.Player, chest.Position), Is.True);
                 resumed.Advance(CombatWorld.TickSeconds);
+                Assert.That(resumed.ActivePanel, Is.EqualTo(ExpeditionPanelKind.None), "已领取宝箱续关后触碰也不能重开。");
                 for (int attempt = 0; attempt < resumed.InteractionCount; attempt++)
                 {
                     Assert.That(resumed.SelectedInteractionId, Is.Not.EqualTo(chest.Id), "已领取宝箱恢复后不能再次成为领取目标。");

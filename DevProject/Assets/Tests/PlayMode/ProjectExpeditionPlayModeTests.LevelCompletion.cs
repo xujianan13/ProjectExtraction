@@ -36,7 +36,7 @@ namespace MiniGame.Tests
             {
                 Assert.That(run.CurrentRoomIndex, Is.EqualTo(index));
                 Assert.That(run.CurrentRoomKind, Is.EqualTo(expected[index]));
-                Assert.That(session.Stamina, Is.EqualTo(stamina - PrototypeRules.EntryCost - (index + 1) * PrototypeRules.RoomEntryCost));
+                Assert.That(session.Stamina, Is.EqualTo(stamina - PrototypeRules.EntryCost - index * PrototypeRules.RoomEntryCost));
                 if (run.IsFinalRoom)
                 {
                     await CompleteFinalBossAsync(run);

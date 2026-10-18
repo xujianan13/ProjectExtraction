@@ -29,7 +29,7 @@ namespace ProjectExtraction.Tests
             Assert.AreEqual("战利品", data.Outcome.Items[0].Name);
             Assert.IsFalse(ProjectProfileRules.TryRecoverInterruptedRun(data, "中断"));
             Assert.IsTrue(ProjectRunRecordRules.TrySettleOutcome(data, out _));
-            Assert.AreEqual(89, data.Stamina);
+            Assert.AreEqual(90, data.Stamina);
             Assert.AreEqual(30, data.Gold);
             Assert.AreEqual(80, data.Experience);
             Assert.AreEqual(1, data.Warehouse.Count);
@@ -76,7 +76,7 @@ namespace ProjectExtraction.Tests
             ProjectSaveData data = Admitted("current");
             Assert.IsFalse(ProjectRunRecordRules.TryRecordOutcome(data, Outcome(data, true), out _));
             Assert.IsFalse(ProjectRunRecordRules.TryAdmit(data, "current", 2, 123, new List<ProjectItem> { data.EntryItems[0].Copy() }, out _));
-            Assert.AreEqual(89, data.Stamina);
+            Assert.AreEqual(90, data.Stamina);
             Assert.IsTrue(ProjectRunRecordRules.TryMarkRunning(data, "current", out _));
             ProjectRunOutcome old = Outcome(data, true);
             old.RunId = "old";
@@ -353,22 +353,55 @@ namespace ProjectExtraction.Tests
         }
 
         /// <summary>
-        /// 准入扣除关卡与首房费用，取消准入退回实际扣费，已开始的局不能按取消入口退款。
+        /// 准入只收关卡入场费，取消准入退回实际扣费，已开始的局不能按取消入口退款。
         /// </summary>
         [Test]
-        public void AdmissionChargesLevelAndFirstRoomAndRefundsOnlyBeforeRunning()
+        public void AdmissionChargesOnlyEntryCostAndRefundsOnlyBeforeRunning()
         {
             var data = Admitted("admission-cost");
             Assert.That(data.ActiveRunVersion, Is.EqualTo(3));
-            Assert.That(data.ActiveRunEntryCost, Is.EqualTo(11));
-            Assert.That(data.Stamina, Is.EqualTo(89));
+            Assert.That(data.ActiveRunEntryCost, Is.EqualTo(10));
+            Assert.That(data.Stamina, Is.EqualTo(90));
             Assert.That(ProjectProfileRules.TryRecoverInterruptedRun(data, "取消准入"), Is.True);
             Assert.That(data.Stamina, Is.EqualTo(100));
             Assert.That(data.ActiveRunAwardedKillExperience, Is.Zero);
             data = Admitted("running-cost");
             Assert.That(ProjectRunRecordRules.TryMarkRunning(data, data.ActiveRunId, out _), Is.True);
             Assert.That(ProjectProfileRules.TryRecoverInterruptedRun(data, "不能取消"), Is.False);
-            Assert.That(data.Stamina, Is.EqualTo(89));
+            Assert.That(data.Stamina, Is.EqualTo(90));
+        }
+
+        /// <summary>
+        /// 余额恰好十点可首次入场，少一点原子拒绝，重复准入和账号重读均不重复收费。
+        /// </summary>
+        /// <param name="stamina">准入前实际体力余额。</param>
+        /// <param name="accepted">本次余额是否应允许准入。</param>
+        [TestCase(9, false)]
+        [TestCase(10, true)]
+        public void AdmissionUsesTenPointBoundaryAndRetriedIdentityIsFree(int stamina, bool accepted)
+        {
+            ProjectSaveData data = ProjectSaveData.CreateDefault();
+            data.Stamina = stamina;
+            var entry = data.Warehouse.FindAll(item => item.Equipped).ConvertAll(item => item.Copy());
+            string original = JsonUtility.ToJson(data);
+            Assert.That(ProjectRunRecordRules.TryAdmit(data, "ten-point-entry", 1, 71, entry, out string error), Is.EqualTo(accepted), error);
+            if (!accepted)
+            {
+                Assert.That(JsonUtility.ToJson(data), Is.EqualTo(original));
+                return;
+            }
+            Assert.That(data.Stamina, Is.Zero);
+            Assert.That(data.ActiveRunEntryCost, Is.EqualTo(10));
+            Assert.That(data.ActiveRoomAdmissionSerial, Is.EqualTo(1));
+            data = RoundTrip(new ProjectSaveCodec(), data);
+            string admitted = JsonUtility.ToJson(data);
+            Assert.That(ProjectRunRecordRules.TryAdmit(data, "ten-point-entry", 1, 71, entry, out error), Is.True, error);
+            Assert.That(JsonUtility.ToJson(data), Is.EqualTo(admitted));
+            Assert.That(ProjectRunRecordRules.TryMarkRunning(data, "ten-point-entry", out error), Is.True, error);
+            string running = JsonUtility.ToJson(data);
+            Assert.That(ProjectRunRecordRules.TryMarkRunning(data, "ten-point-entry", out error), Is.True, error);
+            Assert.That(JsonUtility.ToJson(data), Is.EqualTo(running));
+            Assert.That(data.Stamina, Is.Zero);
         }
 
         /// <summary>

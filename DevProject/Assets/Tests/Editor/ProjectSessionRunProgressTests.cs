@@ -22,20 +22,49 @@ namespace ProjectExtraction.Tests
         public void LoadTables() => TestGameTables.LoadAll();
 
         /// <summary>
-        /// 首次开局包含首房体力，重复确认首房不会再次扣费。
+        /// 首次开局只收入场费，首房等待和就绪检查点重复确认均不额外扣费。
         /// </summary>
         [Test]
-        public void FirstAdmissionIncludesRoomCostAndProgressReplayIsFree()
+        public void FirstAdmissionExcludesRoomCostAndProgressReplayIsFree()
         {
             int initialStamina = ProjectSaveData.CreateDefault().Stamina;
             ProjectSaveData data = AdmittedProfile();
-            int cost = ProjectRulesConfig.Profile.EntryCost + ProjectRulesConfig.Profile.RoomEntryCost;
+            int cost = ProjectRulesConfig.Profile.EntryCost;
+            Assert.That(cost, Is.EqualTo(10));
             Assert.That(data.Stamina, Is.EqualTo(initialStamina - cost));
             Assert.That(data.ActiveRoomAdmissionSerial, Is.EqualTo(1));
             ExpeditionRunSnapshot snapshot = Snapshot();
             Assert.That(Apply(data, snapshot, out string error), Is.True, error);
+            snapshot.AdmissionPending = false;
             Assert.That(Apply(data, snapshot, out error), Is.True, error);
             Assert.That(data.Stamina, Is.EqualTo(initialStamina - cost));
+        }
+
+        /// <summary>
+        /// 首房准入已包含在十点开关费用中，零余额可同步首房，后续新流水仍需一点且只能扣一次。
+        /// </summary>
+        [Test]
+        public void ZeroBalanceFirstRoomReplayIsFreeButNextRoomNeedsOnePoint()
+        {
+            ProjectSaveData data = AdmittedProfile();
+            data.Stamina = 0;
+            ExpeditionRunSnapshot snapshot = Snapshot();
+            Assert.That(Apply(data, snapshot, out string error), Is.True, error);
+            snapshot.AdmissionPending = false;
+            Assert.That(Apply(data, snapshot, out error), Is.True, error);
+            Assert.That(data.Stamina, Is.Zero);
+            snapshot.RoomAdmissionSerial = 2;
+            snapshot.AdmissionPending = true;
+            string firstRoom = JsonUtility.ToJson(data);
+            Assert.That(Apply(data, snapshot, out error), Is.False);
+            Assert.That(JsonUtility.ToJson(data), Is.EqualTo(firstRoom));
+            Assert.That(ProjectRulesConfig.Profile.RoomEntryCost, Is.EqualTo(1));
+            data.Stamina = 1;
+            Assert.That(Apply(data, snapshot, out error), Is.True, error);
+            Assert.That(data.Stamina, Is.Zero);
+            Assert.That(data.ActiveRoomAdmissionSerial, Is.EqualTo(2));
+            Assert.That(Apply(data, snapshot, out error), Is.True, error);
+            Assert.That(data.Stamina, Is.Zero);
         }
 
         /// <summary>
@@ -177,16 +206,15 @@ namespace ProjectExtraction.Tests
         }
 
         /// <summary>
-        /// 会话公布总入场体力，携入装备读取不会共享账号中的可写对象。
+        /// 会话公布首次入场体力，携入装备读取不会共享账号中的可写对象。
         /// </summary>
         [Test]
-        public void SessionExposesTotalEntryCostAndIndependentEntryItems()
+        public void SessionExposesEntryCostAndIndependentEntryItems()
         {
             ProjectSaveData data = AdmittedProfile();
             var session = (ProjectSession)Activator.CreateInstance(typeof(ProjectSession), BindingFlags.Instance | BindingFlags.NonPublic,
                 null, new object[] { null, data }, null);
-            Assert.That(session.RequiredEntryStamina,
-                Is.EqualTo((long)ProjectRulesConfig.Profile.EntryCost + ProjectRulesConfig.Profile.RoomEntryCost));
+            Assert.That(session.RequiredEntryStamina, Is.EqualTo(10L));
             PropertyInfo entry = typeof(ProjectSession).GetProperty("EntryItems", BindingFlags.Instance | BindingFlags.NonPublic);
             var first = (IReadOnlyList<ProjectItem>)entry.GetValue(session);
             first[0].Name = "changed";
@@ -196,7 +224,7 @@ namespace ProjectExtraction.Tests
         }
 
         /// <summary>
-        /// 建立已支付关卡和第一房费用的正式活动账号候选。
+        /// 建立已支付关卡入场费且首房不额外收费的正式活动账号候选。
         /// </summary>
         /// <returns>已标记运行中的独立账号。</returns>
         private static ProjectSaveData AdmittedProfile()

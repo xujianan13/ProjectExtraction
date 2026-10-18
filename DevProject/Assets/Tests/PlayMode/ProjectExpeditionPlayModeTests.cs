@@ -55,11 +55,11 @@ namespace MiniGame.Tests
             int stamina = session.Stamina;
             Assert.That(await ProjectServices.Coordinator.StartRunAsync(1), Is.True);
             ExpeditionRun first = AssertBattle(GameEntry.Get<ISceneModule>(), GameEntry.Get<IUIModule>(), session);
-            Assert.That(session.Stamina, Is.EqualTo(stamina - PrototypeRules.EntryCost - PrototypeRules.RoomEntryCost));
+            Assert.That(session.Stamina, Is.EqualTo(stamina - PrototypeRules.EntryCost));
             await TriggerExtractionAsync(first);
             Assert.That(session.LastResult.Outcome.ExitKind, Is.EqualTo(ProjectRunExitKind.Completed));
             Assert.That(await ProjectServices.Coordinator.ReturnHomeAsync(), Is.True);
-            int afterFirst = stamina - PrototypeRules.EntryCost - first.RoomCount * PrototypeRules.RoomEntryCost;
+            int afterFirst = stamina - PrototypeRules.EntryCost - (first.RoomCount - 1) * PrototypeRules.RoomEntryCost;
             Assert.That(session.Stamina, Is.EqualTo(afterFirst));
             Assert.That(session.Warehouse.Any(item => item.Id == equippedId && item.Equipped), Is.True);
             Assert.That(await ProjectServices.Coordinator.StartRunAsync(1), Is.True);
@@ -72,7 +72,7 @@ namespace MiniGame.Tests
             await WaitForPhaseAsync(ProjectRunPhase.ResultsReady);
             Assert.That(session.LastResult.Outcome.ExitKind, Is.EqualTo(ProjectRunExitKind.Death));
             Assert.That(await ProjectServices.Coordinator.ReturnHomeAsync(), Is.True);
-            Assert.That(session.Stamina, Is.EqualTo(afterFirst - PrototypeRules.EntryCost - PrototypeRules.RoomEntryCost));
+            Assert.That(session.Stamina, Is.EqualTo(afterFirst - PrototypeRules.EntryCost));
             Assert.That(session.Warehouse.Count(item => item.Id == equippedId), Is.EqualTo(1));
             Assert.That(GameEntry.Get<IGameplayModule>().Count, Is.Zero);
         });
@@ -139,7 +139,7 @@ namespace MiniGame.Tests
             backend.FailWrites = false;
             Assert.That(await coordinator.RetryAsync(), Is.True, coordinator.Message);
             Assert.That(await entering.Timeout(TimeSpan.FromSeconds(20)), Is.True);
-            Assert.That(ProjectServices.Session.Stamina, Is.EqualTo(100 - PrototypeRules.EntryCost - PrototypeRules.RoomEntryCost));
+            Assert.That(ProjectServices.Session.Stamina, Is.EqualTo(100 - PrototypeRules.EntryCost));
             Assert.That(run.IsRunning, Is.True);
             long tick = run.World.TickIndex;
             run.SetTouchMove(Vector2.right);
@@ -189,7 +189,7 @@ namespace MiniGame.Tests
             Assert.That(ProjectServices.Session.LastResult.Outcome.RunId, Is.EqualTo(runId));
             Assert.That(ProjectServices.Session.LastResult.Outcome.ExitKind, Is.EqualTo(ProjectRunExitKind.Death));
             Assert.That(ProjectServices.Session.Warehouse.Count, Is.EqualTo(1));
-            Assert.That(ProjectServices.Session.Stamina, Is.EqualTo(100 - PrototypeRules.EntryCost - PrototypeRules.RoomEntryCost));
+            Assert.That(ProjectServices.Session.Stamina, Is.EqualTo(100 - PrototypeRules.EntryCost));
             Assert.That(ProjectServices.Session.CurrentRun, Is.Null);
             Assert.That(await ProjectServices.Coordinator.ReturnHomeAsync(), Is.True);
             int experience = ProjectServices.Session.Experience;

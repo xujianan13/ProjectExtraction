@@ -37,7 +37,7 @@ namespace ProjectExtraction.Tests
             Assert.That(ProjectSaveData.Validate(restored), Is.Null);
             Assert.That(restored.Outcome.ExitKind, Is.EqualTo(ProjectRunExitKind.Abandoned));
             Assert.That(ProjectRunRecordRules.TrySettleOutcome(restored, out error), Is.True, error);
-            Assert.That(restored.Stamina, Is.EqualTo(stamina - PrototypeRules.EntryCost - PrototypeRules.RoomEntryCost));
+            Assert.That(restored.Stamina, Is.EqualTo(stamina - PrototypeRules.EntryCost));
             Assert.That(restored.Experience, Is.EqualTo(0));
             Assert.That(restored.LastResult.RetainedItems[0].Id, Is.EqualTo(entry.Id));
             Assert.That(restored.Warehouse.Count, Is.EqualTo(1));

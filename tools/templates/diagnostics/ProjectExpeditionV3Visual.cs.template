@@ -76,7 +76,9 @@ namespace MiniGame.Tests
                 await WaitForAsync(() => run.CanAcceptPlayerInput);
                 await CaptureV3WindowAsync(hud, "hud", directory, prefix, width, height, record, failures,
                     "Status", "CombatSkills", "MoveStick", "ControlActions");
-                CheckVisualButtons(hud, record, failures, "切换目标 / Tab", "背包", "成长与进度", "暂停");
+                CheckVisualButtons(hud, record, failures, "背包", "成长与进度", "暂停");
+                Assert.That(hud.Root.GetComponentsInChildren<Button>(false).Select(button => button.GetComponentInChildren<Text>().text),
+                    Is.EquivalentTo(new[] { "背包", "成长与进度", "暂停" }));
                 Rect stick = CheckVisualRect(FindVisualRect(hud, "MoveStick"), "HUD/Stick", record, failures);
                 Rect actions = CheckVisualRect(FindVisualRect(hud, "ControlActions"), "HUD/Actions", record, failures);
                 CheckVisualOverlap(stick, actions, "HUD 摇杆与操作区", failures);
@@ -105,7 +107,22 @@ namespace MiniGame.Tests
                         await CaptureV3InventoryAndLeaveOptionsAsync(run, directory, prefix, width, height, record, failures);
                     }
                     if (run.CurrentRoomKind == ExpeditionRoomKind.Npc)
+                    {
                         await CaptureV3WindowAsync(hud, "npc-room", directory, prefix, width, height, record, failures, "Status", "ControlActions");
+                        RegionNpcPlan npc = run.CurrentRoom.Plan.Npcs.Single();
+                        Assert.That(run.World.TrySetPosition(run.Player, npc.Position), Is.True);
+                        run.Advance(CombatWorld.TickSeconds);
+                        await WaitRunSavedAsync(run);
+                        GameWindow merchant = await WaitForWindowAsync(ProjectServices.ExpeditionMerchantWindow);
+                        Assert.That(run.ActivePanel, Is.EqualTo(ExpeditionPanelKind.Merchant));
+                        await AssertV3PanelPausedAsync(run);
+                        FindVisualRect(merchant, "Offers").GetComponentsInChildren<Button>(false).First().onClick.Invoke();
+                        await CaptureV3WindowAsync(merchant, "merchant", directory, prefix, width, height, record, failures,
+                            "MerchantPanel", "Offers", "Details");
+                        CheckVisualButtons(merchant, record, failures, "关闭", "确认购买");
+                        ClickButton(merchant, "关闭");
+                        await WaitForAsync(() => run.CanAcceptPlayerInput);
+                    }
                     if (run.IsFinalRoom)
                     {
                         await CaptureV3BossAsync(run, directory, prefix, width, height, record, failures);
@@ -146,7 +163,7 @@ namespace MiniGame.Tests
         }
 
         /// <summary>
-        /// 通过真实宝箱交互捕获领取结果，再用窗口按钮继续房间。
+        /// 进入宝箱触碰范围捕获自动领取结果，再用窗口按钮继续房间。
         /// </summary>
         /// <param name="run">当前宝箱房单局。</param>
         /// <param name="directory">输出目录。</param>
@@ -161,11 +178,6 @@ namespace MiniGame.Tests
         {
             RegionChestPlan chest = run.CurrentRoom.Plan.Chests.Single();
             Assert.That(run.World.TrySetPosition(run.Player, chest.Position), Is.True);
-            run.Advance(CombatWorld.TickSeconds);
-            await WaitRunSavedAsync(run);
-            for (int index = 0; index < run.InteractionCount && run.SelectedInteractionId != chest.Id; index++) run.CycleInteraction();
-            Assert.That(run.SelectedInteractionId, Is.EqualTo(chest.Id));
-            run.RequestInteraction();
             run.Advance(CombatWorld.TickSeconds);
             await WaitRunSavedAsync(run);
             GameWindow loot = await WaitForWindowAsync(ProjectServices.ChestLootWindow);

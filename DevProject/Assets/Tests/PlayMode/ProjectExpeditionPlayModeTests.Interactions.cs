@@ -15,7 +15,7 @@ namespace MiniGame.Tests
     public sealed partial class ProjectExpeditionPlayModeTests
     {
         /// <summary>
-        /// 多个物品和商人重叠时，一次请求只处理明确选中的实例。
+        /// 自动商店关闭后多个物品和商人仍重叠时，一次拾取请求只处理明确选中的实例。
         /// </summary>
         /// <returns>目标切换、领取和保存验证任务。</returns>
         [UnityTest]
@@ -30,6 +30,9 @@ namespace MiniGame.Tests
             ExpeditionDrop first = AddInteractionDrop(run, "interaction-a", position);
             ExpeditionDrop second = AddInteractionDrop(run, "interaction-b", position + Vector3.right * 0.4f);
             run.Advance(CombatWorld.TickSeconds);
+            await WaitRunSavedAsync(run);
+            ClickButton(await WaitForWindowAsync(ProjectServices.ExpeditionMerchantWindow), "关闭");
+            await WaitForAsync(() => run.ActivePanel == ExpeditionPanelKind.None);
             Assert.That(run.InteractionCount, Is.EqualTo(3));
             SelectInteractionLoot(run, first.Item.Id);
             Assert.That(run.TryGetInteractionItem(out ProjectItem preview), Is.True);
@@ -64,6 +67,9 @@ namespace MiniGame.Tests
             Assert.That(run.World.TrySetPosition(run.Player, position), Is.True);
             ExpeditionDrop drop = AddInteractionDrop(run, "invalidated-loot", position);
             run.Advance(CombatWorld.TickSeconds);
+            await WaitRunSavedAsync(run);
+            ClickButton(await WaitForWindowAsync(ProjectServices.ExpeditionMerchantWindow), "关闭");
+            await WaitForAsync(() => run.ActivePanel == ExpeditionPanelKind.None);
             SelectInteractionLoot(run, drop.Item.Id);
             run.RequestInteraction();
             drop.Position = run.CurrentRoom.Plan.EntryPosition;
@@ -72,6 +78,11 @@ namespace MiniGame.Tests
             Assert.That(run.ActivePanel, Is.EqualTo(ExpeditionPanelKind.None));
             Assert.That(run.Message, Does.Contain("重新选择"));
             run.RequestInteraction();
+            run.Advance(CombatWorld.TickSeconds);
+            Assert.That(run.ActivePanel, Is.EqualTo(ExpeditionPanelKind.None), "原地按键不能绕过商人离开后再触碰的规则。");
+            Assert.That(run.World.TrySetPosition(run.Player, run.CurrentRoom.Plan.EntryPosition), Is.True);
+            run.Advance(CombatWorld.TickSeconds);
+            Assert.That(run.World.TrySetPosition(run.Player, position), Is.True);
             run.Advance(CombatWorld.TickSeconds);
             await WaitRunSavedAsync(run);
             Assert.That(run.ActivePanel, Is.EqualTo(ExpeditionPanelKind.Merchant));

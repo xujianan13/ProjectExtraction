@@ -94,7 +94,7 @@ namespace GameLogic.Project
             (session.RunStage == ProjectRunStage.Admitted || session.RunStage == ProjectRunStage.Running);
 
         /// <summary>
-        /// 新局首次关卡准入与首房合计需要的体力。
+        /// 新局首次关卡准入需要的体力，第一房不额外收费。
         /// </summary>
         public long RequiredEntryStamina => session.RequiredEntryStamina;
 

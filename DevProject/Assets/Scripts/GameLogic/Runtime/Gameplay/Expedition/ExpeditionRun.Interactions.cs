@@ -23,6 +23,7 @@ namespace GameLogic.Gameplay.Expedition
         }
 
         private readonly List<InteractionTarget> interactionTargets = new();
+        private readonly HashSet<string> touchingTargets = new(StringComparer.Ordinal);
         private string requestedInteractionId;
         private InteractionTarget selectedInteraction;
         public string SelectedInteractionId => selectedInteraction.Id ?? string.Empty;
@@ -74,12 +75,12 @@ namespace GameLogic.Gameplay.Expedition
             foreach (RegionChestPlan chest in region.Plan.Chests)
             {
                 RegionChestState state = region.Chests.Find(value => value.Id == chest.Id);
-                if (state.ClaimedItemIds.Count < chest.Items.Count)
+                if (!state.Opened)
                     AddInteractionTarget(new InteractionTarget { Id = chest.Id, Kind = InteractionTargetKind.Chest }, position, chest.Position, radius);
             }
             foreach (RegionNpcPlan npc in region.Plan.Npcs)
                 AddInteractionTarget(new InteractionTarget { Id = npc.Id, Kind = InteractionTargetKind.Merchant }, position, npc.Position, radius);
-            if (region.ExitEnabled)
+            if (region.ExitEnabled && !IsFinalRoom)
                 AddInteractionTarget(new InteractionTarget { Id = RunId + ":exit:" + region.Plan.Request.RegionId, Kind = InteractionTargetKind.Extraction },
                     position, region.Plan.ExitPosition, radius);
             interactionTargets.Sort((left, right) => left.DistanceSquared != right.DistanceSquared ?
@@ -118,22 +119,41 @@ namespace GameLogic.Gameplay.Expedition
                     InteractionDescription = selectedInteraction.Drop.Item.Name;
                     break;
                 case InteractionTargetKind.Chest:
-                    InteractionLabel = "打开宝箱 / E";
-                    InteractionDescription = "固定战利品箱 · 开箱后领取全部剩余物品";
+                    InteractionLabel = "触碰宝箱";
+                    InteractionDescription = "触碰后自动领取宝箱物品并展示收获";
                     break;
                 case InteractionTargetKind.Merchant:
-                    InteractionLabel = "查看商店 / E";
-                    InteractionDescription = "本房商人 · 固定库存与价格";
+                    InteractionLabel = "触碰商人";
+                    InteractionDescription = "触碰后查看商店，离开再靠近可重新打开";
                     break;
                 case InteractionTargetKind.Extraction:
-                    InteractionLabel = "房间出口 / E";
-                    InteractionDescription = IsFinalRoom ? "已通关 · 确认携出全部物品" : "当前房间已完成 · 进入下一房";
+                    InteractionLabel = "触碰房间出口";
+                    InteractionDescription = "触碰后选择前进，关闭后离开再靠近可重开";
                     break;
             }
         }
 
         /// <summary>
-        /// 仅执行按下时锁定且当前仍合法的具体目标。
+        /// 进入 NPC、宝箱或出口范围时自动触发，关闭面板后必须离开范围才能再次触发。
+        /// </summary>
+        /// <param name="position">完整逻辑帧后的玩家权威位置。</param>
+        private void ProcessTouchInteractions(Vector3 position)
+        {
+            touchingTargets.RemoveWhere(id => !interactionTargets.Exists(target => target.Kind != InteractionTargetKind.Loot && target.Id == id));
+            InteractionTarget entered = default;
+            foreach (InteractionTarget target in interactionTargets)
+            {
+                if (target.Kind == InteractionTargetKind.Loot || !touchingTargets.Add(target.Id)) continue;
+                if (entered.Id == null) entered = target;
+            }
+            if (entered.Id == null) return;
+            selectedInteraction = entered;
+            RefreshInteractionText();
+            ExecuteInteraction(entered, position);
+        }
+
+        /// <summary>
+        /// 手动拾取仍在范围内的地面物品，房间设施统一通过触碰触发。
         /// </summary>
         /// <param name="position">完整逻辑帧后的玩家位置。</param>
         private void Interact(Vector3 position)
@@ -142,6 +162,17 @@ namespace GameLogic.Gameplay.Expedition
             int index = interactionTargets.FindIndex(value => value.Id == requestedInteractionId);
             if (index < 0) { Message = "目标已离开交互范围，请重新选择。"; return; }
             InteractionTarget target = interactionTargets[index];
+            if (target.Kind == InteractionTargetKind.Loot) ExecuteInteraction(target, position);
+        }
+
+        /// <summary>
+        /// 执行当前合法目标，将领取或访问事实保存后再开放对应暂停面板。
+        /// </summary>
+        /// <param name="target">已经确认进入范围或手动拾取的目标。</param>
+        /// <param name="position">当前玩家权威位置。</param>
+        private void ExecuteInteraction(InteractionTarget target, Vector3 position)
+        {
+            if (!CanInteract) return;
             if (target.Kind == InteractionTargetKind.Extraction) { TryOpenExtractionConfirmation(); return; }
             if (target.Kind == InteractionTargetKind.Merchant) { TryOpenMerchant(target.Id); return; }
             if (target.Kind == InteractionTargetKind.Loot)
@@ -180,6 +211,7 @@ namespace GameLogic.Gameplay.Expedition
         private void ClearInteractionTargets()
         {
             interactionTargets.Clear();
+            touchingTargets.Clear();
             selectedInteraction = default;
             requestedInteractionId = null;
             InteractionLabel = "交互 / E";
