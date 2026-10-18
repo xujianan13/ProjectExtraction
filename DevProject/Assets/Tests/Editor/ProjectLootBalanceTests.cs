@@ -109,7 +109,7 @@ namespace GameLogic.Tests.Editor
         }
 
         /// <summary>
-        /// 房间报告按真实冻结的敌人和 Boss 轮数计算。
+        /// 房间报告按真实冻结的敌人及 Boss 实际掉落件数计算。
         /// </summary>
         [Test]
         public void RegionEvaluationUsesGeneratedPlanAndConfiguredContributions()
@@ -135,11 +135,17 @@ namespace GameLogic.Tests.Editor
                 }
                 Assert.That(result.initialKillExperience, Is.EqualTo(experience));
                 Assert.That(result.bosses, Is.EqualTo(request.RoomKind == ExpeditionRoomKind.Boss ? 1 : 0));
-                Assert.That(result.bossRewardRounds, Is.EqualTo(request.RoomKind == ExpeditionRoomKind.Boss ?
-                    GameTables.CfgBossRewards.GetById(GameTables.CfgBosses.GetById(request.BossDefinitionId).RewardID).Rounds : 0));
+                Assert.That(result.bossRewardItems, Is.EqualTo(request.RoomKind == ExpeditionRoomKind.Boss ?
+                    GameTables.CfgBossRewards.GetById(GameTables.CfgBosses.GetById(request.BossDefinitionId).RewardID).ItemCount : 0));
                 Assert.That(result.expectedMerchantNetGold, Is.EqualTo(result.expectedMerchantResaleGold - result.merchantPurchaseGold));
                 if (request.RoomKind == ExpeditionRoomKind.Boss)
+                {
                     Assert.That(result.normalEnemies + result.eliteEnemies + result.chestItems + result.merchantOffers, Is.Zero);
+                    CfgBossRewardsRow reward = ProjectRewardConfig.BossReward(GameTables.CfgBosses.GetById(request.BossDefinitionId).RewardID);
+                    Assert.That(result.bossRewardItems, Is.EqualTo(3));
+                    Assert.That(result.minimumEquipmentItems, Is.EqualTo(reward.MinEquipmentItems));
+                    Assert.That(result.minimumCollectionItems, Is.EqualTo(reward.MinCollectionItems));
+                }
             }
         }
 

@@ -247,16 +247,16 @@ namespace GameLogic.Gameplay.Expedition
             }
             foreach (var batch in snapshot.BossLoot.Batches)
             {
-                if (batch?.Rounds == null) return false;
-                foreach (var round in batch.Rounds)
+                if (batch?.Items == null) return false;
+                foreach (ProjectItem item in batch.Items)
                 {
-                    if (round?.Options == null || round.SelectedIndex < -1 || round.SelectedIndex >= round.Options.Count) return false;
-                    for (int index = 0; index < round.Options.Count; index++)
+                    if (ProjectEquipmentRules.ValidateItem(item) != null || !origins.Add(item.Id)) return false;
+                    if (batch.Claimed)
                     {
-                        ProjectItem item = round.Options[index];
-                        if (ProjectEquipmentRules.ValidateItem(item) != null || !origins.Add(item.Id) ||
-                            index != round.SelectedIndex && !owned.Add(item.Id)) return false;
+                        ProjectItem held = snapshot.Inventory.Find(value => value.Id == item.Id);
+                        if (held == null || JsonUtility.ToJson(held) != JsonUtility.ToJson(item)) return false;
                     }
+                    else if (!owned.Add(item.Id)) return false;
                 }
             }
             error = null;

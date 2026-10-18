@@ -37,7 +37,7 @@ namespace MiniGame.Tests
             Assert.That(ProjectServices.Session.SkillPoints, Is.EqualTo(run.SkillPoints));
             Assert.That(ProjectServices.Session.LastResult, Is.Null);
             Assert.That(run.KillExperience, Is.GreaterThan(0));
-            Assert.That(run.IsChoosingReward, Is.False);
+            Assert.That(run.IsClaimingBossLoot, Is.False);
         });
 
         /// <summary>

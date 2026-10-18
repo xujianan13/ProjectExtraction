@@ -19,9 +19,9 @@ namespace GameLogic.Tables
         public int ID;
 
         /// <summary>
-        /// Rounds 字段。
+        /// ItemCount 字段。
         /// </summary>
-        public int Rounds;
+        public int ItemCount;
 
         /// <summary>
         /// EquipmentPoolID 字段。
@@ -54,14 +54,14 @@ namespace GameLogic.Tables
         public int MaxQuality;
 
         /// <summary>
-        /// MinEquipmentCandidates 字段。
+        /// MinEquipmentItems 字段。
         /// </summary>
-        public int MinEquipmentCandidates;
+        public int MinEquipmentItems;
 
         /// <summary>
-        /// MinCollectionCandidates 字段。
+        /// MinCollectionItems 字段。
         /// </summary>
-        public int MinCollectionCandidates;
+        public int MinCollectionItems;
 
         /// <summary>
         /// AllowRepeatCollections 字段。
@@ -103,7 +103,7 @@ namespace GameLogic.Tables
                 TextAsset asset = lease.Asset;
                 if (asset == null) throw new InvalidOperationException("配置表资源不可用：CfgBossRewards");
                 var envelope = JsonUtility.FromJson(asset.text, typeof(Envelope)) as Envelope;
-                if (envelope == null || envelope.schemaHash != "2ebc368d9bd3fae7934dbdb9bf19bed8c92ed8cff2ed8d839eeaef9b777d3d25" || envelope.rows == null)
+                if (envelope == null || envelope.schemaHash != "39773b956821331450cc2c8cc50d2fe5abc5fab7753284ebdd028d31dfa6964c" || envelope.rows == null)
                     throw new InvalidOperationException("配置表结构不匹配：CfgBossRewards");
 
                 var table = new CfgBossRewardsTable();

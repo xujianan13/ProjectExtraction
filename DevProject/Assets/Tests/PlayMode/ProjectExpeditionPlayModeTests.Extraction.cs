@@ -83,9 +83,9 @@ namespace MiniGame.Tests
                 foreach (string id in run.CurrentRoom.Slots.Select(slot => slot.SlotId).ToArray())
                     if (run.CurrentRoom.Slots.Single(slot => slot.SlotId == id).Phase == RegionSpawnPhase.Alive)
                         await DefeatSlotAsync(run, id);
-                if (run.CurrentRoomKind == ExpeditionRoomKind.Boss && !run.IsChoosingReward)
+                if (run.CurrentRoomKind == ExpeditionRoomKind.Boss && !run.IsClaimingBossLoot)
                 {
-                    Assert.That(run.PendingBossChoice, Is.Null, "击败 Boss 后必须主动触碰宝箱才打开候选。");
+                    Assert.That(run.PendingBossLoot, Is.Null, "击败 Boss 后必须主动触碰宝箱才打开领取窗口。");
                     Assert.That(run.World.TrySetPosition(run.Player, run.CurrentRoom.Plan.EntryPosition), Is.True);
                     run.Advance(CombatWorld.TickSeconds);
                     RegionChestPlan chest = run.CurrentRoom.Plan.Chests.Single(value => value.Kind == RegionChestKind.BossReward);
@@ -94,10 +94,10 @@ namespace MiniGame.Tests
                     await WaitRunSavedAsync(run);
                     await WaitForWindowAsync(ProjectServices.BossLootWindow);
                 }
-                for (int index = 0; index < 30 && run.PendingBossChoice != null; index++)
+                if (run.PendingBossLoot != null)
                 {
-                    var choice = run.PendingBossChoice;
-                    Assert.That(run.TryChooseBoss(choice.OfferId, choice.Revision, 0), Is.True);
+                    var loot = run.PendingBossLoot;
+                    Assert.That(run.TryClaimBossLoot(loot.BatchId, loot.Revision), Is.True);
                     await WaitRunSavedAsync(run);
                 }
             }
@@ -119,7 +119,7 @@ namespace MiniGame.Tests
             await CompleteCurrentRoomAsync(run);
             Assert.That(run.CurrentRoom.BossDefeated, Is.True);
             Assert.That(run.CurrentRoom.BossRewardsCompleted, Is.True);
-            Assert.That(run.PendingBossChoice, Is.Null);
+            Assert.That(run.PendingBossLoot, Is.Null);
             Assert.That(run.IsRunning, Is.True, "全部领奖只解锁出口，不自动结算。");
             Assert.That(ProjectServices.Session.RecordedOutcome, Is.Null);
             Assert.That(run.TryConfirmExtraction(), Is.False, "宝箱位置不允许直接确认通关。");

@@ -105,7 +105,7 @@ namespace GameLogic.Gameplay.Expedition
         public List<ProjectItem> EntryEquipment = new();
         public List<ProjectItem> Inventory = new();
         public List<int> PendingBossRegions = new();
-        public BossLootChoiceState BossLoot;
+        public BossLootState BossLoot;
         public ProjectRunStatistics Statistics;
         public int PendingPlayerDeathId;
         public bool AdExtractionAuthorized;

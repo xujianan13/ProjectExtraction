@@ -17,9 +17,9 @@ namespace MiniGame.Tests
     public sealed partial class ProjectExpeditionPlayModeTests
     {
         /// <summary>
-        /// Boss 击败后的未开箱、部分领取和全部领取均可零体力恢复，触箱续领后仍须手动出口唯一结算。
+        /// Boss 击败后的未开箱、已开未领和全部领取均可零体力恢复，一次全领后仍须手动出口唯一结算。
         /// </summary>
-        /// <returns>真实触箱、跨启动恢复、冻结候选与唯一入库验证任务。</returns>
+        /// <returns>真实触箱、检查点恢复、冻结物品与唯一入库验证任务。</returns>
         [UnityTest]
         public IEnumerator BossCheckpoint_ThreeRewardStagesResumeFreeAndRequireExplicitExit() => UniTask.ToCoroutine(async () =>
         {
@@ -29,7 +29,7 @@ namespace MiniGame.Tests
             await AdvanceToRoomAsync(run, ExpeditionRoomKind.Boss);
             foreach (string slotId in run.CurrentRoom.Slots.Select(slot => slot.SlotId).ToArray()) await DefeatSlotAsync(run, slotId);
             Assert.That(run.CurrentRoom.BossDefeated, Is.True);
-            Assert.That(run.PendingBossChoice, Is.Null, "击败 Boss 只解锁奖励箱，不得自动弹出选择。");
+            Assert.That(run.PendingBossLoot, Is.Null, "击败 Boss 只解锁奖励箱，不得自动弹出领取窗口。");
             Assert.That(ProjectServices.Session.LastResult, Is.Null);
             Assert.That(run.TryCaptureState(out var defeated, out string error), Is.True, error);
             ProjectSaveData profile = CreateCompletionRecoveryProfile(ProjectServices.Session, run);
@@ -44,54 +44,46 @@ namespace MiniGame.Tests
             Assert.That(run.TryCaptureState(out var beforeTouch, out error), Is.True, error);
             Assert.That(beforeTouch.BossLoot.Batches, Is.Empty);
             await TouchBossRecoveryChestAsync(run);
-            var firstChoice = run.PendingBossChoice;
-            Assert.That(firstChoice.TotalRounds, Is.GreaterThan(1), "实际配置须有多轮奖励才能覆盖部分领取恢复。");
-            Assert.That(firstChoice.Options.Count, Is.EqualTo(3));
-            string firstOffer = firstChoice.OfferId;
-            int firstRevision = firstChoice.Revision;
-            string[] firstOptions = firstChoice.Options.Select(item => JsonUtility.ToJson(item)).ToArray();
+            var loot = run.PendingBossLoot;
+            Assert.That(loot.Items.Count, Is.EqualTo(3));
+            string batchId = loot.BatchId;
+            int revision = loot.Revision;
+            string[] frozenItems = loot.Items.Select(item => JsonUtility.ToJson(item)).ToArray();
+            string[] rewardIds = loot.Items.Select(item => item.Id).ToArray();
+            int inventoryCount = run.Inventory.Count;
+            Assert.That(run.TryCaptureState(out var opened, out error), Is.True, error);
+            opened.BossLoot.Cancelled = true;
+            Assert.That(ExpeditionRun.TryRestore(ProjectServices.Session, opened, out _, out _), Is.False,
+                "活动宝箱不能恢复为已取消且永远无法领取的会话。");
             run.CloseBossLoot();
             run = await RestartBossRecoveryAsync(backend, serial);
             await TouchBossRecoveryChestAsync(run);
-            Assert.That(run.PendingBossChoice.OfferId, Is.EqualTo(firstOffer));
-            Assert.That(run.PendingBossChoice.Revision, Is.EqualTo(firstRevision));
-            Assert.That(run.PendingBossChoice.Options.Select(item => JsonUtility.ToJson(item)), Is.EqualTo(firstOptions));
-            string firstItemId = run.PendingBossChoice.Options[0].Id;
-            Assert.That(run.TryChooseBoss(firstOffer, firstRevision, 0), Is.True);
+            Assert.That(run.PendingBossLoot.BatchId, Is.EqualTo(batchId));
+            Assert.That(run.PendingBossLoot.Revision, Is.EqualTo(revision));
+            Assert.That(run.PendingBossLoot.Items.Select(item => JsonUtility.ToJson(item)), Is.EqualTo(frozenItems));
+            Assert.That(run.TryClaimBossLoot(batchId, revision), Is.True);
+            Assert.That(run.TryClaimBossLoot(batchId, revision), Is.False, "同一回调不能重复领取整批物品。");
             await WaitRunSavedAsync(run);
-            Assert.That(run.Inventory.Count(item => item.Id == firstItemId), Is.EqualTo(1));
-            Assert.That(run.CurrentRoom.BossRewardsCompleted, Is.False);
-            if (run.PendingBossChoice == null) await TouchBossRecoveryChestAsync(run);
-            var nextChoice = run.PendingBossChoice;
-            string nextOffer = nextChoice.OfferId;
-            int nextRevision = nextChoice.Revision;
-            string[] nextOptions = nextChoice.Options.Select(item => JsonUtility.ToJson(item)).ToArray();
-            string[] partialItems = run.Inventory.Select(item => item.Id).ToArray();
-            run.CloseBossLoot();
-            run = await RestartBossRecoveryAsync(backend, serial);
-            Assert.That(run.Inventory.Select(item => item.Id), Is.EquivalentTo(partialItems));
-            await TouchBossRecoveryChestAsync(run);
-            Assert.That(run.PendingBossChoice.OfferId, Is.EqualTo(nextOffer));
-            Assert.That(run.PendingBossChoice.Revision, Is.EqualTo(nextRevision));
-            Assert.That(run.PendingBossChoice.Options.Select(item => JsonUtility.ToJson(item)), Is.EqualTo(nextOptions));
-            Assert.That(run.TryChooseBoss(firstOffer, firstRevision, 0), Is.False, "已领取轮次不能通过旧回调再次入包。");
-            for (int round = 0; round < nextChoice.TotalRounds && !run.CurrentRoom.BossRewardsCompleted; round++)
-            {
-                if (run.PendingBossChoice == null) await TouchBossRecoveryChestAsync(run);
-                var choice = run.PendingBossChoice;
-                Assert.That(run.TryChooseBoss(choice.OfferId, choice.Revision, 0), Is.True);
-                await WaitRunSavedAsync(run);
-            }
             Assert.That(run.CurrentRoom.BossRewardsCompleted, Is.True);
-            Assert.That(run.Inventory.Count(item => item.Id == firstItemId), Is.EqualTo(1));
+            Assert.That(run.Inventory.Count, Is.EqualTo(inventoryCount + rewardIds.Length));
+            foreach (string itemId in rewardIds) Assert.That(run.Inventory.Count(item => item.Id == itemId), Is.EqualTo(1));
+            Assert.That(run.TryCaptureState(out var claimed, out error), Is.True, error);
+            claimed.Inventory.Single(item => item.Id == rewardIds[0]).SellGold++;
+            Assert.That(ExpeditionRun.TryRestore(ProjectServices.Session, claimed, out _, out _), Is.False,
+                "已领物品属性必须与整批冻结记录一致。");
+            Assert.That(run.TryCaptureState(out claimed, out error), Is.True, error);
+            claimed.Inventory.RemoveAll(item => item.Id == rewardIds[0]);
+            Assert.That(ExpeditionRun.TryRestore(ProjectServices.Session, claimed, out _, out _), Is.False,
+                "已领整批不能缺少其中一件。");
             run.CloseBossLoot();
             Assert.That(run.TryConfirmExtraction(), Is.False, "全部领奖仍须触碰出口并由玩家确认。");
             Assert.That(ProjectServices.Session.LastResult, Is.Null);
             string[] retained = run.EntryEquipment.Concat(run.Inventory).Select(item => item.Id).ToArray();
             run = await RestartBossRecoveryAsync(backend, serial);
             Assert.That(run.CurrentRoom.BossRewardsCompleted, Is.True);
-            Assert.That(run.PendingBossChoice, Is.Null);
+            Assert.That(run.PendingBossLoot, Is.Null);
             Assert.That(run.EntryEquipment.Concat(run.Inventory).Select(item => item.Id), Is.EquivalentTo(retained));
+            Assert.That(run.TryClaimBossLoot(batchId, revision), Is.False, "恢复后旧回调不能再次发奖。");
             Assert.That(run.TryConfirmExtraction(), Is.False);
             await EnterExtractionConfirmationAsync(run);
             Assert.That(ProjectServices.Session.LastResult, Is.Null);
@@ -139,7 +131,7 @@ namespace MiniGame.Tests
             Assert.That(deadRun.IsAwaitingDeathChoice, Is.True);
             Assert.That(deadRun.World.TryGetActor(deadRun.Player, out var deadPlayer), Is.True);
             Assert.That(deadPlayer.Dead && deadPlayer.Health == 0f, Is.True, "Boss 已击败也不能绕过死亡待选而自动复活。");
-            Assert.That(deadRun.PendingBossChoice, Is.Null);
+            Assert.That(deadRun.PendingBossLoot, Is.Null);
             Assert.That(ProjectServices.Session.LastResult, Is.Null);
         });
 
@@ -154,7 +146,7 @@ namespace MiniGame.Tests
             Assert.That(run.RoomAdmissionSerial, Is.EqualTo(serial));
             Assert.That(ProjectServices.Session.Stamina, Is.Zero);
             Assert.That(run.CanAcceptPlayerInput, Is.True);
-            Assert.That(run.PendingBossChoice, Is.Null);
+            Assert.That(run.PendingBossLoot, Is.Null);
             Assert.That(ProjectServices.Session.LastResult, Is.Null);
             Assert.That(ProjectServices.Coordinator.Phase, Is.EqualTo(ProjectRunPhase.Playing));
             Assert.That(GameEntry.Get<IUIModule>().OpenedWindows.All(window => window.Id != ProjectServices.BossLootWindow), Is.True);
@@ -167,7 +159,7 @@ namespace MiniGame.Tests
             run.SetTouchMove(Vector2.zero);
             Assert.That(run.World.TryGetActor(run.Player, out var afterMove), Is.True);
             Assert.That(Vector3.Distance(beforeMove.Position, afterMove.Position), Is.GreaterThan(0f), "未主动触箱或出口时应能继续移动。");
-            Assert.That(run.PendingBossChoice, Is.Null);
+            Assert.That(run.PendingBossLoot, Is.Null);
             Assert.That(ProjectServices.Session.LastResult, Is.Null);
         }
 
@@ -192,7 +184,7 @@ namespace MiniGame.Tests
             Assert.That(run.World.TrySetPosition(run.Player, BossRecoveryChest(run).Position), Is.True);
             run.Advance(CombatWorld.TickSeconds);
             await WaitRunSavedAsync(run);
-            await WaitForAsync(() => run.PendingBossChoice != null);
+            await WaitForAsync(() => run.PendingBossLoot != null);
         }
 
         /// <summary>

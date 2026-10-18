@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using GameFramework;
 using GameLogic.Tables;
 
@@ -89,53 +90,50 @@ namespace GameLogic.Project
         }
 
         /// <summary>
-        /// 生成本轮三个完整且独立的装备与收藏实例，点击不再抽取随机数。
+        /// 按配置一次生成整箱实际物品，领取时不再抽取随机数。
         /// </summary>
         /// <param name="random">由单局保存其游标的随机源。</param>
         /// <param name="lootLevel">掉落等级。</param>
         /// <param name="rewardId">Boss 奖励规则身份。</param>
         /// <param name="batchId">稳定的奖励批次身份。</param>
-        /// <param name="round">从一开始的当前轮次。</param>
-        /// <param name="claimedCollectionIds">本批次已领取的收藏身份。</param>
-        /// <returns>三个冻结物品；缺配置或无法满足本轮构成时为空。</returns>
-        public static IReadOnlyList<ProjectItem> CreateBossCandidates(Random random, int lootLevel, int rewardId,
-            string batchId, int round, IReadOnlyCollection<string> claimedCollectionIds)
+        /// <returns>整箱冻结物品；缺配置或无法满足构成时为空。</returns>
+        public static IReadOnlyList<ProjectItem> CreateBossLoot(Random random, int lootLevel, int rewardId, string batchId)
         {
-            IReadOnlyList<ProjectItem> result = CreateBossCandidates(random, lootLevel, rewardId, batchId, round, claimedCollectionIds, out string error);
+            IReadOnlyList<ProjectItem> result = CreateBossLoot(random, lootLevel, rewardId, batchId, out string error);
             if (error != null) GameEntry.Get<ILogModule>()?.Error("BossReward", error);
             return result;
         }
 
         /// <summary>
-        /// 先校验全部候选来源，再按配置抽取并冻结本轮物品。
+        /// 先完整校验物品来源，再按数量、最低组成和权重冻结一批实际掉落。
         /// </summary>
         /// <param name="random">由单局保存其游标的随机源。</param>
         /// <param name="lootLevel">掉落等级。</param>
         /// <param name="rewardId">Boss 奖励规则身份。</param>
         /// <param name="batchId">稳定的奖励批次身份。</param>
-        /// <param name="round">从一开始的当前轮次。</param>
-        /// <param name="claimedCollectionIds">本批次已领取的收藏身份。</param>
-        /// <param name="error">缺配置或候选来源不足的原因。</param>
-        /// <returns>三个冻结物品；失败时为空。</returns>
-        public static IReadOnlyList<ProjectItem> CreateBossCandidates(Random random, int lootLevel, int rewardId,
-            string batchId, int round, IReadOnlyCollection<string> claimedCollectionIds, out string error)
+        /// <param name="error">缺配置或掉落来源不足的原因。</param>
+        /// <returns>数量等于配置且身份稳定的整箱物品；失败时为空。</returns>
+        public static IReadOnlyList<ProjectItem> CreateBossLoot(Random random, int lootLevel, int rewardId, string batchId, out string error)
         {
             error = "Boss 奖励输入或配置无效。";
             CfgBossRewardsRow rule = BossReward(rewardId);
             if (random == null || string.IsNullOrWhiteSpace(batchId) || lootLevel < 1 || lootLevel > 1000 ||
-                claimedCollectionIds == null || !ValidBossRule(rule) || round < 1 || round > rule.Rounds ||
+                !ValidBossRule(rule) ||
                 GameTables.CfgLootPool == null || GameTables.CfgLootQualities == null || GameTables.CfgItemDefinitions == null ||
                 GameTables.CfgCollections == null || GameTables.CfgProfile == null || ProjectRulesConfig.Profile == null ||
                 GameTables.CfgQualities == null || GameTables.CfgAffixes == null || GameTables.CfgAdvancedAffixes == null ||
                 GameTables.CfgCombatAugments == null) return null;
+            if (!ProjectRulesConfig.Validate(out error)) return null;
             var equipment = new List<CfgLootPoolRow>();
             long equipmentWeight = 0;
             foreach (CfgLootPoolRow row in GameTables.CfgLootPool.GetAll())
             {
                 if (row.PoolID != rule.EquipmentPoolID || lootLevel < row.MinLevel || lootLevel > row.MaxLevel) continue;
                 CfgItemDefinitionsRow definition = ProjectRulesConfig.Item(row.DefinitionId);
-                if (row.Weight <= 0 || definition == null || definition.StarterEquipped ||
-                    definition.Type != (int)ProjectItemType.Weapon && definition.Type != (int)ProjectItemType.Armor) return null;
+                if (row.Weight < 0 || definition == null || definition.StarterEquipped ||
+                    definition.Type != (int)ProjectItemType.Weapon && definition.Type != (int)ProjectItemType.Armor)
+                { error = "Boss 装备掉落来源无效：" + row.ID; return null; }
+                if (row.Weight == 0) continue;
                 equipment.Add(row);
                 equipmentWeight += row.Weight;
             }
@@ -144,35 +142,35 @@ namespace GameLogic.Project
             foreach (CfgLootQualitiesRow row in GameTables.CfgLootQualities.GetAll())
             {
                 if (row.PoolID != rule.EquipmentPoolID || row.Quality < rule.MinQuality || row.Quality > rule.MaxQuality) continue;
-                if (row.Weight < 0 || ProjectRulesConfig.Quality((ProjectItemQuality)row.Quality) == null) return null;
+                if (row.Weight < 0 || ProjectRulesConfig.Quality((ProjectItemQuality)row.Quality) == null)
+                { error = "Boss 品质掉落来源无效：" + row.ID; return null; }
                 if (row.Weight == 0) continue;
                 qualities.Add(row);
                 qualityWeight += row.Weight;
             }
-            var claimed = new HashSet<string>(claimedCollectionIds, StringComparer.Ordinal);
             var collections = new List<ProjectCollectionDefinition>();
             foreach (string id in rule.CollectionIDs)
             {
                 ProjectCollectionDefinition definition = Collection(id);
-                if (definition == null) return null;
-                if (ProjectCollectionRules.Validate(new[] { definition }, Array.Empty<ProjectCollectionAchievementDefinition>()) != null) return null;
+                if (definition == null || ProjectCollectionRules.Validate(new[] { definition }, Array.Empty<ProjectCollectionAchievementDefinition>()) != null)
+                { error = "Boss 收藏掉落来源无效：" + id; return null; }
                 if (definition.RequiredLevel <= lootLevel && (int)definition.Quality >= rule.MinQuality &&
-                    (int)definition.Quality <= rule.MaxQuality && (rule.AllowRepeatCollections || !claimed.Contains(id))) collections.Add(definition);
+                    (int)definition.Quality <= rule.MaxQuality) collections.Add(definition);
             }
             if (equipment.Count == 0 || equipmentWeight <= 0 || equipmentWeight > int.MaxValue || qualityWeight <= 0 ||
-                qualityWeight > int.MaxValue || collections.Count < rule.MinCollectionCandidates)
+                qualityWeight > int.MaxValue || collections.Count < RequiredUniqueCollections(rule))
             {
-                error = "Boss 奖励池无法满足本轮装备、品质或收藏构成：" + rewardId + "/" + round;
+                error = "Boss 奖励池无法满足装备、品质或收藏构成：" + rewardId;
                 return null;
             }
-            var result = new List<ProjectItem>(3);
+            var result = new List<ProjectItem>(rule.ItemCount);
             int equipmentCount = 0;
             int collectionCount = 0;
-            for (int index = 0; index < 3; index++)
+            for (int index = 0; index < rule.ItemCount; index++)
             {
                 bool chooseEquipment;
-                if (equipmentCount < rule.MinEquipmentCandidates) chooseEquipment = true;
-                else if (collectionCount < rule.MinCollectionCandidates) chooseEquipment = false;
+                if (equipmentCount < rule.MinEquipmentItems) chooseEquipment = true;
+                else if (collectionCount < rule.MinCollectionItems) chooseEquipment = false;
                 else chooseEquipment = collections.Count == 0 || random.Next(rule.EquipmentWeight + rule.CollectionWeight) < rule.EquipmentWeight;
                 ProjectItem item;
                 if (chooseEquipment)
@@ -206,7 +204,7 @@ namespace GameLogic.Project
                 {
                     int chosen = random.Next(collections.Count);
                     item = ProjectCollectionRules.CreateItem(random, collections[chosen]);
-                    collections.RemoveAt(chosen);
+                    if (!rule.AllowRepeatCollections) collections.RemoveAt(chosen);
                     collectionCount++;
                 }
                 if (item == null || ProjectEquipmentRules.ValidateItem(item) != null)
@@ -216,13 +214,7 @@ namespace GameLogic.Project
                 }
                 result.Add(item);
             }
-            for (int index = result.Count - 1; index > 0; index--)
-            {
-                int swap = random.Next(index + 1);
-                ProjectItem item = result[index];
-                result[index] = result[swap];
-                result[swap] = item;
-            }
+            for (int index = 0; index < result.Count; index++) result[index].Id = batchId + ":item:" + index.ToString(CultureInfo.InvariantCulture);
             error = null;
             return result.AsReadOnly();
         }
@@ -270,11 +262,6 @@ namespace GameLogic.Project
                         return false;
                     }
                 }
-                if (!row.AllowRepeatCollections && row.CollectionIDs.Length < row.Rounds - 1 + row.MinCollectionCandidates)
-                {
-                    error = "Boss 禁止跨轮重复时收藏数量不足：" + row.ID;
-                    return false;
-                }
                 bool hasEquipment = false;
                 bool hasQuality = false;
                 foreach (CfgLootPoolRow loot in GameTables.CfgLootPool.GetAll())
@@ -313,7 +300,7 @@ namespace GameLogic.Project
                     int available = 0;
                     foreach (string id in reward.CollectionIDs)
                         if (Collection(id).RequiredLevel <= level.LootLevel) available++;
-                    int needed = reward.AllowRepeatCollections ? reward.MinCollectionCandidates : reward.Rounds - 1 + reward.MinCollectionCandidates;
+                    int needed = RequiredUniqueCollections(reward);
                     if (available < needed)
                     { error = "关卡 Boss 收藏等级覆盖不足：" + level.ID; return false; }
                 }
@@ -343,22 +330,30 @@ namespace GameLogic.Project
         }
 
         /// <summary>
-        /// 检查单轮构成、权重、品质范围和收藏身份。
+        /// 检查整箱数量、最低组成、权重、品质范围和收藏身份。
         /// </summary>
         /// <param name="row">Boss 奖励规则。</param>
-        /// <returns>结构能够产生三候选时为真。</returns>
+        /// <returns>结构能够产生配置数量的实际物品时为真。</returns>
         private static bool ValidBossRule(CfgBossRewardsRow row)
         {
-            if (row == null || row.ID < 1 || row.Rounds < 1 || row.Rounds > 1000 || string.IsNullOrWhiteSpace(row.EquipmentPoolID) ||
+            if (row == null || row.ID < 1 || row.ItemCount < 1 || row.ItemCount > 20 || string.IsNullOrWhiteSpace(row.EquipmentPoolID) ||
                 row.CollectionIDs == null || row.EquipmentWeight < 1 || row.CollectionWeight < 1 ||
-                (long)row.EquipmentWeight + row.CollectionWeight > int.MaxValue || row.MinEquipmentCandidates < 1 ||
-                row.MinCollectionCandidates < 1 || row.MinEquipmentCandidates + (long)row.MinCollectionCandidates > 3 ||
+                (long)row.EquipmentWeight + row.CollectionWeight > int.MaxValue || row.MinEquipmentItems < 0 ||
+                row.MinCollectionItems < 0 || row.MinEquipmentItems + (long)row.MinCollectionItems > row.ItemCount ||
                 !Enum.IsDefined(typeof(ProjectItemQuality), row.MinQuality) || !Enum.IsDefined(typeof(ProjectItemQuality), row.MaxQuality) ||
-                row.MinQuality > row.MaxQuality || row.CollectionIDs.Length < row.MinCollectionCandidates) return false;
+                row.MinQuality > row.MaxQuality || row.CollectionIDs.Length < RequiredUniqueCollections(row)) return false;
             var ids = new HashSet<string>(StringComparer.Ordinal);
             foreach (string id in row.CollectionIDs)
                 if (string.IsNullOrWhiteSpace(id) || !ids.Add(id)) return false;
             return true;
         }
+
+        /// <summary>
+        /// 计算本批最低收藏组成所需的不同收藏来源数。
+        /// </summary>
+        /// <param name="row">已经检查数量和组成的奖励规则。</param>
+        /// <returns>允许重复时最多需要一个来源，否则等于最低收藏件数。</returns>
+        private static int RequiredUniqueCollections(CfgBossRewardsRow row) => row.AllowRepeatCollections
+            ? row.MinCollectionItems > 0 ? 1 : 0 : row.MinCollectionItems;
     }
 }

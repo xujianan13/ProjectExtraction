@@ -32,7 +32,7 @@ namespace ProjectExtraction.Tests
             Assert.That(RegionRuntimeState.TryCreate(plan, out var room, out error), Is.True, error);
             Assert.That(plan.Chests.Count, Is.EqualTo(1));
             Assert.That(plan.Chests[0].Kind, Is.EqualTo(RegionChestKind.BossReward));
-            Assert.That(plan.Chests[0].Items, Is.Empty, "Boss 候选由独立多轮奖励会话提供。");
+            Assert.That(plan.Chests[0].Items, Is.Empty, "Boss 物品由独立整批奖励会话提供。");
             var rewarded = new List<string>();
             for (int index = 0; index < room.Slots.Count; index++)
             {
@@ -60,7 +60,7 @@ namespace ProjectExtraction.Tests
             }
             var statistics = CompletedSnapshot().Statistics;
             statistics.Rooms[statistics.Rooms.Count - 1] = completed;
-            statistics.BossLootRounds = ProjectRewardConfig.BossReward(GameTables.CfgBosses.GetById(request.BossDefinitionId).RewardID).Rounds;
+            statistics.BossLootItems = ProjectRewardConfig.BossReward(GameTables.CfgBosses.GetById(request.BossDefinitionId).RewardID).ItemCount;
             statistics.RecalculateRoomTotals();
             string confirmed = JsonUtility.ToJson(statistics);
             statistics.RecalculateRoomTotals();

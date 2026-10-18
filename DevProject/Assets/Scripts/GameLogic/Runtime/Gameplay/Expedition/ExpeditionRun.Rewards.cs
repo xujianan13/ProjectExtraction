@@ -10,16 +10,15 @@ namespace GameLogic.Gameplay.Expedition
 {
     public sealed partial class ExpeditionRun
     {
-        private BossLootChoiceSession bossChoices;
+        private BossLootSession bossLoot;
         private PersistentRandom bossRewardRandom;
         private readonly Queue<int> pendingBossRegions = new();
         private bool rewardOffersVisible;
         private bool bossChestInteracting;
 
-        public event Action BossChoiceChanged;
-        public BossLootChoiceSnapshot PendingBossChoice => bossChestInteracting && rewardOffersVisible && !IsSavingRun ? bossChoices.Active : null;
-        public bool IsChoosingBoss => bossChestInteracting && bossChoices.HasPending;
-        public bool IsChoosingReward => bossChestInteracting && (bossChoices.HasPending || pendingBossRegions.Count > 0);
+        public event Action BossLootChanged;
+        public BossLootSnapshot PendingBossLoot => bossChestInteracting && rewardOffersVisible && !IsSavingRun ? bossLoot.Active : null;
+        public bool IsClaimingBossLoot => bossChestInteracting;
         public string RewardMessage { get; private set; } = string.Empty;
         private bool CanAcceptRewardInput => IsRunning && IsReady && !paused && ActivePanel == ExpeditionPanelKind.None &&
             !disposed && !stopped && !IsSavingRun && !GameEntry.IsInBackground && !session.HasUncommittedSave &&
@@ -31,7 +30,7 @@ namespace GameLogic.Gameplay.Expedition
         /// <param name="seed">本关固定种子。</param>
         private void InitializeRewardSessions(int seed)
         {
-            bossChoices = new BossLootChoiceSession(RunId);
+            bossLoot = new BossLootSession(RunId);
             bossRewardRandom = new PersistentRandom(seed ^ 0x47A3);
         }
 
@@ -47,7 +46,7 @@ namespace GameLogic.Gameplay.Expedition
         }
 
         /// <summary>
-        /// 触碰已出现的 Boss 宝箱时开启奖励会话，首次候选与开箱事实一起保存。
+        /// 触碰已出现的 Boss 宝箱时开启奖励会话，整批物品与开箱事实一起保存。
         /// </summary>
         /// <param name="chestId">本房 Boss 宝箱的稳定身份。</param>
         /// <returns>已开启或恢复宝箱交互时为真。</returns>
@@ -66,7 +65,7 @@ namespace GameLogic.Gameplay.Expedition
         }
 
         /// <summary>
-        /// 关闭 Boss 宝箱窗口并保留冻结候选，离开触碰范围后可再次领取。
+        /// 关闭 Boss 宝箱窗口并保留冻结物品，离开触碰范围后可再次领取。
         /// </summary>
         public void CloseBossLoot()
         {
@@ -74,86 +73,75 @@ namespace GameLogic.Gameplay.Expedition
             bossChestInteracting = false;
             rewardOffersVisible = false;
             ClearPlayerInput();
-            BossChoiceChanged?.Invoke();
+            BossLootChanged?.Invoke();
             Changed?.Invoke();
         }
 
         /// <summary>
-        /// 冻结最终 Boss 的下一轮候选，并在确认保存后开放窗口。
+        /// 冻结最终 Boss 的整批物品，并在确认保存后开放领取窗口。
         /// </summary>
         /// <returns>奖励或保存门禁已接管当前帧时为真。</returns>
         private bool TryBeginPendingReward()
         {
             if (!bossChestInteracting) return false;
             if (IsSavingRun) return true;
-            if (!CanAcceptRewardInput) return IsChoosingReward;
-            if (bossChoices.HasPending && !bossChoices.NeedsCandidates) return true;
+            if (!CanAcceptRewardInput) return IsClaimingBossLoot;
+            if (bossLoot.HasPending) return true;
             if (pendingBossRegions.Count == 0) return false;
             int regionId = pendingBossRegions.Peek();
             RegionGenerationRequest request = regionRequests.Find(value => value.RegionId == regionId);
             CfgBossRewardsRow rule = BossRule(request);
             string batchId = BossBatchId(regionId);
-            BossLootChoiceState state = bossChoices.CaptureState();
-            int round = bossChoices.NeedsCandidates ? state.Batches[state.Batches.Count - 1].Rounds.Count + 1 : 1;
-            var claimed = new List<string>();
-            foreach (ProjectItem item in bossChoices.ClaimedItems(batchId))
-                if (item.Type == ProjectItemType.Collection) claimed.Add(item.CollectionId);
-            IReadOnlyList<ProjectItem> candidates = ProjectRewardConfig.CreateBossCandidates(bossRewardRandom, LootLevel,
-                rule.ID, batchId, round, claimed, out string error);
-            bool created = candidates != null && (round == 1 ? bossChoices.TryBegin(batchId, rule.Rounds, candidates) :
-                bossChoices.TryBeginNextRound(candidates));
+            IReadOnlyList<ProjectItem> items = ProjectRewardConfig.CreateBossLoot(bossRewardRandom, LootLevel, rule.ID, batchId, out string error);
+            bool created = items != null && bossLoot.TryBegin(batchId, items);
             if (!created)
             {
-                HandleFault(error ?? "Boss 候选批次提交失败，已保留待领状态。");
+                HandleFault(error ?? "Boss 战利品批次提交失败，已保留待领状态。");
                 return true;
             }
-            SaveRewardMutation("请选择一件完整的 Boss 战利品（第 " + round + "/" + rule.Rounds + " 轮）。");
+            SaveRewardMutation("Boss 宝箱已打开，点击领取获得全部 " + rule.ItemCount + " 件战利品。");
             return true;
         }
 
         /// <summary>
-        /// 领取冻结的完整物品，同次保存本轮领取结果，全部领取后解锁房间出口。
+        /// 一次领取冻结的全部物品，同次保存领取事实并解锁房间出口。
         /// </summary>
-        /// <param name="offerId">当前 Boss 候选身份。</param>
-        /// <param name="revision">候选代次。</param>
-        /// <param name="index">选中的完整物品序号。</param>
-        /// <returns>本轮首次领取并开始持久提交时为真。</returns>
-        public bool TryChooseBoss(string offerId, int revision, int index)
+        /// <param name="batchId">当前 Boss 战利品批次身份。</param>
+        /// <param name="revision">冻结批次的代次。</param>
+        /// <returns>整批首次领取并开始保存时为真。</returns>
+        public bool TryClaimBossLoot(string batchId, int revision)
         {
             if (!bossChestInteracting || !CanAcceptRewardInput || !rewardOffersVisible || pendingBossRegions.Count == 0 ||
-                statistics.BossLootRounds == int.MaxValue ||
                 pendingBossRegions.Peek() != CurrentRoom.Plan.Request.RegionId || !CurrentRoom.BossDefeated ||
-                CurrentRoom.BossRewardsCompleted || !bossChoices.TrySelect(offerId, revision, index, ApplyBossLoot)) return false;
-            statistics.BossLootRounds++;
-            bool complete = bossChoices.IsComplete;
-            if (complete)
+                CurrentRoom.BossRewardsCompleted || !bossLoot.TryClaim(batchId, revision, ApplyBossLoot)) return false;
+            if (!CurrentRoom.TryCompleteBossRewards())
             {
-                if (!CurrentRoom.TryCompleteBossRewards())
-                {
-                    HandleFault("Boss 奖励已领取但出口状态未能确认，已冻结本关。");
-                    return false;
-                }
-                pendingBossRegions.Dequeue();
+                HandleFault("Boss 奖励已领取但出口状态未能确认，已冻结本关。");
+                return false;
             }
-            SaveRewardMutation(complete ? "Boss 奖励已全部领取，请前往出口确认带回。" : "本轮战利品已领取。");
+            pendingBossRegions.Dequeue();
+            SaveRewardMutation("Boss 奖励已全部领取，请前往出口确认带回。");
             return true;
         }
 
         /// <summary>
-        /// 添加来自已冻结候选的独立物品，重复实例身份不会再次入包。
+        /// 先校验整批实例身份及统计容量，再一次添加全部冻结物品。
         /// </summary>
-        /// <param name="item">已校验且复制的候选物品。</param>
-        /// <returns>物品首次进入本局背包时为真。</returns>
-        private bool ApplyBossLoot(ProjectItem item)
+        /// <param name="items">会话已校验且复制的整批物品。</param>
+        /// <returns>全部物品首次进入本局背包时为真。</returns>
+        private bool ApplyBossLoot(IReadOnlyList<ProjectItem> items)
         {
-            if (inventory.Exists(existing => existing.Id == item.Id)) return false;
-            inventory.Add(item);
-            Message = "获得 Boss 战利品：" + item.Name;
+            if (statistics.BossLootItems > int.MaxValue - items.Count) return false;
+            foreach (ProjectItem item in items)
+                if (inventory.Exists(existing => existing.Id == item.Id)) return false;
+            inventory.AddRange(items);
+            statistics.BossLootItems += items.Count;
+            Message = "获得 Boss 战利品 " + items.Count + " 件。";
             return true;
         }
 
         /// <summary>
-        /// 同次冻结奖励相关完整事实，持久确认前不暴露新候选。
+        /// 同次冻结奖励相关完整事实，保存确认前不开放领取操作。
         /// </summary>
         /// <param name="message">保存后显示的奖励反馈。</param>
         private void SaveRewardMutation(string message)
@@ -169,7 +157,7 @@ namespace GameLogic.Gameplay.Expedition
         }
 
         /// <summary>
-        /// 恢复已确认候选可见性，并在资格尚无候选时进入下一次完整保存。
+        /// 恢复已确认物品可见性，并在尚未生成物品时提交完整保存。
         /// </summary>
         private void PublishRewardState()
         {
@@ -177,9 +165,9 @@ namespace GameLogic.Gameplay.Expedition
             if (rewardOffersVisible && !paused && ActivePanel == ExpeditionPanelKind.None &&
                 ProjectServices.Coordinator.Phase == ProjectRunPhase.Playing)
             {
-                if ((!bossChoices.HasPending || bossChoices.NeedsCandidates) && TryBeginPendingReward()) return;
+                if (!bossLoot.HasPending && TryBeginPendingReward()) return;
             }
-            BossChoiceChanged?.Invoke();
+            BossLootChanged?.Invoke();
             Changed?.Invoke();
         }
 
@@ -194,7 +182,7 @@ namespace GameLogic.Gameplay.Expedition
         /// <param name="snapshot">由统一入口创建的本次完整快照。</param>
         private void CaptureRewardState(ExpeditionRunSnapshot snapshot)
         {
-            snapshot.BossLoot = bossChoices.CaptureState();
+            snapshot.BossLoot = bossLoot.CaptureState();
             snapshot.BossRandomState = bossRewardRandom.State;
             snapshot.PendingBossRegions = new List<int>(pendingBossRegions);
         }
@@ -208,9 +196,9 @@ namespace GameLogic.Gameplay.Expedition
         private bool RestoreRewardState(ExpeditionRunSnapshot snapshot, out string error)
         {
             error = "单局奖励状态不完整。";
-            if (snapshot.BossLoot == null || snapshot.PendingBossRegions == null ||
+            if (snapshot.BossLoot == null || snapshot.BossLoot.Cancelled || snapshot.PendingBossRegions == null ||
                 !PersistentRandom.TryRestore(snapshot.BossRandomState, out PersistentRandom restoredRandom)) return false;
-            var restoredBoss = new BossLootChoiceSession(RunId);
+            var restoredBoss = new BossLootSession(RunId);
             if (!restoredBoss.TryRestore(snapshot.BossLoot, out error)) return false;
             error = "Boss 奖励领取记录不一致。";
             var pendingRegions = new HashSet<int>();
@@ -223,18 +211,17 @@ namespace GameLogic.Gameplay.Expedition
                 previousIndex = region.Plan.Request.RegionIndex;
             }
             var batchRegions = new HashSet<int>();
-            int selectedBossRounds = 0;
+            int claimedBossItems = 0;
             foreach (BossLootBatchState batch in snapshot.BossLoot.Batches)
             {
                 RegionGenerationRequest request = regionRequests.Find(value => BossBatchId(value.RegionId) == batch.BatchId);
                 ExpeditionRoomCheckpoint region = request == null ? null : snapshot.Rooms.Find(value => value.Plan.Request.RegionId == request.RegionId);
                 if (region == null || !region.BossDefeated || !batchRegions.Add(request.RegionId) ||
-                    batch.TotalRounds != BossRule(request).Rounds || !ValidBossBatch(request, batch, snapshot.Inventory)) return false;
-                bool complete = batch.Rounds.Count == batch.TotalRounds && batch.Rounds[batch.Rounds.Count - 1].SelectedIndex >= 0;
-                if (complete != region.BossRewardsCompleted || !complete && !pendingRegions.Contains(request.RegionId)) return false;
-                foreach (BossLootRoundState round in batch.Rounds) if (round.SelectedIndex >= 0) selectedBossRounds++;
+                    !ValidBossBatch(request, batch, snapshot.Inventory)) return false;
+                if (batch.Claimed != region.BossRewardsCompleted || !batch.Claimed && !pendingRegions.Contains(request.RegionId)) return false;
+                if (batch.Claimed) claimedBossItems += batch.Items.Count;
             }
-            if (snapshot.Statistics.BossLootRounds != selectedBossRounds) return false;
+            if (snapshot.Statistics.BossLootItems != claimedBossItems) return false;
             foreach (ExpeditionRoomCheckpoint region in snapshot.Rooms)
             {
                 if (region.BossRewardsCompleted ? !batchRegions.Contains(region.Plan.Request.RegionId) :
@@ -245,7 +232,7 @@ namespace GameLogic.Gameplay.Expedition
             }
             if (restoredBoss.HasPending && (snapshot.PendingBossRegions.Count == 0 ||
                 snapshot.BossLoot.ActiveBatchId != BossBatchId(snapshot.PendingBossRegions[0]))) return false;
-            bossChoices = restoredBoss;
+            bossLoot = restoredBoss;
             bossRewardRandom = restoredRandom;
             pendingBossRegions.Clear();
             foreach (int regionId in snapshot.PendingBossRegions) pendingBossRegions.Enqueue(regionId);
@@ -256,54 +243,47 @@ namespace GameLogic.Gameplay.Expedition
         }
 
         /// <summary>
-        /// 验证已保存 Boss 候选仍符合该区域规则及跨轮收藏领取事实。
+        /// 验证已保存 Boss 战利品仍符合该区域规则及整批领取事实。
         /// </summary>
         /// <param name="request">固定区域 Boss 请求。</param>
-        /// <param name="batch">已保存完整轮次和候选。</param>
+        /// <param name="batch">已保存的整批物品与领取状态。</param>
         /// <param name="items">本局实际持有物品。</param>
-        /// <returns>候选构成、品质和未领取实例归属合法时为真。</returns>
+        /// <returns>物品数量、构成、品质和未领取实例归属合法时为真。</returns>
         private static bool ValidBossBatch(RegionGenerationRequest request, BossLootBatchState batch, IReadOnlyList<ProjectItem> items)
         {
             CfgBossRewardsRow rule = BossRule(request);
+            if (batch.Items.Count != rule.ItemCount) return false;
             var collectionIds = new HashSet<string>(rule.CollectionIDs, StringComparer.Ordinal);
-            var claimed = new HashSet<string>(StringComparer.Ordinal);
-            foreach (BossLootRoundState round in batch.Rounds)
+            var batchCollections = new HashSet<string>(StringComparer.Ordinal);
+            int equipment = 0;
+            int collections = 0;
+            foreach (ProjectItem item in batch.Items)
             {
-                int equipment = 0;
-                int collections = 0;
-                var roundCollections = new HashSet<string>(StringComparer.Ordinal);
-                for (int index = 0; index < round.Options.Count; index++)
+                if ((int)item.Quality < rule.MinQuality || (int)item.Quality > rule.MaxQuality) return false;
+                if (!batch.Claimed)
+                    foreach (ProjectItem owned in items)
+                        if (owned.Id == item.Id) return false;
+                if (item.Type == ProjectItemType.Collection)
                 {
-                    ProjectItem item = round.Options[index];
-                    if ((int)item.Quality < rule.MinQuality || (int)item.Quality > rule.MaxQuality) return false;
-                    if (index != round.SelectedIndex)
-                        foreach (ProjectItem owned in items)
-                            if (owned.Id == item.Id) return false;
-                    if (item.Type == ProjectItemType.Collection)
-                    {
-                        ProjectCollectionDefinition definition = ProjectRewardConfig.Collection(item.CollectionId);
-                        if (!collectionIds.Contains(item.CollectionId) || !roundCollections.Add(item.CollectionId) ||
-                            !rule.AllowRepeatCollections && claimed.Contains(item.CollectionId) || definition == null ||
-                            item.Name != definition.Name || item.Quality != definition.Quality || item.SellGold != definition.SellGold ||
-                            item.RequiredLevel != definition.RequiredLevel || definition.RequiredLevel > request.LootLevel) return false;
-                        collections++;
-                    }
-                    else
-                    {
-                        if (item.Type != ProjectItemType.Weapon && item.Type != ProjectItemType.Armor || item.RequiredLevel != request.LootLevel) return false;
-                        bool known = false;
-                        foreach (CfgLootPoolRow row in GameTables.CfgLootPool.GetAll())
-                            if (row.PoolID == rule.EquipmentPoolID && row.DefinitionId == item.DefinitionId && row.Weight > 0 &&
-                                request.LootLevel >= row.MinLevel && request.LootLevel <= row.MaxLevel) known = true;
-                        if (!known) return false;
-                        equipment++;
-                    }
+                    ProjectCollectionDefinition definition = ProjectRewardConfig.Collection(item.CollectionId);
+                    if (!collectionIds.Contains(item.CollectionId) || !rule.AllowRepeatCollections && !batchCollections.Add(item.CollectionId) ||
+                        definition == null || item.Name != definition.Name || item.Quality != definition.Quality ||
+                        item.SellGold != definition.SellGold || item.RequiredLevel != definition.RequiredLevel ||
+                        definition.RequiredLevel > request.LootLevel) return false;
+                    collections++;
                 }
-                if (equipment < rule.MinEquipmentCandidates || collections < rule.MinCollectionCandidates) return false;
-                if (round.SelectedIndex >= 0 && round.Options[round.SelectedIndex].Type == ProjectItemType.Collection)
-                    claimed.Add(round.Options[round.SelectedIndex].CollectionId);
+                else
+                {
+                    if (item.Type != ProjectItemType.Weapon && item.Type != ProjectItemType.Armor || item.RequiredLevel != request.LootLevel) return false;
+                    bool known = false;
+                    foreach (CfgLootPoolRow row in GameTables.CfgLootPool.GetAll())
+                        if (row.PoolID == rule.EquipmentPoolID && row.DefinitionId == item.DefinitionId && row.Weight > 0 &&
+                            request.LootLevel >= row.MinLevel && request.LootLevel <= row.MaxLevel) known = true;
+                    if (!known) return false;
+                    equipment++;
+                }
             }
-            return true;
+            return equipment >= rule.MinEquipmentItems && collections >= rule.MinCollectionItems;
         }
 
         /// <summary>
@@ -324,7 +304,7 @@ namespace GameLogic.Gameplay.Expedition
         /// <summary>
         /// 释放奖励事件订阅。
         /// </summary>
-        private void DisposeRewardSessions() => BossChoiceChanged = null;
+        private void DisposeRewardSessions() => BossLootChanged = null;
     }
 }
 

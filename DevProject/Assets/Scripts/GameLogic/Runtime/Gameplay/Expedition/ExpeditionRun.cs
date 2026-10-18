@@ -78,7 +78,7 @@ namespace GameLogic.Gameplay.Expedition
         public int GoldSpent { get; private set; }
         public int AvailableGold => session.Gold - GoldSpent;
         public bool IsSavingRun => committing || session.RunSaveInteractionBlocked;
-        private bool CanInteract => IsRunning && IsReady && !paused && ActivePanel == ExpeditionPanelKind.None && !IsChoosingReward &&
+        private bool CanInteract => IsRunning && IsReady && !paused && ActivePanel == ExpeditionPanelKind.None && !IsClaimingBossLoot &&
             !disposed && !stopped && !IsAwaitingDeathChoice && !IsSavingRun && !session.HasUncommittedSave && !GameEntry.IsInBackground;
         /// <summary>
         /// 完整战斗帧只在保存队列未达到预算时继续推进，等待期间仍保留玩家输入。

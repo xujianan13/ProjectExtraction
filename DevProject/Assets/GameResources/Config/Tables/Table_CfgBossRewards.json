@@ -1,9 +1,9 @@
 {
-  "schemaHash": "2ebc368d9bd3fae7934dbdb9bf19bed8c92ed8cff2ed8d839eeaef9b777d3d25",
+  "schemaHash": "39773b956821331450cc2c8cc50d2fe5abc5fab7753284ebdd028d31dfa6964c",
   "rows": [
     {
       "ID": 1,
-      "Rounds": 1,
+      "ItemCount": 3,
       "EquipmentPoolID": "boss_equipment",
       "CollectionIDs": [
         "gate_sigil"
@@ -12,13 +12,13 @@
       "CollectionWeight": 1,
       "MinQuality": 1,
       "MaxQuality": 4,
-      "MinEquipmentCandidates": 1,
-      "MinCollectionCandidates": 1,
+      "MinEquipmentItems": 1,
+      "MinCollectionItems": 1,
       "AllowRepeatCollections": true
     },
     {
       "ID": 2,
-      "Rounds": 1,
+      "ItemCount": 3,
       "EquipmentPoolID": "boss_equipment",
       "CollectionIDs": [
         "court_medal"
@@ -27,13 +27,13 @@
       "CollectionWeight": 1,
       "MinQuality": 1,
       "MaxQuality": 4,
-      "MinEquipmentCandidates": 1,
-      "MinCollectionCandidates": 1,
+      "MinEquipmentItems": 1,
+      "MinCollectionItems": 1,
       "AllowRepeatCollections": true
     },
     {
       "ID": 3,
-      "Rounds": 3,
+      "ItemCount": 3,
       "EquipmentPoolID": "boss_equipment",
       "CollectionIDs": [
         "core_fragment",
@@ -44,8 +44,8 @@
       "CollectionWeight": 2,
       "MinQuality": 2,
       "MaxQuality": 5,
-      "MinEquipmentCandidates": 1,
-      "MinCollectionCandidates": 1,
+      "MinEquipmentItems": 1,
+      "MinCollectionItems": 1,
       "AllowRepeatCollections": false
     }
   ]

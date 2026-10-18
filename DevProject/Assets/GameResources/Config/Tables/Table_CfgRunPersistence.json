@@ -3,7 +3,7 @@
   "rows": [
     {
       "ID": 1,
-      "ConfigVersion": "v3-room-prototype-2",
+      "ConfigVersion": "v3-room-prototype-3",
       "CheckpointTicks": 120,
       "MaxPendingTicks": 30,
       "MaxStateBytes": 8388608

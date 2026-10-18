@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
 using GameLogic.Gameplay.Roguelike;
 using GameLogic.Project;
@@ -9,7 +10,7 @@ using ProjectExtraction.Tests.Shared;
 namespace ProjectExtraction.Tests
 {
     /// <summary>
-    /// 验证收藏掉落与最终 Boss 候选的实际配置边界。
+    /// 验证收藏掉落与整箱 Boss 实际物品的配置边界。
     /// </summary>
     public sealed class ProjectRewardConfigTests
     {
@@ -57,68 +58,125 @@ namespace ProjectExtraction.Tests
         }
 
         /// <summary>
-        /// 每轮配置生成三个独立合法候选，装备与收藏同时存在且品质受规则限制。
+        /// 每条配置均一次生成三件实际掉落，最低组成、品质和稳定实例身份正确。
         /// </summary>
         [Test]
-        public void BossCandidates_ContainLegalCompleteItemsAndHonorNonRepeatRounds()
+        public void BossLoot_ContainsConfiguredItemsAndStableBatchIds()
         {
-            var random = new PersistentRandom(102);
-            CfgBossRewardsRow rule = ProjectRewardConfig.BossReward(3);
-            var claimed = new HashSet<string>();
-            var itemIds = new HashSet<string>();
-            for (int round = 1; round <= rule.Rounds; round++)
+            foreach (CfgBossRewardsRow rule in GameTables.CfgBossRewards.GetAll())
+            for (int seed = 1; seed <= 32; seed++)
             {
-                IReadOnlyList<ProjectItem> candidates = ProjectRewardConfig.CreateBossCandidates(random, 1, rule.ID, "batch", round, claimed, out string error);
-                Assert.That(candidates, Is.Not.Null, error);
-                Assert.That(candidates.Count, Is.EqualTo(3));
-                Assert.That(candidates.Count(item => item.Type == ProjectItemType.Collection), Is.GreaterThanOrEqualTo(rule.MinCollectionCandidates));
-                Assert.That(candidates.Count(item => item.Type == ProjectItemType.Weapon || item.Type == ProjectItemType.Armor),
-                    Is.GreaterThanOrEqualTo(rule.MinEquipmentCandidates));
-                foreach (ProjectItem item in candidates)
+                IReadOnlyList<ProjectItem> items = ProjectRewardConfig.CreateBossLoot(new PersistentRandom(seed), 1, rule.ID, "batch", out string error);
+                Assert.That(items, Is.Not.Null, error);
+                Assert.That(items.Count, Is.EqualTo(rule.ItemCount));
+                Assert.That(rule.ItemCount, Is.EqualTo(3), "当前原型一次实际掉落三件，不按旧轮次乘出九件。");
+                Assert.That(items.Count(item => item.Type == ProjectItemType.Collection), Is.GreaterThanOrEqualTo(rule.MinCollectionItems));
+                Assert.That(items.Count(item => item.Type == ProjectItemType.Weapon || item.Type == ProjectItemType.Armor),
+                    Is.GreaterThanOrEqualTo(rule.MinEquipmentItems));
+                var collectionIds = new HashSet<string>();
+                for (int index = 0; index < items.Count; index++)
                 {
-                    Assert.That(itemIds.Add(item.Id), Is.True);
+                    ProjectItem item = items[index];
+                    Assert.That(item.Id, Is.EqualTo("batch:item:" + index.ToString(CultureInfo.InvariantCulture)));
                     Assert.That(ProjectEquipmentRules.ValidateItem(item), Is.Null);
                     Assert.That((int)item.Quality, Is.InRange(rule.MinQuality, rule.MaxQuality));
-                    if (item.Type == ProjectItemType.Collection) Assert.That(claimed.Contains(item.CollectionId), Is.False);
+                    if (item.Type == ProjectItemType.Collection && !rule.AllowRepeatCollections)
+                        Assert.That(collectionIds.Add(item.CollectionId), Is.True);
                 }
-                claimed.Add(candidates.First(item => item.Type == ProjectItemType.Collection).CollectionId);
             }
-            Assert.That(ProjectRewardConfig.CreateBossCandidates(random, 1, 999, "batch", 1, claimed, out string missing), Is.Null);
-            Assert.That(missing, Is.Not.Empty);
-            rule.CollectionIDs = new[] { "missing" };
-            long state = random.State;
-            Assert.That(ProjectRewardConfig.CreateBossCandidates(random, 1, rule.ID, "batch", 1, claimed, out _), Is.Null);
-            Assert.That(random.State, Is.EqualTo(state));
         }
 
         /// <summary>
-        /// Boss 点击只领取已冻结实例，保存随机游标后后续候选属性与抽取位置一致。
+        /// 配置无效时整批失败，不能消耗调用方的随机游标。
         /// </summary>
         [Test]
-        public void BossSelection_DoesNotDrawAndRestoredRandomKeepsNextRound()
+        public void BossLoot_InvalidSourcesAndCompositionFailBeforeRandomDraws()
         {
-            var random = new PersistentRandom(711);
-            IReadOnlyList<ProjectItem> first = ProjectRewardConfig.CreateBossCandidates(random, 1, 3, "batch", 1, new string[0], out string error);
-            Assert.That(first, Is.Not.Null, error);
-            var session = new BossLootChoiceSession("run");
-            Assert.That(session.TryBegin("batch", 3, first), Is.True);
-            long frozenState = random.State;
-            BossLootChoiceSnapshot offer = session.Active;
-            int selected = offer.Options.ToList().FindIndex(item => item.Type == ProjectItemType.Collection);
-            Assert.That(session.TrySelect(offer.OfferId, offer.Revision, selected, item => true), Is.True);
-            Assert.That(session.TrySelect(offer.OfferId, offer.Revision, selected, item => true), Is.False);
-            Assert.That(random.State, Is.EqualTo(frozenState));
-            Assert.That(PersistentRandom.TryRestore(frozenState, out PersistentRandom restored), Is.True);
-            string[] claimed = session.ClaimedItems().Where(item => item.Type == ProjectItemType.Collection).Select(item => item.CollectionId).ToArray();
-            IReadOnlyList<ProjectItem> next = ProjectRewardConfig.CreateBossCandidates(random, 1, 3, "batch", 2, claimed, out error);
-            IReadOnlyList<ProjectItem> replay = ProjectRewardConfig.CreateBossCandidates(restored, 1, 3, "batch", 2, claimed, out error);
-            Assert.That(random.State, Is.EqualTo(restored.State));
-            Assert.That(next.Select(Signature), Is.EqualTo(replay.Select(Signature)));
-            Assert.That(next.Select(item => item.Id).Intersect(replay.Select(item => item.Id)), Is.Empty);
+            var random = new PersistentRandom(102);
+            long before = random.State;
+            Assert.That(ProjectRewardConfig.CreateBossLoot(random, 1, 999, "batch", out string missing), Is.Null);
+            Assert.That(missing, Is.Not.Empty);
+            CfgBossRewardsRow rule = ProjectRewardConfig.BossReward(3);
+            rule.CollectionIDs = new[] { "missing" };
+            Assert.That(ProjectRewardConfig.CreateBossLoot(random, 1, rule.ID, "batch", out string error), Is.Null);
+            Assert.That(error, Is.Not.Empty);
+            Assert.That(random.State, Is.EqualTo(before));
+            TestGameTables.LoadAll();
+            rule = ProjectRewardConfig.BossReward(3);
+            rule.MinEquipmentItems = rule.MinCollectionItems = 2;
+            Assert.That(ProjectRewardConfig.CreateBossLoot(random, 1, rule.ID, "batch", out error), Is.Null);
+            Assert.That(error, Is.Not.Empty);
+            Assert.That(random.State, Is.EqualTo(before));
         }
 
         /// <summary>
-        /// 数组不匹配、品质矛盾和不足的跨轮收藏会在配置边界拒绝。
+        /// 禁止重复收藏时来源耗尽转为装备，仍满足整箱件数与最低组成。
+        /// </summary>
+        [Test]
+        public void BossLoot_NonRepeatCollectionExhaustionUsesEquipment()
+        {
+            CfgBossRewardsRow rule = ProjectRewardConfig.BossReward(3);
+            rule.ItemCount = 5;
+            rule.CollectionIDs = new[] { "core_fragment" };
+            rule.AllowRepeatCollections = false;
+            IReadOnlyList<ProjectItem> items = ProjectRewardConfig.CreateBossLoot(new PreferCollectionsRandom(), 1, rule.ID, "batch", out string error);
+            Assert.That(items, Is.Not.Null, error);
+            Assert.That(items.Count, Is.EqualTo(5));
+            Assert.That(items.Count(item => item.Type == ProjectItemType.Collection), Is.EqualTo(1));
+            Assert.That(items.Count(item => item.Type == ProjectItemType.Weapon || item.Type == ProjectItemType.Armor), Is.EqualTo(4));
+        }
+
+        /// <summary>
+        /// 允许同批重复收藏时，一个有效来源可满足多件最低收藏组成。
+        /// </summary>
+        [Test]
+        public void BossLoot_RepeatCollectionsCanSatisfyConfiguredMinimum()
+        {
+            CfgBossRewardsRow rule = ProjectRewardConfig.BossReward(3);
+            rule.ItemCount = 4;
+            rule.MinCollectionItems = 2;
+            rule.CollectionIDs = new[] { "core_fragment" };
+            rule.AllowRepeatCollections = true;
+            IReadOnlyList<ProjectItem> items = ProjectRewardConfig.CreateBossLoot(new PreferCollectionsRandom(), 1, rule.ID, "batch", out string error);
+            Assert.That(items, Is.Not.Null, error);
+            Assert.That(items.Count(item => item.Type == ProjectItemType.Collection), Is.EqualTo(3));
+            Assert.That(items.Where(item => item.Type == ProjectItemType.Collection).Select(item => item.CollectionId).Distinct(),
+                Is.EqualTo(new[] { "core_fragment" }));
+        }
+
+        /// <summary>
+        /// 一键领取只提交已冻结整批物品，恢复随机游标可重现同批身份和全部属性。
+        /// </summary>
+        [Test]
+        public void BossLoot_ClaimDoesNotDrawAndRestoredRandomKeepsWholeBatch()
+        {
+            var random = new PersistentRandom(711);
+            long before = random.State;
+            IReadOnlyList<ProjectItem> first = ProjectRewardConfig.CreateBossLoot(random, 1, 3, "batch", out string error);
+            Assert.That(first, Is.Not.Null, error);
+            var session = new BossLootSession("run");
+            Assert.That(session.TryBegin("batch", first), Is.True);
+            long frozenState = random.State;
+            BossLootSnapshot offer = session.Active;
+            int claimed = 0;
+            Assert.That(session.TryClaim(offer.BatchId, offer.Revision, items =>
+            {
+                Assert.That(items.Select(item => item.Id), Is.EqualTo(first.Select(item => item.Id)));
+                claimed += items.Count;
+                return true;
+            }), Is.True);
+            Assert.That(session.TryClaim(offer.BatchId, offer.Revision, items => true), Is.False);
+            Assert.That(claimed, Is.EqualTo(first.Count));
+            Assert.That(random.State, Is.EqualTo(frozenState));
+            Assert.That(PersistentRandom.TryRestore(before, out PersistentRandom restored), Is.True);
+            IReadOnlyList<ProjectItem> replay = ProjectRewardConfig.CreateBossLoot(restored, 1, 3, "batch", out error);
+            Assert.That(random.State, Is.EqualTo(restored.State));
+            Assert.That(first.Select(Signature), Is.EqualTo(replay.Select(Signature)));
+            Assert.That(first.Select(item => item.Id), Is.EqualTo(replay.Select(item => item.Id)));
+        }
+
+        /// <summary>
+        /// 数组不匹配、品质矛盾和不足的同批收藏来源会在配置边界拒绝。
         /// </summary>
         [Test]
         public void ConfigValidation_RejectsUnusableBossAndAchievementDefinitions()
@@ -130,10 +188,38 @@ namespace ProjectExtraction.Tests
             TestGameTables.LoadAll();
             CfgBossRewardsRow rule = ProjectRewardConfig.BossReward(3);
             rule.CollectionIDs = new[] { "core_fragment" };
+            rule.MinCollectionItems = 2;
             Assert.That(ProjectRewardConfig.Validate(out error), Is.False);
             TestGameTables.LoadAll();
             ProjectRewardConfig.BossReward(1).MaxQuality = 1;
             Assert.That(ProjectRewardConfig.Validate(out error), Is.False);
+        }
+
+        /// <summary>
+        /// 固定优先抽取收藏，避免以概率偶然性验证收藏耗尽路径。
+        /// </summary>
+        private sealed class PreferCollectionsRandom : System.Random
+        {
+            /// <summary>
+            /// 返回合法范围末端以优先命中收藏权重。
+            /// </summary>
+            /// <param name="maxValue">不包含的上界。</param>
+            /// <returns>范围内最大整数。</returns>
+            public override int Next(int maxValue) => maxValue - 1;
+
+            /// <summary>
+            /// 返回属性抽样区间末端。
+            /// </summary>
+            /// <param name="minValue">包含的下界。</param>
+            /// <param name="maxValue">不包含的上界。</param>
+            /// <returns>范围内最大整数。</returns>
+            public override int Next(int minValue, int maxValue) => maxValue - 1;
+
+            /// <summary>
+            /// 为连续属性提供固定合法抽样值。
+            /// </summary>
+            /// <returns>区间中点。</returns>
+            public override double NextDouble() => 0.5d;
         }
 
         /// <summary>

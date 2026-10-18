@@ -49,11 +49,11 @@ namespace MiniGame.Tests
         });
 
         /// <summary>
-        /// 宝箱领奖可关闭并重触续领，保存中拒绝关闭，最终出口仍需明确点击带回结束。
+        /// 只读宝箱整批领取一次入包，关闭重触不重抽，保存中不能关闭或重复领取，出口仍需明确确认。
         /// </summary>
         /// <returns>真实领奖关闭、保存门禁与最终出口按钮验证任务。</returns>
         [UnityTest]
-        public IEnumerator BossLootWindow_ClosePreservesCandidatesAndFinalExitRequiresConfirmation() => UniTask.ToCoroutine(async () =>
+        public IEnumerator BossLootWindow_ClaimsAllItemsOnceAndFinalExitRequiresConfirmation() => UniTask.ToCoroutine(async () =>
         {
             var backend = new HeldInputSaveBackend();
             await SetupAsync(backend);
@@ -68,36 +68,55 @@ namespace MiniGame.Tests
             run.Advance(CombatWorld.TickSeconds);
             await WaitRunSavedAsync(run);
             GameWindow loot = await WaitForWindowAsync(ProjectServices.BossLootWindow);
-            string offer = run.PendingBossChoice.OfferId;
-            string[] candidates = run.PendingBossChoice.Options.Select(item => item.Id).ToArray();
+            string batchId = run.PendingBossLoot.BatchId;
+            int revision = run.PendingBossLoot.Revision;
+            string[] rewards = run.PendingBossLoot.Items.Select(item => item.Id).ToArray();
+            string[] before = run.Inventory.Select(item => item.Id).ToArray();
+            Assert.That(rewards.Length, Is.EqualTo(3));
+            Assert.That(loot.Root.GetComponentsInChildren<UnityEngine.UI.Button>(false)
+                .Select(button => button.GetComponentInChildren<UnityEngine.UI.Text>().text), Is.EquivalentTo(new[] { "关闭", "领取" }));
+            Assert.That(loot.Root.GetComponentsInChildren<RectTransform>(false).Count(rect => rect.name.StartsWith("BossLootItem_")), Is.EqualTo(3));
             ClickButton(loot, "关闭");
             await WaitForAsync(() => run.CanAcceptPlayerInput);
             run.Advance(CombatWorld.TickSeconds);
-            Assert.That(run.PendingBossChoice, Is.Null);
+            Assert.That(run.PendingBossLoot, Is.Null);
             Assert.That(run.World.TrySetPosition(run.Player, run.CurrentRoom.Plan.EntryPosition), Is.True);
             run.Advance(CombatWorld.TickSeconds);
             Assert.That(run.World.TrySetPosition(run.Player, chest.Position), Is.True);
             run.Advance(CombatWorld.TickSeconds);
             await WaitRunSavedAsync(run);
-            Assert.That(run.PendingBossChoice, Is.Not.Null, "关闭后重新触碰必须恢复冻结候选。");
+            Assert.That(run.PendingBossLoot, Is.Not.Null, "关闭后重新触碰必须恢复整批冻结掉落。");
             loot = await WaitForWindowAsync(ProjectServices.BossLootWindow);
-            Assert.That(run.PendingBossChoice.OfferId, Is.EqualTo(offer));
-            Assert.That(run.PendingBossChoice.Options.Select(item => item.Id), Is.EqualTo(candidates));
+            Assert.That(run.PendingBossLoot.BatchId, Is.EqualTo(batchId));
+            Assert.That(run.PendingBossLoot.Revision, Is.EqualTo(revision));
+            Assert.That(run.PendingBossLoot.Items.Select(item => item.Id), Is.EqualTo(rewards));
             backend.HoldWrites();
             try
             {
-                ClickButton(loot, "领取所选物品");
+                ClickButton(loot, "领取");
                 Assert.That(backend.WaitingWrite, Is.True);
                 UnityEngine.UI.Button close = loot.Root.GetComponentsInChildren<UnityEngine.UI.Button>(false)
                     .Single(button => button.GetComponentInChildren<UnityEngine.UI.Text>().text == "关闭");
                 Assert.That(close.interactable, Is.False);
                 close.onClick.Invoke();
                 Assert.That(loot.State, Is.EqualTo(GameWindowState.Opened));
-                Assert.That(run.IsChoosingReward, Is.True);
+                Assert.That(run.IsSavingRun, Is.True);
+                Assert.That(run.CanAcceptPlayerInput, Is.False);
+                UnityEngine.UI.Button claim = loot.Root.GetComponentsInChildren<UnityEngine.UI.Button>(false)
+                    .Single(button => button.GetComponentInChildren<UnityEngine.UI.Text>().text == "领取");
+                Assert.That(claim.interactable, Is.False);
+                claim.onClick.Invoke();
+                foreach (string id in rewards) Assert.That(run.Inventory.Count(item => item.Id == id), Is.EqualTo(1));
+                Assert.That(run.TryClaimBossLoot(batchId, revision), Is.False);
             }
             finally { backend.ReleaseWrites(); }
             await WaitRunSavedAsync(run);
-            await CompleteCurrentRoomAsync(run);
+            await WaitForAsync(() => !run.IsClaimingBossLoot);
+            Assert.That(run.CurrentRoom.BossRewardsCompleted, Is.True);
+            Assert.That(run.Inventory.Select(item => item.Id), Is.EquivalentTo(before.Concat(rewards)));
+            foreach (string id in rewards) Assert.That(run.Inventory.Count(item => item.Id == id), Is.EqualTo(1));
+            Assert.That(run.TryClaimBossLoot(batchId, revision), Is.False);
+            Assert.That(GameEntry.Get<IUIModule>().OpenedWindows.All(window => window.Id != ProjectServices.BossLootWindow), Is.True);
             Assert.That(run.IsRunning, Is.True);
             Assert.That(ProjectServices.Session.RecordedOutcome, Is.Null);
             await EnterExtractionConfirmationAsync(run);

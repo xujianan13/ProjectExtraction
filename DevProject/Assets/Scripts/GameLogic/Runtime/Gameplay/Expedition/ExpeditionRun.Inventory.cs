@@ -24,7 +24,7 @@ namespace GameLogic.Gameplay.Expedition
         public int PlayerLevel => session.Level;
         public bool CanManageInventory => ActivePanel == ExpeditionPanelKind.Inventory && CanManagePanel;
         public bool CanManageMerchant => ActivePanel == ExpeditionPanelKind.Merchant && CanManagePanel;
-        private bool CanManagePanel => IsRunning && IsReady && !paused && !IsChoosingReward && !disposed && !stopped && !IsSavingRun &&
+        private bool CanManagePanel => IsRunning && IsReady && !paused && !IsClaimingBossLoot && !disposed && !stopped && !IsSavingRun &&
             !session.HasUncommittedSave && !IsReviveAdPending && !IsExtractionAdPending && !GameEntry.IsInBackground && World.TryGetActor(Player, out var actor) && !actor.Dead;
 
         /// <summary>

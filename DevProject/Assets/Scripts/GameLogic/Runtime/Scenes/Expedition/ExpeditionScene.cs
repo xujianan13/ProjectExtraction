@@ -15,8 +15,8 @@ namespace GameLogic.Scenes.Expedition
         private GameplayHandle gameplay;
         private ExpeditionPresentation presentation;
         private ExpeditionRun run;
-        private bool openingBossChoice;
-        private bool bossChoiceRefreshQueued;
+        private bool openingBossLoot;
+        private bool bossLootRefreshQueued;
 
         /// <summary>
         /// 创建关卡逻辑场景。
@@ -41,8 +41,8 @@ namespace GameLogic.Scenes.Expedition
             if (assets == null) throw new InvalidOperationException("关卡测试资源加载失败。");
             ct.ThrowIfCancellationRequested();
             run = current;
-            current.BossChoiceChanged += OnBossChoiceChanged;
-            scope.Defer(() => current.BossChoiceChanged -= OnBossChoiceChanged);
+            current.BossLootChanged += OnBossLootChanged;
+            scope.Defer(() => current.BossLootChanged -= OnBossLootChanged);
             scope.Defer(() =>
             {
                 if (gameplay.IsValid) GameEntry.Get<IGameplayModule>().Stop(gameplay);
@@ -101,30 +101,30 @@ namespace GameLogic.Scenes.Expedition
         /// <summary>
         /// 在单局停在安全帧边界后安排弹出当前奖励。
         /// </summary>
-        private void OnBossChoiceChanged()
+        private void OnBossLootChanged()
         {
-            if (run?.IsRunning != true || run.PendingBossChoice == null || !SceneScope.IsActive) return;
-            if (openingBossChoice) { bossChoiceRefreshQueued = true; return; }
-            OpenBossChoiceAsync(run, SceneScope).Forget();
+            if (run?.IsRunning != true || run.PendingBossLoot == null || !SceneScope.IsActive) return;
+            if (openingBossLoot) { bossLootRefreshQueued = true; return; }
+            OpenBossLootAsync(run, SceneScope).Forget();
         }
 
         /// <summary>
         /// 使用场景作用域打开奖励，打开期间的重触请求在当前操作完成后重新检查。
         /// </summary>
-        /// <param name="owner">发起选择的单局。</param>
+        /// <param name="owner">发起领取的单局。</param>
         /// <param name="scope">当前场景作用域。</param>
         /// <returns>弹窗打开任务。</returns>
-        private async UniTask OpenBossChoiceAsync(ExpeditionRun owner, LifetimeScope scope)
+        private async UniTask OpenBossLootAsync(ExpeditionRun owner, LifetimeScope scope)
         {
-            openingBossChoice = true;
+            openingBossLoot = true;
             try
             {
                 await UniTask.Yield(PlayerLoopTiming.Update, scope.Token);
                 if (!scope.IsActive || !ReferenceEquals(run, owner) || !owner.IsRunning ||
-                    owner.PendingBossChoice == null) return;
+                    owner.PendingBossLoot == null) return;
                 GameWindow window = await GameEntry.Get<IUIModule>().OpenWindowAsync(ProjectServices.BossLootWindow,
                     new GameWindowOpenArgs(owner), scope.Token);
-                if (window == null) GameEntry.Get<ILogModule>()?.Error("BossLoot", "Boss 奖励窗口未打开，已保留冻结候选。");
+                if (window == null) GameEntry.Get<ILogModule>()?.Error("BossLoot", "Boss 奖励窗口未打开，已保留冻结掉落。");
             }
             catch (OperationCanceledException) when (!scope.IsActive) { }
             catch (Exception error)
@@ -133,11 +133,11 @@ namespace GameLogic.Scenes.Expedition
             }
             finally
             {
-                openingBossChoice = false;
-                if (bossChoiceRefreshQueued)
+                openingBossLoot = false;
+                if (bossLootRefreshQueued)
                 {
-                    bossChoiceRefreshQueued = false;
-                    OnBossChoiceChanged();
+                    bossLootRefreshQueued = false;
+                    OnBossLootChanged();
                 }
             }
         }

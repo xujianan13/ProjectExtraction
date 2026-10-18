@@ -72,7 +72,7 @@ namespace GameLogic.UI.Battle
             overviewButton = ProjectUiFactory.ActionButton(menuRow, "成长与进度", OpenProgression);
             overviewButton.GetComponentInChildren<UnityEngine.UI.Text>().fontSize = 24;
             pauseButton = ProjectUiFactory.ActionButton(menuRow, "暂停", OpenPause);
-            resumeChoice = ProjectUiFactory.ActionButton(actions, "继续选择奖励", OpenPendingChoice);
+            resumeChoice = ProjectUiFactory.ActionButton(actions, "继续领取奖励", OpenPendingChoice);
             resumeChoice.GetComponentInChildren<UnityEngine.UI.Text>().fontSize = 30;
             ProjectUiFactory.Height((RectTransform)resumeChoice.transform, 90f);
             resumeChoice.gameObject.SetActive(false);
@@ -143,11 +143,11 @@ namespace GameLogic.UI.Battle
             }
             skills.text = skillSummary.ToString();
             bool choosingDeath = run.IsAwaitingDeathChoice;
-            bool choosing = run.IsChoosingReward || choosingDeath;
+            bool choosing = run.IsClaimingBossLoot || choosingDeath;
             resumeChoice.interactable = choosingDeath ? run.CanChooseDeath :
-                run.IsChoosingReward && !run.IsSavingRun && run.PendingBossChoice != null;
+                run.IsClaimingBossLoot && !run.IsSavingRun && run.PendingBossLoot != null;
             resumeChoice.GetComponentInChildren<UnityEngine.UI.Text>().text = choosingDeath ? "继续死亡选择" :
-                "继续选择 Boss 战利品";
+                "继续领取 Boss 战利品";
             if (resumeChoice.gameObject.activeSelf != choosing)
             {
                 resumeChoice.gameObject.SetActive(choosing);
@@ -271,7 +271,7 @@ namespace GameLogic.UI.Battle
             scope.IsActive && ReferenceEquals(run, current) && panelVersion == version && current.ActivePanel == kind;
 
         /// <summary>
-        /// 在选择窗口被系统关闭后重新打开死亡选择或当前待选奖励。
+        /// 在选择窗口被系统关闭后重新打开死亡选择或当前待领物品。
         /// </summary>
         private void OpenPendingChoice()
         {
@@ -281,7 +281,7 @@ namespace GameLogic.UI.Battle
                 if (run.CanChooseDeath) run.TryOpenDeathChoice();
                 return;
             }
-            if (!run.IsChoosingReward || run.IsSavingRun || run.PendingBossChoice == null) return;
+            if (!run.IsClaimingBossLoot || run.IsSavingRun || run.PendingBossLoot == null) return;
             IUIModule ui = GameEntry.Get<IUIModule>();
             if (ui != null) ui.OpenWindowAsync(ProjectServices.BossLootWindow,
                 new GameWindowOpenArgs(run)).Forget();

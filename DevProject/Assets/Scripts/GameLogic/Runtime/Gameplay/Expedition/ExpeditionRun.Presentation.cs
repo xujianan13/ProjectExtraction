@@ -19,7 +19,7 @@ namespace GameLogic.Gameplay.Expedition
         public double PresentationSeconds => World.TickIndex * (double)CombatWorld.TickSeconds + deathPresentationElapsed;
         public bool FeedbackPaused => paused || GameEntry.IsInBackground || ProjectServices.Coordinator?.IsPaused == true ||
             (ActivePanel != ExpeditionPanelKind.None && ActivePanel != ExpeditionPanelKind.DeathChoice) || session.HasUncommittedSave ||
-            (IsChoosingReward && !IsAwaitingDeathChoice) || (!IsRunning && !IsPresentingDeath);
+            (IsClaimingBossLoot && !IsAwaitingDeathChoice) || (!IsRunning && !IsPresentingDeath);
 
         /// <summary>
         /// 仅对真实死亡且已冻结的角色开启倒下与短暂停留；不重新开放任何输入。

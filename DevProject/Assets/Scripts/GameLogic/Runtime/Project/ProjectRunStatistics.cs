@@ -102,7 +102,7 @@ namespace GameLogic.Project
         public int TotalRegions;
         public int RegionBossKills;
         public int FinalBossKills;
-        public int BossLootRounds;
+        public int BossLootItems;
         public long RegionBossExperience;
         public long FinalBossExperience;
         public ProjectEnemyLifeStatistics NormalFirst = new();
@@ -166,7 +166,7 @@ namespace GameLogic.Project
             if (statistics.TotalRooms != 0 || statistics.VisitedRooms != 0 || statistics.ClearedCombatRooms != 0 ||
                 statistics.BossRoomKills != 0 || statistics.TotalRegions < 1 || statistics.RegionBossKills < 0 ||
                 statistics.RegionBossKills >= statistics.TotalRegions || statistics.FinalBossKills < 0 || statistics.FinalBossKills > 1 ||
-                statistics.BossLootRounds < 0 || !ValidLife(statistics.NormalFirst) || !ValidLife(statistics.NormalRespawn) ||
+                statistics.BossLootItems < 0 || !ValidLife(statistics.NormalFirst) || !ValidLife(statistics.NormalRespawn) ||
                 !ValidLife(statistics.EliteFirst) || !ValidLife(statistics.EliteRespawn) || statistics.RegionBossExperience < 0 ||
                 statistics.RegionBossExperience > int.MaxValue || statistics.FinalBossExperience < 0 ||
                 statistics.FinalBossExperience > int.MaxValue || statistics.Regions == null || statistics.Regions.Count > statistics.TotalRegions) return false;
@@ -301,7 +301,7 @@ namespace GameLogic.Project
             if (statistics.TotalRooms < 1 || statistics.VisitedRooms < 0 || statistics.VisitedRooms > statistics.TotalRooms ||
                 statistics.Rooms == null || statistics.Rooms.Count != statistics.VisitedRooms || statistics.TotalRegions != 0 ||
                 statistics.RegionBossKills != 0 || statistics.RegionBossExperience != 0 || statistics.RogueChoices != 0 ||
-                statistics.BossLootRounds < 0 || !ValidLife(statistics.NormalRespawn) || !ValidLife(statistics.EliteRespawn) ||
+                statistics.BossLootItems < 0 || !ValidLife(statistics.NormalRespawn) || !ValidLife(statistics.EliteRespawn) ||
                 !EmptyLife(statistics.NormalRespawn) || !EmptyLife(statistics.EliteRespawn) ||
                 statistics.Regions == null || statistics.Regions.Count != 0 || !ValidLife(statistics.NormalFirst) ||
                 !ValidLife(statistics.EliteFirst) || statistics.NormalFirst.Progress != 0 || statistics.EliteFirst.Progress != 0 ||
@@ -372,7 +372,7 @@ namespace GameLogic.Project
         /// <param name="statistics">旧版本统计。</param>
         /// <returns>所有新增字段均缺席或为空时为真。</returns>
         private static bool NoRegionData(ProjectRunStatistics statistics) => statistics.TotalRegions == 0 &&
-            statistics.RegionBossKills == 0 && statistics.FinalBossKills == 0 && statistics.BossLootRounds == 0 &&
+            statistics.RegionBossKills == 0 && statistics.FinalBossKills == 0 && statistics.BossLootItems == 0 &&
             statistics.RegionBossExperience == 0 && statistics.FinalBossExperience == 0 &&
             EmptyLife(statistics.NormalFirst) && EmptyLife(statistics.NormalRespawn) && EmptyLife(statistics.EliteFirst) &&
             EmptyLife(statistics.EliteRespawn) && (statistics.Regions == null || statistics.Regions.Count == 0);
@@ -415,7 +415,7 @@ namespace GameLogic.Project
                 "v2 区域、生命分类、Boss 领奖轮次及提前带回/通关未记录。\n" +
                 $"造成伤害 {DamageDealt:0.#} · 承受伤害 {DamageTaken:0.#} · 实际治疗 {HealingReceived:0.#}";
             var text = new StringBuilder($"探索区域 {VisitedRegions}/{TotalRegions} · 已完成区域 {CompletedRegions}\n" +
-                $"击杀 {EnemyKills} · 区域尾王 {RegionBossKills} · 最终 Boss {FinalBossKills}\n技能选择 {RogueChoices} · Boss 领奖 {BossLootRounds} 轮\n");
+                $"击杀 {EnemyKills} · 区域尾王 {RegionBossKills} · 最终 Boss {FinalBossKills}\n技能选择 {RogueChoices} · Boss 战利品 {BossLootItems} 件\n");
             AppendLife(text, "普通首次", NormalFirst);
             AppendLife(text, "普通复活", NormalRespawn);
             AppendLife(text, "精英首次", EliteFirst);

@@ -244,7 +244,7 @@ namespace MiniGame.Tests
         }
 
         /// <summary>
-        /// 捕获最终 Boss、触碰宝箱与逐轮领奖，最后通过真实出口确认带回。
+        /// 捕获最终 Boss、触碰宝箱与整批一键领取，最后通过真实出口确认带回。
         /// </summary>
         /// <param name="run">当前最终 Boss 房。</param>
         /// <param name="directory">输出目录。</param>
@@ -263,7 +263,7 @@ namespace MiniGame.Tests
             Assert.That(run.CurrentRoom.BossDefeated, Is.True);
             Assert.That(run.CurrentRoom.BossRewardsCompleted, Is.False);
             Assert.That(run.IsRunning, Is.True);
-            Assert.That(run.PendingBossChoice, Is.Null, "尚未触碰 Boss 宝箱时不能自动打开领奖窗口。");
+            Assert.That(run.PendingBossLoot, Is.Null, "尚未触碰 Boss 宝箱时不能自动打开领奖窗口。");
             Assert.That(ProjectServices.Session.RecordedOutcome, Is.Null);
             RegionChestPlan chest = run.CurrentRoom.Plan.Chests.Single(value => value.Kind == RegionChestKind.BossReward);
             float approach = run.CurrentRoom.Plan.InteractionRadius + 1f;
@@ -278,44 +278,37 @@ namespace MiniGame.Tests
             GameWindow loot = await WaitForWindowAsync(ProjectServices.BossLootWindow);
             await AssertV3PanelPausedAsync(run);
             await CaptureV3WindowAsync(loot, "boss-loot", directory, prefix, width, height, record, failures,
-                "BossLootPanel", "BossLootHeader", "BossCandidates", "BossItemDetails");
-            CheckVisualButtons(loot, record, failures, "关闭", "领取所选物品");
-            string offerId = run.PendingBossChoice.OfferId;
-            string[] options = run.PendingBossChoice.Options.Select(item => item.Id).ToArray();
+                "BossLootPanel", "BossLootHeader", "BossLootItems");
+            CheckVisualButtons(loot, record, failures, "关闭", "领取");
+            Assert.That(loot.Root.GetComponentsInChildren<Button>(false).Select(button => button.GetComponentInChildren<Text>().text),
+                Is.EquivalentTo(new[] { "关闭", "领取" }));
+            Assert.That(FindVisualRect(loot, "BossLootItems").GetComponentsInChildren<Button>(false), Is.Empty);
+            string batchId = run.PendingBossLoot.BatchId;
+            int revision = run.PendingBossLoot.Revision;
+            string[] rewards = run.PendingBossLoot.Items.Select(item => item.Id).ToArray();
+            Assert.That(rewards.Length, Is.EqualTo(3));
             ClickButton(loot, "关闭");
             await WaitForAsync(() => run.CanAcceptPlayerInput);
             run.Advance(CombatWorld.TickSeconds);
-            Assert.That(run.IsChoosingReward, Is.False, "原地关闭宝箱后不能立即重开。");
+            Assert.That(run.IsClaimingBossLoot, Is.False, "原地关闭宝箱后不能立即重开。");
             Assert.That(run.World.TrySetPosition(run.Player, run.CurrentRoom.Plan.EntryPosition), Is.True);
             run.Advance(CombatWorld.TickSeconds);
             Assert.That(run.World.TrySetPosition(run.Player, chest.Position), Is.True);
             run.Advance(CombatWorld.TickSeconds);
             await WaitRunSavedAsync(run);
-            await WaitForWindowAsync(ProjectServices.BossLootWindow);
-            Assert.That(run.PendingBossChoice.OfferId, Is.EqualTo(offerId));
-            Assert.That(run.PendingBossChoice.Options.Select(item => item.Id), Is.EqualTo(options));
-            int rounds = run.PendingBossChoice.TotalRounds;
-            for (int round = 1; round <= rounds; round++)
-            {
-                var choice = run.PendingBossChoice;
-                Assert.That(choice, Is.Not.Null, "每轮保存确认后必须存在下一轮冻结候选。");
-                Assert.That(choice.Round, Is.EqualTo(round));
-                Assert.That(choice.TotalRounds, Is.EqualTo(rounds));
-                loot = await WaitForWindowAsync(ProjectServices.BossLootWindow);
-                if (round == rounds)
-                {
-                    File.AppendAllText(record, "FinalTransition=BossChestRewardsThenExitConfirmation; Round=" + round + "\n");
-                    await CaptureV3WindowAsync(loot, "boss-final-reward", directory, prefix, width, height, record, failures,
-                        "BossLootPanel", "BossCandidates", "BossItemDetails");
-                    CheckVisualButtons(loot, record, failures, "关闭", "领取所选物品");
-                }
-                ClickButton(loot, "领取所选物品");
-                await WaitRunSavedAsync(run);
-                await UniTask.Yield();
-            }
+            loot = await WaitForWindowAsync(ProjectServices.BossLootWindow);
+            Assert.That(run.PendingBossLoot.BatchId, Is.EqualTo(batchId));
+            Assert.That(run.PendingBossLoot.Revision, Is.EqualTo(revision));
+            Assert.That(run.PendingBossLoot.Items.Select(item => item.Id), Is.EqualTo(rewards));
+            File.AppendAllText(record, "FinalTransition=ClaimAllBossLootThenExitConfirmation; Items=" + rewards.Length + "\n");
+            ClickButton(loot, "领取");
+            await WaitRunSavedAsync(run);
+            await WaitForAsync(() => !run.IsClaimingBossLoot);
+            foreach (string id in rewards) Assert.That(run.Inventory.Count(item => item.Id == id), Is.EqualTo(1));
+            Assert.That(run.TryClaimBossLoot(batchId, revision), Is.False);
             Assert.That(run.CurrentRoom.BossDefeated, Is.True);
             Assert.That(run.CurrentRoom.BossRewardsCompleted, Is.True);
-            Assert.That(run.PendingBossChoice, Is.Null);
+            Assert.That(run.PendingBossLoot, Is.Null);
             Assert.That(run.IsRunning, Is.True, "最终领奖完成后必须保留房间，等待出口确认。");
             Assert.That(ProjectServices.Session.RecordedOutcome, Is.Null);
             await EnterExtractionConfirmationAsync(run);

@@ -54,7 +54,7 @@ namespace GameLogic.Scaffold
                 CreateProjectWindow<ExpeditionInventoryWindow>(ProjectServices.ExpeditionInventoryWindow, "ExpeditionInventory", GameUILayers.Popup, true),
                 CreateProjectWindow<ExpeditionMerchantWindow>(ProjectServices.ExpeditionMerchantWindow, "ExpeditionMerchant", GameUILayers.Popup, true),
                 CreateProjectWindow<RegionExitWindow>(ProjectServices.RegionExitWindow, "RegionExit", GameUILayers.Popup, true),
-                CreateProjectWindow<BossLootChoiceWindow>(ProjectServices.BossLootWindow, "BossLoot", GameUILayers.Popup, true),
+                CreateProjectWindow<BossLootWindow>(ProjectServices.BossLootWindow, "BossLoot", GameUILayers.Popup, true),
                 CreateProjectWindow<DeathChoiceWindow>(ProjectServices.DeathChoiceWindow, "DeathChoice", GameUILayers.Popup, true),
                 CreateProjectWindow<ChestLootWindow>(ProjectServices.ChestLootWindow, "ChestLoot", GameUILayers.Popup, true),
                 CreateProjectWindow<AdExtractionWindow>(ProjectServices.AdExtractionWindow, "AdExtraction", GameUILayers.Popup, true),
@@ -76,7 +76,7 @@ namespace GameLogic.Scaffold
                 registry.Register<ExpeditionInventoryWindow>(ProjectServices.ExpeditionInventoryWindow);
                 registry.Register<ExpeditionMerchantWindow>(ProjectServices.ExpeditionMerchantWindow);
                 registry.Register<RegionExitWindow>(ProjectServices.RegionExitWindow);
-                registry.Register<BossLootChoiceWindow>(ProjectServices.BossLootWindow);
+                registry.Register<BossLootWindow>(ProjectServices.BossLootWindow);
                 registry.Register<DeathChoiceWindow>(ProjectServices.DeathChoiceWindow);
                 registry.Register<ChestLootWindow>(ProjectServices.ChestLootWindow);
                 registry.Register<AdExtractionWindow>(ProjectServices.AdExtractionWindow);

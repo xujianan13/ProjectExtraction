@@ -11,23 +11,20 @@ using UnityEngine;
 namespace GameLogic.UI.Roguelike
 {
     /// <summary>
-    /// 展示 Boss 每轮三个冻结物品，先查看详情再领取一件。
+    /// 只读展示 Boss 宝箱的全部冻结掉落，通过一个按钮一次领取。
     /// </summary>
-    public sealed class BossLootChoiceWindow : GameWindow
+    public sealed class BossLootWindow : GameWindow
     {
         private ExpeditionRun run;
         private UnityEngine.UI.Text title;
         private UnityEngine.UI.Text message;
         private UnityEngine.UI.Button claim;
         private UnityEngine.UI.Button close;
-        private RectTransform candidates;
-        private RectTransform details;
-        private string displayedOfferId;
-        private int selectedIndex;
+        private RectTransform items;
         private bool busy;
 
         /// <summary>
-        /// 在安全区创建轮次说明、关闭入口、候选列表、可滚动详情和领取按钮。
+        /// 在安全区创建关闭入口、可滚动的全部物品详情和唯一领取按钮。
         /// </summary>
         protected override void BindComponents()
         {
@@ -40,46 +37,40 @@ namespace GameLogic.UI.Roguelike
             ProjectUiFactory.Stretch(layout, 14f);
             RectTransform header = ProjectUiFactory.Horizontal(layout, "BossLootHeader", 8f);
             ProjectUiFactory.Height(header, 64f);
-            title = ProjectUiFactory.Label(header, "选择 Boss 战利品", 34, TextAnchor.MiddleLeft, Color.white);
+            title = ProjectUiFactory.Label(header, "Boss 战利品", 34, TextAnchor.MiddleLeft, Color.white);
             title.gameObject.AddComponent<UnityEngine.UI.LayoutElement>().flexibleWidth = 1f;
             title.resizeTextForBestFit = true;
             title.resizeTextMinSize = 22;
             title.resizeTextMaxSize = 34;
             close = ProjectUiFactory.ActionButton(header, "关闭", CloseRewards);
             close.gameObject.AddComponent<UnityEngine.UI.LayoutElement>().preferredWidth = 110f;
-            UnityEngine.UI.Text guidance = ProjectUiFactory.Label(layout, "每轮领取一件。关闭后离开宝箱再靠近可继续；领完后前往出口确认带回。",
-                22, TextAnchor.MiddleLeft, new Color(0.82f, 0.91f, 0.95f));
+            UnityEngine.UI.Text guidance = ProjectUiFactory.Label(layout,
+                "一次领取宝箱内全部物品。可关闭稍后领取，领完后前往出口确认带回。", 22, TextAnchor.MiddleLeft, new Color(0.82f, 0.91f, 0.95f));
             ProjectUiFactory.Height(guidance.rectTransform, 62f);
-            UnityEngine.UI.ScrollRect listScroll = ProjectUiFactory.Scroll(layout, "BossCandidates", out candidates);
-            UnityEngine.UI.LayoutElement listSize = listScroll.gameObject.AddComponent<UnityEngine.UI.LayoutElement>();
-            listSize.flexibleHeight = 0.8f;
-            listSize.minHeight = 90f;
-            UnityEngine.UI.ScrollRect detailScroll = ProjectUiFactory.Scroll(layout, "BossItemDetails", out details);
-            UnityEngine.UI.LayoutElement detailSize = detailScroll.gameObject.AddComponent<UnityEngine.UI.LayoutElement>();
-            detailSize.flexibleHeight = 1.2f;
-            detailSize.minHeight = 100f;
-            claim = ProjectUiFactory.ActionButton(layout, "领取所选物品", Claim);
+            UnityEngine.UI.ScrollRect scroll = ProjectUiFactory.Scroll(layout, "BossLootItems", out items);
+            UnityEngine.UI.LayoutElement scrollSize = scroll.gameObject.AddComponent<UnityEngine.UI.LayoutElement>();
+            scrollSize.flexibleHeight = 1f;
+            scrollSize.minHeight = 100f;
+            claim = ProjectUiFactory.ActionButton(layout, "领取", Claim);
             ProjectUiFactory.Height((RectTransform)claim.transform, 70f);
             message = ProjectUiFactory.Label(layout, string.Empty, 21, TextAnchor.MiddleCenter, new Color(1f, 0.85f, 0.58f));
             ProjectUiFactory.Height(message.rectTransform, 58f);
         }
 
         /// <summary>
-        /// 绑定本局奖励变化，并在该窗口内消费返回动作。
+        /// 绑定宝箱变化，关闭时释放领奖暂停并保留未领取的整批掉落。
         /// </summary>
         /// <param name="args">携带当前单局的窗口参数。</param>
         protected override void Open(GameWindowOpenArgs args)
         {
             run = args.UserData as ExpeditionRun;
-            displayedOfferId = null;
-            selectedIndex = 0;
             busy = false;
             if (run == null) return;
             ExpeditionRun current = run;
-            current.BossChoiceChanged += Refresh;
+            current.BossLootChanged += Refresh;
             OpenScope.Defer(() =>
             {
-                current.BossChoiceChanged -= Refresh;
+                current.BossLootChanged -= Refresh;
                 current.CloseBossLoot();
                 if (ReferenceEquals(run, current)) run = null;
             });
@@ -93,99 +84,69 @@ namespace GameLogic.UI.Roguelike
         }
 
         /// <summary>
-        /// 使用已经保存的候选刷新本轮，保存期间隐藏详情并禁用领取与关闭。
+        /// 展示全部只读物品，保存期间保留当前详情并禁用领取和关闭。
         /// </summary>
         private void Refresh()
         {
             if (run == null || Root == null) return;
-            if (!run.IsRunning || !run.IsChoosingReward && !run.IsSavingRun)
+            if (!run.IsRunning || !run.IsClaimingBossLoot && !run.IsSavingRun)
             {
                 if (State == GameWindowState.Opened) CloseSelfAsync().Forget();
                 return;
             }
-            ProjectUiFactory.Clear(candidates);
-            ProjectUiFactory.Clear(details);
-            close.interactable = !busy && !run.IsSavingRun;
-            BossLootChoiceSnapshot choice = run.PendingBossChoice;
-            if (choice == null)
+            close.interactable = claim.interactable = !busy && !run.IsSavingRun;
+            BossLootSnapshot loot = run.PendingBossLoot;
+            if (loot == null)
             {
                 title.text = "正在保存 Boss 奖励";
                 message.text = "保存完成后继续，操作暂不可用。";
                 claim.interactable = false;
                 return;
             }
-            if (displayedOfferId != choice.OfferId)
-            {
-                displayedOfferId = choice.OfferId;
-                selectedIndex = 0;
-            }
-            title.text = "Boss 战利品 · 第 " + choice.Round + " / " + choice.TotalRounds + " 轮";
+            title.text = "Boss 战利品 · " + loot.Items.Count + " 件";
             message.text = run.RewardMessage;
-            IReadOnlyList<ProjectItem> options = choice.Options;
-            for (int index = 0; index < options.Count; index++)
+            ProjectUiFactory.Clear(items);
+            foreach (ProjectItem item in loot.Items)
             {
-                int selected = index;
-                ProjectItem item = options[index];
-                string caption = (index == selectedIndex ? "已选 · " : string.Empty) + CandidateTitle(item) +
-                    "\n等级 " + item.RequiredLevel + " · 售价 " + item.SellGold + " 金币";
-                UnityEngine.UI.Button button = ProjectUiFactory.ActionButton(candidates, caption, () => SelectCandidate(selected));
-                ProjectUiFactory.Height((RectTransform)button.transform, 98f);
-                button.interactable = !busy && !run.IsSavingRun;
+                RectTransform card = ProjectUiFactory.Vertical(items, "BossLootItem_" + item.Id, 6f);
+                card.GetComponent<UnityEngine.UI.Image>().color = new Color(0.1f, 0.17f, 0.23f, 0.96f);
+                card.GetComponent<UnityEngine.UI.VerticalLayoutGroup>().padding = new RectOffset(12, 12, 10, 10);
+                string itemTitle = item.Type == ProjectItemType.Collection ?
+                    "[" + ProjectEquipmentRules.QualityName(item.Quality) + "] " + item.Name + " · 收藏" : ProjectEquipmentText.ColoredTitle(item);
+                AddDetail(card, itemTitle, ProjectEquipmentText.QualityColor(item));
+                if (item.Type == ProjectItemType.Collection) AddDetail(card, CollectionDetails(item), Color.white);
+                else
+                {
+                    AddDetail(card, ProjectEquipmentText.Details(item), Color.white);
+                    AddDetail(card, ProjectEquipmentText.EquippedDetails(item, run.EntryEquipment), new Color(0.78f, 0.91f, 1f));
+                }
+                AddDetail(card, "等级 " + item.RequiredLevel + " · 售价 " + item.SellGold + " 金币\n领取后收入关卡背包，带回主城后可使用。",
+                    new Color(1f, 0.86f, 0.56f));
             }
-            ProjectItem currentItem = options[selectedIndex];
-            AddDetail(CandidateTitle(currentItem), ProjectEquipmentText.QualityColor(currentItem));
-            if (currentItem.Type == ProjectItemType.Collection) AddDetail(CollectionDetails(currentItem), Color.white);
-            else
-            {
-                AddDetail(ProjectEquipmentText.Details(currentItem), Color.white);
-                AddDetail(ProjectEquipmentText.EquippedDetails(currentItem, run.EntryEquipment), new Color(0.78f, 0.91f, 1f));
-                AddDetail("领取后收入关卡背包，带回主城后可装备。", Color.white);
-            }
-            AddDetail("售价 " + currentItem.SellGold + " 金币", new Color(1f, 0.86f, 0.56f));
-            claim.interactable = !busy && !run.IsSavingRun;
         }
 
         /// <summary>
-        /// 查看某个冻结物品，不领取也不改变随机游标。
-        /// </summary>
-        /// <param name="index">本轮物品序号。</param>
-        private void SelectCandidate(int index)
-        {
-            if (busy || run == null || run.IsSavingRun || run.PendingBossChoice == null) return;
-            selectedIndex = index;
-            Refresh();
-        }
-
-        /// <summary>
-        /// 提交唯一领取动作，保存中保持窗口且不暴露未确认物品。
+        /// 一次提交整批物品，保存中保持窗口且不允许重复领取。
         /// </summary>
         private void Claim()
         {
             if (busy || run == null || run.IsSavingRun) return;
-            BossLootChoiceSnapshot choice = run.PendingBossChoice;
-            if (choice == null) return;
+            BossLootSnapshot loot = run.PendingBossLoot;
+            if (loot == null) return;
             busy = true;
-            run.TryChooseBoss(choice.OfferId, choice.Revision, selectedIndex);
+            run.TryClaimBossLoot(loot.BatchId, loot.Revision);
             busy = false;
             Refresh();
         }
 
         /// <summary>
-        /// 在没有保存事务时关闭窗口，作用域清理释放领奖暂停并保留冻结候选。
+        /// 在没有保存事务时关闭窗口，作用域清理释放领奖暂停并保留整批掉落。
         /// </summary>
         private void CloseRewards()
         {
             if (busy || run == null || run.IsSavingRun) return;
             CloseSelfAsync().Forget();
         }
-
-        /// <summary>
-        /// 生成不包含内部身份的候选标题。
-        /// </summary>
-        /// <param name="item">完整冻结物品。</param>
-        /// <returns>品质、名称与装备或收藏类别。</returns>
-        private static string CandidateTitle(ProjectItem item) => item.Type == ProjectItemType.Collection ?
-            "[" + ProjectEquipmentRules.QualityName(item.Quality) + "] " + item.Name + " · 收藏" : ProjectEquipmentText.ColoredTitle(item);
 
         /// <summary>
         /// 展示收藏系列、来源和关联成就的完整配置说明。
@@ -216,15 +177,16 @@ namespace GameLogic.UI.Roguelike
         }
 
         /// <summary>
-        /// 向滚动详情添加能根据换行及宽度自动计算高度的文本块。
+        /// 向只读卡片添加按换行及宽度自动计算高度的文本。
         /// </summary>
+        /// <param name="parent">当前物品卡片。</param>
         /// <param name="value">详情文本。</param>
         /// <param name="color">文字颜色。</param>
-        private void AddDetail(string value, Color color)
+        private static void AddDetail(Transform parent, string value, Color color)
         {
-            UnityEngine.UI.Text label = ProjectUiFactory.Label(details, value, 23, TextAnchor.UpperLeft, color);
-            UnityEngine.UI.LayoutElement size = label.gameObject.AddComponent<UnityEngine.UI.LayoutElement>();
-            size.minHeight = 42f;
+            UnityEngine.UI.Text label = ProjectUiFactory.Label(parent, value, 23, TextAnchor.UpperLeft, color);
+            label.supportRichText = true;
+            label.gameObject.AddComponent<UnityEngine.UI.LayoutElement>().minHeight = 42f;
         }
     }
 }

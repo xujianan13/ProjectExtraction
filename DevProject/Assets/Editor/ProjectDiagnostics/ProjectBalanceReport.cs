@@ -45,9 +45,9 @@ namespace MiniGame.Editor
             public int bosses;
             public double initialEnemyHealth;
             public long initialKillExperience;
-            public int bossRewardRounds;
-            public int minimumEquipmentCandidates;
-            public int minimumCollectionCandidates;
+            public int bossRewardItems;
+            public int minimumEquipmentItems;
+            public int minimumCollectionItems;
             public int chestItems;
             public double expectedChestResaleGold;
             public long frozenChestResaleGold;
@@ -71,7 +71,7 @@ namespace MiniGame.Editor
             public int bosses;
             public double initialEnemyHealth;
             public long initialKillExperience;
-            public int bossRewardRounds;
+            public int bossRewardItems;
             public int chestItems;
             public double expectedChestResaleGold;
             public long frozenChestResaleGold;
@@ -104,9 +104,8 @@ namespace MiniGame.Editor
         [Serializable]
         private sealed class Report
         {
-            public string scope = "v2配置与固定种子静态区域计划；初生全清、箱子全领、NPC商品全买并成功携出。未模拟胜率、耗时、死亡损失或玩家决策。";
-            public string respawnScope = "复活时间仅有效逻辑帧；每小时名义产出假定安全等待为零且立刻击杀，以配置延迟加预警作为周期，不推进离区或离线时间，不代表实际收益。";
-            public string rewardScope = "普通和精英只计经验及加权技能进度；Boss单独计奖励轮数与最低候选构成。未把技能奖励或Boss选择估值为随机物品掉落。";
+            public string scope = "V3配置与固定种子静态房间计划；初生全清、宝箱整箱领取、NPC商品全买并成功携出。未模拟胜率、耗时、死亡损失或玩家决策。";
+            public string rewardScope = "普通和精英只计击杀经验；Boss单独计配置实际掉落件数及最低装备/收藏组成，不将最低组成当作额外物品。Boss物品售价未纳入普通宝箱或商店估值。";
             public string merchantScope = "箱子和NPC理论回收价来自当前等级物品池；冻结实例另列实际售价。NPC净回收为理论售价减买入成本，不假设玩家有足够金币。";
             public string configSha256;
             public int firstSeed = FirstSeed;
@@ -118,7 +117,7 @@ namespace MiniGame.Editor
         }
 
         /// <summary>
-        /// 导出真实 v2 区域内容的 JSON 与 CSV 静态报告。
+        /// 导出真实 V3 房间内容的 JSON 与 CSV 静态报告。
         /// </summary>
         [MenuItem("Tools/ProjectExtraction/Export Balance Report")]
         public static void Export()
@@ -225,9 +224,9 @@ namespace MiniGame.Editor
             var measured = new RegionEvaluation
             {
                 regionIndex = plan.Request.RegionIndex, mapId = plan.Request.MapId, bossId = hasBoss ? boss.ID : 0,
-                enemyLevel = plan.Request.EnemyLevel, bossRewardRounds = hasBoss ? reward.Rounds : 0,
-                minimumEquipmentCandidates = hasBoss ? reward.MinEquipmentCandidates * reward.Rounds : 0,
-                minimumCollectionCandidates = hasBoss ? reward.MinCollectionCandidates * reward.Rounds : 0
+                enemyLevel = plan.Request.EnemyLevel, bossRewardItems = hasBoss ? reward.ItemCount : 0,
+                minimumEquipmentItems = hasBoss ? reward.MinEquipmentItems : 0,
+                minimumCollectionItems = hasBoss ? reward.MinCollectionItems : 0
             };
             var groups = new HashSet<string>(StringComparer.Ordinal);
             foreach (RegionSpawnSlotPlan slot in plan.SpawnSlots)
@@ -284,7 +283,7 @@ namespace MiniGame.Editor
                 result.bosses += region.bosses;
                 result.initialEnemyHealth += region.initialEnemyHealth;
                 result.initialKillExperience += region.initialKillExperience;
-                result.bossRewardRounds += region.bossRewardRounds;
+                result.bossRewardItems += region.bossRewardItems;
                 result.chestItems += region.chestItems;
                 result.expectedChestResaleGold += region.expectedChestResaleGold;
                 result.frozenChestResaleGold += region.frozenChestResaleGold;

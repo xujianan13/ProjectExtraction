@@ -732,10 +732,6 @@
         "ID": {
           "min": 1
         },
-        "Rounds": {
-          "min": 1,
-          "max": 20
-        },
         "EquipmentPoolID": {
           "required": true
         },
@@ -756,13 +752,17 @@
           "min": 0,
           "max": 5
         },
-        "MinEquipmentCandidates": {
-          "min": 0,
-          "max": 3
+        "ItemCount": {
+          "min": 1,
+          "max": 20
         },
-        "MinCollectionCandidates": {
+        "MinEquipmentItems": {
           "min": 0,
-          "max": 3
+          "max": 20
+        },
+        "MinCollectionItems": {
+          "min": 0,
+          "max": 20
         }
       }
     },

@@ -372,7 +372,7 @@ namespace MiniGame.Tests
                 Assert.That(Time.frameCount, Is.EqualTo(previousFrame + 1), "必须每个实际 Unity 帧恰好派发一次。");
                 previousFrame = Time.frameCount;
                 Assert.That(run.IsRunning && run.IsReady && !run.World.Faulted && run.ActivePanel == ExpeditionPanelKind.None &&
-                    !run.IsChoosingReward && run.CanAcceptPlayerInput, Is.True, "死亡、奖励、面板或故障暂停不能作为性能样本。");
+                    !run.IsClaimingBossLoot && run.CanAcceptPlayerInput, Is.True, "死亡、奖励、面板或故障暂停不能作为性能样本。");
                 Assert.That(Application.targetFrameRate, Is.EqualTo(60));
                 Assert.That(QualitySettings.vSyncCount, Is.Zero);
                 Assert.That(run.World.TryGetActor(run.Player, out CombatActorSnapshot before), Is.True);

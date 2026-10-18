@@ -3,7 +3,7 @@
   "sources": [
     {
       "path": "config/excel/schema.json",
-      "sha256": "3199faea1b99c71eafbb79ed7cec4ee17d434042637876be5615b683446ebf66"
+      "sha256": "206b89b4341d2f3a003d1c8893bd213e2cd93715719d0b09302d01a65ca062f3"
     },
     {
       "path": "config/excel/CfgAdvancedAffixes.xlsx",
@@ -23,7 +23,7 @@
     },
     {
       "path": "config/excel/CfgBossRewards.xlsx",
-      "sha256": "a8c033e9aabf47458fc7ba5b7b91638ab1ee426b1b7fd7f4fe83a8dc185e331a"
+      "sha256": "232c224600c53b720644bf29859566e02b9b47c98519183acb838a7048300192"
     },
     {
       "path": "config/excel/CfgChestPool.xlsx",
@@ -91,7 +91,7 @@
     },
     {
       "path": "config/excel/CfgGuide.xlsx",
-      "sha256": "3c953c7900ee69b28029a3a38cb131fa753af3eb607e69b51f02612056fbef5d"
+      "sha256": "bceac95f1fedbba1646ac34f68e8e0211b52eedbf4e29e298fd1f4b7e64dac91"
     },
     {
       "path": "config/excel/CfgHomeShop.xlsx",
@@ -147,7 +147,7 @@
     },
     {
       "path": "config/excel/CfgRunPersistence.xlsx",
-      "sha256": "38da90b16d05cfd1a751ebfcc34b64793e3608e347b5f933236a25a44ac9974c"
+      "sha256": "a5b873ac57aa430eb875f942307f76fb05485b7fbc651b158a6272e2fe992d24"
     },
     {
       "path": "config/excel/CfgSkills.xlsx",
@@ -354,7 +354,7 @@
           "type": "int"
         },
         {
-          "name": "Rounds",
+          "name": "ItemCount",
           "type": "int"
         },
         {
@@ -382,11 +382,11 @@
           "type": "int"
         },
         {
-          "name": "MinEquipmentCandidates",
+          "name": "MinEquipmentItems",
           "type": "int"
         },
         {
-          "name": "MinCollectionCandidates",
+          "name": "MinCollectionItems",
           "type": "int"
         },
         {
@@ -2069,11 +2069,11 @@
     },
     {
       "path": "DevProject/Assets/GameResources/Config/Tables/Table_CfgBossRewards.json",
-      "sha256": "ad475670360808f4ece4fea49f362533f9d77c489bbf340b9973b675072d31f0"
+      "sha256": "d44e9c0b05e446b7d2df44b5ab9f8260bb29f1f644a34d0b345d02f279b8ec19"
     },
     {
       "path": "DevProject/Assets/Scripts/GameLogic/Runtime/Gen/CfgBossRewards.Gen.cs",
-      "sha256": "195ffed3bebc7c4971412eae16e00a537fbad412184d2af46021aa5e3e474f55"
+      "sha256": "ef0cf23c7ce398a238bd8d991d9b520ac6d507fcb263ea0b2e838bcd0934f816"
     },
     {
       "path": "DevProject/Assets/GameResources/Config/Tables/Table_CfgChestPool.json",
@@ -2205,7 +2205,7 @@
     },
     {
       "path": "DevProject/Assets/GameResources/Config/Tables/Table_CfgGuide.json",
-      "sha256": "8ac7689828a8cf81218a991635218e11ec3e01b8b4a60995661c2b2050446813"
+      "sha256": "49fd89c699249aaa553ae53b4f098575619f469738e3ac194d610b11d97865da"
     },
     {
       "path": "DevProject/Assets/Scripts/GameLogic/Runtime/Gen/CfgGuide.Gen.cs",
@@ -2317,7 +2317,7 @@
     },
     {
       "path": "DevProject/Assets/GameResources/Config/Tables/Table_CfgRunPersistence.json",
-      "sha256": "b606c35d510ce57f16c93e51dc18d841676fe9d77ea2f997e0642b885d746db3"
+      "sha256": "d58a445682870a000c293dff67056451bc78bb0dd4ad5b5731561f66e4579cf5"
     },
     {
       "path": "DevProject/Assets/Scripts/GameLogic/Runtime/Gen/CfgRunPersistence.Gen.cs",
