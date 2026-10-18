@@ -77,6 +77,11 @@ namespace GameLogic.Tables
         /// MaxSpawnSlots 字段。
         /// </summary>
         public int MaxSpawnSlots;
+
+        /// <summary>
+        /// ChestCount 字段。
+        /// </summary>
+        public int ChestCount;
     }
 
     /// <summary>
@@ -113,7 +118,7 @@ namespace GameLogic.Tables
                 TextAsset asset = lease.Asset;
                 if (asset == null) throw new InvalidOperationException("配置表资源不可用：CfgRooms");
                 var envelope = JsonUtility.FromJson(asset.text, typeof(Envelope)) as Envelope;
-                if (envelope == null || envelope.schemaHash != "c24e8a8ea5f703be43eae550abcff26441bb6820ae8c8192adc710acaaed8766" || envelope.rows == null)
+                if (envelope == null || envelope.schemaHash != "8bbf7b47295c24de627e48e07d16b4932c64c1a1fdefd1cfa98ce9d55ac09f0a" || envelope.rows == null)
                     throw new InvalidOperationException("配置表结构不匹配：CfgRooms");
 
                 var table = new CfgRoomsTable();

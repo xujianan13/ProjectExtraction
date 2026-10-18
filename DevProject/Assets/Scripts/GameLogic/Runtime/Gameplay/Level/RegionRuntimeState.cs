@@ -215,7 +215,7 @@ namespace GameLogic.Gameplay.Level
         }
 
         /// <summary>
-        /// 提交一次宝箱开启，具体物品继续保持冻结身份。
+        /// 提交一次宝箱开启，Boss 奖励箱必须先击败本房 Boss。
         /// </summary>
         /// <param name="chestId">宝箱身份。</param>
         /// <returns>首次开启时为真。</returns>
@@ -223,6 +223,8 @@ namespace GameLogic.Gameplay.Level
         {
             RegionChestState chest = Chests.Find(value => value.Id == chestId);
             if (chest == null || chest.Opened) return false;
+            RegionChestPlan plan = Plan.Chests.Find(value => value.Id == chestId);
+            if (plan.Kind == RegionChestKind.BossReward && !BossDefeated) return false;
             chest.Opened = true;
             return true;
         }
@@ -278,7 +280,8 @@ namespace GameLogic.Gameplay.Level
         /// <returns>首次提交领奖完成时为真。</returns>
         public bool TryCompleteBossRewards()
         {
-            if (!BossDefeated || BossRewardsCompleted) return false;
+            if (!BossDefeated || BossRewardsCompleted || !Chests.Exists(value => value.Opened &&
+                Plan.Chests.Find(plan => plan.Id == value.Id).Kind == RegionChestKind.BossReward)) return false;
             BossRewardsCompleted = true;
             RefreshCompletion();
             return true;
@@ -316,7 +319,8 @@ namespace GameLogic.Gameplay.Level
                 if (chest == null || !ids.Add(chest.Id)) { error = "宝箱运行身份重复或无效。"; return false; }
                 RegionChestPlan definition = Plan.Chests.Find(value => value.Id == chest.Id);
                 if (definition == null || chest.ClaimedItemIds == null || !chest.Opened && chest.ClaimedItemIds.Count != 0 ||
-                    !ValidateClaims(chest.ClaimedItemIds, definition.Items.ConvertAll(value => value.Id)))
+                    !ValidateClaims(chest.ClaimedItemIds, definition.Items.ConvertAll(value => value.Id)) ||
+                    definition.Kind == RegionChestKind.BossReward && (chest.Opened && !BossDefeated || BossRewardsCompleted && !chest.Opened))
                 { error = "宝箱领取状态无效。"; return false; }
             }
             ids.Clear();

@@ -156,24 +156,34 @@ namespace GameLogic.Gameplay.Level
     }
 
     /// <summary>
-    /// 宝箱冻结的内容及位置。
+    /// 宝箱的内容归属类型。
+    /// </summary>
+    public enum RegionChestKind { Loot = 0, BossReward = 1 }
+
+    /// <summary>
+    /// 宝箱冻结的位置和内容来源，Boss 奖励物品由独立选择会话持有。
     /// </summary>
     [Serializable]
     public sealed class RegionChestPlan
     {
         public string Id;
+        /// <summary>
+        /// 普通箱绑定宝箱池候选，Boss 奖励箱绑定本房 Boss 定义。
+        /// </summary>
         public int DefinitionId;
+        public RegionChestKind Kind;
         public string AnchorId;
         public Vector3 Position;
         public List<ProjectItem> Items = new();
 
         /// <summary>
-        /// 创建包含独立物品实例的箱子副本。
+        /// 创建保留内容类型且不共享普通物品实例的箱子副本。
         /// </summary>
         /// <returns>独立箱子计划。</returns>
         public RegionChestPlan Copy() => new RegionChestPlan
         {
-            Id = Id, DefinitionId = DefinitionId, AnchorId = AnchorId, Position = Position, Items = Items.ConvertAll(item => item.Copy())
+            Id = Id, DefinitionId = DefinitionId, Kind = Kind, AnchorId = AnchorId, Position = Position,
+            Items = Items.ConvertAll(item => item.Copy())
         };
     }
 
@@ -308,7 +318,7 @@ namespace GameLogic.Gameplay.Level
             foreach (RegionChestPlan chest in Chests)
             {
                 if (chest == null || string.IsNullOrWhiteSpace(chest.Id) || !ids.Add(chest.Id) || chest.DefinitionId <= 0 ||
-                    !MatchesAnchor(map, chest.AnchorId, RegionAnchorKind.Chest, chest.Position) || chest.Items == null || chest.Items.Count == 0)
+                    !MatchesAnchor(map, chest.AnchorId, RegionAnchorKind.Chest, chest.Position) || !ValidChestContent(chest))
                 { error = "区域宝箱计划无效。"; return false; }
                 foreach (ProjectItem item in chest.Items)
                     if (!ValidItem(item, itemIds)) { error = "区域宝箱物品无效或重复。"; return false; }
@@ -348,7 +358,7 @@ namespace GameLogic.Gameplay.Level
             if (Request.RoomKind == ExpeditionRoomKind.Combat && (SpawnSlots.Count == 0 || Chests.Count != 0 || Npcs.Count != 0) ||
                 Request.RoomKind == ExpeditionRoomKind.Npc && (SpawnSlots.Count != 0 || Chests.Count != 0 || Npcs.Count != 1) ||
                 Request.RoomKind == ExpeditionRoomKind.Chest && (SpawnSlots.Count != 0 || Chests.Count != 1 || Npcs.Count != 0) ||
-                Request.RoomKind == ExpeditionRoomKind.Boss && (SpawnSlots.Count != 1 || Chests.Count != 0 || Npcs.Count != 0))
+                Request.RoomKind == ExpeditionRoomKind.Boss && (SpawnSlots.Count != 1 || Chests.Count != 1 || Npcs.Count != 0))
             { error = "冻结内容与房间类型不匹配。"; return false; }
             var ids = new HashSet<string>(StringComparer.Ordinal);
             var itemIds = new HashSet<string>(StringComparer.Ordinal);
@@ -370,7 +380,7 @@ namespace GameLogic.Gameplay.Level
             foreach (RegionChestPlan chest in Chests)
             {
                 if (chest == null || string.IsNullOrWhiteSpace(chest.Id) || !ids.Add(chest.Id) || chest.DefinitionId <= 0 ||
-                    string.IsNullOrWhiteSpace(chest.AnchorId) || !RegionValueRules.Finite(chest.Position) || chest.Items == null || chest.Items.Count == 0)
+                    string.IsNullOrWhiteSpace(chest.AnchorId) || !RegionValueRules.Finite(chest.Position) || !ValidChestContent(chest))
                 { error = "区域宝箱结构无效。"; return false; }
                 foreach (ProjectItem item in chest.Items)
                     if (!ValidItem(item, itemIds)) { error = "区域宝箱物品无效或重复。"; return false; }
@@ -387,6 +397,16 @@ namespace GameLogic.Gameplay.Level
             }
             return true;
         }
+
+        /// <summary>
+        /// 校验宝箱类型与房型及内容所有权一致，Boss 箱只绑定本房 Boss。
+        /// </summary>
+        /// <param name="chest">冻结的宝箱计划。</param>
+        /// <returns>普通箱含物品且 Boss 箱不重复持有奖励候选时为真。</returns>
+        private bool ValidChestContent(RegionChestPlan chest) => chest.Items != null &&
+            (Request.RoomKind == ExpeditionRoomKind.Boss
+                ? chest.Kind == RegionChestKind.BossReward && chest.DefinitionId == Request.BossDefinitionId && chest.Items.Count == 0
+                : chest.Kind == RegionChestKind.Loot && chest.Items.Count > 0);
 
         /// <summary>
         /// 检查房间类型与可选 Boss 身份一致。

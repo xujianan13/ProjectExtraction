@@ -75,12 +75,12 @@ namespace GameLogic.Gameplay.Expedition
             foreach (RegionChestPlan chest in region.Plan.Chests)
             {
                 RegionChestState state = region.Chests.Find(value => value.Id == chest.Id);
-                if (!state.Opened)
+                if (chest.Kind == RegionChestKind.BossReward ? region.BossDefeated && !region.BossRewardsCompleted : !state.Opened)
                     AddInteractionTarget(new InteractionTarget { Id = chest.Id, Kind = InteractionTargetKind.Chest }, position, chest.Position, radius);
             }
             foreach (RegionNpcPlan npc in region.Plan.Npcs)
                 AddInteractionTarget(new InteractionTarget { Id = npc.Id, Kind = InteractionTargetKind.Merchant }, position, npc.Position, radius);
-            if (region.ExitEnabled && !IsFinalRoom)
+            if (region.ExitEnabled)
                 AddInteractionTarget(new InteractionTarget { Id = RunId + ":exit:" + region.Plan.Request.RegionId, Kind = InteractionTargetKind.Extraction },
                     position, region.Plan.ExitPosition, radius);
             interactionTargets.Sort((left, right) => left.DistanceSquared != right.DistanceSquared ?
@@ -120,7 +120,7 @@ namespace GameLogic.Gameplay.Expedition
                     break;
                 case InteractionTargetKind.Chest:
                     InteractionLabel = "触碰宝箱";
-                    InteractionDescription = "触碰后自动领取宝箱物品并展示收获";
+                    InteractionDescription = CurrentRoomKind == ExpeditionRoomKind.Boss ? "触碰后选择 Boss 战利品" : "触碰后自动领取宝箱物品并展示收获";
                     break;
                 case InteractionTargetKind.Merchant:
                     InteractionLabel = "触碰商人";
@@ -128,7 +128,7 @@ namespace GameLogic.Gameplay.Expedition
                     break;
                 case InteractionTargetKind.Extraction:
                     InteractionLabel = "触碰房间出口";
-                    InteractionDescription = "触碰后选择前进，关闭后离开再靠近可重开";
+                    InteractionDescription = IsFinalRoom ? "触碰后确认带回结束，关闭后离开再靠近可重开" : "触碰后选择前进，关闭后离开再靠近可重开";
                     break;
             }
         }
@@ -186,6 +186,7 @@ namespace GameLogic.Gameplay.Expedition
             RegionChestPlan chest = CurrentRoom.Plan.Chests.Find(value => value.Id == target.Id);
             RegionChestState state = CurrentRoom.Chests.Find(value => value.Id == target.Id);
             if (chest == null || state == null) return;
+            if (chest.Kind == RegionChestKind.BossReward) { TryOpenBossChest(chest.Id); return; }
             if (!state.Opened && !CurrentRoom.TryOpenChest(chest.Id)) return;
             var received = new List<ProjectItem>();
             foreach (ProjectItem item in chest.Items)

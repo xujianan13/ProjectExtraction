@@ -85,7 +85,7 @@ namespace GameLogic.Gameplay.Expedition
         /// </summary>
         private bool CanAdvance => CanInteract && !session.RunSaveBlocked;
         public bool CanAcceptPlayerInput => CanInteract;
-        public string Message { get; private set; } = "完成当前房间后向上前进，击败最终 Boss 并领取奖励后带回物品。";
+        public string Message { get; private set; } = "完成当前房间后向上前进，击败最终 Boss 后开启宝箱，再前往出口确认带回。";
         public IReadOnlyList<ProjectItem> Inventory => inventory.ConvertAll(item => item.Copy());
         public IReadOnlyList<ProjectItem> EntryEquipment => entryEquipment.ConvertAll(item => item.Copy());
         public IReadOnlyList<ExpeditionDrop> Drops => drops;
@@ -288,21 +288,12 @@ namespace GameLogic.Gameplay.Expedition
             }
             if (!committing && IsRunning && progressionChanged)
             {
-                SaveMutation(CurrentRoom.ExitEnabled ? "房间已完成，前往上方出口。" : "击杀收益已确认。");
+                SaveMutation(CurrentRoom.ExitEnabled ? "房间已完成，前往上方出口。" :
+                    CurrentRoom.BossDefeated ? "Boss 已击败，请触碰宝箱领取战利品。" : "击杀收益已确认。");
                 return false;
             }
             Changed?.Invoke();
             return CanAdvance;
-        }
-
-        /// <summary>
-        /// 先冻结完整终局事实，随后由统一流程保存并结算。
-        /// </summary>
-        /// <param name="exitKind">已经确认的离场类型。</param>
-        private void EndRun(ProjectRunExitKind exitKind)
-        {
-            if (ProjectServices.Coordinator.TryEndRun(this, exitKind)) return;
-            HandleFault("终局未被流程接受，请重试恢复本关。");
         }
 
         /// <summary>
@@ -319,14 +310,14 @@ namespace GameLogic.Gameplay.Expedition
         }
 
         /// <summary>
-        /// 提交触屏移动轴，暂停或非法输入时清空。
+        /// 提交触屏移动方向，非零输入使用角色统一移速，暂停或非法输入时清空。
         /// </summary>
-        /// <param name="axis">归一化移动轴。</param>
+        /// <param name="axis">触屏方向，幅度不影响移动速度，零向量表示停止。</param>
         public void SetTouchMove(Vector2 axis)
         {
             if (axis == Vector2.zero || !CanInteract || float.IsNaN(axis.x) || float.IsInfinity(axis.x) || float.IsNaN(axis.y) || float.IsInfinity(axis.y))
             { touchMove = Vector2.zero; return; }
-            touchMove = Vector2.ClampMagnitude(axis, 1);
+            touchMove = axis.normalized;
         }
 
         /// <summary>

@@ -24,7 +24,7 @@ namespace GameLogic.Gameplay.Level
         {
             plan = null;
             error = null;
-            if (request == null || map == null || !map.TryValidate(out error) || !ValidateContent(content, out error)) return false;
+            if (request == null || map == null || !map.TryValidate(out error) || !ValidateContent(content, request.RoomKind, out error)) return false;
             if (string.IsNullOrWhiteSpace(request.RunId) || request.RegionId <= 0 || request.RegionIndex < 0 || request.LevelId <= 0 ||
                 request.LootLevel <= 0 || request.EnemyLevel <= 0 || !RegionPlan.ValidRoomRequest(request) ||
                 string.IsNullOrWhiteSpace(request.ConfigVersion) || request.MapId != map.MapId || request.MapVersion != map.Version)
@@ -56,8 +56,14 @@ namespace GameLogic.Gameplay.Level
             string prefix = request.RunId + ":region:" + request.RegionId;
             for (int index = 0; index < content.ChestCount; index++)
             {
+                if (request.RoomKind == ExpeditionRoomKind.Boss)
+                {
+                    generated.Chests.Add(new RegionChestPlan
+                    { Id = prefix + ":chest:" + index, DefinitionId = request.BossDefinitionId, Kind = RegionChestKind.BossReward });
+                    continue;
+                }
                 RegionChestCandidate selected = Pick(chestCandidates, value => value.Weight, chestRandom);
-                var chest = new RegionChestPlan { Id = prefix + ":chest:" + index, DefinitionId = selected.Id };
+                var chest = new RegionChestPlan { Id = prefix + ":chest:" + index, DefinitionId = selected.Id, Kind = RegionChestKind.Loot };
                 for (int itemIndex = 0; itemIndex < selected.ItemCount; itemIndex++)
                 {
                     ProjectItem item = content.ItemFactory(chestRandom, request.LootLevel, selected.LootPoolId);
@@ -162,9 +168,10 @@ namespace GameLogic.Gameplay.Level
         /// 检查全部内容候选，配置错误不能被合法空池掩盖。
         /// </summary>
         /// <param name="content">区域内容。</param>
+        /// <param name="roomKind">决定宝箱物品归属的房间类型。</param>
         /// <param name="error">失败原因。</param>
         /// <returns>规则及全部候选有效时为真。</returns>
-        private static bool ValidateContent(RegionContentDefinition content, out string error)
+        private static bool ValidateContent(RegionContentDefinition content, ExpeditionRoomKind roomKind, out string error)
         {
             error = null;
             if (content == null || content.MonsterGroupCount < 0 || content.EliteCount < 0 || content.ChestCount < 0 || content.NpcCount < 0 ||
@@ -174,9 +181,10 @@ namespace GameLogic.Gameplay.Level
                 content.MonsterEncounters == null || content.EliteCandidates == null || content.ChestCandidates == null || content.NpcCandidates == null ||
                 content.MonsterGroupCount > 0 && string.IsNullOrWhiteSpace(content.MonsterAnchorTag) ||
                 content.EliteCount > 0 && string.IsNullOrWhiteSpace(content.EliteAnchorTag) ||
-                content.ChestCount > 0 && (string.IsNullOrWhiteSpace(content.ChestAnchorTag) || content.ChestCandidates.Count == 0) ||
+                content.ChestCount > 0 && (string.IsNullOrWhiteSpace(content.ChestAnchorTag) ||
+                    roomKind != ExpeditionRoomKind.Boss && content.ChestCandidates.Count == 0) ||
                 content.NpcCount > 0 && (string.IsNullOrWhiteSpace(content.NpcAnchorTag) || content.NpcCandidates.Count == 0) ||
-                (content.ChestCount > 0 || content.NpcCount > 0) && content.ItemFactory == null)
+                (content.ChestCount > 0 && roomKind != ExpeditionRoomKind.Boss || content.NpcCount > 0) && content.ItemFactory == null)
             { error = "区域内容规则无效。"; return false; }
             var ids = new HashSet<int>();
             foreach (RegionEncounterCandidate encounter in content.MonsterEncounters)

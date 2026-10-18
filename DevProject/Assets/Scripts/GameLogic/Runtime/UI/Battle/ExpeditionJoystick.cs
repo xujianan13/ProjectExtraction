@@ -55,7 +55,7 @@ namespace GameLogic.UI.Battle
         }
 
         /// <summary>
-        /// 将触点相对圆形拖动区域转换为带死区的归一化方向。
+        /// 将触点转换为带死区的单位移动方向，摇柄仍按实际拖动幅度显示。
         /// </summary>
         /// <param name="eventData">拖动事件。</param>
         public void OnDrag(PointerEventData eventData)
@@ -82,7 +82,7 @@ namespace GameLogic.UI.Battle
                 float handleRadius = Mathf.Max(handle.rect.width, handle.rect.height) * 0.5f;
                 handle.anchoredPosition = axis * Mathf.Max(0f, radius - handleRadius);
             }
-            changed?.Invoke(axis);
+            changed?.Invoke(axis == Vector2.zero ? Vector2.zero : offset.normalized);
         }
 
         /// <summary>

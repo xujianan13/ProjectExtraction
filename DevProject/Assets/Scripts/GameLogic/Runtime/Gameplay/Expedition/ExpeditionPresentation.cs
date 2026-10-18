@@ -202,7 +202,7 @@ namespace GameLogic.Gameplay.Expedition
                 ambientAnimations.Clear();
                 foreach (GameObject instance in regionObjects.Values) ReleaseObject(instance);
                 regionObjects.Clear();
-                    presentedRegionId = plan.Request.RegionId;
+                presentedRegionId = plan.Request.RegionId;
                 foreach (RegionChestPlan chest in plan.Chests)
                 {
                     GameObject instance = CreateModel("Chest_" + chest.Id, assets.Chest);
@@ -223,8 +223,11 @@ namespace GameLogic.Gameplay.Expedition
             {
                 RegionChestState state = region.Chests.Find(value => value.Id == chest.Id);
                 GameObject instance = regionObjects[chest.Id];
-                ApplyTint(instance, state.Opened ? new Color(0.45f, 0.5f, 0.5f) : new Color(1f, 0.8f, 0.3f));
-                instance.transform.localScale = Vector3.one * (state.Opened ? 0.7f : 1f);
+                bool bossReward = chest.Kind == RegionChestKind.BossReward;
+                instance.SetActive(!bossReward || region.BossDefeated);
+                bool received = bossReward ? region.BossRewardsCompleted : state.Opened;
+                ApplyTint(instance, received ? new Color(0.45f, 0.5f, 0.5f) : new Color(1f, 0.8f, 0.3f));
+                instance.transform.localScale = Vector3.one * (received ? 0.7f : 1f);
             }
             foreach (RegionNpcPlan npc in plan.Npcs)
             {

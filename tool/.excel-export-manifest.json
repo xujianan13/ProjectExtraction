@@ -3,7 +3,7 @@
   "sources": [
     {
       "path": "config/excel/schema.json",
-      "sha256": "c0e4543bdca7ae0281d0e7aeeaec9e8f72af31b9ca3b93a503dce7e05446ca97"
+      "sha256": "3199faea1b99c71eafbb79ed7cec4ee17d434042637876be5615b683446ebf66"
     },
     {
       "path": "config/excel/CfgAdvancedAffixes.xlsx",
@@ -91,7 +91,7 @@
     },
     {
       "path": "config/excel/CfgGuide.xlsx",
-      "sha256": "3e3f4c50a38c308a66ac337ca893e885c9a1fc0880e373199a654827440a5d73"
+      "sha256": "3c953c7900ee69b28029a3a38cb131fa753af3eb607e69b51f02612056fbef5d"
     },
     {
       "path": "config/excel/CfgHomeShop.xlsx",
@@ -143,11 +143,11 @@
     },
     {
       "path": "config/excel/CfgRooms.xlsx",
-      "sha256": "8f000ae86335c67e0f770438e4827389bd93fcdf46667dc28d73c0488f49cde4"
+      "sha256": "1e8c548d643f5ac346ce283ba2084270a827d8f21d15ca9d95451e0aff40db9e"
     },
     {
       "path": "config/excel/CfgRunPersistence.xlsx",
-      "sha256": "4a26f0cbc3a35269430f61b25fe54a49fa1023dfea215d6e70123704a2d17d4a"
+      "sha256": "38da90b16d05cfd1a751ebfcc34b64793e3608e347b5f933236a25a44ac9974c"
     },
     {
       "path": "config/excel/CfgSkills.xlsx",
@@ -1912,6 +1912,10 @@
         {
           "name": "MaxSpawnSlots",
           "type": "int"
+        },
+        {
+          "name": "ChestCount",
+          "type": "int"
         }
       ]
     },
@@ -2201,7 +2205,7 @@
     },
     {
       "path": "DevProject/Assets/GameResources/Config/Tables/Table_CfgGuide.json",
-      "sha256": "fe6c9ad4dc0968b2db78469fe806b7ab8eb52b229ca81ba04dd80c1cebc3e57e"
+      "sha256": "8ac7689828a8cf81218a991635218e11ec3e01b8b4a60995661c2b2050446813"
     },
     {
       "path": "DevProject/Assets/Scripts/GameLogic/Runtime/Gen/CfgGuide.Gen.cs",
@@ -2305,15 +2309,15 @@
     },
     {
       "path": "DevProject/Assets/GameResources/Config/Tables/Table_CfgRooms.json",
-      "sha256": "0c33509177630ad99fdd0aa98b92e6b9a38e6ad81cfe10e1d169ad0c33456a25"
+      "sha256": "c8d19d280ce8b73c56fe7ea2ce2d1d11726cbec73844b9ac3d6b04812e2f273a"
     },
     {
       "path": "DevProject/Assets/Scripts/GameLogic/Runtime/Gen/CfgRooms.Gen.cs",
-      "sha256": "ea43be7c8bac98472b653ac02be8d627538d0a0e69fc6152a005f0bbcd002788"
+      "sha256": "ec34c25562b00f080ae80cd87fbef8f3cf88d730be292e04ee6498d4f4664a44"
     },
     {
       "path": "DevProject/Assets/GameResources/Config/Tables/Table_CfgRunPersistence.json",
-      "sha256": "c8cf988f6b10b4154d96f9fa0945516b248baab3b032e01f0893ade34a8f7c1c"
+      "sha256": "b606c35d510ce57f16c93e51dc18d841676fe9d77ea2f997e0642b885d746db3"
     },
     {
       "path": "DevProject/Assets/Scripts/GameLogic/Runtime/Gen/CfgRunPersistence.Gen.cs",

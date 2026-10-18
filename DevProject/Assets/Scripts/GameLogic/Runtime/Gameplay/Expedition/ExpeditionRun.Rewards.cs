@@ -14,11 +14,12 @@ namespace GameLogic.Gameplay.Expedition
         private PersistentRandom bossRewardRandom;
         private readonly Queue<int> pendingBossRegions = new();
         private bool rewardOffersVisible;
+        private bool bossChestInteracting;
 
         public event Action BossChoiceChanged;
-        public BossLootChoiceSnapshot PendingBossChoice => rewardOffersVisible && !IsSavingRun ? bossChoices.Active : null;
-        public bool IsChoosingBoss => bossChoices.HasPending;
-        public bool IsChoosingReward => bossChoices.HasPending || pendingBossRegions.Count > 0;
+        public BossLootChoiceSnapshot PendingBossChoice => bossChestInteracting && rewardOffersVisible && !IsSavingRun ? bossChoices.Active : null;
+        public bool IsChoosingBoss => bossChestInteracting && bossChoices.HasPending;
+        public bool IsChoosingReward => bossChestInteracting && (bossChoices.HasPending || pendingBossRegions.Count > 0);
         public string RewardMessage { get; private set; } = string.Empty;
         private bool CanAcceptRewardInput => IsRunning && IsReady && !paused && ActivePanel == ExpeditionPanelKind.None &&
             !disposed && !stopped && !IsSavingRun && !GameEntry.IsInBackground && !session.HasUncommittedSave &&
@@ -41,6 +42,40 @@ namespace GameLogic.Gameplay.Expedition
         private void QueueBossReward(int regionId)
         {
             if (!pendingBossRegions.Contains(regionId)) pendingBossRegions.Enqueue(regionId);
+            foreach (RegionChestPlan chest in CurrentRoom.Plan.Chests)
+                if (chest.Kind == RegionChestKind.BossReward) touchingTargets.Add(chest.Id);
+        }
+
+        /// <summary>
+        /// 触碰已出现的 Boss 宝箱时开启奖励会话，首次候选与开箱事实一起保存。
+        /// </summary>
+        /// <param name="chestId">本房 Boss 宝箱的稳定身份。</param>
+        /// <returns>已开启或恢复宝箱交互时为真。</returns>
+        private bool TryOpenBossChest(string chestId)
+        {
+            if (!CanInteract || !CanManagePanel || !CurrentRoom.BossDefeated || CurrentRoom.BossRewardsCompleted) return false;
+            RegionChestPlan chest = CurrentRoom.Plan.Chests.Find(value => value.Id == chestId && value.Kind == RegionChestKind.BossReward);
+            if (chest == null || !World.TryGetActor(Player, out var player) ||
+                (player.Position - chest.Position).sqrMagnitude > CurrentRoom.Plan.InteractionRadius * CurrentRoom.Plan.InteractionRadius) return false;
+            RegionChestState state = CurrentRoom.Chests.Find(value => value.Id == chestId);
+            if (!state.Opened && !CurrentRoom.TryOpenChest(chestId)) return false;
+            bossChestInteracting = true;
+            ClearPlayerInput();
+            PublishRewardState();
+            return true;
+        }
+
+        /// <summary>
+        /// 关闭 Boss 宝箱窗口并保留冻结候选，离开触碰范围后可再次领取。
+        /// </summary>
+        public void CloseBossLoot()
+        {
+            if (!bossChestInteracting || IsSavingRun) return;
+            bossChestInteracting = false;
+            rewardOffersVisible = false;
+            ClearPlayerInput();
+            BossChoiceChanged?.Invoke();
+            Changed?.Invoke();
         }
 
         /// <summary>
@@ -49,6 +84,7 @@ namespace GameLogic.Gameplay.Expedition
         /// <returns>奖励或保存门禁已接管当前帧时为真。</returns>
         private bool TryBeginPendingReward()
         {
+            if (!bossChestInteracting) return false;
             if (IsSavingRun) return true;
             if (!CanAcceptRewardInput) return IsChoosingReward;
             if (bossChoices.HasPending && !bossChoices.NeedsCandidates) return true;
@@ -76,7 +112,7 @@ namespace GameLogic.Gameplay.Expedition
         }
 
         /// <summary>
-        /// 领取冻结的完整物品，同次保存本轮领取结果，最终全领奖后自动通关。
+        /// 领取冻结的完整物品，同次保存本轮领取结果，全部领取后解锁房间出口。
         /// </summary>
         /// <param name="offerId">当前 Boss 候选身份。</param>
         /// <param name="revision">候选代次。</param>
@@ -84,7 +120,7 @@ namespace GameLogic.Gameplay.Expedition
         /// <returns>本轮首次领取并开始持久提交时为真。</returns>
         public bool TryChooseBoss(string offerId, int revision, int index)
         {
-            if (!CanAcceptRewardInput || !rewardOffersVisible || pendingBossRegions.Count == 0 ||
+            if (!bossChestInteracting || !CanAcceptRewardInput || !rewardOffersVisible || pendingBossRegions.Count == 0 ||
                 statistics.BossLootRounds == int.MaxValue ||
                 pendingBossRegions.Peek() != CurrentRoom.Plan.Request.RegionId || !CurrentRoom.BossDefeated ||
                 CurrentRoom.BossRewardsCompleted || !bossChoices.TrySelect(offerId, revision, index, ApplyBossLoot)) return false;
@@ -99,7 +135,7 @@ namespace GameLogic.Gameplay.Expedition
                 }
                 pendingBossRegions.Dequeue();
             }
-            SaveRewardMutation(complete ? "Boss 奖励已全部领取，正在确认通关。" : "本轮战利品已领取。", complete && IsFinalRoom);
+            SaveRewardMutation(complete ? "Boss 奖励已全部领取，请前往出口确认带回。" : "本轮战利品已领取。");
             return true;
         }
 
@@ -120,8 +156,7 @@ namespace GameLogic.Gameplay.Expedition
         /// 同次冻结奖励相关完整事实，持久确认前不暴露新候选。
         /// </summary>
         /// <param name="message">保存后显示的奖励反馈。</param>
-        /// <param name="finishRun">是否在本次确认后结束最终区域。</param>
-        private void SaveRewardMutation(string message, bool finishRun = false)
+        private void SaveRewardMutation(string message)
         {
             rewardOffersVisible = false;
             ClearPlayerInput();
@@ -129,8 +164,7 @@ namespace GameLogic.Gameplay.Expedition
             SaveMutation(message, () =>
             {
                 if (disposed || stopped || !IsRunning) return;
-                if (finishRun) EndRun(ProjectRunExitKind.Completed);
-                else PublishRewardState();
+                if (CurrentRoom.BossRewardsCompleted) bossChestInteracting = false;
             });
         }
 
@@ -139,15 +173,10 @@ namespace GameLogic.Gameplay.Expedition
         /// </summary>
         private void PublishRewardState()
         {
-            rewardOffersVisible = IsRunning && !IsSavingRun && !IsAwaitingDeathChoice && !disposed && !stopped;
+            rewardOffersVisible = bossChestInteracting && IsRunning && !IsSavingRun && !IsAwaitingDeathChoice && !disposed && !stopped;
             if (rewardOffersVisible && !paused && ActivePanel == ExpeditionPanelKind.None &&
                 ProjectServices.Coordinator.Phase == ProjectRunPhase.Playing)
             {
-                if (IsFinalRoom && CurrentRoom.BossRewardsCompleted && !IsChoosingReward)
-                {
-                    EndRun(ProjectRunExitKind.Completed);
-                    return;
-                }
                 if ((!bossChoices.HasPending || bossChoices.NeedsCandidates) && TryBeginPendingReward()) return;
             }
             BossChoiceChanged?.Invoke();
@@ -155,7 +184,7 @@ namespace GameLogic.Gameplay.Expedition
         }
 
         /// <summary>
-        /// 在协调器进入正式探索阶段后续接已持久确认的奖励或最终通关。
+        /// 在协调器进入正式探索阶段后刷新奖励状态，恢复时等待玩家再次触碰宝箱。
         /// </summary>
         internal void ResumePendingRewards() => PublishRewardState();
 
@@ -207,14 +236,20 @@ namespace GameLogic.Gameplay.Expedition
             }
             if (snapshot.Statistics.BossLootRounds != selectedBossRounds) return false;
             foreach (ExpeditionRoomCheckpoint region in snapshot.Rooms)
+            {
                 if (region.BossRewardsCompleted ? !batchRegions.Contains(region.Plan.Request.RegionId) :
                     region.BossDefeated && !pendingRegions.Contains(region.Plan.Request.RegionId)) return false;
+                foreach (RegionChestPlan chest in region.Plan.Chests)
+                    if (chest.Kind == RegionChestKind.BossReward &&
+                        region.Chests.Find(value => value.Id == chest.Id).Opened != batchRegions.Contains(region.Plan.Request.RegionId)) return false;
+            }
             if (restoredBoss.HasPending && (snapshot.PendingBossRegions.Count == 0 ||
                 snapshot.BossLoot.ActiveBatchId != BossBatchId(snapshot.PendingBossRegions[0]))) return false;
             bossChoices = restoredBoss;
             bossRewardRandom = restoredRandom;
             pendingBossRegions.Clear();
             foreach (int regionId in snapshot.PendingBossRegions) pendingBossRegions.Enqueue(regionId);
+            bossChestInteracting = false;
             rewardOffersVisible = false;
             error = null;
             return true;

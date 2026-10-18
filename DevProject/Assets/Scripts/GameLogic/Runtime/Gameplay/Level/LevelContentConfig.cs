@@ -139,6 +139,8 @@ namespace GameLogic.Gameplay.Level
                     !Positive(room.InteractionRadius) || !Positive(room.ReachabilityGridSpacing) || room.ReachabilityMaxCells <= 0 || room.MaxSpawnSlots <= 0)
                     return Fail("房间配置无效：" + room.ID, out error);
                 ExpeditionRoomKind kind = (ExpeditionRoomKind)room.Kind;
+                int expectedChests = kind == ExpeditionRoomKind.Chest || kind == ExpeditionRoomKind.Boss ? 1 : 0;
+                if (room.ChestCount != expectedChests) return Fail("房间宝箱数量与类型不匹配：" + room.ID, out error);
                 if (kind == ExpeditionRoomKind.Combat && (GameTables.CfgEncounters.GetById(room.EncounterID) == null || room.BossID != 0) ||
                     kind == ExpeditionRoomKind.Boss && (GameTables.CfgBosses.GetById(room.BossID) == null || room.EncounterID != 0) ||
                     kind != ExpeditionRoomKind.Combat && kind != ExpeditionRoomKind.Boss && (room.EncounterID != 0 || room.BossID != 0))
@@ -273,7 +275,7 @@ namespace GameLogic.Gameplay.Level
             var result = new RegionContentDefinition
             {
                 MonsterGroupCount = request.RoomKind == ExpeditionRoomKind.Combat ? 1 : 0,
-                ChestCount = request.RoomKind == ExpeditionRoomKind.Chest ? 1 : 0,
+                ChestCount = row.ChestCount,
                 NpcCount = request.RoomKind == ExpeditionRoomKind.Npc ? 1 : 0,
                 MonsterAnchorTag = "monster", ChestAnchorTag = "chest", NpcAnchorTag = "npc",
                 BossRadius = request.RoomKind == ExpeditionRoomKind.Boss ? (float)GameTables.CfgEnemies.GetById(request.BossEnemyId).Radius : 0f,

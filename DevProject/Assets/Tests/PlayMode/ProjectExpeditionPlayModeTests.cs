@@ -415,7 +415,7 @@ namespace MiniGame.Tests
         }
 
         /// <summary>
-        /// 沿中间房出口推进，在最终 Boss 全部领奖后验证自动通关。
+        /// 沿中间房出口推进，在最终 Boss 宝箱全部领奖后验证出口确认通关。
         /// </summary>
         /// <param name="run">本局运行对象。</param>
         /// <returns>等待结算结果的任务。</returns>

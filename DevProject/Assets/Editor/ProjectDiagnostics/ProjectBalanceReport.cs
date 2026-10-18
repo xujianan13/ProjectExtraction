@@ -242,6 +242,7 @@ namespace MiniGame.Editor
             measured.monsterGroups = groups.Count;
             foreach (RegionChestPlan chest in plan.Chests)
             {
+                if (chest.Kind == RegionChestKind.BossReward) continue;
                 CfgChestPoolRow row = GameTables.CfgChestPool.GetById(chest.DefinitionId);
                 if (!pools.TryGetValue(row.LootPoolID, out LootPoolEvaluation pool)) { error = "宝箱物品池估值缺失：" + row.LootPoolID; return false; }
                 measured.chestItems += chest.Items.Count;

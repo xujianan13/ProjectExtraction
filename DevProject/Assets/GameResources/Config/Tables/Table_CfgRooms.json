@@ -1,5 +1,5 @@
 {
-  "schemaHash": "c24e8a8ea5f703be43eae550abcff26441bb6820ae8c8192adc710acaaed8766",
+  "schemaHash": "8bbf7b47295c24de627e48e07d16b4932c64c1a1fdefd1cfa98ce9d55ac09f0a",
   "rows": [
     {
       "ID": 1,
@@ -14,7 +14,8 @@
       "InteractionRadius": 2.5,
       "ReachabilityGridSpacing": 1,
       "ReachabilityMaxCells": 10000,
-      "MaxSpawnSlots": 64
+      "MaxSpawnSlots": 64,
+      "ChestCount": 0
     },
     {
       "ID": 2,
@@ -29,7 +30,8 @@
       "InteractionRadius": 2.5,
       "ReachabilityGridSpacing": 1,
       "ReachabilityMaxCells": 10000,
-      "MaxSpawnSlots": 64
+      "MaxSpawnSlots": 64,
+      "ChestCount": 1
     },
     {
       "ID": 3,
@@ -44,7 +46,8 @@
       "InteractionRadius": 2.5,
       "ReachabilityGridSpacing": 1,
       "ReachabilityMaxCells": 10000,
-      "MaxSpawnSlots": 64
+      "MaxSpawnSlots": 64,
+      "ChestCount": 0
     },
     {
       "ID": 4,
@@ -59,7 +62,8 @@
       "InteractionRadius": 2.5,
       "ReachabilityGridSpacing": 1,
       "ReachabilityMaxCells": 10000,
-      "MaxSpawnSlots": 64
+      "MaxSpawnSlots": 64,
+      "ChestCount": 0
     },
     {
       "ID": 5,
@@ -74,7 +78,8 @@
       "InteractionRadius": 2.5,
       "ReachabilityGridSpacing": 1,
       "ReachabilityMaxCells": 10000,
-      "MaxSpawnSlots": 64
+      "MaxSpawnSlots": 64,
+      "ChestCount": 0
     },
     {
       "ID": 6,
@@ -89,7 +94,8 @@
       "InteractionRadius": 2.5,
       "ReachabilityGridSpacing": 1,
       "ReachabilityMaxCells": 10000,
-      "MaxSpawnSlots": 64
+      "MaxSpawnSlots": 64,
+      "ChestCount": 1
     }
   ]
 }

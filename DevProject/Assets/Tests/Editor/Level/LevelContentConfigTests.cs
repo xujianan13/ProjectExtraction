@@ -65,8 +65,22 @@ namespace GameLogic.Tests.Editor.Level
             RegionContentDefinition final = LevelContentConfig.CreateRegionContent(requests[requests.Count - 1]);
             Assert.That(normal.MonsterGroupCount, Is.EqualTo(1));
             Assert.That(normal.ChestCount + normal.NpcCount, Is.Zero);
-            Assert.That(final.MonsterGroupCount + final.ChestCount + final.NpcCount, Is.Zero);
+            Assert.That(final.MonsterGroupCount + final.NpcCount, Is.Zero);
+            Assert.That(final.ChestCount, Is.EqualTo(1));
+            Assert.That(final.ChestCandidates, Is.Empty);
             Assert.That(final.BossRadius, Is.GreaterThan(0f));
+        }
+
+        /// <summary>
+        /// Boss 箱数量缺失必须拒绝配置，不能在代码中补入默认箱子。
+        /// </summary>
+        [Test]
+        public void RejectsMissingBossChestCount()
+        {
+            foreach (CfgRoomsRow room in GameTables.CfgRooms.GetAll())
+                if (room.Kind == (int)ExpeditionRoomKind.Boss) room.ChestCount = 0;
+            Assert.That(LevelContentConfig.Validate(out string error), Is.False);
+            Assert.That(error, Does.Contain("宝箱数量"));
         }
 
         /// <summary>

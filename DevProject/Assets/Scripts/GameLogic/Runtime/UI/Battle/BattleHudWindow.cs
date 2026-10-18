@@ -127,9 +127,12 @@ namespace GameLogic.UI.Battle
             int remaining = 0;
             foreach (RegionSpawnSlotState slot in run.CurrentRoom.Slots)
                 if (slot.Phase == RegionSpawnPhase.InitialSpawn || slot.Phase == RegionSpawnPhase.Alive) remaining++;
-            string objective = run.CurrentRoomKind == ExpeditionRoomKind.Combat || run.CurrentRoomKind == ExpeditionRoomKind.Boss ?
-                "剩余目标 " + remaining : run.CurrentRoomKind == ExpeditionRoomKind.Chest ?
-                "靠近宝箱自动领取，完成后前往上方出口" : "靠近商人打开商店，前往上方出口离开";
+            string objective = run.CurrentRoomKind == ExpeditionRoomKind.Boss ?
+                !run.CurrentRoom.BossDefeated ? "击败最终 Boss · 剩余目标 " + remaining :
+                !run.CurrentRoom.BossRewardsCompleted ? "触碰 Boss 宝箱，领取战利品" : "奖励已领取，前往上方出口确认带回" :
+                run.CurrentRoomKind == ExpeditionRoomKind.Combat ? "剩余目标 " + remaining :
+                run.CurrentRoomKind == ExpeditionRoomKind.Chest ? "靠近宝箱自动领取，完成后前往上方出口" :
+                "靠近商人打开商店，前往上方出口离开";
             hint.text = objective + "\n" + (run.CurrentRoom.ExitEnabled ? "↑ 上方出口已开放" : "↑ 完成本房目标后开放出口") + "\n" + run.Message;
             run.World.GetSkillsSnapshot(run.Player, skillSnapshots);
             skillSummary.Clear();

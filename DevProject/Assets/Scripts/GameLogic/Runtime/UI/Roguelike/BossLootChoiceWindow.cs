@@ -19,6 +19,7 @@ namespace GameLogic.UI.Roguelike
         private UnityEngine.UI.Text title;
         private UnityEngine.UI.Text message;
         private UnityEngine.UI.Button claim;
+        private UnityEngine.UI.Button close;
         private RectTransform candidates;
         private RectTransform details;
         private string displayedOfferId;
@@ -26,7 +27,7 @@ namespace GameLogic.UI.Roguelike
         private bool busy;
 
         /// <summary>
-        /// 在安全区创建轮次说明、候选列表、可滚动详情和唯一领取按钮。
+        /// 在安全区创建轮次说明、关闭入口、候选列表、可滚动详情和领取按钮。
         /// </summary>
         protected override void BindComponents()
         {
@@ -37,9 +38,16 @@ namespace GameLogic.UI.Roguelike
             panel.offsetMin = panel.offsetMax = Vector2.zero;
             RectTransform layout = ProjectUiFactory.Vertical(panel, "BossLootLayout", 8f);
             ProjectUiFactory.Stretch(layout, 14f);
-            title = ProjectUiFactory.Label(layout, "选择 Boss 战利品", 34, TextAnchor.MiddleCenter, Color.white);
-            ProjectUiFactory.Height(title.rectTransform, 64f);
-            UnityEngine.UI.Text guidance = ProjectUiFactory.Label(layout, "每轮领取一件。点选候选查看完整属性、词条与装备对比。",
+            RectTransform header = ProjectUiFactory.Horizontal(layout, "BossLootHeader", 8f);
+            ProjectUiFactory.Height(header, 64f);
+            title = ProjectUiFactory.Label(header, "选择 Boss 战利品", 34, TextAnchor.MiddleLeft, Color.white);
+            title.gameObject.AddComponent<UnityEngine.UI.LayoutElement>().flexibleWidth = 1f;
+            title.resizeTextForBestFit = true;
+            title.resizeTextMinSize = 22;
+            title.resizeTextMaxSize = 34;
+            close = ProjectUiFactory.ActionButton(header, "关闭", CloseRewards);
+            close.gameObject.AddComponent<UnityEngine.UI.LayoutElement>().preferredWidth = 110f;
+            UnityEngine.UI.Text guidance = ProjectUiFactory.Label(layout, "每轮领取一件。关闭后离开宝箱再靠近可继续；领完后前往出口确认带回。",
                 22, TextAnchor.MiddleLeft, new Color(0.82f, 0.91f, 0.95f));
             ProjectUiFactory.Height(guidance.rectTransform, 62f);
             UnityEngine.UI.ScrollRect listScroll = ProjectUiFactory.Scroll(layout, "BossCandidates", out candidates);
@@ -72,30 +80,32 @@ namespace GameLogic.UI.Roguelike
             OpenScope.Defer(() =>
             {
                 current.BossChoiceChanged -= Refresh;
+                current.CloseBossLoot();
                 if (ReferenceEquals(run, current)) run = null;
             });
             IInputModule input = GameEntry.Get<IInputModule>();
             if (input != null)
             {
-                System.IDisposable back = input.RegisterBackHandler(() => true, 200);
+                System.IDisposable back = input.RegisterBackHandler(() => { CloseRewards(); return true; }, 200);
                 OpenScope.Defer(() => back.Dispose());
             }
             Refresh();
         }
 
         /// <summary>
-        /// 使用已经保存的候选刷新本轮，保存期间隐藏详情并禁用领取。
+        /// 使用已经保存的候选刷新本轮，保存期间隐藏详情并禁用领取与关闭。
         /// </summary>
         private void Refresh()
         {
             if (run == null || Root == null) return;
-            if (!run.IsRunning || !run.IsChoosingBoss && !run.IsSavingRun)
+            if (!run.IsRunning || !run.IsChoosingReward && !run.IsSavingRun)
             {
                 if (State == GameWindowState.Opened) CloseSelfAsync().Forget();
                 return;
             }
             ProjectUiFactory.Clear(candidates);
             ProjectUiFactory.Clear(details);
+            close.interactable = !busy && !run.IsSavingRun;
             BossLootChoiceSnapshot choice = run.PendingBossChoice;
             if (choice == null)
             {
@@ -158,6 +168,15 @@ namespace GameLogic.UI.Roguelike
             run.TryChooseBoss(choice.OfferId, choice.Revision, selectedIndex);
             busy = false;
             Refresh();
+        }
+
+        /// <summary>
+        /// 在没有保存事务时关闭窗口，作用域清理释放领奖暂停并保留冻结候选。
+        /// </summary>
+        private void CloseRewards()
+        {
+            if (busy || run == null || run.IsSavingRun) return;
+            CloseSelfAsync().Forget();
         }
 
         /// <summary>

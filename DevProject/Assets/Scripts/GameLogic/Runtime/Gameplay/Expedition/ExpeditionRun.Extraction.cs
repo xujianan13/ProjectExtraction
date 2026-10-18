@@ -8,16 +8,25 @@ namespace GameLogic.Gameplay.Expedition
     public sealed partial class ExpeditionRun
     {
         /// <summary>
-        /// 在已完成的中间房出口打开继续前进确认。
+        /// 在已完成的房间出口打开前进或最终结算确认。
         /// </summary>
         /// <returns>确认面板已打开时为真。</returns>
         private bool TryOpenExtractionConfirmation()
         {
-            if (IsFinalRoom || !CanInteract || !CanManagePanel || !IsPlayerAtExtraction()) return false;
-            Message = "当前房间已完成，可以进入下一房。";
+            if (!CanInteract || !CanManagePanel || !IsPlayerAtExtraction()) return false;
+            Message = IsFinalRoom ? "本关已完成，确认后带回全部关卡背包物品。" : "当前房间已完成，可以进入下一房。";
             SetActivePanel(ExpeditionPanelKind.ExtractionConfirmation);
             return true;
         }
+
+        private bool CanConfirmExtraction => IsFinalRoom && CurrentRoom.BossRewardsCompleted && CanManagePanel &&
+            ActivePanel == ExpeditionPanelKind.ExtractionConfirmation && IsPlayerAtExtraction();
+
+        /// <summary>
+        /// 在最终出口确认带回全部物品，提交唯一通关终局。
+        /// </summary>
+        /// <returns>终局首次提交成功时为真。</returns>
+        public bool TryConfirmExtraction() => CanConfirmExtraction && ProjectServices.Coordinator.TryEndRun(this, ProjectRunExitKind.Completed);
 
         /// <summary>
         /// 检查玩家仍在当前房间已解锁的出口范围。
@@ -37,7 +46,7 @@ namespace GameLogic.Gameplay.Expedition
         {
             if (disposed || stopped || !IsRunning || !Enum.IsDefined(typeof(ProjectRunExitKind), exitKind)) return null;
             if (pendingOutcome != null) return pendingOutcome.ExitKind == exitKind ? pendingOutcome.Copy() : null;
-            if (exitKind == ProjectRunExitKind.Completed && (!IsFinalRoom || !CurrentRoom.BossRewardsCompleted || IsAwaitingDeathChoice) ||
+            if (exitKind == ProjectRunExitKind.Completed && !CanConfirmExtraction ||
                 exitKind == ProjectRunExitKind.Death && !CanChooseDeath ||
                 exitKind == ProjectRunExitKind.Abandoned && !CanAbandon ||
                 exitKind == ProjectRunExitKind.AdExtraction && (!CanConfirmAdExtraction || retainedItemIds == null)) return null;

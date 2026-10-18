@@ -5,6 +5,7 @@ using GameLogic.Gameplay.Level;
 using GameLogic.Project;
 using GameLogic.Tables;
 using NUnit.Framework;
+using ProjectExtraction.Tests.Shared;
 using UnityEngine;
 
 namespace ProjectExtraction.Tests
@@ -14,6 +15,64 @@ namespace ProjectExtraction.Tests
     /// </summary>
     public sealed class ProjectRunStatisticsTests
     {
+        /// <summary>
+        /// 真实 Boss 奖励箱从未开到开启和领奖完成均可生成合法统计，不计普通宝箱或重复累计 Boss 收益。
+        /// </summary>
+        [Test]
+        public void BossRewardChestOpeningPreservesValidUniqueBossStatistics()
+        {
+            TestGameTables.LoadAll();
+            Assert.That(LevelContentConfig.TryGetLevel(1, out var level), Is.True);
+            Assert.That(LevelContentConfig.TryCreateRoomRequests("boss-chest-statistics", 31, level, out var requests, out string error), Is.True, error);
+            var request = requests[requests.Count - 1];
+            Assert.That(request.RoomKind, Is.EqualTo(ExpeditionRoomKind.Boss));
+            Assert.That(LevelContentConfig.TryCreateRoomMap(request.MapId, out var map, out error), Is.True, error);
+            Assert.That(RegionContentGenerator.TryGenerate(request, map, LevelContentConfig.CreateRegionContent(request), out var plan, out error),
+                Is.True, error);
+            Assert.That(RegionRuntimeState.TryCreate(plan, out var room, out error), Is.True, error);
+            Assert.That(plan.Chests.Count, Is.EqualTo(1));
+            Assert.That(plan.Chests[0].Kind, Is.EqualTo(RegionChestKind.BossReward));
+            Assert.That(plan.Chests[0].Items, Is.Empty, "Boss 候选由独立多轮奖励会话提供。");
+            var rewarded = new List<string>();
+            for (int index = 0; index < room.Slots.Count; index++)
+            {
+                var slot = room.Slots[index];
+                Assert.That(room.CommitInitialSpawn(slot.SlotId, index + 2), Is.True);
+                Assert.That(room.TryRecordDeath(slot.SlotId, index + 2, slot.LifeSequence), Is.True);
+                Assert.That(room.TryConfirmDeathProcessed(slot.SlotId, slot.LifeSequence), Is.True);
+                rewarded.Add(slot.SlotId);
+            }
+            Assert.That(room.BossDefeated, Is.True);
+            Assert.That(ProjectRunStatistics.TryCreateRoomStatistics(plan, rewarded, room.ExitEnabled, room.EffectiveTick,
+                room.Chests, room.Npcs, out var unopened), Is.True);
+            Assert.That(room.TryOpenChest(plan.Chests[0].Id), Is.True);
+            Assert.That(ProjectRunStatistics.TryCreateRoomStatistics(plan, rewarded, room.ExitEnabled, room.EffectiveTick,
+                room.Chests, room.Npcs, out var opened), Is.True, "开启 Boss 奖励箱后保存统计不能触发恢复流程。");
+            Assert.That(room.TryCompleteBossRewards(), Is.True);
+            Assert.That(ProjectRunStatistics.TryCreateRoomStatistics(plan, rewarded, room.ExitEnabled, room.EffectiveTick,
+                room.Chests, room.Npcs, out var completed), Is.True);
+            foreach (var row in new[] { unopened, opened, completed })
+            {
+                Assert.That(row.OpenedChests, Is.Zero);
+                Assert.That(row.ClaimedChestItems, Is.Zero);
+                Assert.That(row.BossKills, Is.EqualTo(1));
+                Assert.That(row.BossExperience, Is.EqualTo(unopened.BossExperience));
+            }
+            var statistics = CompletedSnapshot().Statistics;
+            statistics.Rooms[statistics.Rooms.Count - 1] = completed;
+            statistics.BossLootRounds = ProjectRewardConfig.BossReward(GameTables.CfgBosses.GetById(request.BossDefinitionId).RewardID).Rounds;
+            statistics.RecalculateRoomTotals();
+            string confirmed = JsonUtility.ToJson(statistics);
+            statistics.RecalculateRoomTotals();
+            Assert.That(ProjectRunStatistics.IsValid(statistics), Is.True);
+            Assert.That(statistics.FinalBossKills, Is.EqualTo(1));
+            Assert.That(statistics.BossRoomKills, Is.EqualTo(1));
+            Assert.That(JsonUtility.ToJson(statistics), Is.EqualTo(confirmed));
+            room.Chests[0].ClaimedItemIds.Add("foreign-boss-chest-item");
+            Assert.That(ProjectRunStatistics.TryCreateRoomStatistics(plan, rewarded, room.ExitEnabled, room.EffectiveTick,
+                room.Chests, room.Npcs, out _), Is.False, "排除普通宝箱计数不能跳过 Boss 箱领取身份校验。");
+        }
+
         /// <summary>
         /// 统计副本和 JSON 往返独立保存房间身份、领取事实与汇总。
         /// </summary>

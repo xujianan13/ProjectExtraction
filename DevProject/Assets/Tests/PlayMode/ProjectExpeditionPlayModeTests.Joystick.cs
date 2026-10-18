@@ -21,7 +21,7 @@ namespace MiniGame.Tests
     public sealed partial class ProjectExpeditionPlayModeTests
     {
         /// <summary>
-        /// 指针拖动驱动移动，独占触指且在松手、暂停及奖励选择时清空意图。
+        /// 小幅、大幅和斜向拖动均按统一速度移动，独占触指且在松手、暂停及成长面板打开时清空意图。
         /// </summary>
         /// <returns>等待真实场景启动和暂停切换的逐帧测试。</returns>
         [UnityTest]
@@ -48,27 +48,37 @@ namespace MiniGame.Tests
             Assert.That(run.World.TryGetActor(run.Player, out CombatActorSnapshot deadZone), Is.True);
             Assert.That(deadZone.Position.x, Is.EqualTo(start.Position.x).Within(0.0001f));
 
-            first.position = ScreenPoint(rect, Vector2.right * radius * 0.5f);
+            first.position = ScreenPoint(rect, Vector2.right * radius * 0.2f);
             ExecuteEvents.Execute<IDragHandler>(joystick.gameObject, first, ExecuteEvents.dragHandler);
             run.Advance(CombatWorld.TickSeconds);
-            Assert.That(run.World.TryGetActor(run.Player, out CombatActorSnapshot half), Is.True);
-            float halfStep = half.Position.x - deadZone.Position.x;
-            Assert.That(halfStep, Is.GreaterThan(0f));
+            Assert.That(run.World.TryGetActor(run.Player, out CombatActorSnapshot small), Is.True);
+            float smallStep = small.Position.x - deadZone.Position.x;
+            Assert.That(smallStep, Is.GreaterThan(0f));
             Assert.That(handle.anchoredPosition.x, Is.GreaterThan(0f));
+            float smallHandleOffset = handle.anchoredPosition.x;
 
             first.position = ScreenPoint(rect, Vector2.right * radius * 2f);
             ExecuteEvents.Execute<IDragHandler>(joystick.gameObject, first, ExecuteEvents.dragHandler);
             run.Advance(CombatWorld.TickSeconds);
             Assert.That(run.World.TryGetActor(run.Player, out CombatActorSnapshot full), Is.True);
-            float fullStep = full.Position.x - half.Position.x;
-            Assert.That(fullStep, Is.GreaterThan(halfStep), "圆形半径外的拖动应归一化到最大移动。");
+            float fullStep = full.Position.x - small.Position.x;
+            Assert.That(fullStep, Is.EqualTo(smallStep).Within(0.0001f), "超过死区的小幅和满幅拖动应使用相同角色移速。");
+            Assert.That(handle.anchoredPosition.x, Is.GreaterThan(smallHandleOffset), "移动等速不应改变摇柄的幅度表现。");
+
+            first.position = ScreenPoint(rect, new Vector2(1f, 1f).normalized * radius * 0.5f);
+            ExecuteEvents.Execute<IDragHandler>(joystick.gameObject, first, ExecuteEvents.dragHandler);
+            run.Advance(CombatWorld.TickSeconds);
+            Assert.That(run.World.TryGetActor(run.Player, out CombatActorSnapshot diagonal), Is.True);
+            Assert.That(Vector3.Distance(diagonal.Position, full.Position), Is.EqualTo(fullStep).Within(0.0001f), "斜向移动不能加速。");
+            Assert.That(diagonal.Position.x, Is.GreaterThan(full.Position.x));
+            Assert.That(diagonal.Position.z, Is.GreaterThan(full.Position.z));
 
             ExecuteEvents.Execute<IPointerDownHandler>(joystick.gameObject, second, ExecuteEvents.pointerDownHandler);
             ExecuteEvents.Execute<IDragHandler>(joystick.gameObject, second, ExecuteEvents.dragHandler);
             ExecuteEvents.Execute<IPointerUpHandler>(joystick.gameObject, second, ExecuteEvents.pointerUpHandler);
             run.Advance(CombatWorld.TickSeconds);
             Assert.That(run.World.TryGetActor(run.Player, out CombatActorSnapshot afterSecond), Is.True);
-            Assert.That(afterSecond.Position.x, Is.GreaterThan(full.Position.x), "第二触指不得抢占或释放第一触指。");
+            Assert.That(afterSecond.Position.x, Is.GreaterThan(diagonal.Position.x), "第二触指不得抢占或释放第一触指。");
 
             ExecuteEvents.Execute<IPointerUpHandler>(joystick.gameObject, first, ExecuteEvents.pointerUpHandler);
             run.Advance(CombatWorld.TickSeconds);
@@ -105,6 +115,37 @@ namespace MiniGame.Tests
             run.Advance(1f);
             Assert.That(run.World.TryGetActor(run.Player, out CombatActorSnapshot stillChoosing), Is.True);
             Assert.That(stillChoosing.Position.x, Is.EqualTo(choosing.Position.x).Within(0.0001f));
+        });
+
+        /// <summary>
+        /// 直接提交的触屏方向也统一使用当前角色移速，零向量和非法值清空实际位移。
+        /// </summary>
+        /// <returns>真实运行角色在多种输入幅度下的逐帧位移验证任务。</returns>
+        [UnityTest]
+        public IEnumerator Joystick_RunDirectionUsesConfiguredSpeedAndZeroStops() => UniTask.ToCoroutine(async () =>
+        {
+            await SetupAsync(new MemorySaveBackend());
+            Assert.That(await ProjectServices.Coordinator.StartRunAsync(1), Is.True);
+            ExpeditionRun run = ProjectServices.Session.CurrentRun;
+            Assert.That(run.TryCaptureState(out var checkpoint, out string error), Is.True, error);
+            float stepDistance = checkpoint.PlayerState.Spec.MoveSpeed * CombatWorld.TickSeconds;
+            Assert.That(stepDistance, Is.GreaterThan(0f));
+            foreach (Vector2 direction in new[] { new Vector2(0.03f, 0f), Vector2.right, new Vector2(0.2f, 0.2f) })
+            {
+                Assert.That(run.World.TryGetActor(run.Player, out CombatActorSnapshot before), Is.True);
+                run.SetTouchMove(direction);
+                run.Advance(CombatWorld.TickSeconds);
+                Assert.That(run.World.TryGetActor(run.Player, out CombatActorSnapshot after), Is.True);
+                Assert.That(Vector3.Distance(before.Position, after.Position), Is.EqualTo(stepDistance).Within(0.0001f), direction.ToString());
+            }
+            foreach (Vector2 direction in new[] { Vector2.zero, new Vector2(float.NaN, 0f), new Vector2(0f, float.PositiveInfinity) })
+            {
+                Assert.That(run.World.TryGetActor(run.Player, out CombatActorSnapshot before), Is.True);
+                run.SetTouchMove(direction);
+                run.Advance(CombatWorld.TickSeconds);
+                Assert.That(run.World.TryGetActor(run.Player, out CombatActorSnapshot after), Is.True);
+                Assert.That(after.Position, Is.EqualTo(before.Position), "零输入和非法方向必须停止。");
+            }
         });
 
         /// <summary>

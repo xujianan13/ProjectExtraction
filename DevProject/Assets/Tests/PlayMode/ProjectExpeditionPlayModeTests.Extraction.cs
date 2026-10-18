@@ -83,6 +83,17 @@ namespace MiniGame.Tests
                 foreach (string id in run.CurrentRoom.Slots.Select(slot => slot.SlotId).ToArray())
                     if (run.CurrentRoom.Slots.Single(slot => slot.SlotId == id).Phase == RegionSpawnPhase.Alive)
                         await DefeatSlotAsync(run, id);
+                if (run.CurrentRoomKind == ExpeditionRoomKind.Boss && !run.IsChoosingReward)
+                {
+                    Assert.That(run.PendingBossChoice, Is.Null, "击败 Boss 后必须主动触碰宝箱才打开候选。");
+                    Assert.That(run.World.TrySetPosition(run.Player, run.CurrentRoom.Plan.EntryPosition), Is.True);
+                    run.Advance(CombatWorld.TickSeconds);
+                    RegionChestPlan chest = run.CurrentRoom.Plan.Chests.Single(value => value.Kind == RegionChestKind.BossReward);
+                    Assert.That(run.World.TrySetPosition(run.Player, chest.Position), Is.True);
+                    run.Advance(CombatWorld.TickSeconds);
+                    await WaitRunSavedAsync(run);
+                    await WaitForWindowAsync(ProjectServices.BossLootWindow);
+                }
                 for (int index = 0; index < 30 && run.PendingBossChoice != null; index++)
                 {
                     var choice = run.PendingBossChoice;
@@ -95,10 +106,10 @@ namespace MiniGame.Tests
         }
 
         /// <summary>
-        /// 真实击败最终 Boss 并领取全部奖励，等待自动终局且验证没有第二次手动通关。
+        /// 真实击败最终 Boss 并开启宝箱领取全部奖励，在出口确认唯一通关。
         /// </summary>
         /// <param name="run">已经正式进入最终 Boss 房间的单局。</param>
-        /// <returns>自动通关、唯一结果和历史记录确认任务。</returns>
+        /// <returns>出口通关、唯一结果和历史记录确认任务。</returns>
         private static async UniTask CompleteFinalBossAsync(ExpeditionRun run)
         {
             Assert.That(run.IsFinalRoom, Is.True);
@@ -109,9 +120,15 @@ namespace MiniGame.Tests
             Assert.That(run.CurrentRoom.BossDefeated, Is.True);
             Assert.That(run.CurrentRoom.BossRewardsCompleted, Is.True);
             Assert.That(run.PendingBossChoice, Is.Null);
+            Assert.That(run.IsRunning, Is.True, "全部领奖只解锁出口，不自动结算。");
+            Assert.That(ProjectServices.Session.RecordedOutcome, Is.Null);
+            Assert.That(run.TryConfirmExtraction(), Is.False, "宝箱位置不允许直接确认通关。");
+            Assert.That(ProjectServices.Coordinator.TryEndRun(run, ProjectRunExitKind.Completed), Is.False);
+            await EnterExtractionConfirmationAsync(run);
+            await ClickExtractionConfirmationAsync("带回结束");
             await WaitForPhaseAsync(ProjectRunPhase.ResultsReady);
             Assert.That(run.IsRunning, Is.False);
-            Assert.That(ProjectServices.Coordinator.TryEndRun(run, ProjectRunExitKind.Completed), Is.False, "最终奖励确认后已经自动通关，不能再提交第二次出口终局。");
+            Assert.That(ProjectServices.Coordinator.TryEndRun(run, ProjectRunExitKind.Completed), Is.False, "出口确认后不能再提交第二次终局。");
             ProjectSession session = ProjectServices.Session;
             Assert.That(session.LastResult.Outcome.RunId, Is.EqualTo(run.RunId));
             Assert.That(session.LastResult.Outcome.ExitKind, Is.EqualTo(ProjectRunExitKind.Completed));
@@ -148,13 +165,12 @@ namespace MiniGame.Tests
         }
 
         /// <summary>
-        /// 完成中间房并从范围外触碰上方出口，自动打开房间推进窗口。
+        /// 完成当前房间并从范围外触碰上方出口，打开前进或最终结算窗口。
         /// </summary>
         /// <param name="run">当前单局。</param>
         /// <returns>出口窗口就绪任务。</returns>
         private static async UniTask EnterExtractionConfirmationAsync(ExpeditionRun run)
         {
-            Assert.That(run.IsFinalRoom, Is.False, "最终 Boss 全部领奖后自动通关，不再操作房间出口。");
             await CompleteCurrentRoomAsync(run);
             Assert.That(run.World.TrySetPosition(run.Player, run.CurrentRoom.Plan.EntryPosition), Is.True);
             run.Advance(CombatWorld.TickSeconds);

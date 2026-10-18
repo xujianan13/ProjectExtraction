@@ -16,6 +16,7 @@ namespace GameLogic.Scenes.Expedition
         private ExpeditionPresentation presentation;
         private ExpeditionRun run;
         private bool openingBossChoice;
+        private bool bossChoiceRefreshQueued;
 
         /// <summary>
         /// 创建关卡逻辑场景。
@@ -102,12 +103,13 @@ namespace GameLogic.Scenes.Expedition
         /// </summary>
         private void OnBossChoiceChanged()
         {
-            if (run?.IsRunning == true && run.PendingBossChoice != null && SceneScope.IsActive && !openingBossChoice)
-                OpenBossChoiceAsync(run, SceneScope).Forget();
+            if (run?.IsRunning != true || run.PendingBossChoice == null || !SceneScope.IsActive) return;
+            if (openingBossChoice) { bossChoiceRefreshQueued = true; return; }
+            OpenBossChoiceAsync(run, SceneScope).Forget();
         }
 
         /// <summary>
-        /// 使用场景作用域打开 Boss 奖励，失败时保留冻结状态与 HUD 重开入口。
+        /// 使用场景作用域打开奖励，打开期间的重触请求在当前操作完成后重新检查。
         /// </summary>
         /// <param name="owner">发起选择的单局。</param>
         /// <param name="scope">当前场景作用域。</param>
@@ -122,14 +124,22 @@ namespace GameLogic.Scenes.Expedition
                     owner.PendingBossChoice == null) return;
                 GameWindow window = await GameEntry.Get<IUIModule>().OpenWindowAsync(ProjectServices.BossLootWindow,
                     new GameWindowOpenArgs(owner), scope.Token);
-                if (window == null) GameEntry.Get<ILogModule>()?.Error("BossLoot", "Boss 奖励窗口未打开，请从 HUD 继续选择。");
+                if (window == null) GameEntry.Get<ILogModule>()?.Error("BossLoot", "Boss 奖励窗口未打开，已保留冻结候选。");
             }
             catch (OperationCanceledException) when (!scope.IsActive) { }
             catch (Exception error)
             {
                 if (scope.IsActive) GameEntry.Get<ILogModule>()?.Error("BossLoot", "Boss 奖励窗口打开失败：" + error.Message);
             }
-            finally { openingBossChoice = false; }
+            finally
+            {
+                openingBossChoice = false;
+                if (bossChoiceRefreshQueued)
+                {
+                    bossChoiceRefreshQueued = false;
+                    OnBossChoiceChanged();
+                }
+            }
         }
 
         /// <summary>

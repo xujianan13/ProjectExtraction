@@ -2,7 +2,9 @@ using System.Collections;
 using System.Linq;
 using Cysharp.Threading.Tasks;
 using GameFramework;
+using GameLogic.Gameplay.Combat;
 using GameLogic.Gameplay.Expedition;
+using GameLogic.Gameplay.Level;
 using GameLogic.Project;
 using GameLogic.UI.Battle;
 using NUnit.Framework;
@@ -44,6 +46,71 @@ namespace MiniGame.Tests
                 ClickButton(panel, menu.kind == ExpeditionPanelKind.Pause ? "继续游戏" : "关闭");
                 await WaitForAsync(() => run.CanAcceptPlayerInput);
             }
+        });
+
+        /// <summary>
+        /// 宝箱领奖可关闭并重触续领，保存中拒绝关闭，最终出口仍需明确点击带回结束。
+        /// </summary>
+        /// <returns>真实领奖关闭、保存门禁与最终出口按钮验证任务。</returns>
+        [UnityTest]
+        public IEnumerator BossLootWindow_ClosePreservesCandidatesAndFinalExitRequiresConfirmation() => UniTask.ToCoroutine(async () =>
+        {
+            var backend = new HeldInputSaveBackend();
+            await SetupAsync(backend);
+            Assert.That(await ProjectServices.Coordinator.StartRunAsync(1), Is.True);
+            ExpeditionRun run = ProjectServices.Session.CurrentRun;
+            await AdvanceToRoomAsync(run, ExpeditionRoomKind.Boss);
+            foreach (string id in run.CurrentRoom.Slots.Select(slot => slot.SlotId).ToArray()) await DefeatSlotAsync(run, id);
+            RegionChestPlan chest = run.CurrentRoom.Plan.Chests.Single(value => value.Kind == RegionChestKind.BossReward);
+            Assert.That(run.World.TrySetPosition(run.Player, run.CurrentRoom.Plan.EntryPosition), Is.True);
+            run.Advance(CombatWorld.TickSeconds);
+            Assert.That(run.World.TrySetPosition(run.Player, chest.Position), Is.True);
+            run.Advance(CombatWorld.TickSeconds);
+            await WaitRunSavedAsync(run);
+            GameWindow loot = await WaitForWindowAsync(ProjectServices.BossLootWindow);
+            string offer = run.PendingBossChoice.OfferId;
+            string[] candidates = run.PendingBossChoice.Options.Select(item => item.Id).ToArray();
+            ClickButton(loot, "关闭");
+            await WaitForAsync(() => run.CanAcceptPlayerInput);
+            run.Advance(CombatWorld.TickSeconds);
+            Assert.That(run.PendingBossChoice, Is.Null);
+            Assert.That(run.World.TrySetPosition(run.Player, run.CurrentRoom.Plan.EntryPosition), Is.True);
+            run.Advance(CombatWorld.TickSeconds);
+            Assert.That(run.World.TrySetPosition(run.Player, chest.Position), Is.True);
+            run.Advance(CombatWorld.TickSeconds);
+            await WaitRunSavedAsync(run);
+            Assert.That(run.PendingBossChoice, Is.Not.Null, "关闭后重新触碰必须恢复冻结候选。");
+            loot = await WaitForWindowAsync(ProjectServices.BossLootWindow);
+            Assert.That(run.PendingBossChoice.OfferId, Is.EqualTo(offer));
+            Assert.That(run.PendingBossChoice.Options.Select(item => item.Id), Is.EqualTo(candidates));
+            backend.HoldWrites();
+            try
+            {
+                ClickButton(loot, "领取所选物品");
+                Assert.That(backend.WaitingWrite, Is.True);
+                UnityEngine.UI.Button close = loot.Root.GetComponentsInChildren<UnityEngine.UI.Button>(false)
+                    .Single(button => button.GetComponentInChildren<UnityEngine.UI.Text>().text == "关闭");
+                Assert.That(close.interactable, Is.False);
+                close.onClick.Invoke();
+                Assert.That(loot.State, Is.EqualTo(GameWindowState.Opened));
+                Assert.That(run.IsChoosingReward, Is.True);
+            }
+            finally { backend.ReleaseWrites(); }
+            await WaitRunSavedAsync(run);
+            await CompleteCurrentRoomAsync(run);
+            Assert.That(run.IsRunning, Is.True);
+            Assert.That(ProjectServices.Session.RecordedOutcome, Is.Null);
+            await EnterExtractionConfirmationAsync(run);
+            GameWindow exit = await WaitForWindowAsync(ProjectServices.RegionExitWindow);
+            Assert.That(exit.Root.GetComponentsInChildren<UnityEngine.UI.Button>(false)
+                .Select(button => button.GetComponentInChildren<UnityEngine.UI.Text>().text), Is.EquivalentTo(new[] { "带回结束", "留在本房" }));
+            ClickButton(exit, "留在本房");
+            await WaitForAsync(() => run.CanAcceptPlayerInput);
+            Assert.That(ProjectServices.Session.RecordedOutcome, Is.Null);
+            await EnterExtractionConfirmationAsync(run);
+            ClickButton(await WaitForWindowAsync(ProjectServices.RegionExitWindow), "带回结束");
+            await WaitForPhaseAsync(ProjectRunPhase.ResultsReady);
+            Assert.That(ProjectServices.Session.LastResult.Outcome.ExitKind, Is.EqualTo(ProjectRunExitKind.Completed));
         });
 
         /// <summary>

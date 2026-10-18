@@ -43,6 +43,13 @@ namespace GameLogic.Tests.Editor.Level
                         Is.EqualTo(request.RoomKind == ExpeditionRoomKind.Boss ? 1 : 0));
                     Assert.That(plan.Copy().Request.RoomDefinitionId, Is.EqualTo(request.RoomDefinitionId));
                     Assert.That(plan.Copy().Request.RoomKind, Is.EqualTo(request.RoomKind));
+                    Assert.That(plan.Chests.Count, Is.EqualTo(GameTables.CfgRooms.GetById(request.RoomDefinitionId).ChestCount));
+                    if (request.RoomKind != ExpeditionRoomKind.Boss) continue;
+                    RegionChestPlan chest = plan.Chests.Single();
+                    Assert.That(chest.Kind, Is.EqualTo(RegionChestKind.BossReward));
+                    Assert.That(chest.DefinitionId, Is.EqualTo(request.BossDefinitionId));
+                    Assert.That(chest.Items, Is.Empty);
+                    Assert.That(chest.Position, Is.EqualTo(map.Anchors.Single(anchor => anchor.Id == chest.AnchorId).Position));
                 }
             }
         }
@@ -185,24 +192,70 @@ namespace GameLogic.Tests.Editor.Level
         }
 
         /// <summary>
-        /// Boss 击败后先领奖，清场战斗不能重开且支持无活体身份的进度恢复。
+        /// Boss 击败后才可开箱，开启后才可确认全领奖，恢复仍保持箱子与完成门禁。
         /// </summary>
         [Test]
         public void BossRewardGateAndInactiveRestoreRemainConsistent()
         {
             RegionRuntimeState state = RunningState(ExpeditionRoomKind.Boss);
+            RegionChestPlan chest = state.Plan.Chests.Single();
+            Assert.That(chest.Kind, Is.EqualTo(RegionChestKind.BossReward));
+            Assert.That(chest.Items, Is.Empty);
+            Assert.That(state.Copy().Plan.Chests.Single().Kind, Is.EqualTo(chest.Kind));
+            Assert.That(state.TryOpenChest(chest.Id), Is.False);
             Assert.That(state.TryCompleteBossRewards(), Is.False);
+            state.Chests[0].Opened = true;
+            Assert.That(state.TryValidate(Map(), out _), Is.False, "未击败 Boss 的箱子不能已经开启。");
+            state.Chests[0].Opened = false;
             ConfirmKill(state, state.Slots[0]);
             Assert.That(state.ExitEnabled, Is.False);
             Assert.That(state.CreateReplay(out _, out _), Is.False);
+            Assert.That(state.TryCompleteBossRewards(), Is.False, "击败但未开箱不能完成领奖。");
+            Assert.That(state.TryOpenChest(chest.Id), Is.True);
+            Assert.That(state.TryOpenChest(chest.Id), Is.False);
+            Assert.That(state.TryClaimChestItem(chest.Id, "boss-item"), Is.False, "Boss 候选物品不能经普通箱重复领取。");
+            RegionRuntimeState restored = JsonUtility.FromJson<RegionRuntimeState>(JsonUtility.ToJson(state));
+            Assert.That(restored.TryValidate(Map(), out string restoreError), Is.True, restoreError);
+            Assert.That(restored.BossDefeated, Is.True);
+            Assert.That(restored.Chests.Single().Opened, Is.True);
+            Assert.That(restored.BossRewardsCompleted, Is.False);
             Assert.That(state.TryCompleteBossRewards(), Is.True);
             Assert.That(state.TryCompleteBossRewards(), Is.False);
             Assert.That(state.ExitEnabled, Is.True);
             state.Slots[0].CurrentActorId = 0;
             state.Slots[0].DeathTick = -1;
             Assert.That(state.TryValidate(Map(), out string error), Is.True, error);
+            state.Chests[0].Opened = false;
+            Assert.That(state.TryValidate(Map(), out _), Is.False, "全部领奖不能缺失开箱事实。");
+            state.Chests[0].Opened = true;
             state.Slots[0].Phase = RegionSpawnPhase.Alive;
             Assert.That(state.TryValidate(Map(), out _), Is.False);
+        }
+
+        /// <summary>
+        /// Boss 奖励箱无需普通物品池和工厂，缺少锚点或混入普通物品必须失败。
+        /// </summary>
+        [Test]
+        public void BossChestUsesConfiguredAnchorWithoutDuplicatingRewardItems()
+        {
+            RegionContentDefinition content = Content(ExpeditionRoomKind.Boss);
+            content.ChestCandidates.Clear();
+            content.ItemFactory = null;
+            Assert.That(RegionContentGenerator.TryGenerate(Request(ExpeditionRoomKind.Boss), Map(), content,
+                out RegionPlan plan, out string error), Is.True, error);
+            Assert.That(plan.Chests.Single().DefinitionId, Is.EqualTo(plan.Request.BossDefinitionId));
+            RegionPlan invalid = plan.Copy();
+            invalid.Chests[0].DefinitionId++;
+            Assert.That(invalid.TryValidateStructure(out _), Is.False);
+            invalid = plan.Copy();
+            invalid.Chests[0].Kind = RegionChestKind.Loot;
+            Assert.That(invalid.TryValidateStructure(out _), Is.False);
+            invalid = plan.Copy();
+            invalid.Chests[0].Items.Add(Generate(ExpeditionRoomKind.Chest).Chests[0].Items[0]);
+            Assert.That(invalid.TryValidateStructure(out _), Is.False);
+            RegionMapDefinition map = Map();
+            map.Anchors.RemoveAll(anchor => anchor.Kind == RegionAnchorKind.Chest);
+            Assert.That(RegionContentGenerator.TryGenerate(Request(ExpeditionRoomKind.Boss), map, content, out _, out _), Is.False);
         }
 
         /// <summary>
@@ -301,7 +354,8 @@ namespace GameLogic.Tests.Editor.Level
         /// <returns>有效测试内容。</returns>
         private static RegionContentDefinition Content(ExpeditionRoomKind kind = ExpeditionRoomKind.Combat) => new RegionContentDefinition
         {
-            MonsterGroupCount = kind == ExpeditionRoomKind.Combat ? 1 : 0, ChestCount = kind == ExpeditionRoomKind.Chest ? 1 : 0,
+            MonsterGroupCount = kind == ExpeditionRoomKind.Combat ? 1 : 0,
+            ChestCount = kind == ExpeditionRoomKind.Chest || kind == ExpeditionRoomKind.Boss ? 1 : 0,
             NpcCount = kind == ExpeditionRoomKind.Npc ? 1 : 0, MonsterAnchorTag = "monster", ChestAnchorTag = "chest", NpcAnchorTag = "npc",
             BossRadius = kind == ExpeditionRoomKind.Boss ? 1 : 0, PlayerRadius = 0.5f, InteractionRadius = 2,
             ReachabilityGridSpacing = 1, ReachabilityMaxCells = 10000, MaxSpawnSlots = 30,

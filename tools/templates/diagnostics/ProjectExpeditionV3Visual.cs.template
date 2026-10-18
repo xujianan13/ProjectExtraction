@@ -244,7 +244,7 @@ namespace MiniGame.Tests
         }
 
         /// <summary>
-        /// 捕获最终 Boss、首轮和最后一轮真实候选，最后领奖后等待自动通关。
+        /// 捕获最终 Boss、触碰宝箱与逐轮领奖，最后通过真实出口确认带回。
         /// </summary>
         /// <param name="run">当前最终 Boss 房。</param>
         /// <param name="directory">输出目录。</param>
@@ -253,17 +253,47 @@ namespace MiniGame.Tests
         /// <param name="height">实际高度。</param>
         /// <param name="record">布局记录。</param>
         /// <param name="failures">布局失败集合。</param>
-        /// <returns>Boss 战斗、所有奖励领取和自动结果确认任务。</returns>
+        /// <returns>Boss 战斗、宝箱、所有奖励领取和出口确认任务。</returns>
         private static async UniTask CaptureV3BossAsync(ExpeditionRun run, string directory, string prefix,
             int width, int height, string record, List<string> failures)
         {
             GameWindow hud = await WaitForWindowAsync(ProjectServices.BattleHudWindow);
             await CaptureV3WindowAsync(hud, "boss-room", directory, prefix, width, height, record, failures, "Status", "CombatSkills");
             foreach (string id in run.CurrentRoom.Slots.Select(slot => slot.SlotId).ToArray()) await DefeatSlotAsync(run, id);
+            Assert.That(run.CurrentRoom.BossDefeated, Is.True);
+            Assert.That(run.CurrentRoom.BossRewardsCompleted, Is.False);
+            Assert.That(run.IsRunning, Is.True);
+            Assert.That(run.PendingBossChoice, Is.Null, "尚未触碰 Boss 宝箱时不能自动打开领奖窗口。");
+            Assert.That(ProjectServices.Session.RecordedOutcome, Is.Null);
+            RegionChestPlan chest = run.CurrentRoom.Plan.Chests.Single(value => value.Kind == RegionChestKind.BossReward);
+            float approach = run.CurrentRoom.Plan.InteractionRadius + 1f;
+            Assert.That(new[] { Vector3.back, Vector3.right, Vector3.left, Vector3.forward }
+                .Any(direction => run.World.TrySetPosition(run.Player, chest.Position + direction * approach)), Is.True);
+            run.Advance(CombatWorld.TickSeconds);
+            await WaitRunSavedAsync(run);
+            await CaptureV3WindowAsync(hud, "boss-chest", directory, prefix, width, height, record, failures, "Status", "ControlActions");
+            Assert.That(run.World.TrySetPosition(run.Player, chest.Position), Is.True);
+            run.Advance(CombatWorld.TickSeconds);
+            await WaitRunSavedAsync(run);
             GameWindow loot = await WaitForWindowAsync(ProjectServices.BossLootWindow);
+            await AssertV3PanelPausedAsync(run);
             await CaptureV3WindowAsync(loot, "boss-loot", directory, prefix, width, height, record, failures,
-                "BossLootPanel", "BossCandidates", "BossItemDetails");
-            CheckVisualButtons(loot, record, failures, "领取所选物品");
+                "BossLootPanel", "BossLootHeader", "BossCandidates", "BossItemDetails");
+            CheckVisualButtons(loot, record, failures, "关闭", "领取所选物品");
+            string offerId = run.PendingBossChoice.OfferId;
+            string[] options = run.PendingBossChoice.Options.Select(item => item.Id).ToArray();
+            ClickButton(loot, "关闭");
+            await WaitForAsync(() => run.CanAcceptPlayerInput);
+            run.Advance(CombatWorld.TickSeconds);
+            Assert.That(run.IsChoosingReward, Is.False, "原地关闭宝箱后不能立即重开。");
+            Assert.That(run.World.TrySetPosition(run.Player, run.CurrentRoom.Plan.EntryPosition), Is.True);
+            run.Advance(CombatWorld.TickSeconds);
+            Assert.That(run.World.TrySetPosition(run.Player, chest.Position), Is.True);
+            run.Advance(CombatWorld.TickSeconds);
+            await WaitRunSavedAsync(run);
+            await WaitForWindowAsync(ProjectServices.BossLootWindow);
+            Assert.That(run.PendingBossChoice.OfferId, Is.EqualTo(offerId));
+            Assert.That(run.PendingBossChoice.Options.Select(item => item.Id), Is.EqualTo(options));
             int rounds = run.PendingBossChoice.TotalRounds;
             for (int round = 1; round <= rounds; round++)
             {
@@ -274,21 +304,35 @@ namespace MiniGame.Tests
                 loot = await WaitForWindowAsync(ProjectServices.BossLootWindow);
                 if (round == rounds)
                 {
-                    File.AppendAllText(record, "FinalTransition=LastBossRewardThenAutomaticResult; Round=" + round + "\n");
+                    File.AppendAllText(record, "FinalTransition=BossChestRewardsThenExitConfirmation; Round=" + round + "\n");
                     await CaptureV3WindowAsync(loot, "boss-final-reward", directory, prefix, width, height, record, failures,
                         "BossLootPanel", "BossCandidates", "BossItemDetails");
-                    CheckVisualButtons(loot, record, failures, "领取所选物品");
+                    CheckVisualButtons(loot, record, failures, "关闭", "领取所选物品");
                 }
                 ClickButton(loot, "领取所选物品");
                 await WaitRunSavedAsync(run);
                 await UniTask.Yield();
             }
-            await WaitForPhaseAsync(ProjectRunPhase.ResultsReady);
             Assert.That(run.CurrentRoom.BossDefeated, Is.True);
             Assert.That(run.CurrentRoom.BossRewardsCompleted, Is.True);
             Assert.That(run.PendingBossChoice, Is.Null);
+            Assert.That(run.IsRunning, Is.True, "最终领奖完成后必须保留房间，等待出口确认。");
+            Assert.That(ProjectServices.Session.RecordedOutcome, Is.Null);
+            await EnterExtractionConfirmationAsync(run);
+            GameWindow exit = await WaitForWindowAsync(ProjectServices.RegionExitWindow);
+            await AssertV3PanelPausedAsync(run);
+            await CaptureV3WindowAsync(exit, "final-exit", directory, prefix, width, height, record, failures, "ExitPanel", "ExitActions");
+            await CheckV3ScrollableButtonsAsync(exit, record, failures, "带回结束", "留在本房");
+            ClickButton(exit, "留在本房");
+            await WaitForAsync(() => run.CanAcceptPlayerInput);
+            run.Advance(CombatWorld.TickSeconds);
+            Assert.That(run.ActivePanel, Is.EqualTo(ExpeditionPanelKind.None));
+            Assert.That(ProjectServices.Session.RecordedOutcome, Is.Null);
+            await EnterExtractionConfirmationAsync(run);
+            ClickButton(await WaitForWindowAsync(ProjectServices.RegionExitWindow), "带回结束");
+            await WaitForPhaseAsync(ProjectRunPhase.ResultsReady);
             Assert.That(run.IsRunning, Is.False);
-            Assert.That(ProjectServices.Coordinator.TryEndRun(run, ProjectRunExitKind.Completed), Is.False, "最终领奖后自动通关，不再提交出口终局。");
+            Assert.That(run.TryConfirmExtraction(), Is.False);
             Assert.That(ProjectServices.Session.LastResult.Outcome.RunId, Is.EqualTo(run.RunId));
             Assert.That(ProjectServices.Session.RunHistory.Count(entry => entry.RunId == run.RunId), Is.EqualTo(1));
         }

@@ -245,6 +245,7 @@ namespace GameLogic.Project
                 var itemIds = new HashSet<string>(StringComparer.Ordinal);
                 foreach (var id in state.ClaimedItemIds)
                     if (!itemIds.Add(id) || !chest.Items.Exists(item => item.Id == id)) return false;
+                if (chest.Kind == RegionChestKind.BossReward) continue;
                 if (state.Opened) row.OpenedChests++;
                 row.ClaimedChestItems += state.ClaimedItemIds.Count;
                 if (completed && row.Kind == ExpeditionRoomKind.Chest && (!state.Opened || state.ClaimedItemIds.Count != chest.Items.Count)) return false;

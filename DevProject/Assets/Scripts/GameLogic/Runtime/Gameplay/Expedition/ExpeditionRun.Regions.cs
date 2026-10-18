@@ -10,10 +10,10 @@ namespace GameLogic.Gameplay.Expedition
     public sealed partial class ExpeditionRun
     {
         /// <summary>
-        /// 读取真实续关费用，已经完成最终领奖的存活检查点只补办通关，不再收取房间费用。
+        /// 读取真实续关费用，Boss 已击败的存活检查点可免费返回领取宝箱或前往出口。
         /// </summary>
         public int RequiredResumeStamina => AdmissionPending || CurrentRoomKind == ExpeditionRoomKind.Chest ||
-            IsFinalRoom && CurrentRoom.BossRewardsCompleted && !IsAwaitingDeathChoice && !IsChoosingReward
+            IsFinalRoom && CurrentRoom.BossDefeated && !IsAwaitingDeathChoice
             ? 0 : PrototypeRules.RoomEntryCost;
 
         /// <summary>

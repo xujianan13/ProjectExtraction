@@ -863,6 +863,10 @@
         },
         "MaxSpawnSlots": {
           "min": 1
+        },
+        "ChestCount": {
+          "min": 0,
+          "max": 1
         }
       }
     },
